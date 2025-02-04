@@ -10,9 +10,16 @@ export const productService = {
         mongoose.isValidObjectId(stepData.productCategory)
           ? new mongoose.Types.ObjectId(stepData.productCategory)
           : null;
-
+      const productSupplier =
+        stepData.productSupplier &&
+        mongoose.isValidObjectId(stepData.productSupplier)
+          ? new mongoose.Types.ObjectId(stepData.productSupplier)
+          : null;
       if (!productCategory) {
         throw new Error("Invalid or missing 'productCategory'");
+      }
+      if (!productSupplier) {
+        throw new Error("Invalid or missing 'productSupplier'");
       }
 
       console.log("stepData in service for draft create : ", stepData);
@@ -22,6 +29,7 @@ export const productService = {
           amazon: {
             productInfo: {
               productCategory: null,
+              productSupplier: null,
               title: "",
               productDescription: "",
               brand: "",
@@ -31,6 +39,8 @@ export const productService = {
           ebay: {
             productInfo: {
               productCategory: null,
+              productSupplier: null,
+
               title: "",
               productDescription: "",
               brand: "",
@@ -40,6 +50,7 @@ export const productService = {
           website: {
             productInfo: {
               productCategory: null,
+              productSupplier: null,
               title: "",
               productDescription: "",
               brand: "",
@@ -65,6 +76,8 @@ export const productService = {
       ["amazon", "ebay", "website"].forEach((platform) => {
         draftProduct.platformDetails[platform].productInfo.productCategory =
           productCategory;
+        draftProduct.platformDetails[platform].productInfo.productSupplier =
+          productSupplier;
         draftProduct.kind = stepData.kind;
       });
 
@@ -279,7 +292,10 @@ export const productService = {
       const product = await Product.findById(id)
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.website.productInfo.productCategory");
+        .populate("platformDetails.website.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier");
       // .lean();
 
       if (!product) throw new Error("Product not found");
@@ -321,6 +337,9 @@ export const productService = {
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
         .populate("platformDetails.website.prodPricing.paymentPolicy")
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
@@ -338,6 +357,9 @@ export const productService = {
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
         .select(
           "_id platformDetails website.productInfo productCategory brand model srno kind"
         );
@@ -352,6 +374,9 @@ export const productService = {
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
         .populate("platformDetails.website.prodPricing.paymentPolicy")
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
@@ -408,7 +433,7 @@ export const productService = {
       throw new Error("Failed to toggle block status");
     }
   },
-  // New API for fetching user stats (separate service logic)
+  // New API for fetching product stats (separate service logic)
   getProductStats: async () => {
     try {
       const totalProducts = await Product.countDocuments({});
@@ -439,6 +464,126 @@ export const productService = {
     } catch (error) {
       console.error("Error fetching Products stats:", error);
       throw new Error("Error fetching products statistics");
+    }
+  },
+
+  searchAndFilterProducts: async (filters: any) => {
+    try {
+      const {
+        searchQuery = "",
+        isBlocked,
+        isTemplate,
+        startDate,
+        endDate,
+        page = 1, // Default to page 1 if not provided
+        limit = 10, // Default to 10 records per page
+      } = filters;
+
+      // Convert page and limit to numbers
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10) || 10;
+      const skip = (pageNumber - 1) * limitNumber;
+
+      // Build the query dynamically based on filters
+      const query: any = {};
+
+      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
+      if (searchQuery) {
+        query.$or = [
+          {
+            "platformDetails.amazon.productInfo.title": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.amazon.productInfo.brand": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.ebay.productInfo.title": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.ebay.productInfo.brand": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.website.productInfo.title": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.website.productInfo.brand": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.amazon.prodPricing.condition": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.ebay.prodPricing.condition": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          {
+            "platformDetails.website.prodPricing.condition": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+        ];
+      }
+
+      // Add filters for isBlocked and isTemplate
+      if (isBlocked !== undefined) {
+        query.isBlocked = isBlocked;
+      }
+      if (isTemplate !== undefined) {
+        query.isTemplate = isTemplate;
+      }
+
+      // Date range filter for createdAt
+      if (startDate || endDate) {
+        const dateFilter: any = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) dateFilter.$lte = new Date(endDate);
+        query.createdAt = dateFilter;
+      }
+
+      // Pagination logic: apply skip and limit
+      const products = await Product.find(query)
+        .populate("userType")
+        .skip(skip) // Correct application of skip
+        .limit(limitNumber); // Correct application of limit
+
+      // Count total products
+      const totalProducts = await Product.countDocuments(query);
+
+      return {
+        products,
+        pagination: {
+          totalProducts,
+          currentPage: pageNumber,
+          totalPages: Math.ceil(totalProducts / limitNumber),
+          perPage: limitNumber,
+        },
+      };
+    } catch (error) {
+      console.error("Error during search and filter:", error);
+      throw new Error("Error during search and filter");
     }
   },
 };

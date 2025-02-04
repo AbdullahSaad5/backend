@@ -13,7 +13,7 @@ export const supplierService = {
   },
 
   findExistingPhoneNumber: (phoneNumber: number) => {
-    return User.findOne({phoneNumber})
+    return User.findOne({ phoneNumber });
   },
 
   createSupplier: async (data: supplierAddPayload) => {
@@ -167,6 +167,78 @@ export const supplierService = {
     } catch (error) {
       console.error("Error fetching user stats:", error);
       throw new Error("Error fetching user statistics");
+    }
+  },
+
+  searchAndFilterSuppliers: async (filters: any) => {
+    try {
+      const {
+        searchQuery = "",
+        isBlocked,
+        startDate,
+        endDate,
+        additionalAccessRights,
+        page = 1, // Default to page 1 if not provided
+        limit = 10, // Default to 10 records per page
+      } = filters;
+
+      // Convert page and limit to numbers
+      const pageNumber = parseInt(page, 10);
+      const limitNumber = parseInt(limit, 10) || 10;
+      const skip = (pageNumber - 1) * limitNumber;
+
+      // Build the query dynamically based on filters
+      const query: any = {
+        //todo: confusion here regarding query
+        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
+      };
+
+      if (searchQuery) {
+        query.$or = [
+          { firstName: { $regex: searchQuery, $options: "i" } },
+          { lastName: { $regex: searchQuery, $options: "i" } },
+          { email: { $regex: searchQuery, $options: "i" } },
+        ];
+      }
+
+      if (isBlocked !== undefined) {
+        query.isBlocked = isBlocked;
+      }
+
+      if (startDate || endDate) {
+        const dateFilter: any = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) dateFilter.$lte = new Date(endDate);
+        query.createdAt = dateFilter;
+      }
+
+      if (additionalAccessRights) {
+        query.additionalAccessRights = { $in: additionalAccessRights };
+      }
+
+      // Pagination logic: apply skip and limit
+      const suppliers = await User.find(query)
+        .populate("userType")
+        .skip(skip) // Correct application of skip
+        .limit(limitNumber); // Correct application of limit
+
+      // Count total Suppliers
+      const totalSuppliers = await User.countDocuments({
+        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
+      });
+
+      return {
+        suppliers,
+        pagination: {
+          totalSuppliers,
+          currentPage: pageNumber,
+          totalPages: Math.ceil(totalSuppliers / limitNumber),
+          perPage: limitNumber,
+        },
+      };
+    } catch (error) {
+      console.error("Error during search and filter:", error);
+      throw new Error("Error during search and filter");
     }
   },
 };

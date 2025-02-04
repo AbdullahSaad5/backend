@@ -9,3 +9,5 @@ storage/public
 dist
 uploads
 .codegpt
+
+data

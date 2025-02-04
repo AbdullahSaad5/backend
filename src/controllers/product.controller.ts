@@ -388,4 +388,52 @@ export const productController = {
         .json({ message: "Error fetching products statistics" });
     }
   },
+  searchAndFilterProducts: async (req: Request, res: Response) => {
+      try {
+        // Extract filters from query params
+        const {
+          searchQuery = "",
+          userType,
+          isBlocked,
+          isTemplate,
+          startDate,
+          endDate,
+          // additionalAccessRights,
+          page = "1",
+          limit = "10",
+        } = req.query;
+  
+        // Prepare the filters object
+        const filters = {
+          searchQuery: searchQuery as string,
+          userType: userType ? userType.toString() : undefined,
+          isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
+          isTemplate: isTemplate ? JSON.parse(isTemplate as string) : undefined, // Convert string to boolean
+          startDate: startDate ? new Date(startDate as string) : undefined,
+          endDate: endDate ? new Date(endDate as string) : undefined,
+          // additionalAccessRights:
+          //   additionalAccessRights && typeof additionalAccessRights === "string"
+          //     ? additionalAccessRights.split(",")
+          //     : undefined,
+          page: parseInt(page as string, 10), // Convert page to number
+          limit: parseInt(limit as string, 10), // Convert limit to number
+        };
+  
+        // Call the service to search and filter the products
+        const products = await productService.searchAndFilterProducts(filters);
+  
+        // Return the results
+        res.status(200).json({
+          success: true,
+          message: "Search and filter completed successfully",
+          data: products,
+        });
+      } catch (error) {
+        console.error("Error in search and filter:", error);
+        res.status(500).json({
+          success: false,
+          message: "Error in search and filter users",
+        });
+      }
+    },
 };

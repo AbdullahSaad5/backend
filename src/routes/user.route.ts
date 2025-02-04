@@ -6,10 +6,10 @@ import { authGuard } from "@/guards";
 export const user = (router: Router) => {
   // route for create new user
   router.post("/", userValidation.createUser, userController.createUser);
-
   // route for get all users
   router.get("/", authGuard.isAuth, userController.allUsers);
-
+  //new route for search and filter and pagination
+  router.get("/search", userController.searchAndFilterUsers);
   // New route for fetching user stats/ Widgets
   router.get("/stats", userController.getUserStats);
 

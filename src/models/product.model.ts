@@ -15,6 +15,11 @@ const prodInfoSchema = {
     ref: "ProductCategory",
     required: true,
   },
+  productSupplier: {
+    type: Schema.Types.ObjectId,
+    ref: "Supplier",
+    required: true,
+  },
   title: { type: String, required: true },
   productDescription: { type: String },
   brand: { type: String, required: true },

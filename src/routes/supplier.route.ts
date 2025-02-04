@@ -12,7 +12,8 @@ export const supplier = (router: Router) => {
   router.get("/stats", supplierController.getSupplierStats);
   // route for get all suppliers
   router.get("/", supplierController.getSuppliers);
-
+  //new route for search and filter and pagination
+  router.get("/search", supplierController.searchAndFilterSuppliers);
   // route for get details of specific supplier by id
   router.get(
     "/:id",

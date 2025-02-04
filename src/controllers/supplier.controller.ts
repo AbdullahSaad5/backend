@@ -11,32 +11,43 @@ export const supplierController = {
     try {
       const { email, address, password } = req.body;
 
-      console.log("add supplier : " , req.body);
+      console.log("add supplier : ", req.body);
 
       const userExists = await supplierService.findExistingEmail(email);
       if (userExists) {
-        return res.status(StatusCodes.CONFLICT).json({ message: "User with this email already exists" });
+        return res
+          .status(StatusCodes.CONFLICT)
+          .json({ message: "User with this email already exists" });
       }
 
       if (req.body.phoneNumber) {
-        const existingphoneNumber = await supplierService.findExistingPhoneNumber(req.body.phoneNumber);
+        const existingphoneNumber =
+          await supplierService.findExistingPhoneNumber(req.body.phoneNumber);
         if (existingphoneNumber) {
           return res
             .status(StatusCodes.CONFLICT)
-            .json({ message: "User with this phone number already exists! Try another" });
+            .json({
+              message:
+                "User with this phone number already exists! Try another",
+            });
         }
       }
 
       // Create the user (supplier)
       const supplier = await supplierService.createSupplier(req.body);
       if (!supplier) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating supplier" });
+        return res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error creating supplier" });
       }
 
       // Handle address update/addition if provided
       if (address && Array.isArray(address)) {
         for (const addr of address) {
-          const createdAddress = await supplierService.createAddress({ ...addr, userId: supplier._id });
+          const createdAddress = await supplierService.createAddress({
+            ...addr,
+            userId: supplier._id,
+          });
           if (!createdAddress) {
             return res.json({ message: "Error creating address" });
           }
@@ -69,7 +80,9 @@ export const supplierController = {
       });
     } catch (error) {
       console.error(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating user" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error creating user" });
     }
   },
 
@@ -83,19 +96,24 @@ export const supplierController = {
         const email = updateData.email;
         const userExists = await supplierService.findExistingEmail(email);
         if (userExists) {
-          return res.status(StatusCodes.CONFLICT).json({ message: "User with this email already exists" });
-        }
-        else {
-          updateData.isEmailVerified = false
+          return res
+            .status(StatusCodes.CONFLICT)
+            .json({ message: "User with this email already exists" });
+        } else {
+          updateData.isEmailVerified = false;
         }
       }
 
       if (updateData.phoneNumber) {
-        const existingphoneNumber = await supplierService.findExistingPhoneNumber(updateData.phoneNumber);
+        const existingphoneNumber =
+          await supplierService.findExistingPhoneNumber(updateData.phoneNumber);
         if (existingphoneNumber) {
           return res
             .status(StatusCodes.CONFLICT)
-            .json({ message: "User with this phone number already exists! Try another" });
+            .json({
+              message:
+                "User with this phone number already exists! Try another",
+            });
         }
       }
 
@@ -103,9 +121,14 @@ export const supplierController = {
         updateData.password = await createHash(updateData.password);
       }
 
-      const updatedSupplier = await supplierService.updateById(userId, updateData);
+      const updatedSupplier = await supplierService.updateById(
+        userId,
+        updateData
+      );
       if (!updatedSupplier) {
-        return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
       }
 
       // Handle address updates if provided
@@ -113,15 +136,25 @@ export const supplierController = {
         for (const addr of address) {
           if (addr._id) {
             // Update existing address
-            const updatedAddress = await supplierService.findAddressandUpdate(addr._id, addr);
+            const updatedAddress = await supplierService.findAddressandUpdate(
+              addr._id,
+              addr
+            );
             if (!updatedAddress) {
-              return res.status(StatusCodes.NOT_FOUND).json({ message: "Address not found" });
+              return res
+                .status(StatusCodes.NOT_FOUND)
+                .json({ message: "Address not found" });
             }
           } else {
             // Create new address if _id is not present
-            const createdAddress = await supplierService.createAddress({ ...addr, userId });
+            const createdAddress = await supplierService.createAddress({
+              ...addr,
+              userId,
+            });
             if (!createdAddress) {
-              return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating address" });
+              return res
+                .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                .json({ message: "Error creating address" });
             }
           }
         }
@@ -134,7 +167,9 @@ export const supplierController = {
       });
     } catch (error) {
       console.error("Error updating supplier:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "An error occurred while updating the user" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "An error occurred while updating the user" });
     }
   },
 
@@ -153,7 +188,8 @@ export const supplierController = {
     try {
       const id = req.params.id;
       const supplier = await supplierService.findSupplierById(id, "+password");
-      if (!supplier) return res.status(404).json({ message: "Supplier not found" });
+      if (!supplier)
+        return res.status(404).json({ message: "Supplier not found" });
       const address = await supplierService.findAddressByUserId(id);
 
       const supplierWithAddresses = { ...supplier.toObject(), address };
@@ -161,18 +197,27 @@ export const supplierController = {
       res.status(200).json({ data: supplierWithAddresses });
     } catch (error) {
       console.error(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching supplier details" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error fetching supplier details" });
     }
   },
 
   deleteSupplier: async (req: Request, res: Response) => {
     try {
       const supplier = await supplierService.deleteById(req.params.id);
-      if (!supplier) return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
-      res.status(StatusCodes.OK).json({ message: "Supplier deleted successfully" });
+      if (!supplier)
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      res
+        .status(StatusCodes.OK)
+        .json({ message: "Supplier deleted successfully" });
     } catch (error) {
       console.error("Error deleting supplier:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "An error occurred while deleting the supplier" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "An error occurred while deleting the supplier" });
     }
   },
 
@@ -206,19 +251,67 @@ export const supplierController = {
       });
     } catch (error) {
       console.error("Toggle Block Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating supplier status" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error updating supplier status" });
     }
   },
   // New API for user stats Widgets
-    
-    getSupplierStats: async (req: Request, res: Response) => {
-      try {
-        const stats = await supplierService.getSupplierStats();
-        return res.status(StatusCodes.OK).json(stats);
-      } catch (error) {
-        return res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ message: "Error fetching supplier statistics" });
-      }
-    },
+
+  getSupplierStats: async (req: Request, res: Response) => {
+    try {
+      const stats = await supplierService.getSupplierStats();
+      return res.status(StatusCodes.OK).json(stats);
+    } catch (error) {
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error fetching supplier statistics" });
+    }
+  },
+  searchAndFilterSuppliers: async (req: Request, res: Response) => {
+    try {
+      // Extract filters from query params
+      const {
+        searchQuery = "",
+        userType,
+        isBlocked,
+        startDate,
+        endDate,
+        additionalAccessRights,
+        page = "1",
+        limit = "10",
+      } = req.query;
+
+      // Prepare the filters object
+      const filters = {
+        searchQuery: searchQuery as string,
+        userType: userType ? userType.toString() : undefined,
+        isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        additionalAccessRights:
+          additionalAccessRights && typeof additionalAccessRights === "string"
+            ? additionalAccessRights.split(",")
+            : undefined,
+        page: parseInt(page as string, 10), // Convert page to number
+        limit: parseInt(limit as string, 10), // Convert limit to number
+      };
+
+      // Call the service to search and filter the suppliers
+      const suppliers = await supplierService.searchAndFilterSuppliers(filters);
+
+      // Return the results
+      res.status(200).json({
+        success: true,
+        message: "Search and filter completed successfully",
+        data: suppliers,
+      });
+    } catch (error) {
+      console.error("Error in search and filter:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error in search and filter suppliers",
+      });
+    }
+  },
 };
