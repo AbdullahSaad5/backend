@@ -2,6 +2,7 @@ export function transformProductData(data: any) {
   const result: any = {
     stepData: {
       productInfo: {},
+      prodMedia: {},
       prodTechInfo: {},
       prodPricing: {},
       prodDelivery: {},
@@ -52,10 +53,9 @@ export function transformProductData(data: any) {
       "productDescription",
       "productCategory",
       "productSupplier",
-      "images",
-      "videos",
       "kind",
     ],
+    prodMedia: ["images", "videos"],
     prodTechInfo: [
       "processor",
       "model",
@@ -133,7 +133,6 @@ export function transformProductData(data: any) {
       "supportedWirelessProtocol",
     ],
     prodPricing: [
-      
       "quantity",
       "price",
       "condition",

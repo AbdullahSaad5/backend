@@ -248,7 +248,132 @@ export const productController = {
       });
     }
   },
-  //Selected Template Product
+  //Get All Draft Product Names
+  getAllDraftProductNames: async (req: Request, res: Response) => {
+    try {
+      const drafts = await productService.getProductsByCondition({
+        status: "draft",
+      });
+
+      if (!drafts.length) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No templates found",
+        });
+      }
+
+      const draftList = drafts.map((draft, index) => {
+        const productId = draft._id;
+        const kind = draft.kind || "UNKNOWN";
+
+        // Determine fields based on category (kind)
+        let fields: string[] = [];
+        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
+
+        switch (kind.toLowerCase()) {
+          case "laptops":
+            fields = [
+              prodInfo.processor,
+              prodInfo.model,
+              prodInfo.ssdCapacity,
+              prodInfo.hardDriveCapacity,
+              prodInfo.manufacturerWarranty,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "all in one pc":
+            fields = [
+              prodInfo.type,
+              prodInfo.memory,
+              prodInfo.processor,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "projectors":
+            fields = [prodInfo.type, prodInfo.model];
+            break;
+          case "monitors":
+            fields = [prodInfo.screenSize, prodInfo.maxResolution];
+            break;
+          case "gaming pc":
+            fields = [
+              prodInfo.processor,
+              prodInfo.gpu,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "network equipments":
+            fields = [prodInfo.networkType, prodInfo.processorType];
+            break;
+          default:
+            fields = ["UNKNOWN"];
+            break;
+        }
+
+        // Filter out undefined/null fields and join to form the name
+        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+
+        const srno = (index + 1).toString().padStart(2, "0");
+
+        const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
+
+        return { draftName, productId };
+      });
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "draft products names fetched successfully",
+        data: draftList,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Draft names:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching draft names",
+      });
+    }
+  },
+  //Selected transformed draft Product
+  transformAndSendDraftProduct: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Validate product ID
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid draft ID",
+        });
+      }
+
+      // Fetch product from DB
+      const product = await productService.getFullProductById(id);
+
+      if (!product) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+
+      // Transform product data using utility
+      const transformedProductDraft = transformProductData(product);
+
+      // Send transformed Draft product as response
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "draft transformed and Fetched successfully",
+        data: transformedProductDraft,
+      });
+    } catch (error: any) {
+      console.error("Error transforming product Draft:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error transforming product Draft",
+      });
+    }
+  },
+  //Selected transformed Template Product
   transformAndSendTemplateProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -389,51 +514,51 @@ export const productController = {
     }
   },
   searchAndFilterProducts: async (req: Request, res: Response) => {
-      try {
-        // Extract filters from query params
-        const {
-          searchQuery = "",
-          userType,
-          isBlocked,
-          isTemplate,
-          startDate,
-          endDate,
-          // additionalAccessRights,
-          page = "1",
-          limit = "10",
-        } = req.query;
-  
-        // Prepare the filters object
-        const filters = {
-          searchQuery: searchQuery as string,
-          userType: userType ? userType.toString() : undefined,
-          isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
-          isTemplate: isTemplate ? JSON.parse(isTemplate as string) : undefined, // Convert string to boolean
-          startDate: startDate ? new Date(startDate as string) : undefined,
-          endDate: endDate ? new Date(endDate as string) : undefined,
-          // additionalAccessRights:
-          //   additionalAccessRights && typeof additionalAccessRights === "string"
-          //     ? additionalAccessRights.split(",")
-          //     : undefined,
-          page: parseInt(page as string, 10), // Convert page to number
-          limit: parseInt(limit as string, 10), // Convert limit to number
-        };
-  
-        // Call the service to search and filter the products
-        const products = await productService.searchAndFilterProducts(filters);
-  
-        // Return the results
-        res.status(200).json({
-          success: true,
-          message: "Search and filter completed successfully",
-          data: products,
-        });
-      } catch (error) {
-        console.error("Error in search and filter:", error);
-        res.status(500).json({
-          success: false,
-          message: "Error in search and filter users",
-        });
-      }
-    },
+    try {
+      // Extract filters from query params
+      const {
+        searchQuery = "",
+        userType,
+        isBlocked,
+        isTemplate,
+        startDate,
+        endDate,
+        // additionalAccessRights,
+        page = "1",
+        limit = "10",
+      } = req.query;
+
+      // Prepare the filters object
+      const filters = {
+        searchQuery: searchQuery as string,
+        userType: userType ? userType.toString() : undefined,
+        isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
+        isTemplate: isTemplate ? JSON.parse(isTemplate as string) : undefined, // Convert string to boolean
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        // additionalAccessRights:
+        //   additionalAccessRights && typeof additionalAccessRights === "string"
+        //     ? additionalAccessRights.split(",")
+        //     : undefined,
+        page: parseInt(page as string, 10), // Convert page to number
+        limit: parseInt(limit as string, 10), // Convert limit to number
+      };
+
+      // Call the service to search and filter the products
+      const products = await productService.searchAndFilterProducts(filters);
+
+      // Return the results
+      res.status(200).json({
+        success: true,
+        message: "Search and filter completed successfully",
+        data: products,
+      });
+    } catch (error) {
+      console.error("Error in search and filter:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error in search and filter users",
+      });
+    }
+  },
 };

@@ -1,6 +1,5 @@
 import { Product } from "@/models";
 import mongoose, { Types } from "mongoose";
-import { transformProductData } from "@/utils/transformProductData.util";
 export const productService = {
   // Create a new draft product
   createDraftProduct: async (stepData: any) => {
@@ -21,8 +20,6 @@ export const productService = {
       if (!productSupplier) {
         throw new Error("Invalid or missing 'productSupplier'");
       }
-
-      console.log("stepData in service for draft create : ", stepData);
 
       const draftProduct: any = new Product({
         platformDetails: {
@@ -61,7 +58,6 @@ export const productService = {
         status: "draft",
         isBlocked: false,
       });
-      console.log("draftProduct : ", draftProduct);
 
       Object.entries(stepData).forEach(([key, value]: [string, any]) => {
         const { value: fieldValue, isAmz, isEbay, isWeb } = value || {};
@@ -102,9 +98,6 @@ export const productService = {
 
       // this code will run only on final call (final stepper)
       if (stepData.status) {
-        // console.log("asdadadads");
-        // console.log("draftProduct ka status: ", draftProduct.status);
-        // console.log("draftProduct ka templare: ", draftProduct.isTemplate);
         draftProduct.status = stepData.status; // Corrected to assignment
         draftProduct.isTemplate = stepData.isTemplate;
         await draftProduct.save(); // Assuming save is an async function
@@ -122,8 +115,6 @@ export const productService = {
           isWeb?: boolean;
         } = {}
       ) => {
-        // console.log("Before processing platformDetails:", platformDetails);
-
         Object.keys(data).forEach((key) => {
           const currentKey = keyPrefix ? `${keyPrefix}.${key}` : key; // Maintain context for nested keys
           const entry = data[key];
@@ -149,10 +140,7 @@ export const productService = {
             });
           } else {
             const { value } = entry || {};
-            console.log("current key : ", currentKey);
-            console.log("value : ", value);
-            console.log("platforms : ", isEbay, isAmz, isWeb);
-            // console.log("  ");
+
             // Handle nested fields explicitly
             const fieldSegments = currentKey.split(".");
             const fieldRoot = fieldSegments[0]; // e.g., "packageWeight"
@@ -172,7 +160,6 @@ export const productService = {
               if (isWeb)
                 platformDetails.website.prodDelivery[fieldRoot] =
                   platformDetails.website.prodDelivery[fieldRoot] || {};
-
               if (isAmz && subField)
                 platformDetails.amazon.prodDelivery[fieldRoot][subField] =
                   value;
@@ -183,7 +170,6 @@ export const productService = {
                   value;
             } else {
               const step = stepData.step;
-              console.log("step :", step);
               if (step === "prodTechInfo") {
                 if (isAmz)
                   platformDetails.amazon.prodTechInfo[currentKey] = value;
@@ -192,20 +178,6 @@ export const productService = {
                 if (isWeb)
                   platformDetails.website.prodTechInfo[currentKey] = value;
               } else if (step === "productInfo") {
-                // console.log("in productInfo if section ");
-                // console.log(
-                //   "platformDetails.amazon.productInfo before: ",
-                //   platformDetails.amazon.productInfo
-                // );
-                // console.log(
-                //   "platformDetails.ebay.productInfo before: ",
-                //   platformDetails.ebay.productInfo
-                // );
-                // console.log(
-                //   "platformDetails.website.productInfo before: ",
-                //   platformDetails.website.productInfo
-                // );
-
                 // Initialize productInfo for all platforms as needed
                 if (isAmz && !platformDetails.amazon.productInfo) {
                   platformDetails.amazon.productInfo = {};
@@ -216,29 +188,37 @@ export const productService = {
                 if (isWeb && !platformDetails.website.productInfo) {
                   platformDetails.website.productInfo = {};
                 }
-
-                console.log("    ");
+                platformDetails.website.prodTechInfo[currentKey] = value;
 
                 // Assign values to the correct platform
-                if (isAmz)
+                if (isAmz) {
                   platformDetails.amazon.productInfo[currentKey] = value;
+                }
                 if (isEbay)
                   platformDetails.ebay.productInfo[currentKey] = value;
                 if (isWeb)
                   platformDetails.website.productInfo[currentKey] = value;
+              } else if (step === "prodMedia") {
+                // Initialize prodMedia for all platforms as needed
+                if (isAmz && !platformDetails.amazon.prodMedia) {
+                  platformDetails.amazon.prodMedia = {};
+                }
+                if (isEbay && !platformDetails.ebay.prodMedia) {
+                  platformDetails.ebay.prodMedia = {};
+                }
+                if (isWeb && !platformDetails.website.prodMedia) {
+                  platformDetails.website.prodMedia = {};
+                }
+                platformDetails.website.prodTechInfo[currentKey] = value;
 
-                // console.log(
-                //   "platformDetails.amazon.productInfo after: ",
-                //   platformDetails.amazon.productInfo
-                // );
-                // console.log(
-                //   "platformDetails.ebay.productInfo after: ",
-                //   platformDetails.ebay.productInfo
-                // );
-                // console.log(
-                //   "platformDetails.website.productInfo after: ",
-                //   platformDetails.website.productInfo
-                // );
+                // Assign values to the correct platform
+                if (isAmz) {
+                  platformDetails.amazon.prodMedia[currentKey] = value;
+                }
+                if (isEbay)
+                  platformDetails.ebay.prodMedia[currentKey] = value;
+                if (isWeb)
+                  platformDetails.website.prodMedia[currentKey] = value;
               } else if (step === "prodPricing") {
                 if (isAmz)
                   platformDetails.amazon.prodPricing[currentKey] = value;
@@ -254,6 +234,7 @@ export const productService = {
                 if (isWeb)
                   platformDetails.website.prodDelivery[currentKey] = value;
               } else {
+                ``;
                 if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
                 if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
                 if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
@@ -261,20 +242,17 @@ export const productService = {
             }
           }
         });
-        // console.log("After processing platformDetails:", platformDetails);
       };
 
-      // // Process technical details based on the discriminator (Laptops or others)
-      // if (stepData.kind) {
-      //   // Process technical details for Laptops
-      //   processStepData(stepData, draftProduct.platformDetails);
-      // } else {
       processStepData(stepData, draftProduct.platformDetails);
-      // }
-
       // Save the updated draft product
-      await draftProduct.save();
-      // console.log("Draft product saved:", draftProduct);
+      // await draftProduct.save();
+      await draftProduct.save({ validateBeforeSave: false });
+      // await Product.findByIdAndUpdate(productId, stepData, {
+      //   new: true,
+      //   runValidators: false,
+      // });
+
       return draftProduct;
     } catch (error) {
       console.error("Error updating draft product:", error);
@@ -282,11 +260,6 @@ export const productService = {
     }
   },
 
-  /**
-   * Fetches the product by ID and populates all nested fields.
-   * @param id - Product ID to fetch
-   * @returns Populated product document
-   */
   getFullProductById: async (id: string) => {
     try {
       const product = await Product.findById(id)
@@ -305,32 +278,6 @@ export const productService = {
       throw new Error("Failed to fetch full product");
     }
   },
-  /**
-   * Transforms and returns the product data.
-   * @param id - Product ID
-   * @returns Transformed product data
-   */
-  // transformAndSendProduct: async (id: string) => {
-  //   try {
-  //     if (!id || !mongoose.isValidObjectId(id)) {
-  //       throw new Error("Invalid product ID");
-  //     }
-
-  //     // Fetch the product from the database
-  //     const product = await productService.getFullProductById(id);
-
-  //     if (!product) {
-  //       throw new Error("Product not found");
-  //     }
-
-  //     // Transform the fetched product data
-  //     const transformedProduct = transformProductData(product);
-  //     return transformedProduct;
-  //   } catch (error: any) {
-  //     console.error("Error transforming product:", error);
-  //     throw new Error(error.message || "Error transforming product");
-  //   }
-  // },
   getAllProducts: async () => {
     try {
       return await Product.find()
