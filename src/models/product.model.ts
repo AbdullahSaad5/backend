@@ -24,6 +24,7 @@ const prodInfoSchema = {
   productDescription: { type: String },
   brand: { type: String, required: true },
 };
+
 const prodMediaSchema = {
   images: { type: [fileSchema], _id: false },
   videos: { type: [fileSchema], _id: false },
