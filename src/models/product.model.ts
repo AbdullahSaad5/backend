@@ -17,7 +17,7 @@ const prodInfoSchema = {
   },
   productSupplier: {
     type: Schema.Types.ObjectId,
-    ref: "Supplier",
+    ref: "User",
     required: true,
   },
   title: { type: String, required: true },

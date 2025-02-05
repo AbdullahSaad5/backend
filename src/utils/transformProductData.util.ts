@@ -51,6 +51,7 @@ export function transformProductData(data: any) {
       "title",
       "productDescription",
       "productCategory",
+      "productSupplier",
       "images",
       "videos",
       "kind",

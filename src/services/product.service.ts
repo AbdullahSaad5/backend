@@ -98,7 +98,7 @@ export const productService = {
         throw new Error("Draft product not found");
       }
       // console.log("draftProduct in updateDraftProduct service : ", draftProduct);
-      console.log("stepDataaa in updateDraftProduct service : ", stepData);
+      // console.log("stepDataaa in updateDraftProduct service : ", stepData);
 
       // this code will run only on final call (final stepper)
       if (stepData.status) {
@@ -192,19 +192,19 @@ export const productService = {
                 if (isWeb)
                   platformDetails.website.prodTechInfo[currentKey] = value;
               } else if (step === "productInfo") {
-                console.log("in productInfo if section ");
-                console.log(
-                  "platformDetails.amazon.productInfo before: ",
-                  platformDetails.amazon.productInfo
-                );
-                console.log(
-                  "platformDetails.ebay.productInfo before: ",
-                  platformDetails.ebay.productInfo
-                );
-                console.log(
-                  "platformDetails.website.productInfo before: ",
-                  platformDetails.website.productInfo
-                );
+                // console.log("in productInfo if section ");
+                // console.log(
+                //   "platformDetails.amazon.productInfo before: ",
+                //   platformDetails.amazon.productInfo
+                // );
+                // console.log(
+                //   "platformDetails.ebay.productInfo before: ",
+                //   platformDetails.ebay.productInfo
+                // );
+                // console.log(
+                //   "platformDetails.website.productInfo before: ",
+                //   platformDetails.website.productInfo
+                // );
 
                 // Initialize productInfo for all platforms as needed
                 if (isAmz && !platformDetails.amazon.productInfo) {
@@ -227,18 +227,18 @@ export const productService = {
                 if (isWeb)
                   platformDetails.website.productInfo[currentKey] = value;
 
-                console.log(
-                  "platformDetails.amazon.productInfo after: ",
-                  platformDetails.amazon.productInfo
-                );
-                console.log(
-                  "platformDetails.ebay.productInfo after: ",
-                  platformDetails.ebay.productInfo
-                );
-                console.log(
-                  "platformDetails.website.productInfo after: ",
-                  platformDetails.website.productInfo
-                );
+                // console.log(
+                //   "platformDetails.amazon.productInfo after: ",
+                //   platformDetails.amazon.productInfo
+                // );
+                // console.log(
+                //   "platformDetails.ebay.productInfo after: ",
+                //   platformDetails.ebay.productInfo
+                // );
+                // console.log(
+                //   "platformDetails.website.productInfo after: ",
+                //   platformDetails.website.productInfo
+                // );
               } else if (step === "prodPricing") {
                 if (isAmz)
                   platformDetails.amazon.prodPricing[currentKey] = value;
