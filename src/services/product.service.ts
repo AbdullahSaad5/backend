@@ -1,5 +1,8 @@
 import { Product } from "@/models";
-import mongoose, { Types } from "mongoose";
+import Papa from "papaparse";
+import mongoose from "mongoose";
+import fs from "fs";
+import { validateCsvData } from "@/utils/bulkImport.util";
 export const productService = {
   // Create a new draft product
   createDraftProduct: async (stepData: any) => {
@@ -84,7 +87,6 @@ export const productService = {
       throw new Error("Failed to create draft product");
     }
   },
-
   // Update an existing draft product when user move to next stepper
   updateDraftProduct: async (productId: string, stepData: any) => {
     try {
@@ -233,7 +235,6 @@ export const productService = {
       throw new Error(`Failed to update draft product: ${error.message}`);
     }
   },
-
   getFullProductById: async (id: string) => {
     try {
       const product = await Product.findById(id)
@@ -271,7 +272,6 @@ export const productService = {
     }
   },
   //getting all template products name and their id
-
   getProductsByCondition: async (condition: Record<string, any>) => {
     try {
       // Find products matching the condition
@@ -314,7 +314,6 @@ export const productService = {
       throw new Error("Failed to fetch product");
     }
   },
-
   updateProduct: async (
     id: string,
     platform: "amazon" | "ebay" | "website",
@@ -332,7 +331,6 @@ export const productService = {
       throw new Error("Failed to update product");
     }
   },
-
   deleteProduct: (id: string) => {
     const product = Product.findByIdAndDelete(id);
     if (!product) {
@@ -340,7 +338,6 @@ export const productService = {
     }
     return product;
   },
-
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
       const updatedProduct = await Product.findByIdAndUpdate(
@@ -388,21 +385,21 @@ export const productService = {
       throw new Error("Error fetching products statistics");
     }
   },
-
   searchAndFilterProducts: async (filters: any) => {
     try {
       const {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        status, // Extract status from filters
         startDate,
         endDate,
         page = 1, // Default to page 1 if not provided
         limit = 10, // Default to 10 records per page
       } = filters;
 
-      // Convert page and limit to numbers
-      const pageNumber = parseInt(page, 10);
+      // Convert page and limit to numbers safely
+      const pageNumber = Math.max(parseInt(page, 10) || 1, 1); // Ensure minimum page is 1
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
@@ -469,7 +466,10 @@ export const productService = {
         ];
       }
 
-      // Add filters for isBlocked and isTemplate
+      // Add filters for status, isBlocked, and isTemplate
+      if (status && ["draft", "published"].includes(status)) {
+        query.status = status;
+      }
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
@@ -480,16 +480,18 @@ export const productService = {
       // Date range filter for createdAt
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate) dateFilter.$gte = new Date(startDate);
-        if (endDate) dateFilter.$lte = new Date(endDate);
-        query.createdAt = dateFilter;
+        if (startDate && !isNaN(Date.parse(startDate)))
+          dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate)))
+          dateFilter.$lte = new Date(endDate);
+        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
-      // Pagination logic: apply skip and limit
+      // Fetch products with pagination
       const products = await Product.find(query)
         .populate("userType")
-        .skip(skip) // Correct application of skip
-        .limit(limitNumber); // Correct application of limit
+        .skip(skip)
+        .limit(limitNumber);
 
       // Count total products
       const totalProducts = await Product.countDocuments(query);
@@ -506,6 +508,88 @@ export const productService = {
     } catch (error) {
       console.error("Error during search and filter:", error);
       throw new Error("Error during search and filter");
+    }
+  },
+
+  //bulk import products as CSV
+  bulkImportProducts: async (filePath: string): Promise<void> => {
+    try {
+      const { validRows, invalidRows } = validateCsvData(filePath);
+
+      if (invalidRows.length > 0) {
+        // If invalid rows exist, throw an error with detailed info
+        throw new Error(
+          `Some rows are invalid: ${JSON.stringify(invalidRows)}`
+        );
+      }
+
+      // Prepare bulk operations for valid rows
+      const bulkOperations = validRows.map(({ data }) => ({
+        updateOne: {
+          filter: { title: data.title }, // Match product by title
+          update: {
+            $set: {
+              title: data.title,
+              description: data.productDescription,
+              price: parseFloat(data.price),
+              stock: parseInt(data.stock, 10),
+              category: new mongoose.Types.ObjectId(data.productCategory),
+              supplier: new mongoose.Types.ObjectId(data.productSupplier),
+              platformDetails: {
+                amazon: { productInfo: { ...data } },
+                ebay: { productInfo: { ...data } },
+                website: { productInfo: { ...data } },
+              },
+            },
+          },
+          upsert: true, // Insert if product does not exist
+        },
+      }));
+
+      // Bulk insert/update operation
+      await Product.bulkWrite(bulkOperations);
+      console.log("✅ Bulk import completed successfully.");
+    } catch (error) {
+      console.error("❌ Bulk import failed:", error);
+      throw new Error("Bulk import failed.");
+    }
+  },
+  //bulk Export products to CSV
+  exportProducts: async (): Promise<string> => {
+    try {
+      // Fetch all products from the database
+      const products = await Product.find({});
+
+      // Format the products data for CSV export
+      const formattedData = products.map((product: any) => ({
+        ProductID: product._id,
+        Title: product.title,
+        Description: product.description,
+        Price: product.price,
+        Category: product.category,
+        Stock: product.stock,
+        SupplierId: product.supplier?._id,
+        AmazonInfo: JSON.stringify(product.platformDetails.amazon.productInfo),
+        EbayInfo: JSON.stringify(product.platformDetails.ebay.productInfo),
+        WebsiteInfo: JSON.stringify(
+          product.platformDetails.website.productInfo
+        ),
+      }));
+
+      // Convert the data to CSV format using Papa.unparse
+      const csv = Papa.unparse(formattedData);
+
+      // Generate a unique file path for the export
+      const filePath = `exports/products_${Date.now()}.csv`;
+
+      // Write the CSV data to a file
+      fs.writeFileSync(filePath, csv);
+
+      console.log("✅ Export completed successfully.");
+      return filePath;
+    } catch (error) {
+      console.error("❌ Export Failed:", error);
+      throw new Error("Failed to export products.");
     }
   },
 };
