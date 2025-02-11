@@ -1,13 +1,8 @@
-import mongoose, { Schema, model, Document } from "mongoose";
+import mongoose, { Schema, model } from "mongoose";
 import { REGEX } from "@/constants/regex";
-import {
-  IFile,
-  IUser,
-  IUserMethods,
-  UserModel,
-} from "@/contracts/user.contract";
 import { compareSync, hashSync } from "bcrypt";
 import { ENUMS } from "@/constants/enum";
+import { IUser, IUserMethods, UserModel } from "@/contracts/user.contract";
 
 const validateEmail = (email: string) => REGEX.EMAIL.test(email);
 
@@ -37,7 +32,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     password: { type: String, select: false },
     phoneNumber: { type: String },
     dob: { type: String },
-    // address: [{ type: Schema.Types.ObjectId, ref: "Address" }],
     signUpThrough: {
       type: String,
       enum: ENUMS.SIGNUP_THROUGH,
@@ -45,21 +39,45 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       default: "Web",
     },
     profileImage: { type: String },
-    // EmailVerifiedOTP: { type: String },
-    // EmailVerifiedOTPExpiredAt: { type: Date },
     isEmailVerified: { type: Boolean, default: false },
     EmailVerifiedAt: { type: Date },
-    userType: { type: Schema.Types.ObjectId, ref: "UserCategory" }, // Reference to UserCategory
+    userType: { type: Schema.Types.ObjectId, ref: "UserCategory" },
     supplierCategory: { type: Schema.Types.ObjectId, ref: "SupplierCategory" },
-    additionalAccessRights: { type: [String], default: [] }, // Add specific rights
-    restrictedAccessRights: { type: [String], default: [] }, // Remove specific rights
+    additionalAccessRights: { type: [String], default: [] },
+    restrictedAccessRights: { type: [String], default: [] },
     resetPasswordToken: { type: String },
     resetPasswordExpires: { type: Number },
-    additionalDocuments: { type: [fileSchema] , _id: false}, // Store supplier-related files
+    additionalDocuments: { type: [fileSchema], _id: false },
     isBlocked: { type: Boolean, default: false },
+
+    // SupplierKey added but not required by default
+    SupplierKey: { type: String, required: false },
   },
   { timestamps: true }
 );
+
+// Middleware to enforce SupplierKey requirement for Supplier userType
+schema.pre("save", async function (next) {
+  if (!this.userType) return next(); // If userType is not set, skip
+
+  try {
+    const userCategory = await mongoose
+      .model("UserCategory")
+      .findById(this.userType);
+
+    if (
+      userCategory &&
+      userCategory.role.toLowerCase() === "supplier" &&
+      !this.SupplierKey
+    ) {
+      return next(new Error("SupplierKey is required for Supplier userType"));
+    }
+
+    next();
+  } catch (error: any) {
+    return next(error);
+  }
+});
 
 schema.methods.hashPassword = function (password: string) {
   return hashSync(password, 10);

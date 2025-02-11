@@ -1,4 +1,4 @@
-import { Product } from "@/models";
+import { Product, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -510,50 +510,146 @@ export const productService = {
       throw new Error("Error during search and filter");
     }
   },
-
   //bulk import products as CSV
   bulkImportProducts: async (filePath: string): Promise<void> => {
     try {
-      const { validRows, invalidRows } = validateCsvData(filePath);
+      // ✅ Validate CSV data (supplier validation happens inside)
+      const { validRows, invalidRows } = await validateCsvData(filePath);
 
       if (invalidRows.length > 0) {
-        // If invalid rows exist, throw an error with detailed info
-        throw new Error(
-          `Some rows are invalid: ${JSON.stringify(invalidRows)}`
-        );
+        console.log("❌ Some rows were skipped due to validation errors:");
+        invalidRows.forEach(({ row, errors }) => {
+          console.log(`Row ${row}: ${errors.join(", ")}`);
+        });
       }
 
-      // Prepare bulk operations for valid rows
-      const bulkOperations = validRows.map(({ data }) => ({
-        updateOne: {
-          filter: { title: data.title }, // Match product by title
-          update: {
-            $set: {
+      if (validRows.length === 0) {
+        console.log("❌ No valid products to import.");
+        return;
+      }
+
+      // ✅ Fetch all existing product titles to prevent duplicates
+      const existingTitles = new Set(
+        (await Product.find({}, "title")).map((p: any) => p.title)
+      );
+
+      // ✅ Fetch all suppliers in one query to optimize validation
+      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
+      const existingSuppliers = await User.find(
+        { SupplierKey: { $in: supplierKeys } },
+        "_id SupplierKey"
+        // ).lean();
+      );
+      const supplierMap = new Map(
+        existingSuppliers.map((supplier) => [
+          supplier.SupplierKey,
+          supplier._id,
+        ])
+      );
+
+      // ✅ Filter out invalid suppliers
+      const filteredRows = validRows.filter(({ data }) => {
+        if (!supplierMap.has(data.productSupplierKey)) {
+          invalidRows.push({
+            row: data.row,
+            errors: [`SupplierKey ${data.productSupplierKey} does not exist.`],
+          });
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredRows.length === 0) {
+        console.log(
+          "❌ No valid products to insert after supplier validation."
+        );
+        return;
+      }
+
+      // ✅ Bulk insert new products (avoiding duplicates)
+      const bulkOperations = filteredRows
+        .filter(({ data }) => !existingTitles.has(data.title))
+        .map(({ data }) => ({
+          insertOne: {
+            document: {
               title: data.title,
-              description: data.productDescription,
+              brand: data.brand,
+              productDescription: data.productDescription,
+              productCategory: new mongoose.Types.ObjectId(
+                data.productCategory
+              ),
+              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
-              stock: parseInt(data.stock, 10),
-              category: new mongoose.Types.ObjectId(data.productCategory),
-              supplier: new mongoose.Types.ObjectId(data.productSupplier),
-              platformDetails: {
-                amazon: { productInfo: { ...data } },
-                ebay: { productInfo: { ...data } },
-                website: { productInfo: { ...data } },
+              media: {
+                images: data.images.map((url: string) => ({
+                  url,
+                  type: "image/jpeg",
+                })),
+                videos: data.videos.map((url: string) => ({
+                  url,
+                  type: "video/mp4",
+                })),
               },
+              platformDetails: ["amazon", "ebay", "website"].reduce(
+                (acc: { [key: string]: any }, platform) => {
+                  acc[platform] = {
+                    productInfo: {
+                      brand: data.brand,
+                      title: data.title,
+                      productDescription: data.productDescription,
+                      productCategory: new mongoose.Types.ObjectId(
+                        data.productCategory
+                      ),
+                      productSupplier: supplierMap.get(data.productSupplierKey),
+                    },
+                    prodPricing: {
+                      price: parseFloat(data.price),
+                      condition: "new",
+                      quantity: 10,
+                      vat: 5,
+                    },
+                    prodMedia: {
+                      images: data.images.map((url: string) => ({
+                        url,
+                        type: "image/jpeg",
+                      })),
+                      videos: data.videos.map((url: string) => ({
+                        url,
+                        type: "video/mp4",
+                      })),
+                    },
+                  };
+                  return acc;
+                },
+                {}
+              ),
             },
           },
-          upsert: true, // Insert if product does not exist
-        },
-      }));
+        }));
 
-      // Bulk insert/update operation
+      if (bulkOperations.length === 0) {
+        console.log("✅ No new products to insert.");
+        return;
+      }
+
+      // ✅ Perform Bulk Insert Operation
       await Product.bulkWrite(bulkOperations);
-      console.log("✅ Bulk import completed successfully.");
+      console.log(
+        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`
+      );
+
+      // ✅ Log skipped rows due to invalid suppliers
+      if (invalidRows.length > 0) {
+        console.log("❌ Some products were skipped due to invalid suppliers:");
+        invalidRows.forEach(({ row, errors }) => {
+          console.log(`Row ${row}: ${errors.join(", ")}`);
+        });
+      }
     } catch (error) {
       console.error("❌ Bulk import failed:", error);
-      throw new Error("Bulk import failed.");
     }
   },
+
   //bulk Export products to CSV
   exportProducts: async (): Promise<string> => {
     try {
@@ -567,6 +663,7 @@ export const productService = {
         Description: product.description,
         Price: product.price,
         Category: product.category,
+        // ProductSupplier: product?.supplier?.name,
         Stock: product.stock,
         SupplierId: product.supplier?._id,
         AmazonInfo: JSON.stringify(product.platformDetails.amazon.productInfo),
