@@ -8,6 +8,7 @@ export interface IFile {
   size: number;
   url: string;
   type: string;
+  type: string;
   filename: string;
 }
 
@@ -18,6 +19,7 @@ export interface IUser extends Document {
   password: string;
   phoneNumber: string;
   dob: string;
+  SupplierKey?: string;
   // address: Types.ObjectId
   signUpThrough: string;
   profileImage?: string;
@@ -47,7 +49,7 @@ export type UserCreatePayload = Pick<
   | "userType"
   | "additionalAccessRights"
   | "restrictedAccessRights"
-> & {address: Partial<IUserAddress>} ;
+> & { address: Partial<IUserAddress> };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
 

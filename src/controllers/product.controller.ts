@@ -519,29 +519,45 @@ export const productController = {
       const {
         searchQuery = "",
         userType,
+        status, // Extract status properly
         isBlocked,
         isTemplate,
         startDate,
         endDate,
-        // additionalAccessRights,
         page = "1",
         limit = "10",
       } = req.query;
 
-      // Prepare the filters object
+      // Safe parsing and validation
       const filters = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
-        isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
-        isTemplate: isTemplate ? JSON.parse(isTemplate as string) : undefined, // Convert string to boolean
-        startDate: startDate ? new Date(startDate as string) : undefined,
-        endDate: endDate ? new Date(endDate as string) : undefined,
-        // additionalAccessRights:
-        //   additionalAccessRights && typeof additionalAccessRights === "string"
-        //     ? additionalAccessRights.split(",")
-        //     : undefined,
-        page: parseInt(page as string, 10), // Convert page to number
-        limit: parseInt(limit as string, 10), // Convert limit to number
+        status:
+          status && ["draft", "published"].includes(status.toString())
+            ? status.toString()
+            : undefined, // Validate status
+        isBlocked:
+          isBlocked === "true"
+            ? true
+            : isBlocked === "false"
+              ? false
+              : undefined, // Convert only valid booleans
+        isTemplate:
+          isTemplate === "true"
+            ? true
+            : isTemplate === "false"
+              ? false
+              : undefined, // Convert only valid booleans
+        startDate:
+          startDate && !isNaN(Date.parse(startDate as string))
+            ? new Date(startDate as string)
+            : undefined,
+        endDate:
+          endDate && !isNaN(Date.parse(endDate as string))
+            ? new Date(endDate as string)
+            : undefined,
+        page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
+        limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
       };
 
       // Call the service to search and filter the products
@@ -557,7 +573,7 @@ export const productController = {
       console.error("Error in search and filter:", error);
       res.status(500).json({
         success: false,
-        message: "Error in search and filter users",
+        message: "Error in search and filter products",
       });
     }
   },

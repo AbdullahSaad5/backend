@@ -1,15 +1,28 @@
 import { productController } from "@/controllers";
 import { productValidation } from "@/validations";
 import { Router } from "express";
+import {
+  handleBulkImport,
+  handleBulkExport,
+} from "@/controllers/product.controller.helper"; // Adjust import path as needed
+import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const product = (router: Router) => {
   // TODO: productValidation.addProduct
+
   // Create or update a draft product
   router.post("/", productController.createDraftProduct);
+
   //new route for search and filter and pagination
   router.get("/search", productController.searchAndFilterProducts);
+
   // New route for fetching product stats/ Widgets
   router.get("/stats", productController.getProductStats);
+  // Route for bulk import (POST request)
+  router.post("/bulk-import", uploadMiddleware, handleBulkImport);
+
+  // Route for bulk export (GET request)
+  router.get("/bulk-export", handleBulkExport);
 
   router.get(
     "/transform/:id",
