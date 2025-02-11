@@ -50,13 +50,13 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     additionalDocuments: { type: [fileSchema], _id: false },
     isBlocked: { type: Boolean, default: false },
 
-    // supplierKey added but not required by default
-    supplierKey: { type: String, required: false },
+    // SupplierKey added but not required by default
+    SupplierKey: { type: String, required: false },
   },
   { timestamps: true }
 );
 
-// Middleware to enforce supplierKey requirement for Supplier userType
+// Middleware to enforce SupplierKey requirement for Supplier userType
 schema.pre("save", async function (next) {
   if (!this.userType) return next(); // If userType is not set, skip
 
@@ -68,9 +68,9 @@ schema.pre("save", async function (next) {
     if (
       userCategory &&
       userCategory.role.toLowerCase() === "supplier" &&
-      !this.supplierKey
+      !this.SupplierKey
     ) {
-      return next(new Error("supplierKey is required for Supplier userType"));
+      return next(new Error("SupplierKey is required for Supplier userType"));
     }
 
     next();

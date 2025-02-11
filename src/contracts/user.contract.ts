@@ -8,6 +8,7 @@ export interface IFile {
   size: number;
   url: string;
   type: string;
+  type: string;
   filename: string;
 }
 
@@ -18,7 +19,7 @@ export interface IUser extends Document {
   password: string;
   phoneNumber: string;
   dob: string;
-  supplierKey?: string;
+  SupplierKey?: string;
   // address: Types.ObjectId
   signUpThrough: string;
   profileImage?: string;

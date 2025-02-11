@@ -3,9 +3,6 @@ import { productService } from "@/services"; // Adjust import path as needed
 import { processZipFile } from "@/utils/bulkImport.util";
 import * as fs from "fs";
 
-
-
-
 export const handleBulkImport = async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });

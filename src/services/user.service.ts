@@ -3,16 +3,17 @@ import {
   IUser,
   UserCreatePayload,
   UserUpdatePayload,
+
 } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
 import { Types } from "mongoose";
 import { toUpper } from "lodash";
+
 export const userService = {
   getAllUsers: async () => {
     return await User.find().populate("userType");
   },
-
   findUserById: async (id: string, select?: string) => {
     if (select) {
       return await User.findById(id).populate("userType").select(select);
