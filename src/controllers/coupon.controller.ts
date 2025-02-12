@@ -2,6 +2,7 @@ import { Coupon } from "@/models";
 import { couponService } from "@/services/coupon.service"; // Importing the coupon service
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes"; // For HTTP status codes
+import mongoose from "mongoose";
 
 export const couponController = {
   // Create a new coupon
@@ -73,11 +74,12 @@ export const couponController = {
   },
 
   //update coupon
+
   updateCoupon: async (req: Request, res: Response) => {
     try {
       const {
         code,
-        discountType, // Ensure this is included
+        discountType,
         discountValue,
         maxDiscount,
         minPurchaseAmount,
@@ -87,6 +89,14 @@ export const couponController = {
         applicableProducts,
         applicableCategories,
       } = req.body;
+
+      // Convert string IDs to ObjectIds
+      const convertedProducts = applicableProducts?.map(
+        (id: string) => new mongoose.Types.ObjectId(id)
+      );
+      const convertedCategories = applicableCategories?.map(
+        (id: string) => new mongoose.Types.ObjectId(id)
+      );
 
       // Check if the coupon exists before updating
       const existingCoupon = await Coupon.findById(req.params.id);
@@ -105,8 +115,8 @@ export const couponController = {
           expiryDate,
           isActive,
           usageLimit,
-          applicableProducts,
-          applicableCategories,
+          applicableProducts: convertedProducts,
+          applicableCategories: convertedCategories,
         },
         { new: true, runValidators: true } // `runValidators: true` ensures validation is applied
       );
