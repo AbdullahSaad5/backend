@@ -20,6 +20,8 @@ import { variations } from "./variations.route";
 import { paymentPolicy } from "./payment-policy.route";
 import { descriminatorRouter } from "./descriminator.route";
 import { faqsPolicy } from "./faqs-policy.route";
+import { coupon } from "./coupon.route";
+import { taxesRoutes } from "./taxes.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -46,6 +48,8 @@ const routes: {
   orderRoutes,
   cartRoutes,
   paymentPolicy,
+  coupon,
+  taxesRoutes,
   faqsPolicy,
   // descriminator,
 };
@@ -55,6 +59,7 @@ for (const route in routes) {
   // Add the route to the router
   const routeHandler = routes[route];
   const basePath = `/${route.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
+  console.log(basePath)
   const tempRouter = Router();
 
   routeHandler(tempRouter);

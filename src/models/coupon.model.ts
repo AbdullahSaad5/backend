@@ -16,7 +16,7 @@ const CouponSchema = new Schema<ICoupon>(
       enum: ["percentage", "fixed"],
       required: true,
     },
-    discountValue: { type: Number, required: true },
+    discountValue: { type: Number, required: true, default: 0 },
     maxDiscount: { type: Number },
     minPurchaseAmount: { type: Number, default: 0 },
     expiryDate: { type: Date, required: true },
