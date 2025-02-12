@@ -3,7 +3,7 @@ import { authGuard } from "@/guards"; // Importing authentication guard
 import { Router } from "express"; // Express Router for routing
 import { auth } from "firebase-admin"; // Firebase authentication
 
-export const taxesRoutes = (router: Router) => {
+export const taxes = (router: Router) => {
   // Optionally, add an authentication guard if needed
   // router.use(authGuard.isAuth);
 
