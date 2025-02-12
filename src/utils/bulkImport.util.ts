@@ -207,7 +207,7 @@ const processZipFile = async (zipFilePath: string) => {
         console.log("🗑️ Extracted files cleaned up.");
       }
       if (fs.existsSync(zipFilePath)) {
-        fs.unlinkSync(zipFilePath);
+        // fs.unlinkSync(zipFilePath);
         console.log("🗑️ ZIP file deleted.");
       }
     } catch (err) {
@@ -248,7 +248,7 @@ const bulkImportProducts = async (
       // ).lean();
     );
     const supplierMap = new Map(
-      existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id])
+      existingSuppliers.map((supplier: any) => [supplier.supplierKey, supplier._id])
     );
 
     // ✅ Filter out invalid suppliers

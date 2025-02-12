@@ -24,6 +24,7 @@ const prodInfoSchema = {
   productDescription: { type: String },
   brand: { type: String, required: true },
 };
+
 const prodMediaSchema = {
   images: { type: [fileSchema], _id: false },
   videos: { type: [fileSchema], _id: false },
@@ -37,7 +38,12 @@ const prodPricingSchema = {
   conditionDescription: { type: String },
   pricingFormat: { type: String },
   vat: { type: String },
-  paymentPolicy: { type: Schema.Types.ObjectId, ref: "PaymentPolicy" },
+  paymentPolicy: {
+    type: Schema.Types.ObjectId,
+    ref: "PaymentPolicy",
+    default: null,
+    set: (value: any) => value === "" ? null : value, // Convert empty string to null
+  },
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },

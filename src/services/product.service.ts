@@ -97,6 +97,8 @@ export const productService = {
       if (!draftProduct) {
         throw new Error("Draft product not found");
       }
+      // console.log("draftProduct in updateDraftProduct service : ", draftProduct);
+      // console.log("stepDataaa in updateDraftProduct service : ", stepData);
 
       console.log(
         "🔹 Draft product before update:",
@@ -251,6 +253,7 @@ export const productService = {
       throw new Error("Failed to fetch full product");
     }
   },
+  
   getAllProducts: async () => {
     try {
       return await Product.find()
