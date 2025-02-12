@@ -24,8 +24,10 @@ const CouponSchema = new Schema<ICoupon>(
     usageLimit: { type: Number, required: true, min: 1 },
     usageCount: { type: Number, default: 0 },
     applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
-    applicableCategories: [{ type: Schema.Types.ObjectId, ref: "ProductCategory" }], // Store category IDs
-   },
+    applicableCategories: [
+      { type: Schema.Types.ObjectId, ref: "ProductCategory" },
+    ], // Store category IDs
+  },
   { timestamps: true }
 );
 CouponSchema.pre<ICoupon>("save", function (next) {

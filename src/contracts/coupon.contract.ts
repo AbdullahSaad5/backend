@@ -1,4 +1,4 @@
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 
 // Full Cart Interface
 interface ICoupon extends Document {
@@ -11,8 +11,8 @@ interface ICoupon extends Document {
   isActive: boolean;
   usageLimit: number;
   usageCount: number;
-  applicableProducts?: string[]; // Array of product IDs
-  applicableCategories?: string[]; // Array of category IDs
+  applicableProducts?: Types.ObjectId[];  // Reference to Product IDs
+  applicableCategories?: Types.ObjectId[]; 
 }
 
 export { ICoupon };
