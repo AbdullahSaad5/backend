@@ -10,4 +10,5 @@ export { PostagePolicy } from "./postage-policy.model";
 export { Variation } from "./variation.model";
 export { FaqsPolicy } from "./faqs-policy.model";
 export { Coupon } from "./coupon.model";
+export { Discount } from "./discount.model";
 export { Taxes } from "./taxes.model";
