@@ -61,7 +61,6 @@ for (const route in routes) {
   // Add the route to the router
   const routeHandler = routes[route];
   const basePath = `/${route.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()}`;
-  console.log(basePath);
   const tempRouter = Router();
 
   routeHandler(tempRouter);
