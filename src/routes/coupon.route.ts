@@ -9,7 +9,7 @@ export const coupon = (router: Router) => {
   router.post("/", couponController.createCoupon);
   router.get("/", couponController.getAllCoupons);
   router.get("/:id", couponController.getCouponById);
-  router.put("/:id", couponController.updateCoupon);
+  router.patch("/:id", couponController.updateCoupon);
   router.delete("/:id", couponController.deleteCoupon);
   router.post("/validate", couponController.validateCoupon);
 };
