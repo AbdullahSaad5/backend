@@ -533,13 +533,13 @@ export const productService = {
       // ✅ Fetch all suppliers in one query to optimize validation
       const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
       const existingSuppliers = await User.find(
-        { SupplierKey: { $in: supplierKeys } },
-        "_id SupplierKey"
+        { supplierKey: { $in: supplierKeys } },
+        "_id supplierKey"
         // ).lean();
       );
       const supplierMap = new Map(
         existingSuppliers.map((supplier) => [
-          supplier.SupplierKey,
+          supplier.supplierKey,
           supplier._id,
         ])
       );
@@ -549,7 +549,7 @@ export const productService = {
         if (!supplierMap.has(data.productSupplierKey)) {
           invalidRows.push({
             row: data.row,
-            errors: [`SupplierKey ${data.productSupplierKey} does not exist.`],
+            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
           });
           return false;
         }
