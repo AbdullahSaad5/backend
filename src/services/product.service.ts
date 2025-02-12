@@ -541,7 +541,7 @@ export const productService = {
         // ).lean();
       );
       const supplierMap = new Map(
-        existingSuppliers.map((supplier) => [
+        existingSuppliers.map((supplier: any) => [
           supplier.SupplierKey,
           supplier._id,
         ])

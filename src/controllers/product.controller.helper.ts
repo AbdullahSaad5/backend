@@ -8,7 +8,7 @@ export const handleBulkImport = async (req: Request, res: Response) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     const zipFilePath = req.file.path;
     await processZipFile(zipFilePath);
-    fs.unlinkSync(zipFilePath);
+    // fs.unlinkSync(zipFilePath);
     res.status(200).json({ message: "File processing started" });
   } catch (error) {
     const errorMessage =
