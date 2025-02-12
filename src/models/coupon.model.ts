@@ -1,4 +1,5 @@
 import { ICoupon } from "@/contracts/coupon.contract";
+import { ref } from "@firebase/storage";
 import mongoose, { Schema } from "mongoose";
 
 const CouponSchema = new Schema<ICoupon>(
@@ -18,13 +19,13 @@ const CouponSchema = new Schema<ICoupon>(
     discountValue: { type: Number, required: true },
     maxDiscount: { type: Number },
     minPurchaseAmount: { type: Number, default: 0 },
-    expiryDate: { type: Date, required: true  },
+    expiryDate: { type: Date, required: true },
     isActive: { type: Boolean, default: true },
     usageLimit: { type: Number, required: true, min: 1 },
     usageCount: { type: Number, default: 0 },
-    applicableProducts: { type: [String], default: [] }, // Store product IDs
-    applicableCategories: { type: [String], default: [] }, // Store category IDs
-  },
+    applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
+    applicableCategories: [{ type: Schema.Types.ObjectId, ref: "ProductCategory" }], // Store category IDs
+   },
   { timestamps: true }
 );
 CouponSchema.pre<ICoupon>("save", function (next) {
