@@ -1,5 +1,6 @@
 import { Discount } from "@/models";
 import { Request, Response } from "express";
+import mongoose from "mongoose";
 
 export const discountController = {
   // Create or update a discount for a specific category
@@ -12,11 +13,16 @@ export const discountController = {
         return res.status(400).json({ message: "Category ID is required" });
       }
 
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
+
       // Check if a discount for this category already exists
       let discount = await Discount.findOne({ applicableCategory: categoryId });
 
       if (discount) {
-        // If exists, update the discount
+        // Update existing discount
         discount.fixedDiscountValue = fixedDiscountValue;
         discount.percentageDiscountValue = percentageDiscountValue;
         await discount.save();
@@ -27,7 +33,7 @@ export const discountController = {
         });
       }
 
-      // Create new discount if not found
+      // Create new discount
       discount = new Discount({
         applicableCategory: categoryId,
         fixedDiscountValue,
@@ -40,7 +46,14 @@ export const discountController = {
         message: "Discount created successfully",
         discount,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 11000) {
+        return res.status(400).json({
+          message:
+            "A discount for this category already exists. Try updating it instead.",
+          error,
+        });
+      }
       return res.status(500).json({
         message: "Error processing discount",
         error,
@@ -63,6 +76,11 @@ export const discountController = {
   getDiscountByCategory: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
+
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({ message: "Invalid category ID" });
+      }
 
       const discount = await Discount.findOne({
         applicableCategory: categoryId,
