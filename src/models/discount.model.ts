@@ -3,19 +3,13 @@ import mongoose, { Schema } from "mongoose";
 
 const DiscountSchema = new Schema<IDiscount>(
   {
-    discountName: { type: String },
-    discountType: {
-      type: String,
-      enum: ["percentage", "fixed"],
-      required: true,
+    fixedDiscountValue: { type: Number, required: true, default: 0 },
+    percentageDiscountValue: { type: Number, required: true, default: 0 },
+    applicableCategory: {
+      type: Schema.Types.ObjectId,
+      ref: "ProductCategory",
+      unique: true,
     },
-    discountValue: { type: Number, required: true, default: 0 },
-    // maxDiscount: { type: Number },
-    // minPurchaseAmount: { type: Number, default: 0 },
-    // applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
-    applicableCategories: [
-      { type: Schema.Types.ObjectId, ref: "ProductCategory" },
-    ], // Store category IDs
   },
   { timestamps: true }
 );
