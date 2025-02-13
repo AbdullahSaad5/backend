@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { stockService } from "@/services";
+import { stockService } from "@/services/stock.service";
 
 export const stockController = {
-  // 📌 Create or Update Stock
-  createOrUpdateStock: async (req: Request, res: Response) => {
+  // 📌 Add New Stock Purchase
+  addStock: async (req: Request, res: Response) => {
     try {
       const { productId, stockSupplier } = req.body;
 
@@ -23,24 +23,14 @@ export const stockController = {
           .json({ message: "Invalid Product ID or Supplier ID format" });
       }
 
-      const result = await stockService.createOrUpdateStock(req.body);
-      res.status(200).json(result);
+      const result = await stockService.addStock(req.body);
+      res.status(201).json(result);
     } catch (error) {
       res.status(500).json({ message: "Error processing stock", error });
     }
   },
 
-  // 📌 Get All Stock Items
-  getAllStock: async (_req: Request, res: Response) => {
-    try {
-      const stocks = await stockService.getAllStock();
-      res.status(200).json(stocks);
-    } catch (error) {
-      res.status(500).json({ message: "Internal Server Error", error });
-    }
-  },
-
-  // 📌 Get Stock for a Specific Product
+  // 📌 Get All Stock Purchases for a Product
   getStockByProduct: async (req: Request, res: Response) => {
     try {
       const { productId } = req.params;
@@ -49,21 +39,21 @@ export const stockController = {
         return res.status(400).json({ message: "Invalid product ID format" });
       }
 
-      const stock = await stockService.getStockByProduct(productId);
-      if (!stock) {
+      const stocks = await stockService.getStockByProduct(productId);
+      if (stocks.length === 0) {
         return res
           .status(404)
-          .json({ message: "No stock found for this product" });
+          .json({ message: "No stock records found for this product" });
       }
 
-      res.status(200).json(stock);
+      res.status(200).json(stocks);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
 
-  // 📌 Delete Stock for a Product
-  deleteStock: async (req: Request, res: Response) => {
+  // 📌 Get Stock Summary
+  getStockSummary: async (req: Request, res: Response) => {
     try {
       const { productId } = req.params;
 
@@ -71,12 +61,27 @@ export const stockController = {
         return res.status(400).json({ message: "Invalid product ID format" });
       }
 
-      const stock = await stockService.deleteStock(productId);
-      if (!stock) {
-        return res.status(404).json({ message: "Stock not found" });
+      const summary = await stockService.getStockSummary(productId);
+      res.status(200).json(summary);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
+
+  deleteStock: async (req: Request, res: Response) => {
+    try {
+      const { stockId } = req.params;
+
+      if (!mongoose.Types.ObjectId.isValid(stockId)) {
+        return res.status(400).json({ message: "Invalid stock ID format" });
       }
 
-      res.status(200).json({ message: "Stock deleted successfully" });
+      const stock = await stockService.deleteStock(stockId);
+      if (!stock) {
+        return res.status(404).json({ message: "Stock record not found" });
+      }
+
+      res.status(200).json({ message: "Stock record deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }

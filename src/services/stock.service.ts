@@ -1,75 +1,43 @@
 import { Stock } from "@/models/stock.model";
 
 export class stockService {
-  // 📌 Create or Update Stock for a Product
-  static async createOrUpdateStock(data: any) {
-    const {
-      productId,
-      stockSupplier,
-      quantity,
-      purchasePricePerUnit,
-      costPricePerUnit,
-      retailPricePerUnit,
-      discount,
-      batchNumber,
-      tax,
-      expiryDate,
-      stockThreshold,
-    } = data;
-
-    let stock = await Stock.findOne({ productId });
-
-    if (stock) {
-      // Update stock details
-      stock.stockSupplier = stockSupplier;
-      stock.quantity = quantity;
-      stock.purchasePricePerUnit = purchasePricePerUnit;
-      stock.costPricePerUnit = costPricePerUnit;
-      stock.retailPricePerUnit = retailPricePerUnit;
-      stock.discount = discount;
-      stock.tax = tax;
-      stock.batchNumber = batchNumber;
-      stock.expiryDate = expiryDate || stock.expiryDate;
-      stock.stockThreshold = stockThreshold;
-      stock.purchaseDate = new Date();
-
-      await stock.save();
-      return { message: "Stock updated successfully", stock };
-    }
-
-    // Create new stock record
-    stock = new Stock({
-      productId,
-      stockSupplier,
-      quantity,
-      purchasePricePerUnit,
-      costPricePerUnit,
-      batchNumber,
-      retailPricePerUnit,
-      discount,
-      tax,
-      expiryDate,
-      stockThreshold,
-    });
-
+  // 📌 Add New Stock Purchase Entry (Instead of Updating)
+  static async addStock(data: any) {
+    const stock = new Stock(data);
     await stock.save();
-    return { message: "Stock created successfully", stock };
+    return { message: "Stock purchase recorded successfully", stock };
   }
 
-  // 📌 Get All Stock Items
-  static async getAllStock() {
-    return await Stock.find().populate(["productId", "stockSupplier"]);
-  }
-
-  // 📌 Get Stock for a Specific Product
+  // 📌 Get All Stock Purchases for a Product
   static async getStockByProduct(productId: string) {
-    return await Stock.findOne({ productId }).populate([
+    return await Stock.find({ productId }).populate([
       "productId",
       "stockSupplier",
     ]);
   }
 
-  // 📌 Delete Stock for a Product
+  // 📌 Get Stock Summary (Total Quantity & Last Purchase)
+  static async getStockSummary(productId: string) {
+    const stocks = await Stock.find({ productId });
+
+    if (stocks.length === 0) {
+      return { message: "No stock records found", totalQuantity: 0 };
+    }
+
+    const totalQuantity = stocks.reduce(
+      (sum, stock) => sum + stock.quantity,
+      0
+    );
+    const lastPurchase = stocks[stocks.length - 1];
+
+    return {
+      message: "Stock summary retrieved",
+      totalQuantity,
+      lastPurchase,
+    };
+  }
+
+  // 📌 Delete All Stock Purchases for a Product
   static async deleteStock(productId: string) {
     return await Stock.findOneAndDelete({ productId });
   }
