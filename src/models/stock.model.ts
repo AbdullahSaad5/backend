@@ -22,7 +22,7 @@ const StockSchema = new Schema<IStock>(
     tax: { type: Number, required: true, min: 0 },
     expiryDate: { type: Date },
     receivedDate: { type: Date, required: true, default: Date.now },
-    lastUpdated: { type: Date, default: Date.now },
+    purchaseDate: { type: Date, default: Date.now },
     stockThreshold: { type: Number, default: 10 },
   },
   { timestamps: true }

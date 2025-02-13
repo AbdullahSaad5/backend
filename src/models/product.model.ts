@@ -42,7 +42,7 @@ const prodPricingSchema = {
     type: Schema.Types.ObjectId,
     ref: "PaymentPolicy",
     default: null,
-    set: (value: any) => value === "" ? null : value, // Convert empty string to null
+    set: (value: any) => (value === "" ? null : value), // Convert empty string to null
   },
   buy2andSave: { type: String },
   buy3andSave: { type: String },

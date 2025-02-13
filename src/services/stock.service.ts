@@ -11,6 +11,7 @@ export class stockService {
       costPricePerUnit,
       retailPricePerUnit,
       discount,
+      batchNumber,
       tax,
       expiryDate,
       stockThreshold,
@@ -27,9 +28,10 @@ export class stockService {
       stock.retailPricePerUnit = retailPricePerUnit;
       stock.discount = discount;
       stock.tax = tax;
+      stock.batchNumber = batchNumber;
       stock.expiryDate = expiryDate || stock.expiryDate;
       stock.stockThreshold = stockThreshold;
-      stock.lastUpdated = new Date();
+      stock.purchaseDate = new Date();
 
       await stock.save();
       return { message: "Stock updated successfully", stock };
@@ -42,6 +44,7 @@ export class stockService {
       quantity,
       purchasePricePerUnit,
       costPricePerUnit,
+      batchNumber,
       retailPricePerUnit,
       discount,
       tax,

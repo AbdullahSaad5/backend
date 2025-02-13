@@ -11,7 +11,8 @@ interface IStock extends Document {
   tax: number;
   expiryDate?: Date;
   receivedDate: Date;
-  lastUpdated: Date;
+  purchaseDate: Date;
+
   stockThreshold: number;
   batchNumber: number;
 }
