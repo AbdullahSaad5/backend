@@ -2,13 +2,14 @@ import { Stock } from "@/models/stock.model";
 
 export class stockService {
   // 📌 Add New Stock Purchase Entry (Instead of Updating)
+
   static async addStock(data: any) {
     const stock = new Stock(data);
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
   }
 
-  // 📌 Get All Stock Purchases for a Product
+  // 📌 Get All Stock Entries for a Product
   static async getStockByProduct(productId: string) {
     return await Stock.find({ productId }).populate([
       "productId",

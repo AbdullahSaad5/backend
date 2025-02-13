@@ -25,7 +25,14 @@ export const stockController = {
 
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 11000) {
+        return res.status(400).json({
+          message:
+            "Duplicate stock entry detected. Ensure productId and supplierId are correct.",
+          error,
+        });
+      }
       res.status(500).json({ message: "Error processing stock", error });
     }
   },
