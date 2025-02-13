@@ -13,6 +13,7 @@ interface IStock extends Document {
   receivedDate: Date;
   lastUpdated: Date;
   stockThreshold: number;
+  batchNumber: number;
 }
 
 export { IStock };
