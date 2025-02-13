@@ -1,5 +1,5 @@
 // import admin from "firebase-admin";
-import * as admin from 'firebase-admin';
+import * as admin from "firebase-admin";
 import { getStorage } from "firebase-admin/storage";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -23,11 +23,11 @@ if (!firebaseCredentials) {
 
 // ✅ Get Service Account Key from JSON
 const serviceAccountPath = path.resolve(
-  __dirname ,
+  __dirname,
   "../../service-account.json"
 );
 
-console.log("serviceAccountPath : " , serviceAccountPath)
+console.log("serviceAccountPath : ", serviceAccountPath);
 
 if (!fs.existsSync(serviceAccountPath)) {
   throw new Error(
