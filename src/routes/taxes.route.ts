@@ -7,9 +7,7 @@ export const taxes = (router: Router) => {
   // Optionally, add an authentication guard if needed
   // router.use(authGuard.isAuth);
 
-  router.post("/", taxesController.createTax);
-  router.get("/", taxesController.getAllTaxes);
-  router.put("/", taxesController.updateTax);
-  router.delete("/:country/:state", taxesController.deleteTax);
+  router.post("/", taxesController.createOrUpdateTax); // Create or update
+  router.get("/", taxesController.getTax);
+  router.patch("/", taxesController.updateTax);
 };
-

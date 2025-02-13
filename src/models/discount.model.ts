@@ -10,9 +10,9 @@ const DiscountSchema = new Schema<IDiscount>(
       required: true,
     },
     discountValue: { type: Number, required: true, default: 0 },
-    maxDiscount: { type: Number },
-    minPurchaseAmount: { type: Number, default: 0 },
-    applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
+    // maxDiscount: { type: Number },
+    // minPurchaseAmount: { type: Number, default: 0 },
+    // applicableProducts: [{ type: Schema.Types.ObjectId, ref: "Product" }],
     applicableCategories: [
       { type: Schema.Types.ObjectId, ref: "ProductCategory" },
     ], // Store category IDs
