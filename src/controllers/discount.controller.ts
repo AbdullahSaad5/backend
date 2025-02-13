@@ -10,16 +10,16 @@ export const discountController = {
         discountName,
         discountType,
         discountValue,
-        maxDiscount,
-        minPurchaseAmount,
-        applicableProducts,
+        // maxDiscount,
+        // minPurchaseAmount,
+        // applicableProducts,
         applicableCategories,
       } = req.body;
 
       // Convert string IDs to ObjectIds
-      const convertedProducts = applicableProducts?.map(
-        (id: string) => new mongoose.Types.ObjectId(id)
-      );
+      // const convertedProducts = applicableProducts?.map(
+      //   (id: string) => new mongoose.Types.ObjectId(id)
+      // );
       const convertedCategories = applicableCategories?.map(
         (id: string) => new mongoose.Types.ObjectId(id)
       );
@@ -28,19 +28,17 @@ export const discountController = {
         discountName,
         discountType,
         discountValue,
-        maxDiscount,
-        minPurchaseAmount,
-        applicableProducts: convertedProducts,
+        // maxDiscount,
+        // minPurchaseAmount,
+        // applicableProducts: convertedProducts,
         applicableCategories: convertedCategories,
       });
 
       await newDiscount.save();
-      res
-        .status(201)
-        .json({
-          message: "Discount created successfully",
-          discount: newDiscount,
-        });
+      res.status(201).json({
+        message: "Discount created successfully",
+        discount: newDiscount,
+      });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
@@ -50,7 +48,7 @@ export const discountController = {
   getAllDiscounts: async (_req: Request, res: Response) => {
     try {
       const discounts = await Discount.find()
-        .populate("applicableProducts", "name price") // Fetch product details
+        // .populate("applicableProducts", "name price") // Fetch product details
         .populate("applicableCategories", "name"); // Fetch category details
 
       res.status(200).json(discounts);
@@ -63,7 +61,7 @@ export const discountController = {
   getDiscountById: async (req: Request, res: Response) => {
     try {
       const discount = await Discount.findById(req.params.id)
-        .populate("applicableProducts", "name price")
+        // .populate("applicableProducts", "name price")
         .populate("applicableCategories", "name");
 
       if (!discount)
@@ -82,16 +80,16 @@ export const discountController = {
         discountName,
         discountType,
         discountValue,
-        maxDiscount,
-        minPurchaseAmount,
-        applicableProducts,
+        // maxDiscount,
+        // minPurchaseAmount,
+        // applicableProducts,
         applicableCategories,
       } = req.body;
 
       // Convert string IDs to ObjectIds
-      const convertedProducts = applicableProducts?.map(
-        (id: string) => new mongoose.Types.ObjectId(id)
-      );
+      // const convertedProducts = applicableProducts?.map(
+      //   (id: string) => new mongoose.Types.ObjectId(id)
+      // );
       const convertedCategories = applicableCategories?.map(
         (id: string) => new mongoose.Types.ObjectId(id)
       );
@@ -102,9 +100,9 @@ export const discountController = {
           discountName,
           discountType,
           discountValue,
-          maxDiscount,
-          minPurchaseAmount,
-          applicableProducts: convertedProducts,
+          // maxDiscount,
+          // minPurchaseAmount,
+          // applicableProducts: convertedProducts,
           applicableCategories: convertedCategories,
         },
         { new: true, runValidators: true }
@@ -113,12 +111,10 @@ export const discountController = {
       if (!updatedDiscount)
         return res.status(404).json({ message: "Discount not found" });
 
-      res
-        .status(200)
-        .json({
-          message: "Discount updated successfully",
-          discount: updatedDiscount,
-        });
+      res.status(200).json({
+        message: "Discount updated successfully",
+        discount: updatedDiscount,
+      });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
@@ -147,16 +143,16 @@ export const discountController = {
         return res.status(404).json({ message: "Discount not found" });
 
       // Check if the discount applies to the product or category
-      if (
-        (discount.applicableProducts?.length ?? 0) > 0 &&
-        !(discount.applicableProducts ?? []).includes(
-          new mongoose.Types.ObjectId(productId)
-        )
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Discount is not valid for this product" });
-      }
+      // if (
+      //   (discount.applicableProducts?.length ?? 0) > 0 &&
+      //   !(discount.applicableProducts ?? []).includes(
+      //     new mongoose.Types.ObjectId(productId)
+      //   )
+      // ) {
+      //   return res
+      //     .status(400)
+      //     .json({ message: "Discount is not valid for this product" });
+      // }
 
       if (
         (discount.applicableCategories?.length ?? 0) > 0 &&
@@ -170,16 +166,16 @@ export const discountController = {
       }
 
       // Check minimum purchase amount
-      if (
-        discount.minPurchaseAmount &&
-        orderAmount < discount.minPurchaseAmount
-      ) {
-        return res
-          .status(400)
-          .json({
-            message: `Minimum purchase amount required is ${discount.minPurchaseAmount}`,
-          });
-      }
+      // if (
+      //   discount.minPurchaseAmount &&
+      //   orderAmount < discount.minPurchaseAmount
+      // ) {
+      //   return res
+      //     .status(400)
+      //     .json({
+      //       message: `Minimum purchase amount required is ${discount.minPurchaseAmount}`,
+      //     });
+      // }
 
       // Calculate discount amount
       let discountAmount =
@@ -187,9 +183,9 @@ export const discountController = {
           ? (orderAmount * discount.discountValue) / 100
           : discount.discountValue;
 
-      if (discount.maxDiscount && discountAmount > discount.maxDiscount) {
-        discountAmount = discount.maxDiscount;
-      }
+      // if (discount.maxDiscount && discountAmount > discount.maxDiscount) {
+      //   discountAmount = discount.maxDiscount;
+      // }
 
       res
         .status(200)
