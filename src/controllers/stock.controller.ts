@@ -69,6 +69,7 @@ export const stockController = {
       }
 
       const summary = await stockService.getStockSummary(productId);
+
       res.status(200).json(summary);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });

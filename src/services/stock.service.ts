@@ -20,24 +20,26 @@ export class stockService {
   // 📌 Get Stock Summary (Total Quantity & Last Purchase)
   static async getStockSummary(productId: string) {
     const stocks = await Stock.find({ productId });
-
+  
     if (stocks.length === 0) {
       return { message: "No stock records found", totalQuantity: 0 };
     }
-
-    const totalQuantity = stocks.reduce(
-      (sum, stock) => sum + stock.quantity,
-      0
-    );
-    const lastPurchase = stocks[stocks.length - 1];
-
+  
+    // Calculate total stock quantity
+    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+  
+    // Get the latest stock entry (most recent purchase)
+    const lastStockEntry = stocks[stocks.length - 1];
+  
     return {
       message: "Stock summary retrieved",
       totalQuantity,
-      lastPurchase,
+      latestPurchasePrice: lastStockEntry.purchasePricePerUnit,
+      lastUpdated: lastStockEntry.purchaseDate,
+      stockEntries: stocks,
     };
   }
-
+  
   // 📌 Delete All Stock Purchases for a Product
   static async deleteStock(productId: string) {
     return await Stock.findOneAndDelete({ productId });
