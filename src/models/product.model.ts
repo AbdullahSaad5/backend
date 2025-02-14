@@ -5,8 +5,18 @@ import {
   IWebsitePlatformDetails,
   IProduct,
 } from "@/contracts/product.contract";
-import { fileSchema } from "./user.model";
+import { invokeMap } from "lodash";
 
+export const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+  filename: { type: String },
+};
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
@@ -26,8 +36,18 @@ const prodInfoSchema = {
 };
 
 const prodMediaSchema = {
-  images: { type: [fileSchema], _id: false },
-  videos: { type: [fileSchema], _id: false },
+  amazon: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
+  ebay: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
+  website: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
 };
 
 const prodPricingSchema = {
