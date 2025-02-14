@@ -7,7 +7,6 @@ interface IStock extends Document {
   purchasePricePerUnit: number;
   costPricePerUnit: number;
   retailPricePerUnit: number;
-  discount: number;
   tax: number;
   expiryDate?: Date;
   receivedDate: Date;
