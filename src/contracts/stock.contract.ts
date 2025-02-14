@@ -14,7 +14,7 @@ interface IStock extends Document {
   purchaseDate: Date;
 
   stockThreshold: number;
-  batchNumber: number;
+  // batchNumber: number;
 }
 
 export { IStock };
