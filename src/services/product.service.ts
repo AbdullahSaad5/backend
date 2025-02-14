@@ -253,7 +253,7 @@ export const productService = {
       throw new Error("Failed to fetch full product");
     }
   },
-  
+
   getAllProducts: async () => {
     try {
       return await Product.find()
