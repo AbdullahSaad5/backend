@@ -172,6 +172,8 @@ export function transformProductData(data: any) {
       "condition",
       "conditionDescription",
       "pricingFormat",
+      "discountType",
+      "discountValue",
       "vat",
       "paymentPolicy",
       "buy2andSave",

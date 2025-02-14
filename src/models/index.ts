@@ -11,4 +11,5 @@ export { Variation } from "./variation.model";
 export { FaqsPolicy } from "./faqs-policy.model";
 export { Coupon } from "./coupon.model";
 export { Discount } from "./discount.model";
+export { Stock } from "./stock.model";
 export { Taxes } from "./taxes.model";

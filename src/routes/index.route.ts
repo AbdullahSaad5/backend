@@ -23,6 +23,7 @@ import { faqsPolicy } from "./faqs-policy.route";
 import { coupon } from "./coupon.route";
 import { discount } from "./discount.route";
 import { taxes } from "./taxes.route";
+import { stock} from "./stock.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -42,6 +43,7 @@ const routes: {
   variations,
   supplier,
   supplierCategory,
+  stock,
   product,
   productCategory,
   productBrand,

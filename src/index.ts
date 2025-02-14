@@ -16,11 +16,9 @@ dotenv.config({
 
 const app: Express = express();
 
-
 // Connect to MongoDB
 mongoose.run();
-app.options("*", corsMiddleware); 
-// const accessLogStream = fs.createWriteStream(__dirname + "/access.log", { flags: "a" });
+app.options("*", corsMiddleware);
 
 // This route is specifically handled before the express.json() middleware to allow raw JSON requests
 // from Stripe webhook
@@ -39,6 +37,16 @@ app.use(
   authMiddleware,
   helmet()
 );
+
+// Add the new route to show the welcome message
+app.get("/", (req, res) => {
+  res.send("Welcome to Bavit Backend");
+});
+
+// Optional: A different endpoint for showing the welcome message
+// app.get("/welcome", (req, res) => {
+//   res.send("Welcome to Bavit Backend");
+// });
 
 app.post("/", async (req, res) => {
   await Producttt.create({

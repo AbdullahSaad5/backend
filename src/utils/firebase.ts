@@ -1,53 +1,42 @@
-// import admin from "firebase-admin";
-import * as admin from 'firebase-admin';
+import * as admin from "firebase-admin";
 import { getStorage } from "firebase-admin/storage";
 import dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
 
 // ✅ Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
-// ✅ Load Firebase credentials from GitHub Secret
-const firebaseCredentials =
-  process.env.FIREBASE_ADMIN_CREDENTIALS ||
-  process.env.NEXT_PUBLIC_FIREBASE_SERVICE_ACCOUNT_FILE_NAME;
 
-if (!firebaseCredentials) {
-  throw new Error(
-    "❌ Firebase credentials are missing. Set FIREBASE_ADMIN_CREDENTIALS in GitHub Secrets."
-  );
+let firebaseCredentials;
+try {
+  const firebaseAdminCredentials = process.env.FIREBASE_ADMIN_CREDENTIALS;
+
+  
+  if (!firebaseAdminCredentials) {
+    throw new Error("❌ FIREBASE_ADMIN_CREDENTIALS is not defined.");
+  }
+
+  firebaseCredentials = JSON.parse(firebaseAdminCredentials);
+  // console.log("with PARSE::", firebaseCredentials);
+
+  if (!firebaseCredentials.private_key) {
+    throw new Error("❌ private_key is missing in FIREBASE_ADMIN_CREDENTIALS.");
+  }
+  // firebaseCredentials.private_key = firebaseCredentials.private_key.replace(
+  //   /\\n/g,
+  //   "\n"
+  // );
+} catch (error) {
+  console.error("❌ Error parsing FIREBASE_ADMIN_CREDENTIALS:", error);
+  process.exit(1);
 }
-
-// ✅ Parse the secret JSON string
-// const serviceAccount = JSON.parse(firebaseCredentials.replace(/\\n/g, "\n")); // Fix escaped newlines
-
-// ✅ Get Service Account Key from JSON
-const serviceAccountPath = path.resolve(
-  __dirname ,
-  "../../service-account.json"
-);
-
-console.log("serviceAccountPath : " , serviceAccountPath)
-
-if (!fs.existsSync(serviceAccountPath)) {
-  throw new Error(
-    `❌ Firebase service account file not found at ${serviceAccountPath}`
-  );
-}
-
-const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, "utf8"));
-
-// ✅ Prevent multiple initializations in hot-reloading environments
-if (!admin.apps?.length) {
+// ✅ Initialize Firebase if not already initialized
+if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    // credential: admin.credential.applicationDefault(),
+    credential: admin.credential.cert(firebaseCredentials), // ✅ Use parsed object
     storageBucket:
       process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ||
       "axiom-528ab.appspot.com",
   });
 }
-console.log("serviceAccount", serviceAccount);
 // ✅ Get Firebase Storage Bucket
 export const adminStorage = getStorage().bucket();
 
@@ -79,7 +68,7 @@ export const uploadFileToFirebase = async (
 
     // ✅ Generate and return the public URL
     const publicUrl = `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${destination}`;
-    console.log("✅ File uploaded successfully:", publicUrl);
+    // console.log("✅ File uploaded successfully:", publicUrl);
     return publicUrl;
   } catch (error) {
     console.error("❌ Firebase Storage Upload Error:", error);
