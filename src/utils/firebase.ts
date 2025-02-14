@@ -9,6 +9,7 @@ let firebaseCredentials;
 try {
   const firebaseAdminCredentials = process.env.FIREBASE_ADMIN_CREDENTIALS;
 
+  
   if (!firebaseAdminCredentials) {
     throw new Error("❌ FIREBASE_ADMIN_CREDENTIALS is not defined.");
   }
