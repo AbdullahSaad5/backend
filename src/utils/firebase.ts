@@ -19,10 +19,10 @@ try {
   if (!firebaseCredentials.private_key) {
     throw new Error("❌ private_key is missing in FIREBASE_ADMIN_CREDENTIALS.");
   }
-  firebaseCredentials.private_key = firebaseCredentials.private_key.replace(
-    /\\n/g,
-    "\n"
-  );
+  // firebaseCredentials.private_key = firebaseCredentials.private_key.replace(
+  //   /\\n/g,
+  //   "\n"
+  // );
 } catch (error) {
   console.error("❌ Error parsing FIREBASE_ADMIN_CREDENTIALS:", error);
   process.exit(1);
