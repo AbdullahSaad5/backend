@@ -9,7 +9,7 @@ export const authGuard = {
     res: Response,
     next: NextFunction
   ) => {
-    console.log("User in Guard:", user);
+    // console.log("User in Guard:", user);play
 
     if (user) {
       return next();
