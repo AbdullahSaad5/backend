@@ -33,6 +33,8 @@ const prodMediaSchema = {
 const prodPricingSchema = {
   // prod pricing details
   quantity: { type: String },
+  discountType: { type: String, enum: ["fixed", "percentage"] },
+  discountValue: { type: String },
   price: { type: String },
   condition: { type: String },
   conditionDescription: { type: String },
