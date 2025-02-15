@@ -15,7 +15,7 @@ try {
     throw new Error("❌ private_key is missing in FIREBASE_ADMIN_CREDENTIALS.");
   }
 } catch (error) {
-  console.error("❌ Error parsing FIREBASE_ADMIN_CREDENTIALS:", error);
+  console.error("❌ Error parsing FIREBASE_ADMIN_CREDENTIALS in send-fcm.util.ts:", error);
   process.exit(1);
 }
 

@@ -4,14 +4,14 @@ import dotenv from "dotenv";
 
 // ✅ Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
-
+// console.log("NODE ENV HERE IN FIREBASE TS",process.env.NODE_ENV )
 let firebaseCredentials;
 try {
   const firebaseAdminCredentials = process.env.FIREBASE_ADMIN_CREDENTIALS;
 
-  
+  // console.log("without PARSE::", process.env.FIREBASE_ADMIN_CREDENTIALS);
   if (!firebaseAdminCredentials) {
-    throw new Error("❌ FIREBASE_ADMIN_CREDENTIALS is not defined.");
+    throw new Error("❌ FIREBASE_ADMIN_CREDENTIALS is not defined");
   }
 
   firebaseCredentials = JSON.parse(firebaseAdminCredentials);
@@ -20,12 +20,15 @@ try {
   if (!firebaseCredentials.private_key) {
     throw new Error("❌ private_key is missing in FIREBASE_ADMIN_CREDENTIALS.");
   }
-  // firebaseCredentials.private_key = firebaseCredentials.private_key.replace(
-  //   /\\n/g,
-  //   "\n"
-  // );
+  firebaseCredentials.private_key = firebaseCredentials.private_key.replace(
+    /\\n/g,
+    "\n"
+  );
 } catch (error) {
-  console.error("❌ Error parsing FIREBASE_ADMIN_CREDENTIALS:", error);
+  console.error(
+    "❌ Error parsing FIREBASE_ADMIN_CREDENTIALS in firebase.ts:",
+    error
+  );
   process.exit(1);
 }
 // ✅ Initialize Firebase if not already initialized
