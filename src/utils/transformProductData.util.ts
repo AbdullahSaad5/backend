@@ -179,6 +179,9 @@ export function transformProductData(data: any) {
       "buy2andSave",
       "buy3andSave",
       "buy4andSave",
+      "warrantyDuration",
+      "warrantyCoverage",
+      "warrantyDocument",
     ],
     prodDelivery: [
       "postagePolicy",

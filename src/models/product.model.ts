@@ -59,6 +59,9 @@ const prodPricingSchema = {
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
+  warrantyDuration: { type: Number, required: true }, // Duration in days
+  warrantyCoverage: { type: String, required: true }, // Coverage description
+  warrantyDocument: { type: String }, // URL or file path
 };
 
 const prodDeliverySchema = {
