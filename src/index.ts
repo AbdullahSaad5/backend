@@ -5,7 +5,7 @@ import morgan from "morgan";
 import { mongoose } from "./datasources";
 import { authMiddleware, corsMiddleware } from "./middlewares";
 import { router } from "./routes/index.route";
-import { Producttt } from "./models/descriminator.model";
+import { Producttt } from "./models/discriminator.model";
 // import Stripe from "stripe";
 // import { stripeController } from "./controllers/stripe.controller";
 

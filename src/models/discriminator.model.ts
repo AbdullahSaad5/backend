@@ -6,7 +6,7 @@ const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     details: {
-      processor: { type: String, },
+      processor: { type: String },
       model: { type: String },
       brand: { type: String },
     },
@@ -36,7 +36,7 @@ Producttt.discriminator(
     {
       techSpecf: {
         resolution: { type: String },
-        lumens: { type: String},
+        lumens: { type: String },
         contrast: { type: String },
       },
     },
