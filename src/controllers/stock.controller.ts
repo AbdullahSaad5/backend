@@ -94,4 +94,47 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+  bulkUpdateStockCost: async (req: Request, res: Response) => {
+    try {
+      const {
+        stockIds,
+        costPricePerUnit,
+        purchasePricePerUnit,
+        retailPricePerUnit,
+      } = req.body;
+
+      if (!Array.isArray(stockIds) || stockIds.length === 0) {
+        return res.status(400).json({ message: "stockIds array is required" });
+      }
+
+      if (!costPricePerUnit || !purchasePricePerUnit || !retailPricePerUnit) {
+        return res
+          .status(400)
+          .json({ message: "All cost values are required" });
+      }
+
+      // Validate each stockId
+      for (const stockId of stockIds) {
+        if (!mongoose.Types.ObjectId.isValid(stockId)) {
+          return res
+            .status(400)
+            .json({ message: `Invalid stockId: ${stockId}` });
+        }
+      }
+
+      // Perform bulk update
+      const result = await stockService.bulkUpdateStockCost(
+        stockIds,
+        costPricePerUnit,
+        purchasePricePerUnit,
+        retailPricePerUnit
+      );
+
+      return res
+        .status(200)
+        .json({ message: "Stock costs updated successfully", result });
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
 };

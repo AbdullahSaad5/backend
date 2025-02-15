@@ -84,4 +84,21 @@ export class stockService {
   static async notifyLowStock(productId: string) {
     return await stockThresholdService.notifyLowStock(productId);
   }
+  static async bulkUpdateStockCost(
+    stockIds: string[],
+    costPricePerUnit: number,
+    purchasePricePerUnit: number,
+    retailPricePerUnit: number
+  ) {
+    return await Stock.updateMany(
+      { _id: { $in: stockIds } }, // Update only the matching stock IDs
+      {
+        $set: {
+          costPricePerUnit,
+          purchasePricePerUnit,
+          retailPricePerUnit,
+        },
+      }
+    );
+  }
 }
