@@ -1,8 +1,6 @@
 import { IWarranty } from "@/contracts/warranty.contract";
 import mongoose, { Schema, Document } from "mongoose";
 
-
-
 const WarrantySchema = new Schema<IWarranty>(
   {
     productId: {
@@ -26,7 +24,4 @@ const WarrantySchema = new Schema<IWarranty>(
   { timestamps: true }
 );
 
-export const Warranty = mongoose.model<IWarranty>(
-  "Warranty",
-  WarrantySchema
-);
+export const Warranty = mongoose.model<IWarranty>("Warranty", WarrantySchema);

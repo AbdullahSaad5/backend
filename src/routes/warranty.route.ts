@@ -11,5 +11,4 @@ export const warranty = (router: Router) => {
   router.get("/:id", warrantyController.getWarrantyById); // Get Single Warranty
   router.put("/:id", warrantyController.updateWarranty); // Update Warranty
   router.delete("/:id", warrantyController.deleteWarranty); // Delete Warranty
-  
 };
