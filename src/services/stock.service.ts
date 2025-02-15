@@ -84,6 +84,12 @@ export class stockService {
   static async notifyLowStock(productId: string) {
     return await stockThresholdService.notifyLowStock(productId);
   }
+  // 📌 Get Existing Stock Records
+  static async getExistingStocks(stockIds: string[]) {
+    return await Stock.find({ _id: { $in: stockIds } }, { _id: 1 });
+  }
+
+  // 📌 Bulk Update Stock Costs (After Validation)
   static async bulkUpdateStockCost(
     stockIds: string[],
     costPricePerUnit: number,
@@ -91,7 +97,7 @@ export class stockService {
     retailPricePerUnit: number
   ) {
     return await Stock.updateMany(
-      { _id: { $in: stockIds } }, // Update only the matching stock IDs
+      { _id: { $in: stockIds } }, // Update only valid stock IDs
       {
         $set: {
           costPricePerUnit,

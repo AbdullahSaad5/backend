@@ -113,13 +113,21 @@ export const stockController = {
           .json({ message: "All cost values are required" });
       }
 
-      // Validate each stockId
+      // Validate each stockId format
       for (const stockId of stockIds) {
         if (!mongoose.Types.ObjectId.isValid(stockId)) {
           return res
             .status(400)
             .json({ message: `Invalid stockId: ${stockId}` });
         }
+      }
+
+      // Check if all stockIds exist in the database
+      const existingStocks = await stockService.getExistingStocks(stockIds);
+      if (existingStocks.length !== stockIds.length) {
+        return res
+          .status(404)
+          .json({ message: "One or more stock records not found" });
       }
 
       // Perform bulk update
