@@ -1,10 +1,24 @@
 import { Stock } from "@/models/stock.model";
 import { stockThresholdService } from "./stockThreshold.service";
+import { Product, User } from "@/models";
 
 export class stockService {
   // 📌 Add New Stock Purchase Entry (Instead of Updating)
   static async addStock(data: any) {
     const stock = new Stock(data);
+
+    const productExists = await Product.findById(data.productId);
+    if (!productExists) {
+      throw new Error("Product not found. Please provide a valid productId.");
+    }
+
+    // 2️⃣ Check if the supplier exists
+    const supplierExists = await User.findById(data.stockSupplier);
+    if (!supplierExists) {
+      throw new Error(
+        "Supplier not found. Please provide a valid stockSupplier."
+      );
+    }
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
   }
