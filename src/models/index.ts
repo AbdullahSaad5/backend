@@ -13,3 +13,4 @@ export { Coupon } from "./coupon.model";
 export { Discount } from "./discount.model";
 export { Stock } from "./stock.model";
 export { Taxes } from "./taxes.model";
+export { Warranty } from "./warranty.model";
