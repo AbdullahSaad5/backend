@@ -58,14 +58,21 @@ export const stockController = {
         .json({ message: "Internal Server Error", error: error.message });
     }
   },
-  getAllProductsWithStocks: async (req: Request, res: Response) => {
+  // 📌 Get Products That Have Stock Along With Their Stock Entries
+  getProductsWithStock: async (req: Request, res: Response) => {
     try {
-      const productsWithStocks = await stockService.getAllProductsWithStocks();
+      const productsWithStocks = await stockService.getProductsWithStock();
+      if (productsWithStocks.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No products with stock found" });
+      }
       res.status(200).json(productsWithStocks);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+
   // 📌 Get All Stock Purchases for a Product
   getStockByProduct: async (req: Request, res: Response) => {
     try {

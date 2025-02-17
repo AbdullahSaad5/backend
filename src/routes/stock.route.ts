@@ -7,8 +7,8 @@ export const stock = (router: Router) => {
   // router.use(authGuard.isAuth);
   // Route to create a new stock
   router.get(
-    "/all-products-with-stocks",
-    stockController.getAllProductsWithStocks
+    "/products-with-stocks",
+    stockController.getProductsWithStock
   );
   router.post("/", stockController.addStock); // Add stock purchase
   router.get("/:productId", stockController.getStockByProduct); // Get stock purchase history
