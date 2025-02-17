@@ -1,5 +1,6 @@
 import { Stock } from "@/models/stock.model";
 import { Product } from "@/models";
+import { IStock } from "@/contracts/stock.contract";
 
 export class stockService {
   // 📌 Add New Stock Purchase Entry
@@ -45,6 +46,12 @@ export class stockService {
   // 📌 Delete Stock Entry
   static async deleteStock(stockId: string) {
     return await Stock.findByIdAndDelete(stockId);
+  }
+  static async updateStock(stockId: string, updateData: Partial<IStock>) {
+    return await Stock.findByIdAndUpdate(stockId, updateData, {
+      new: true, // Return updated document
+      runValidators: true, // Ensure validations are applied
+    });
   }
 
   // 📌 Get Existing Stock Records

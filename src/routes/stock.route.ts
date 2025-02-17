@@ -11,5 +11,6 @@ export const stock = (router: Router) => {
   router.get("/:productId", stockController.getStockByProduct); // Get stock purchase history
   router.get("/summary/:productId", stockController.getStockSummary); // Get stock summary
   router.delete("/:stockId", stockController.deleteStock);
+  router.patch("/:stockId", stockController.updateStock);
   router.patch("/bulk-update-cost", stockController.bulkUpdateStockCost);
 };
