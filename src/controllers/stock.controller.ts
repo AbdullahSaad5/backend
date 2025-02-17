@@ -172,6 +172,25 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+  getStockById: async (req: Request, res: Response) => {
+    try {
+      const { stockId } = req.params;
+
+      // Validate stockId
+      if (!mongoose.Types.ObjectId.isValid(stockId)) {
+        return res.status(400).json({ message: "Invalid Stock ID format" });
+      }
+
+      const stock = await stockService.getStockById(stockId);
+      if (!stock) {
+        return res.status(404).json({ message: "Stock record not found" });
+      }
+
+      res.status(200).json(stock);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
 
   // 📌 Bulk Update Stock Costs
   bulkUpdateStockCost: async (req: Request, res: Response) => {

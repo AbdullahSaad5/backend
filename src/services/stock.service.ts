@@ -53,7 +53,9 @@ export class stockService {
       runValidators: true, // Ensure validations are applied
     });
   }
-
+  static async getStockById(stockId: string) {
+    return await Stock.findById(stockId);
+  }
   // 📌 Get Existing Stock Records
   static async getExistingStocks(stockIds: string[]) {
     return await Stock.find({ _id: { $in: stockIds } }, { _id: 1 });
