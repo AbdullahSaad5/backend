@@ -133,10 +133,30 @@ export const stockController = {
   updateStock: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
-      const updateData = req.body; // Get fields to update from request body
+      const updateData = req.body;
 
+      // Validate stockId
       if (!mongoose.Types.ObjectId.isValid(stockId)) {
         return res.status(400).json({ message: "Invalid Stock ID format" });
+      }
+
+      // Allowed fields for update
+      const allowedFields = [
+        "quantity",
+        "purchasePricePerUnit",
+        "costPricePerUnit",
+        "retailPricePerUnit",
+      ];
+
+      // Check if any forbidden field is in the request
+      const invalidFields = Object.keys(updateData).filter(
+        (field) => !allowedFields.includes(field)
+      );
+
+      if (invalidFields.length > 0) {
+        return res.status(400).json({
+          message: `Invalid fields in request: ${invalidFields.join(", ")}`,
+        });
       }
 
       const stock = await stockService.updateStock(stockId, updateData);
