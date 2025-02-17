@@ -6,34 +6,70 @@ export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
     try {
-      const { productId} = req.body;
-
-      if (!productId ) {
-        return res
-          .status(400)
-          .json({ message: "Product ID  is required" });
-      }
+      const {
+        productId,
+        quantity,
+        purchasePricePerUnit,
+        costPricePerUnit,
+        retailPricePerUnit,
+        batchNumber,
+      } = req.body;
 
       if (
-        !mongoose.Types.ObjectId.isValid(productId) 
-        
+        !productId ||
+        !quantity ||
+        !purchasePricePerUnit ||
+        !costPricePerUnit ||
+        !retailPricePerUnit ||
+        !batchNumber
       ) {
         return res
           .status(400)
-          .json({ message: "Invalid Product ID  format" });
+          .json({ message: "All required stock fields must be provided" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(productId)) {
+        return res.status(400).json({ message: "Invalid Product ID format" });
       }
 
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
     } catch (error: any) {
+      console.error("❌ Error in addStock:", error);
+
+      if (error.name === "ValidationError") {
+        return res
+          .status(400)
+          .json({ message: "Validation Error", error: error.message });
+      }
+      if (error.message.includes("Product not found")) {
+        return res.status(404).json({ message: error.message });
+      }
       if (error.code === 11000) {
         return res.status(400).json({
           message:
             "Duplicate stock entry detected. Ensure productId is correct.",
-          error,
+          error: error.keyValue,
         });
       }
-      res.status(500).json({ message: "Error processing stock", error });
+
+      res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
+    }
+  },
+  // 📌 Get Products That Have Stock Along With Their Stock Entries
+  getProductsWithStock: async (req: Request, res: Response) => {
+    try {
+      const productsWithStocks = await stockService.getProductsWithStock();
+      if (productsWithStocks.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No products with stock found" });
+      }
+      res.status(200).json(productsWithStocks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
     }
   },
 
@@ -43,7 +79,7 @@ export const stockController = {
       const { productId } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(productId)) {
-        return res.status(400).json({ message: "Invalid product ID format" });
+        return res.status(400).json({ message: "Invalid Product ID format" });
       }
 
       const stocks = await stockService.getStockByProduct(productId);
@@ -65,23 +101,23 @@ export const stockController = {
       const { productId } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(productId)) {
-        return res.status(400).json({ message: "Invalid product ID format" });
+        return res.status(400).json({ message: "Invalid Product ID format" });
       }
 
       const summary = await stockService.getStockSummary(productId);
-
       res.status(200).json(summary);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
 
+  // 📌 Delete Stock Entry
   deleteStock: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
 
       if (!mongoose.Types.ObjectId.isValid(stockId)) {
-        return res.status(400).json({ message: "Invalid stock ID format" });
+        return res.status(400).json({ message: "Invalid Stock ID format" });
       }
 
       const stock = await stockService.deleteStock(stockId);
@@ -94,6 +130,8 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+
+  // 📌 Bulk Update Stock Costs
   bulkUpdateStockCost: async (req: Request, res: Response) => {
     try {
       const {
@@ -107,13 +145,16 @@ export const stockController = {
         return res.status(400).json({ message: "stockIds array is required" });
       }
 
-      if (!costPricePerUnit || !purchasePricePerUnit || !retailPricePerUnit) {
+      if (
+        costPricePerUnit === undefined ||
+        purchasePricePerUnit === undefined ||
+        retailPricePerUnit === undefined
+      ) {
         return res
           .status(400)
           .json({ message: "All cost values are required" });
       }
 
-      // Validate each stockId format
       for (const stockId of stockIds) {
         if (!mongoose.Types.ObjectId.isValid(stockId)) {
           return res
@@ -122,7 +163,6 @@ export const stockController = {
         }
       }
 
-      // Check if all stockIds exist in the database
       const existingStocks = await stockService.getExistingStocks(stockIds);
       if (existingStocks.length !== stockIds.length) {
         return res
@@ -130,14 +170,12 @@ export const stockController = {
           .json({ message: "One or more stock records not found" });
       }
 
-      // Perform bulk update
       const result = await stockService.bulkUpdateStockCost(
         stockIds,
         costPricePerUnit,
         purchasePricePerUnit,
         retailPricePerUnit
       );
-
       return res
         .status(200)
         .json({ message: "Stock costs updated successfully", result });
