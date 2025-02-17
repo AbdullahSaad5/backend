@@ -24,21 +24,25 @@ export const supplierService = {
       email,
       password,
       phoneNumber,
-      userType,
       additionalDocuments,
       supplierCategory,
     } = data;
-
+  
     const hashedPassword = await createHash(password);
-
-    let supplierKey: string | undefined;
-    if (userType) {
-      const userCategory = await UserCategory.findById(userType);
-      if (userCategory?.role.toLowerCase() === "supplier") {
-        supplierKey = await generateUniqueSupplierKey(firstName, lastName);
-      }
+  
+    // Find supplier userType from UserCategory
+    const supplierCategoryDoc = await UserCategory.findOne({ role: "supplier" });
+  
+    if (!supplierCategoryDoc) {
+      throw new Error("Supplier user type not found in UserCategory.");
     }
-
+  
+    const userType = supplierCategoryDoc._id; // Hardcoded userType as "supplier"
+  
+    // Generate unique supplier key
+    const supplierKey = await generateUniqueSupplierKey(firstName, lastName);
+  
+    // Create the new supplier
     const supplier = new User({
       firstName,
       lastName,
@@ -46,13 +50,14 @@ export const supplierService = {
       password: hashedPassword,
       phoneNumber,
       supplierCategory,
-      userType,
+      userType, // Ensuring userType is set as "supplier"
       additionalDocuments,
       supplierKey, // Ensure supplierKey is generated and added
     });
-
+  
     return supplier.save();
   },
+  
 
   createAddress: (address: ISupplierAddress) => {
     const newAddress = new Address(address);
