@@ -1,10 +1,16 @@
 import { Stock } from "@/models/stock.model";
 import { stockThresholdService } from "./stockThreshold.service";
+import { Product, User } from "@/models";
 
 export class stockService {
   // 📌 Add New Stock Purchase Entry (Instead of Updating)
   static async addStock(data: any) {
     const stock = new Stock(data);
+
+    const productExists = await Product.findById(data.productId);
+    if (!productExists) {
+      throw new Error("Product not found. Please provide a valid productId.");
+    }
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
   }
@@ -13,7 +19,6 @@ export class stockService {
   static async getStockByProduct(productId: string) {
     return await Stock.find({ productId }).populate([
       "productId",
-      "stockSupplier",
     ]);
   }
 
@@ -69,5 +74,28 @@ export class stockService {
   // 📌 Notify Admin if Stock is Low
   static async notifyLowStock(productId: string) {
     return await stockThresholdService.notifyLowStock(productId);
+  }
+  // 📌 Get Existing Stock Records
+  static async getExistingStocks(stockIds: string[]) {
+    return await Stock.find({ _id: { $in: stockIds } }, { _id: 1 });
+  }
+
+  // 📌 Bulk Update Stock Costs (After Validation)
+  static async bulkUpdateStockCost(
+    stockIds: string[],
+    costPricePerUnit: number,
+    purchasePricePerUnit: number,
+    retailPricePerUnit: number
+  ) {
+    return await Stock.updateMany(
+      { _id: { $in: stockIds } }, // Update only valid stock IDs
+      {
+        $set: {
+          costPricePerUnit,
+          purchasePricePerUnit,
+          retailPricePerUnit,
+        },
+      }
+    );
   }
 }

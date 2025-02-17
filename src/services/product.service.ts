@@ -253,7 +253,7 @@ export const productService = {
       throw new Error("Failed to fetch full product");
     }
   },
-  
+
   getAllProducts: async () => {
     try {
       return await Product.find()
@@ -688,5 +688,20 @@ export const productService = {
       console.error("❌ Export Failed:", error);
       throw new Error("Failed to export products.");
     }
+  },
+  bulkUpdateProductTaxDiscount: async (
+    productIds: string[],
+    discount: number,
+    tax: number
+  ) => {
+    return await Product.updateMany(
+      { _id: { $in: productIds } }, // Update only valid product IDs
+      {
+        $set: {
+          discount,
+          tax,
+        },
+      }
+    );
   },
 };

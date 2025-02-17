@@ -18,17 +18,17 @@ import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
 import { variations } from "./variations.route";
 import { paymentPolicy } from "./payment-policy.route";
-import { descriminatorRouter } from "./descriminator.route";
+import { discriminatorRouter } from "./discriminator.route";
 import { faqsPolicy } from "./faqs-policy.route";
 import { coupon } from "./coupon.route";
 import { discount } from "./discount.route";
 import { taxes } from "./taxes.route";
-import { stock} from "./stock.route";
+import { stock } from "./stock.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
 
-router.use("/descriminator", descriminatorRouter);
+router.use("/discriminator", discriminatorRouter);
 
 // Define all routes
 const routes: {
@@ -55,7 +55,7 @@ const routes: {
   discount,
   taxes,
   faqsPolicy,
-  // descriminator,
+  // discriminator,
 };
 
 // Loop through all routes and pass the router to each route

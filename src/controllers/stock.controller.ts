@@ -6,21 +6,21 @@ export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
     try {
-      const { productId, stockSupplier } = req.body;
+      const { productId} = req.body;
 
-      if (!productId || !stockSupplier) {
+      if (!productId ) {
         return res
           .status(400)
-          .json({ message: "Product ID and Supplier ID are required" });
+          .json({ message: "Product ID  is required" });
       }
 
       if (
-        !mongoose.Types.ObjectId.isValid(productId) ||
-        !mongoose.Types.ObjectId.isValid(stockSupplier)
+        !mongoose.Types.ObjectId.isValid(productId) 
+        
       ) {
         return res
           .status(400)
-          .json({ message: "Invalid Product ID or Supplier ID format" });
+          .json({ message: "Invalid Product ID  format" });
       }
 
       const result = await stockService.addStock(req.body);
@@ -29,7 +29,7 @@ export const stockController = {
       if (error.code === 11000) {
         return res.status(400).json({
           message:
-            "Duplicate stock entry detected. Ensure productId and supplierId are correct.",
+            "Duplicate stock entry detected. Ensure productId is correct.",
           error,
         });
       }
@@ -90,6 +90,57 @@ export const stockController = {
       }
 
       res.status(200).json({ message: "Stock record deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
+  bulkUpdateStockCost: async (req: Request, res: Response) => {
+    try {
+      const {
+        stockIds,
+        costPricePerUnit,
+        purchasePricePerUnit,
+        retailPricePerUnit,
+      } = req.body;
+
+      if (!Array.isArray(stockIds) || stockIds.length === 0) {
+        return res.status(400).json({ message: "stockIds array is required" });
+      }
+
+      if (!costPricePerUnit || !purchasePricePerUnit || !retailPricePerUnit) {
+        return res
+          .status(400)
+          .json({ message: "All cost values are required" });
+      }
+
+      // Validate each stockId format
+      for (const stockId of stockIds) {
+        if (!mongoose.Types.ObjectId.isValid(stockId)) {
+          return res
+            .status(400)
+            .json({ message: `Invalid stockId: ${stockId}` });
+        }
+      }
+
+      // Check if all stockIds exist in the database
+      const existingStocks = await stockService.getExistingStocks(stockIds);
+      if (existingStocks.length !== stockIds.length) {
+        return res
+          .status(404)
+          .json({ message: "One or more stock records not found" });
+      }
+
+      // Perform bulk update
+      const result = await stockService.bulkUpdateStockCost(
+        stockIds,
+        costPricePerUnit,
+        purchasePricePerUnit,
+        retailPricePerUnit
+      );
+
+      return res
+        .status(200)
+        .json({ message: "Stock costs updated successfully", result });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }

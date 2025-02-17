@@ -5,8 +5,18 @@ import {
   IWebsitePlatformDetails,
   IProduct,
 } from "@/contracts/product.contract";
-import { fileSchema } from "./user.model";
+import { invokeMap } from "lodash";
 
+export const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+  filename: { type: String },
+};
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
@@ -26,8 +36,8 @@ const prodInfoSchema = {
 };
 
 const prodMediaSchema = {
-  images: { type: [fileSchema], _id: false },
-  videos: { type: [fileSchema], _id: false },
+  images: { type: [mediaSchema], _id: false },
+  videos: { type: [mediaSchema], _id: false },
 };
 
 const prodPricingSchema = {
@@ -49,6 +59,9 @@ const prodPricingSchema = {
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
+  warrantyDuration: { type: Number, required: true }, // Duration in days
+  warrantyCoverage: { type: String, required: true }, // Coverage description
+  warrantyDocument: { type: String }, // URL or file path
 };
 
 const prodDeliverySchema = {
@@ -317,6 +330,8 @@ const productSchema = new Schema(
     isBlocked: { type: Boolean, default: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
+    tax: { type: Number, required: true, min: 0 },
+    stockThreshold: { type: Number, default: 10 },
   },
   options
 );
