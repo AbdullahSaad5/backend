@@ -35,16 +35,27 @@ export const stockController = {
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
     } catch (error: any) {
-      if (error.code === 11000) {
+      console.error("❌ Error in addStock:", error);
+
+      if (error.name === "ValidationError") {
         return res
           .status(400)
-          .json({
-            message:
-              "Duplicate stock entry detected. Ensure productId is correct.",
-            error,
-          });
+          .json({ message: "Validation Error", error: error.message });
       }
-      res.status(500).json({ message: "Error processing stock", error });
+      if (error.message.includes("Product not found")) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error.code === 11000) {
+        return res.status(400).json({
+          message:
+            "Duplicate stock entry detected. Ensure productId is correct.",
+          error: error.keyValue,
+        });
+      }
+
+      res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
     }
   },
 
