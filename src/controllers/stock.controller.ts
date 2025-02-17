@@ -6,21 +6,21 @@ export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
     try {
-      const { productId, stockSupplier } = req.body;
+      const { productId} = req.body;
 
-      if (!productId || !stockSupplier) {
+      if (!productId ) {
         return res
           .status(400)
-          .json({ message: "Product ID and Supplier ID are required" });
+          .json({ message: "Product ID  is required" });
       }
 
       if (
-        !mongoose.Types.ObjectId.isValid(productId) ||
-        !mongoose.Types.ObjectId.isValid(stockSupplier)
+        !mongoose.Types.ObjectId.isValid(productId) 
+        
       ) {
         return res
           .status(400)
-          .json({ message: "Invalid Product ID or Supplier ID format" });
+          .json({ message: "Invalid Product ID  format" });
       }
 
       const result = await stockService.addStock(req.body);
@@ -29,7 +29,7 @@ export const stockController = {
       if (error.code === 11000) {
         return res.status(400).json({
           message:
-            "Duplicate stock entry detected. Ensure productId and supplierId are correct.",
+            "Duplicate stock entry detected. Ensure productId is correct.",
           error,
         });
       }

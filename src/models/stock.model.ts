@@ -8,11 +8,11 @@ const StockSchema = new Schema<IStock>(
       ref: "Product",
       required: true,
     },
-    stockSupplier: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    // stockSupplier: {
+    //   type: Schema.Types.ObjectId,
+    //   ref: "User",
+    //   required: true,
+    // },
     quantity: { type: Number, required: true, min: 0 },
     purchasePricePerUnit: { type: Number, required: true, min: 0 },
     costPricePerUnit: { type: Number, required: true, min: 0 },

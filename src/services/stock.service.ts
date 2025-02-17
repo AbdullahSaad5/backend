@@ -11,14 +11,6 @@ export class stockService {
     if (!productExists) {
       throw new Error("Product not found. Please provide a valid productId.");
     }
-
-    // 2️⃣ Check if the supplier exists
-    const supplierExists = await User.findById(data.stockSupplier);
-    if (!supplierExists) {
-      throw new Error(
-        "Supplier not found. Please provide a valid stockSupplier."
-      );
-    }
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
   }
@@ -27,7 +19,6 @@ export class stockService {
   static async getStockByProduct(productId: string) {
     return await Stock.find({ productId }).populate([
       "productId",
-      "stockSupplier",
     ]);
   }
 
