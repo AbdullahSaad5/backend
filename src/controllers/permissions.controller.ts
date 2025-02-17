@@ -34,6 +34,8 @@ export const permissionsController = {
             "VIEW_INVENTORY_CATEGORY",
             "ADD_INVENTORY",
             "VIEW_INVENTORY",
+            "ADD_STOCK",
+            "VIEW_STOCK",
             "MANAGE_VARIATION",
             "MANAGE_DISCOUNTS",
           ],

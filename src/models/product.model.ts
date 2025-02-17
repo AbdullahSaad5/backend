@@ -34,7 +34,7 @@ const prodPricingSchema = {
   // prod pricing details
   quantity: { type: String },
   discountType: { type: String, enum: ["fixed", "percentage"] },
-  discountValue: { type: String },
+  discountValue: { type: Number },
   price: { type: String },
   condition: { type: String },
   conditionDescription: { type: String },
