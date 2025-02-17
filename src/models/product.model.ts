@@ -330,7 +330,6 @@ const productSchema = new Schema(
     isBlocked: { type: Boolean, default: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
-    tax: { type: Number, required: true, min: 0 },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },

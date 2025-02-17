@@ -694,14 +694,36 @@ export const productService = {
     discountValue: number,
     vat: number
   ) => {
-    return await Product.updateMany(
-      { _id: { $in: productIds } }, // Update only valid product IDs
-      {
-        $set: {
-          discountValue,
-          vat,
-        },
+    try {
+      // Check if the discountValue and vat are numbers and valid
+      if (typeof discountValue !== "number" || typeof vat !== "number") {
+        throw new Error("Invalid discountValue or vat. They must be numbers.");
       }
-    );
+
+      // Perform bulk update with nested prodPricing field
+      const result = await Product.updateMany(
+        { _id: { $in: productIds } }, // Filter valid product IDs
+        {
+          $set: {
+            "platformDetails.amazon.prodPricing.discountValue": discountValue,
+            "platformDetails.ebay.prodPricing.discountValue": discountValue,
+            "platformDetails.website.prodPricing.discountValue": discountValue,
+            "platformDetails.amazon.prodPricing.vat": vat,
+            "platformDetails.ebay.prodPricing.vat": vat,
+            "platformDetails.website.prodPricing.vat": vat,
+          },
+        }
+      );
+
+      if (result.modifiedCount === 0) {
+        throw new Error(
+          "No products were updated. Please verify product IDs and data."
+        );
+      }
+
+      return result;
+    } catch (error: any) {
+      throw new Error(`Error during bulk update: ${error.message}`);
+    }
   },
 };

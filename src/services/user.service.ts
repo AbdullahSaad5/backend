@@ -219,7 +219,7 @@ export const userService = {
   },
 };
 
-async function generateUniqueSupplierKey(
+export async function generateUniqueSupplierKey(
   firstName: string,
   lastName: string
 ): Promise<string> {
