@@ -162,7 +162,7 @@ export const productService = {
               isWeb,
             });
           } else {
-            let value = entry?.value ?? entry; // Support both `{ value }` and direct assignment
+            let value = entry?.value ?? entry;
             const step = stepData.step;
             console.log(`🔹 Processing: ${currentKey} | Value:`, value);
 
@@ -180,25 +180,31 @@ export const productService = {
                 platformDetails.website.productInfo.productSupplier = value;
               }
             } else if (step === "prodMedia") {
-              // Handle prodMedia with platform and mediaType parsing
-              const keyParts = currentKey.split(".");
-              if (
-                keyParts.length === 2 &&
-                ["amazon", "ebay", "website"].includes(keyParts[0]) &&
-                ["images", "videos"].includes(keyParts[1])
-              ) {
-                const [platform, mediaType] = keyParts;
-                if (!platformDetails[platform].prodMedia) {
-                  platformDetails[platform].prodMedia = {
-                    images: [],
-                    videos: [],
-                  };
+              if (currentKey.startsWith("platformMedia.")) {
+                const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
+                if (
+                  keyParts.length === 2 &&
+                  ["amazon", "ebay", "website"].includes(keyParts[0]) &&
+                  ["images", "videos"].includes(keyParts[1])
+                ) {
+                  const [platform, mediaType] = keyParts;
+
+                  // 1. Initialize platform if missing
+                  if (!platformDetails[platform]) {
+                    platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
+                  }
+
+                  // 2. Initialize prodMedia structure
+                  if (!platformDetails[platform].prodMedia) {
+                    platformDetails[platform].prodMedia = {
+                      images: [],
+                      videos: [],
+                    };
+                  }
+
+                  // 3. Assign the media array
+                  platformDetails[platform].prodMedia[mediaType] = value;
                 }
-                platformDetails[platform].prodMedia[mediaType] = value;
-              } else {
-                console.error(
-                  `Invalid key structure for prodMedia: ${currentKey}`
-                );
               }
             } else if (step === "prodTechInfo") {
               if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
