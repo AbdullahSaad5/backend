@@ -579,7 +579,7 @@ export const productController = {
   },
   bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { productIds, discount, tax } = req.body;
+      const { productIds, discount, vat } = req.body;
 
       if (!Array.isArray(productIds) || productIds.length === 0) {
         return res
@@ -587,10 +587,10 @@ export const productController = {
           .json({ message: "productIds array is required" });
       }
 
-      if (discount === undefined || tax === undefined) {
+      if (discount === undefined || vat === undefined) {
         return res
           .status(400)
-          .json({ message: "Both discount and tax are required" });
+          .json({ message: "Both discount and VAT/tax are required" });
       }
 
       // Validate each productId format
@@ -603,8 +603,7 @@ export const productController = {
       }
 
       // Check if all productIds exist in the database
-      const existingProducts =
-        await productService.getAllProducts();
+      const existingProducts = await productService.getAllProducts();
       if (existingProducts.length !== productIds.length) {
         return res
           .status(404)
@@ -615,15 +614,13 @@ export const productController = {
       const result = await productService.bulkUpdateProductTaxDiscount(
         productIds,
         discount,
-        tax
+        vat
       );
 
-      return res
-        .status(200)
-        .json({
-          message: "Product tax and discount updated successfully",
-          result,
-        });
+      return res.status(200).json({
+        message: "Product VAT/tax and discount updated successfully",
+        result,
+      });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
