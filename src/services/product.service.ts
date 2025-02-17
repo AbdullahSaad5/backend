@@ -689,4 +689,19 @@ export const productService = {
       throw new Error("Failed to export products.");
     }
   },
+  bulkUpdateProductTaxDiscount: async (
+    productIds: string[],
+    discount: number,
+    tax: number
+  ) => {
+    return await Product.updateMany(
+      { _id: { $in: productIds } }, // Update only valid product IDs
+      {
+        $set: {
+          discount,
+          tax,
+        },
+      }
+    );
+  },
 };

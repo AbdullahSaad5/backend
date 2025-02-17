@@ -577,4 +577,55 @@ export const productController = {
       });
     }
   },
+  bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
+    try {
+      const { productIds, discount, tax } = req.body;
+
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "productIds array is required" });
+      }
+
+      if (discount === undefined || tax === undefined) {
+        return res
+          .status(400)
+          .json({ message: "Both discount and tax are required" });
+      }
+
+      // Validate each productId format
+      for (const productId of productIds) {
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+          return res
+            .status(400)
+            .json({ message: `Invalid productId: ${productId}` });
+        }
+      }
+
+      // Check if all productIds exist in the database
+      const existingProducts =
+        await productService.getAllProducts();
+      if (existingProducts.length !== productIds.length) {
+        return res
+          .status(404)
+          .json({ message: "One or more product records not found" });
+      }
+
+      // Perform bulk update
+      const result = await productService.bulkUpdateProductTaxDiscount(
+        productIds,
+        discount,
+        tax
+      );
+
+      return res
+        .status(200)
+        .json({
+          message: "Product tax and discount updated successfully",
+          result,
+        });
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
 };
