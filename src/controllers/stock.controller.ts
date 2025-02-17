@@ -58,7 +58,14 @@ export const stockController = {
         .json({ message: "Internal Server Error", error: error.message });
     }
   },
-
+  getAllProductsWithStocks: async (req: Request, res: Response) => {
+    try {
+      const productsWithStocks = await stockService.getAllProductsWithStocks();
+      res.status(200).json(productsWithStocks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
   // 📌 Get All Stock Purchases for a Product
   getStockByProduct: async (req: Request, res: Response) => {
     try {

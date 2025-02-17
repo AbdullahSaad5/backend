@@ -70,4 +70,20 @@ export class stockService {
       }
     );
   }
+
+  // 📌 Get All Products with Their Stocks
+  static async getAllProductsWithStocks() {
+    try {
+      const productsWithStocks = await Product.find()
+        .populate({
+          path: "stocks", // Ensure you have a reference field in your Product model
+          model: "Stock",
+        })
+        .lean(); // Convert Mongoose documents to plain objects
+
+      return productsWithStocks;
+    } catch (error: any) {
+      throw new Error("Error fetching products with stocks: " + error.message);
+    }
+  }
 }
