@@ -1,5 +1,5 @@
 import { supplierAddPayload } from "@/contracts/supplier.contract";
-import { IUserAddress } from "@/contracts/user-address.contracts";
+import { ISupplierAddress } from "@/contracts/supplier.contract";
 import { IFile } from "@/contracts/user.contract";
 import { User } from "@/models";
 import { Address } from "@/models";
@@ -29,13 +29,13 @@ export const supplierService = {
       supplierCategory,
     } = data;
 
-    // Here this id refers to the supplier in user category
-    // TODO: find other solutiuon for this
+    // Here this id refers to the supplier in supplier category
+    // TODO: find other solution for this
     const hashedPassword = await createHash(password);
 
     // console.log("additionalDocuments : " , additionalDocuments)
 
-    const user = new User({
+    const supplier = new User({
       firstName,
       lastName,
       email,
@@ -47,10 +47,10 @@ export const supplierService = {
       // documents,
     });
 
-    return user.save();
+    return supplier.save();
   },
 
-  createAddress: (address: IUserAddress) => {
+  createAddress: (address: ISupplierAddress) => {
     const newAddress = new Address(address);
     return newAddress.save();
   },
@@ -58,7 +58,7 @@ export const supplierService = {
   getAllSuppliers: () => {
     return User.aggregate([
       {
-        // Join with the 'usercategories' collection to get the user type details
+        // Join with the 'usercategories' collection to get the supplier type details
         $lookup: {
           from: "usercategories",
           localField: "userType",
@@ -129,7 +129,7 @@ export const supplierService = {
     return Address.find({ userId: userId });
   },
 
-  findAddressandUpdate: (id: string, address: IUserAddress) => {
+  findAddressAndUpdate: (id: string, address: ISupplierAddress) => {
     return Address.findByIdAndUpdate(id, address, { new: true });
   },
 
@@ -148,7 +148,7 @@ export const supplierService = {
     }
     return updateSupplier;
   },
-  // New API for fetching user stats (separate service logic)
+  // New API for fetching supplier stats (separate service logic)
   getSupplierStats: async () => {
     try {
       const totalSuppliers = await User.countDocuments({
@@ -165,8 +165,8 @@ export const supplierService = {
 
       return { totalSuppliers, activeSuppliers, blockedSuppliers };
     } catch (error) {
-      console.error("Error fetching user stats:", error);
-      throw new Error("Error fetching user statistics");
+      console.error("Error fetching supplier stats:", error);
+      throw new Error("Error fetching supplier statistics");
     }
   },
 
