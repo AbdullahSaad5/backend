@@ -3,9 +3,10 @@ import { ISupplierAddress } from "@/contracts/supplier.contract";
 import { IFile } from "@/contracts/user.contract";
 import { User } from "@/models";
 import { Address } from "@/models";
+import { UserCategory } from "@/models";
 import { createHash } from "@/utils/hash.util";
 import mongoose, { Types } from "mongoose";
-
+import { generateUniqueSupplierKey } from "./user.service";
 export const supplierService = {
   findExistingEmail: async (email: string) => {
     const userExists = await User.findOne({ email });
@@ -17,7 +18,6 @@ export const supplierService = {
   },
 
   createSupplier: async (data: supplierAddPayload) => {
-    // console.log("data in service : " , data)
     const {
       firstName,
       lastName,
@@ -29,11 +29,15 @@ export const supplierService = {
       supplierCategory,
     } = data;
 
-    // Here this id refers to the supplier in supplier category
-    // TODO: find other solution for this
     const hashedPassword = await createHash(password);
 
-    // console.log("additionalDocuments : " , additionalDocuments)
+    let supplierKey: string | undefined;
+    if (userType) {
+      const userCategory = await UserCategory.findById(userType);
+      if (userCategory?.role.toLowerCase() === "supplier") {
+        supplierKey = await generateUniqueSupplierKey(firstName, lastName);
+      }
+    }
 
     const supplier = new User({
       firstName,
@@ -44,7 +48,7 @@ export const supplierService = {
       supplierCategory,
       userType,
       additionalDocuments,
-      // documents,
+      supplierKey, // Ensure supplierKey is generated and added
     });
 
     return supplier.save();
@@ -191,11 +195,8 @@ export const supplierService = {
       const query: any = {
         //TODO: confusion here regarding query
         userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
-
-        
       };
 
-      
       if (searchQuery) {
         query.$or = [
           { firstName: { $regex: searchQuery, $options: "i" } },
