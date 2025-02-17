@@ -36,8 +36,18 @@ const prodInfoSchema = {
 };
 
 const prodMediaSchema = {
-  images: { type: [mediaSchema], _id: false },
-  videos: { type: [mediaSchema], _id: false },
+  amazon: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
+  ebay: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
+  website: {
+    images: { type: [mediaSchema], _id: false },
+    videos: { type: [mediaSchema], _id: false },
+  },
 };
 
 const prodPricingSchema = {

@@ -71,7 +71,17 @@ export const productService = {
         if (isWeb)
           draftProduct.platformDetails.website.productInfo[key] = fieldValue;
       });
-
+      //  if(stepData.prodPricing.images){
+      // Object.entries(stepData).forEach(([key, value]: [string, any]) => {
+      //   const { value: fieldValue, amazon, ebay, website } = value || {};
+      //   if (amazon)
+      //     draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
+      //   if (ebay)
+      //     draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
+      //   if (website)
+      //     draftProduct.platformDetails.website.productInfo[key] = fieldValue;
+      // });
+      // }
       ["amazon", "ebay", "website"].forEach((platform) => {
         draftProduct.platformDetails[platform].productInfo.productCategory =
           productCategory;
@@ -170,12 +180,26 @@ export const productService = {
                 platformDetails.website.productInfo.productSupplier = value;
               }
             } else if (step === "prodMedia") {
-              if (isAmz) platformDetails.amazon.prodMedia ||= {};
-              if (isEbay) platformDetails.ebay.prodMedia ||= {};
-              if (isWeb) platformDetails.website.prodMedia ||= {};
-              if (isAmz) platformDetails.amazon.prodMedia[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodMedia[currentKey] = value;
-              if (isWeb) platformDetails.website.prodMedia[currentKey] = value;
+              // Handle prodMedia with platform and mediaType parsing
+              const keyParts = currentKey.split(".");
+              if (
+                keyParts.length === 2 &&
+                ["amazon", "ebay", "website"].includes(keyParts[0]) &&
+                ["images", "videos"].includes(keyParts[1])
+              ) {
+                const [platform, mediaType] = keyParts;
+                if (!platformDetails[platform].prodMedia) {
+                  platformDetails[platform].prodMedia = {
+                    images: [],
+                    videos: [],
+                  };
+                }
+                platformDetails[platform].prodMedia[mediaType] = value;
+              } else {
+                console.error(
+                  `Invalid key structure for prodMedia: ${currentKey}`
+                );
+              }
             } else if (step === "prodTechInfo") {
               if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
               if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
