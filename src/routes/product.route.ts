@@ -1,7 +1,10 @@
 import { productController } from "@/controllers";
 import { productValidation } from "@/validations";
 import { Router } from "express";
-import { handleBulkImport, handleBulkExport } from "@/controllers/product.controller.helper"; // Adjust import path as needed
+import {
+  handleBulkImport,
+  handleBulkExport,
+} from "@/controllers/product.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const product = (router: Router) => {
@@ -9,7 +12,10 @@ export const product = (router: Router) => {
 
   // Create or update a draft product
   router.post("/", productController.createDraftProduct);
-
+  router.patch(
+    "/bulk-update-vat-and-discount",
+    productController.bulkUpdateProductTaxDiscount
+  );
   //new route for search and filter and pagination
   router.get("/search", productController.searchAndFilterProducts);
 
@@ -21,10 +27,22 @@ export const product = (router: Router) => {
   // Route for bulk export (GET request)
   router.get("/bulk-export", handleBulkExport);
 
-  router.get("/transform/:id", productValidation.validateId, productController.transformAndSendProduct);
+  router.get(
+    "/transform/:id",
+    productValidation.validateId,
+    productController.transformAndSendProduct
+  );
   // Fetch transformed template product by ID
-  router.get("/templates/:id", productValidation.validateId, productController.transformAndSendTemplateProduct);
-  router.get("/drafts/:id", productValidation.validateId, productController.transformAndSendDraftProduct);
+  router.get(
+    "/templates/:id",
+    productValidation.validateId,
+    productController.transformAndSendTemplateProduct
+  );
+  router.get(
+    "/drafts/:id",
+    productValidation.validateId,
+    productController.transformAndSendDraftProduct
+  );
 
   // Fetch all template product  names
   router.get("/templates", productController.getAllTemplateProducts);
@@ -41,11 +59,23 @@ export const product = (router: Router) => {
 
   router.get("/", productController.getAllProduct);
 
-  router.get("/:id", productValidation.validateId, productController.getProductById);
+  router.get(
+    "/:id",
+    productValidation.validateId,
+    productController.getProductById
+  );
 
-  router.delete("/:id", productValidation.validateId, productController.deleteProduct);
+  router.delete(
+    "/:id",
+    productValidation.validateId,
+    productController.deleteProduct
+  );
 
-  router.patch("/:id", productValidation.updateProduct, productController.updateProductById);
+  router.patch(
+    "/:id",
+    productValidation.updateProduct,
+    productController.updateProductById
+  );
 
   // route for toggle block status
   router.patch("/block/:id", productController.toggleBlock);
