@@ -189,10 +189,13 @@ export const supplierService = {
 
       // Build the query dynamically based on filters
       const query: any = {
-        //todo: confusion here regarding query
+        //TODO: confusion here regarding query
         userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
+
+        
       };
 
+      
       if (searchQuery) {
         query.$or = [
           { firstName: { $regex: searchQuery, $options: "i" } },
