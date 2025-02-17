@@ -579,7 +579,7 @@ export const productController = {
   },
   bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { productIds, discount, vat } = req.body;
+      const { productIds, discountValue, vat } = req.body;
 
       if (!Array.isArray(productIds) || productIds.length === 0) {
         return res
@@ -587,7 +587,7 @@ export const productController = {
           .json({ message: "productIds array is required" });
       }
 
-      if (discount === undefined || vat === undefined) {
+      if (discountValue === undefined || vat === undefined) {
         return res
           .status(400)
           .json({ message: "Both discount and VAT/tax are required" });
@@ -613,7 +613,7 @@ export const productController = {
       // Perform bulk update
       const result = await productService.bulkUpdateProductTaxDiscount(
         productIds,
-        discount,
+        discountValue,
         vat
       );
 

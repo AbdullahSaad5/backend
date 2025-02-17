@@ -691,15 +691,15 @@ export const productService = {
   },
   bulkUpdateProductTaxDiscount: async (
     productIds: string[],
-    discount: number,
+    discountValue: number,
     vat: number
   ) => {
     return await Product.updateMany(
       { _id: { $in: productIds } }, // Update only valid product IDs
       {
         $set: {
-          discount,
-        vat,
+          discountValue,
+          vat,
         },
       }
     );
