@@ -341,7 +341,7 @@ const Product = model<IProduct>("Product", productSchema);
 
 // discriminator for laptops
 Product.discriminator(
-  "Laptops",
+  "laptops",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -377,7 +377,7 @@ Product.discriminator(
 
 // discriminator for all in one pc
 Product.discriminator(
-  "All In One PC",
+  "all in one pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -413,7 +413,7 @@ Product.discriminator(
 
 // discriminator for projectors
 Product.discriminator(
-  "Projectors",
+  "projectors",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -449,7 +449,7 @@ Product.discriminator(
 
 // discriminator for Monitors
 Product.discriminator(
-  "Monitors",
+  "monitors",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -485,7 +485,7 @@ Product.discriminator(
 
 // discriminator for Gaming PC
 Product.discriminator(
-  "Gaming PC",
+  "gaming pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -521,7 +521,7 @@ Product.discriminator(
 
 // discriminator for Network Equipments
 Product.discriminator(
-  "Network Equipments",
+  "network equipments",
   new mongoose.Schema(
     {
       platformDetails: {
