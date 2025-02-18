@@ -2,7 +2,7 @@ export function transformProductData(data: any) {
   const result: any = {
     stepData: {
       productInfo: {},
-      prodMedia: {},
+      prodMedia: {}, // Restructured to hold platforms
       prodTechInfo: {},
       prodPricing: {},
       prodDelivery: {},
@@ -10,7 +10,7 @@ export function transformProductData(data: any) {
     },
   };
 
-  // Helper function to create the common structure
+  // Helper function to create the common structure for other sections
   const createField = (name: string, value: any, platforms: any) => ({
     name,
     value,
@@ -19,7 +19,7 @@ export function transformProductData(data: any) {
     isWeb: platforms.website?.hasOwnProperty(name) || false,
   });
 
-  // Generic transformation logic
+  // Generic transformation logic for non-media sections
   const transformFields = (
     fields: string[],
     sectionKey: string,
@@ -38,14 +38,13 @@ export function transformProductData(data: any) {
         platforms.website?.[field] ||
         null;
 
-      // Add field only if it has a value in at least one platform
       if (value !== null) {
         target[field] = createField(field, value, platforms);
       }
     });
   };
 
-  // Define the field groups for each section
+  // Define the field groups (excluding prodMedia)
   const fieldGroups = {
     productInfo: [
       "brand",
@@ -55,7 +54,6 @@ export function transformProductData(data: any) {
       "productSupplier",
       "kind",
     ],
-    prodMedia: ["images", "videos"],
     prodTechInfo: [
       "processor",
       "model",
@@ -192,9 +190,19 @@ export function transformProductData(data: any) {
     prodSeo: ["seoTags", "relevantTags", "suggestedTags"],
   };
 
-  // Transform each section
+  // Transform each section except prodMedia
   Object.entries(fieldGroups).forEach(([sectionKey, fields]) => {
     transformFields(fields, sectionKey, result.stepData[sectionKey]);
+  });
+
+  // Handle prodMedia separately per platform
+  const platforms = ["amazon", "ebay", "website"] as const;
+  platforms.forEach((platform) => {
+    const mediaData = data.platformDetails[platform]?.prodMedia;
+    result.stepData.prodMedia[platform] = {
+      images: mediaData?.images || [],
+      videos: mediaData?.videos || [],
+    };
   });
 
   return result;
