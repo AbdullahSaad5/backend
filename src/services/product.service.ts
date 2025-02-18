@@ -5,15 +5,13 @@ import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 const setNestedValue = (obj: any, path: string[], value: any) => {
   let current = obj;
-  for (let i = 0; i < path.length; i++) {
-    const key = path[i];
-    if (i === path.length - 1) {
-      current[key] = value; // Set value at final key
-    } else {
-      current[key] = current[key] || {}; // Create nested object if missing
-      current = current[key];
+  for (let i = 0; i < path.length - 1; i++) {
+    if (!current[path[i]] || typeof current[path[i]] !== "object") {
+      current[path[i]] = {};
     }
+    current = current[path[i]];
   }
+  current[path[path.length - 1]] = value;
 };
 export const productService = {
   // Create a new draft product
@@ -236,34 +234,37 @@ export const productService = {
               if (isWeb)
                 platformDetails.website.prodPricing[currentKey] = value;
             } else if (step === "prodDelivery") {
-              // Split key into nested parts (e.g., "packageWeight.weightKg" → ["packageWeight", "weightKg"])
-              const pathParts = currentKey.split(".");
+              const updateNestedField = (platform: string) => {
+                if (!platformDetails[platform]) platformDetails[platform] = {};
+                if (!platformDetails[platform].prodDelivery)
+                  platformDetails[platform].prodDelivery = {};
 
-              // Update all selected platforms
-              if (isAmz) {
-                platformDetails.amazon.prodDelivery ||= {};
-                setNestedValue(
-                  platformDetails.amazon.prodDelivery,
-                  pathParts,
-                  value
-                );
-              }
-              if (isEbay) {
-                platformDetails.ebay.prodDelivery ||= {};
-                setNestedValue(
-                  platformDetails.ebay.prodDelivery,
-                  pathParts,
-                  value
-                );
-              }
-              if (isWeb) {
-                platformDetails.website.prodDelivery ||= {};
-                setNestedValue(
-                  platformDetails.website.prodDelivery,
-                  pathParts,
-                  value
-                );
-              }
+                // Handle nested objects like packageWeight and packageDimensions
+                if (["packageWeight", "packageDimensions"].includes(key)) {
+                  if (!platformDetails[platform].prodDelivery[key]) {
+                    platformDetails[platform].prodDelivery[key] = {};
+                  }
+
+                  Object.keys(entry).forEach((subKey) => {
+                    if (
+                      subKey !== "name" &&
+                      subKey !== "isAmz" &&
+                      subKey !== "isEbay" &&
+                      subKey !== "isWeb" &&
+                      subKey !== "value"
+                    ) {
+                      platformDetails[platform].prodDelivery[key][subKey] =
+                        entry[subKey].value;
+                    }
+                  });
+                } else {
+                  platformDetails[platform].prodDelivery[currentKey] = value;
+                }
+              };
+
+              if (isAmz) updateNestedField("amazon");
+              if (isEbay) updateNestedField("ebay");
+              if (isWeb) updateNestedField("website");
             }
           }
         });
