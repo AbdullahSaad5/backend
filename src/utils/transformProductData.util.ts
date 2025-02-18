@@ -197,9 +197,11 @@ export function transformProductData(data: any) {
 
   // Handle prodMedia separately per platform
   const platforms = ["amazon", "ebay", "website"] as const;
+  result.stepData.prodMedia = { platformMedia: {} }; // Wrapping prodMedia inside platformMedia
+
   platforms.forEach((platform) => {
     const mediaData = data.platformDetails[platform]?.prodMedia;
-    result.stepData.prodMedia[platform] = {
+    result.stepData.prodMedia.platformMedia[platform] = {
       images: mediaData?.images || [],
       videos: mediaData?.videos || [],
     };
