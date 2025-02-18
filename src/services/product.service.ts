@@ -3,6 +3,18 @@ import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
+const setNestedValue = (obj: any, path: string[], value: any) => {
+  let current = obj;
+  for (let i = 0; i < path.length; i++) {
+    const key = path[i];
+    if (i === path.length - 1) {
+      current[key] = value; // Set value at final key
+    } else {
+      current[key] = current[key] || {}; // Create nested object if missing
+      current = current[key];
+    }
+  }
+};
 export const productService = {
   // Create a new draft product
   createDraftProduct: async (stepData: any) => {
@@ -224,21 +236,34 @@ export const productService = {
               if (isWeb)
                 platformDetails.website.prodPricing[currentKey] = value;
             } else if (step === "prodDelivery") {
-              if (isAmz) platformDetails.amazon.prodDelivery ||= {};
-              if (isEbay) platformDetails.ebay.prodDelivery ||= {};
-              if (isWeb) platformDetails.website.prodDelivery ||= {};
-              if (isAmz)
-                platformDetails.amazon.prodDelivery[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodDelivery[currentKey] = value;
-              if (isWeb)
-                platformDetails.website.prodDelivery[currentKey] = value;
-            } else {
-              if (isAmz) platformDetails.amazon.prodSeo ||= {};
-              if (isEbay) platformDetails.ebay.prodSeo ||= {};
-              if (isWeb) platformDetails.website.prodSeo ||= {};
-              if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
-              if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
+              // Split key into nested parts (e.g., "packageWeight.weightKg" → ["packageWeight", "weightKg"])
+              const pathParts = currentKey.split(".");
+
+              // Update all selected platforms
+              if (isAmz) {
+                platformDetails.amazon.prodDelivery ||= {};
+                setNestedValue(
+                  platformDetails.amazon.prodDelivery,
+                  pathParts,
+                  value
+                );
+              }
+              if (isEbay) {
+                platformDetails.ebay.prodDelivery ||= {};
+                setNestedValue(
+                  platformDetails.ebay.prodDelivery,
+                  pathParts,
+                  value
+                );
+              }
+              if (isWeb) {
+                platformDetails.website.prodDelivery ||= {};
+                setNestedValue(
+                  platformDetails.website.prodDelivery,
+                  pathParts,
+                  value
+                );
+              }
             }
           }
         });
