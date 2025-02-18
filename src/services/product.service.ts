@@ -71,7 +71,17 @@ export const productService = {
         if (isWeb)
           draftProduct.platformDetails.website.productInfo[key] = fieldValue;
       });
-
+      //  if(stepData.prodPricing.images){
+      // Object.entries(stepData).forEach(([key, value]: [string, any]) => {
+      //   const { value: fieldValue, amazon, ebay, website } = value || {};
+      //   if (amazon)
+      //     draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
+      //   if (ebay)
+      //     draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
+      //   if (website)
+      //     draftProduct.platformDetails.website.productInfo[key] = fieldValue;
+      // });
+      // }
       ["amazon", "ebay", "website"].forEach((platform) => {
         draftProduct.platformDetails[platform].productInfo.productCategory =
           productCategory;
@@ -152,7 +162,7 @@ export const productService = {
               isWeb,
             });
           } else {
-            let value = entry?.value ?? entry; // Support both `{ value }` and direct assignment
+            let value = entry?.value ?? entry;
             const step = stepData.step;
             console.log(`🔹 Processing: ${currentKey} | Value:`, value);
 
@@ -170,12 +180,32 @@ export const productService = {
                 platformDetails.website.productInfo.productSupplier = value;
               }
             } else if (step === "prodMedia") {
-              if (isAmz) platformDetails.amazon.prodMedia ||= {};
-              if (isEbay) platformDetails.ebay.prodMedia ||= {};
-              if (isWeb) platformDetails.website.prodMedia ||= {};
-              if (isAmz) platformDetails.amazon.prodMedia[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodMedia[currentKey] = value;
-              if (isWeb) platformDetails.website.prodMedia[currentKey] = value;
+              if (currentKey.startsWith("platformMedia.")) {
+                const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
+                if (
+                  keyParts.length === 2 &&
+                  ["amazon", "ebay", "website"].includes(keyParts[0]) &&
+                  ["images", "videos"].includes(keyParts[1])
+                ) {
+                  const [platform, mediaType] = keyParts;
+
+                  // 1. Initialize platform if missing
+                  if (!platformDetails[platform]) {
+                    platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
+                  }
+
+                  // 2. Initialize prodMedia structure
+                  if (!platformDetails[platform].prodMedia) {
+                    platformDetails[platform].prodMedia = {
+                      images: [],
+                      videos: [],
+                    };
+                  }
+
+                  // 3. Assign the media array
+                  platformDetails[platform].prodMedia[mediaType] = value;
+                }
+              }
             } else if (step === "prodTechInfo") {
               if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
               if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
