@@ -42,7 +42,11 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     isEmailVerified: { type: Boolean, default: false },
     EmailVerifiedAt: { type: Date },
     userType: { type: Schema.Types.ObjectId, ref: "UserCategory" },
-    supplierCategory: { type: Schema.Types.ObjectId, ref: "SupplierCategory" },
+    supplierCategory: {
+      type: Schema.Types.ObjectId,
+      ref: "SupplierCategory",
+      required: true,
+    },
     additionalAccessRights: { type: [String], default: [] },
     restrictedAccessRights: { type: [String], default: [] },
     resetPasswordToken: { type: String },
