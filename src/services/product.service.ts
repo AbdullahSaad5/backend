@@ -234,7 +234,12 @@ export const productService = {
               if (isWeb)
                 platformDetails.website.prodPricing[currentKey] = value;
             } else if (step === "prodDelivery") {
-              const updateNestedField = (platform: string) => {
+              const updateNestedField = (
+                platform: string,
+                shouldUpdate: boolean
+              ) => {
+                if (!shouldUpdate) return; // Only update if platform flag is true
+
                 if (!platformDetails[platform]) platformDetails[platform] = {};
                 if (!platformDetails[platform].prodDelivery)
                   platformDetails[platform].prodDelivery = {};
@@ -247,11 +252,9 @@ export const productService = {
 
                   Object.keys(entry).forEach((subKey) => {
                     if (
-                      subKey !== "name" &&
-                      subKey !== "isAmz" &&
-                      subKey !== "isEbay" &&
-                      subKey !== "isWeb" &&
-                      subKey !== "value"
+                      !["name", "isAmz", "isEbay", "isWeb", "value"].includes(
+                        subKey
+                      )
                     ) {
                       platformDetails[platform].prodDelivery[key][subKey] =
                         entry[subKey].value;
@@ -262,9 +265,9 @@ export const productService = {
                 }
               };
 
-              if (isAmz) updateNestedField("amazon");
-              if (isEbay) updateNestedField("ebay");
-              if (isWeb) updateNestedField("website");
+              updateNestedField("amazon", isAmz);
+              updateNestedField("ebay", isEbay);
+              updateNestedField("website", isWeb);
             }
           }
         });
