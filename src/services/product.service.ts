@@ -238,11 +238,23 @@ export const productService = {
                 platform: string,
                 shouldUpdate: boolean
               ) => {
-                if (!shouldUpdate) return; // Only update if platform flag is true
-
                 if (!platformDetails[platform]) platformDetails[platform] = {};
                 if (!platformDetails[platform].prodDelivery)
                   platformDetails[platform].prodDelivery = {};
+
+                if (!shouldUpdate) {
+                  // If false, remove the entire field
+                  delete platformDetails[platform].prodDelivery[key];
+
+                  // If prodDelivery becomes empty, remove prodDelivery itself
+                  if (
+                    Object.keys(platformDetails[platform].prodDelivery)
+                      .length === 0
+                  ) {
+                    delete platformDetails[platform].prodDelivery;
+                  }
+                  return;
+                }
 
                 // Handle nested objects like packageWeight and packageDimensions
                 if (["packageWeight", "packageDimensions"].includes(key)) {
@@ -261,10 +273,11 @@ export const productService = {
                     }
                   });
                 } else {
-                  platformDetails[platform].prodDelivery[currentKey] = value;
+                  platformDetails[platform].prodDelivery[key] = value;
                 }
               };
 
+              // Apply the function based on flag values
               updateNestedField("amazon", isAmz);
               updateNestedField("ebay", isEbay);
               updateNestedField("website", isWeb);
