@@ -157,7 +157,7 @@ export const supplierController = {
 
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
+        message: "Supplier Updated SuccessFully",
         data: updatedSupplier,
       });
     } catch (error) {
