@@ -5,13 +5,15 @@ import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 const setNestedValue = (obj: any, path: string[], value: any) => {
   let current = obj;
-  for (let i = 0; i < path.length - 1; i++) {
-    if (!current[path[i]] || typeof current[path[i]] !== "object") {
-      current[path[i]] = {};
+  for (let i = 0; i < path.length; i++) {
+    const key = path[i];
+    if (i === path.length - 1) {
+      current[key] = value;
+    } else {
+      current[key] = current[key] || {};
+      current = current[key];
     }
-    current = current[path[i]];
   }
-  current[path[path.length - 1]] = value;
 };
 export const productService = {
   // Create a new draft product
