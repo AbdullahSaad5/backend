@@ -13,4 +13,6 @@ export { paymentPolicyService } from "./payment-policy.service";
 export { postagePolicyService } from "./postage-policy.service";
 export { variationService } from "./variation.service";
 export { stockService } from "./stock.service";
+export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
+
