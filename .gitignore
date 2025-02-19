@@ -9,5 +9,6 @@ storage/public
 dist
 uploads
 .codegpt
+
 fireabase-admin
 data
