@@ -1,6 +1,7 @@
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
+import axios from "axios";
 import {
   EbayControllerCreateFulfillmentPolicyRequest,
   EbayControllerCreateLocationRequest,
@@ -121,210 +122,44 @@ export const ebayService = {
       });
     }
   },
-
-  createProduct: async (updatedProduct: any) => {
-    try {
-      console.log("updatedProduct in EBAY SERVICE::", updatedProduct);
-
-      const accessToken = await getStoredEbayAccessToken();
-
-      const body = updatedProduct;
-
-      const requestBody = {
-        product: {
-          title: body.title,
-          aspects: {
-            Feature: body.features,
-            CPU: [body.cpu],
-          },
-          description: body.description,
-          upc: [body.upc],
-          imageUrls: body.imageUrls,
-        },
-        condition: body.condition,
-        packageWeightAndSize: {
-          dimensions: body.dimensions,
-          weight: body.weight,
-        },
-        availability: {
-          shipToLocationAvailability: {
-            quantity: body.shipToLocationQuantity,
-          },
-        },
-        fulfillmentTime: body.fulfillmentTime,
-        shippingOptions: [
-          {
-            shippingCost: {
-              value: "0.00",
-              currency: "USD",
-            },
-            shippingServiceCode: "USPSPriorityMail",
-            shipToLocations: [
-              {
-                countryCode: "US",
-              },
-            ],
-            packageType: "USPSPriorityMailFlatRateBox",
-          },
-        ],
-        listingPolicies: body.listingPolicies,
-      };
-
-      // Example API call to eBay Inventory API
-      const response = await fetch(
-        `${baseURL}/sell/inventory/v1/inventory_item/${body.sku}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            "Content-Language": "en-US",
-            "Accept-Language": "en-US",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          status: response.status,
-          statusText: response.statusText,
-          message: "Failed to create item",
-          body: await response.json(),
-        });
-      }
-
-      return res.json({
-        status: response.status,
-        statusText: response.statusText,
-        message: "Item created successfully",
-      });
-    } catch (error) {
-      console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "API call failed",
-        details: error,
-      });
-    }
-  },
-  updateProduct: async (
-    req: IBodyRequest<EbayControllerCreateProductRequest>,
-    res: Response
-  ) => {
-    try {
-      const accessToken = await getStoredEbayAccessToken();
-
-      const body = req.body;
-
-      const requestBody = {
-        product: {
-          title: body.title,
-          aspects: {
-            Feature: body.features,
-            CPU: [body.cpu],
-          },
-          description: body.description,
-          upc: [body.upc],
-          imageUrls: body.imageUrls,
-        },
-        condition: body.condition,
-        packageWeightAndSize: {
-          dimensions: body.dimensions,
-          weight: body.weight,
-        },
-        availability: {
-          shipToLocationAvailability: {
-            quantity: body.shipToLocationQuantity,
-          },
-        },
-        fulfillmentTime: body.fulfillmentTime,
-        shippingOptions: [
-          {
-            shippingCost: {
-              value: "0.00",
-              currency: "USD",
-            },
-            shippingServiceCode: "USPSPriorityMail",
-            shipToLocations: [
-              {
-                countryCode: "US",
-              },
-            ],
-            packageType: "USPSPriorityMailFlatRateBox",
-          },
-        ],
-        listingPolicies: body.listingPolicies,
-      };
-
-      // Example API call to eBay Inventory API
-      const response = await fetch(
-        `${baseURL}/sell/inventory/v1/inventory_item/${body.sku}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            "Content-Language": "en-US",
-            "Accept-Language": "en-US",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          status: response.status,
-          statusText: response.statusText,
-          message: "Failed to update item",
-          body: await response.json(),
-        });
-      }
-
-      return res.json({
-        status: response.status,
-        statusText: response.statusText,
-        message: "Item updated successfully",
-      });
-    } catch (error) {
-      console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "API call failed",
-        details: error,
-      });
-    }
-  },
-
   async syncProductWithEbay(product: any): Promise<string> {
     const token = await getStoredEbayAccessToken();
+    const ebayApiUrl = "https://api.ebay.com/sell/inventory/v1/inventory_item";
+
+    // Extract eBay-specific details
+    const ebayData = product.platformDetails?.ebay;
+    if (!ebayData) throw new Error("Missing eBay product details");
 
     const requestBody = {
       product: {
-        title: product.title,
+        title: ebayData.productInfo?.title,
         aspects: {
-          Feature: product.features || [],
-          CPU: [product.cpu],
+          Feature: ebayData.prodTechInfo?.features
+            ? [ebayData.prodTechInfo.features]
+            : [],
+          CPU: ebayData.prodTechInfo?.processor
+            ? [ebayData.prodTechInfo.processor]
+            : [],
         },
-        description: product.description,
-        upc: [product.upc],
-        imageUrls: product.imageUrls,
+        description: ebayData.productInfo?.productDescription || "",
+        upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
+        imageUrls: ebayData.prodMedia?.images.map((img: any) => img.url) || [],
       },
-      condition: product.condition,
+      condition: ebayData.prodPricing?.condition || "New",
       packageWeightAndSize: {
-        dimensions: product.dimensions,
-        weight: product.weight,
+        dimensions: {
+          height: ebayData.prodTechInfo?.height || "10in",
+          length: ebayData.prodTechInfo?.length || "10in",
+          width: ebayData.prodTechInfo?.width || "10in",
+        },
+        weight: ebayData.prodTechInfo?.weight || "5lb",
       },
       availability: {
         shipToLocationAvailability: {
-          quantity: product.stock,
+          quantity: ebayData.prodPricing?.quantity || 1,
         },
       },
-      fulfillmentTime: product.fulfillmentTime,
+      fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
       shippingOptions: [
         {
           shippingCost: { value: "0.00", currency: "USD" },
@@ -333,14 +168,15 @@ export const ebayService = {
           packageType: "USPSPriorityMailFlatRateBox",
         },
       ],
-      listingPolicies: product.listingPolicies,
+      listingPolicies: ebayData.prodPricing?.paymentPolicy || {},
     };
 
-    // Decide if we are creating or updating a product
-    const method = product.ebayItemId ? "PUT" : "POST";
-    const ebayUrl = product.ebayItemId
-      ? `${ebayApiUrl}/${product.sku}`
-      : `${ebayApiUrl}`;
+    // Check if we need to create or update the listing
+    const isUpdate = product.ebayItemId ? true : false;
+    const method = isUpdate ? "PUT" : "POST";
+    const ebayUrl = isUpdate
+      ? `${ebayApiUrl}/${product.ebayItemId}`
+      : ebayApiUrl;
 
     const response = await axios({
       method,
@@ -355,31 +191,3 @@ export const ebayService = {
     return response.data.sku;
   },
 };
-
-function axios(arg0: {
-  method: string;
-  url: string;
-  headers: { Authorization: string; "Content-Type": string };
-  data: {
-    product: {
-      title: any;
-      aspects: { Feature: any; CPU: any[] };
-      description: any;
-      upc: any[];
-      imageUrls: any;
-    };
-    condition: any;
-    packageWeightAndSize: { dimensions: any; weight: any };
-    availability: { shipToLocationAvailability: { quantity: any } };
-    fulfillmentTime: any;
-    shippingOptions: {
-      shippingCost: { value: string; currency: string };
-      shippingServiceCode: string;
-      shipToLocations: { countryCode: string }[];
-      packageType: string;
-    }[];
-    listingPolicies: any;
-  };
-}) {
-  throw new Error("Function not implemented.");
-}

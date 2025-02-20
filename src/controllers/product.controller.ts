@@ -1,4 +1,4 @@
-import { productService } from "@/services";
+import { ebayService, productService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -9,8 +9,6 @@ export const productController = {
     try {
       const { stepData } = req.body;
 
-      // console.log("stepData in controller : " , stepData)
-
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -18,6 +16,7 @@ export const productController = {
         });
       }
 
+      // Save draft product in MongoDB
       const draftProduct = await productService.createDraftProduct(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -53,11 +52,20 @@ export const productController = {
         });
       }
 
-      // Call the service to update the draft product with conditional updates based on discriminator
+      // Update draft product in MongoDB
       const updatedProduct = await productService.updateDraftProduct(
         productId,
         stepData
       );
+
+      // If product is now marked for publishing, sync to eBay
+      if (stepData.publishToEbay) {
+        const ebayItemId =
+          await ebayService.syncProductWithEbay(updatedProduct);
+        await productService.updateDraftProduct(updatedProduct._id, {
+          ebayItemId,
+        });
+      }
 
       return res.status(StatusCodes.OK).json({
         success: true,
