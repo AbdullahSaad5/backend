@@ -122,6 +122,7 @@ export const ebayService = {
       });
     }
   },
+
   async syncProductWithEbay(product: any): Promise<string> {
     const token = await getStoredEbayAccessToken();
     const ebayApiUrl = "https://api.ebay.com/sell/inventory/v1/inventory_item";
@@ -130,21 +131,33 @@ export const ebayService = {
     const ebayData = product.platformDetails?.ebay;
     if (!ebayData) throw new Error("Missing eBay product details");
 
+    // Determine category ID based on product type
+    const categoryMap: Record<string, number> = {
+      "PC Laptops & Netbooks": 177,
+      "PC Desktops & All-In-Ones": 179,
+      Monitors: 80053,
+      Projectors: 25321,
+      "Wireless Access Points": 175709,
+    };
+    const categoryName =
+      ebayData.productInfo?.productCategory.name || "PC Desktops & All-In-Ones";
+    const categoryId = categoryMap[categoryName] || 179; // Default to Desktops
+
+    // Aspect mapping based on category
+    const aspects = this.getCategoryAspects(
+      categoryName,
+      ebayData.prodTechInfo
+    );
+
     const requestBody = {
       product: {
         title: ebayData.productInfo?.title,
-        aspects: {
-          Feature: ebayData.prodTechInfo?.features
-            ? [ebayData.prodTechInfo.features]
-            : [],
-          CPU: ebayData.prodTechInfo?.processor
-            ? [ebayData.prodTechInfo.processor]
-            : [],
-        },
+        aspects: aspects, // Dynamically assigned aspects
         description: ebayData.productInfo?.productDescription || "",
         upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
         imageUrls: ebayData.prodMedia?.images.map((img: any) => img.url) || [],
       },
+      categoryId: categoryId, // Hardcoded category ID
       condition: ebayData.prodPricing?.condition || "New",
       packageWeightAndSize: {
         dimensions: {
@@ -189,5 +202,50 @@ export const ebayService = {
     });
 
     return response.data.sku;
+  },
+
+  /**
+   * Returns category-specific aspects based on the product's category.
+   */
+  getCategoryAspects(categoryName: string, prodTechInfo: any) {
+    switch (categoryName) {
+      case "PC Laptops & Netbooks":
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+          Processor: [prodTechInfo?.processor || "Unknown"],
+          RAM: [prodTechInfo?.ramSize || "Unknown"],
+          Storage: [prodTechInfo?.storageType || "Unknown"],
+        };
+      case "PC Desktops & All-In-Ones":
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+          FormFactor: [prodTechInfo?.formFactor || "Unknown"],
+          GPU: [prodTechInfo?.gpu || "Unknown"],
+          RAM: [prodTechInfo?.ramSize || "Unknown"],
+          Storage: [prodTechInfo?.storageType || "Unknown"],
+        };
+      case "Monitors":
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+          ScreenSize: [prodTechInfo?.screenSize || "Unknown"],
+          Resolution: [prodTechInfo?.resolution || "Unknown"],
+        };
+      case "Projectors":
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+          Lumens: [prodTechInfo?.lumens || "Unknown"],
+          Resolution: [prodTechInfo?.resolution || "Unknown"],
+        };
+      case "Wireless Access Points":
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+          Frequency: [prodTechInfo?.frequency || "Unknown"],
+          Connectivity: [prodTechInfo?.connectivity || "Unknown"],
+        };
+      default:
+        return {
+          Brand: [prodTechInfo?.brand || "Unbranded"],
+        };
+    }
   },
 };
