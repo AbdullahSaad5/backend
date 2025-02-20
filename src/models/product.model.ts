@@ -329,6 +329,8 @@ const productSchema = new Schema(
     },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
+    publishToAmazon: { type: Boolean },
+    publishToWebsite: { type: Boolean },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
