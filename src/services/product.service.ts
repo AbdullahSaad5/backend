@@ -3,18 +3,6 @@ import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
-const setNestedValue = (obj: any, path: string[], value: any) => {
-  let current = obj;
-  for (let i = 0; i < path.length; i++) {
-    const key = path[i];
-    if (i === path.length - 1) {
-      current[key] = value;
-    } else {
-      current[key] = current[key] || {};
-      current = current[key];
-    }
-  }
-};
 export const productService = {
   // Create a new draft product
   createDraftProduct: async (stepData: any) => {
@@ -127,7 +115,7 @@ export const productService = {
       const step = stepData.step;
 
       if (step === "prodDelivery") {
-        console.log("🟡 Processing prodDelivery step separately...");
+        // console.log("🟡 Processing prodDelivery step separately...");
 
         if (!draftProduct.platformDetails) {
           draftProduct.platformDetails = { amazon: {}, ebay: {}, website: {} };
@@ -205,10 +193,6 @@ export const productService = {
               isEbay = inheritedFlags.isEbay,
               isWeb = inheritedFlags.isWeb,
             } = entry || {};
-            console.log("inheritedFlags.isAmz", inheritedFlags.isAmz);
-            console.log("inheritedFlags.isEbay", inheritedFlags.isEbay);
-            console.log("inheritedFlags.isWeb", inheritedFlags.isWeb);
-
             if (
               entry &&
               typeof entry === "object" &&
@@ -224,7 +208,7 @@ export const productService = {
             } else {
               let value = entry?.value ?? entry;
               const step = stepData.step;
-              console.log(`🔹 Processing: ${currentKey} | Value:`, value);
+              // console.log(`🔹 Processing: ${currentKey} | Value:`, value);
 
               if (step === "productInfo") {
                 if (isAmz) platformDetails.amazon.productInfo ||= {};

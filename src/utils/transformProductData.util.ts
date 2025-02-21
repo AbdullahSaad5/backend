@@ -19,7 +19,7 @@ export function transformProductData(data: any) {
     isWeb: platforms.website?.hasOwnProperty(name) || false,
   });
 
-  // Generic transformation logic for non-media sections
+  // Generic transformation logic for non-media sections (excluding prodDelivery customization)
   const transformFields = (
     fields: string[],
     sectionKey: string,
@@ -190,9 +190,57 @@ export function transformProductData(data: any) {
     prodSeo: ["seoTags", "relevantTags", "suggestedTags"],
   };
 
-  // Transform each section except prodMedia
+  // Transform each section except prodMedia and prodDelivery
   Object.entries(fieldGroups).forEach(([sectionKey, fields]) => {
     transformFields(fields, sectionKey, result.stepData[sectionKey]);
+  });
+
+  // Custom transformation for prodDelivery to match the required structure
+  const prodDeliveryData = {
+    amazon: data.platformDetails.amazon?.prodDelivery,
+    ebay: data.platformDetails.ebay?.prodDelivery,
+    website: data.platformDetails.website?.prodDelivery,
+  };
+
+  const deliveryFields = [
+    "postagePolicy",
+    "packageWeight",
+    "packageDimensions",
+    "irregularPackage",
+  ];
+
+  deliveryFields.forEach((field) => {
+    const value =
+      prodDeliveryData.amazon?.[field] ||
+      prodDeliveryData.ebay?.[field] ||
+      prodDeliveryData.website?.[field] ||
+      null;
+
+    const platforms = {
+      isAmz: prodDeliveryData.amazon?.hasOwnProperty(field) || false,
+      isEbay: prodDeliveryData.ebay?.hasOwnProperty(field) || false,
+      isWeb: prodDeliveryData.website?.hasOwnProperty(field) || false,
+    };
+
+    if (field === "packageWeight" || field === "packageDimensions") {
+      if (value) {
+        result.stepData.prodDelivery[field] = {
+          ...platforms,
+          ...Object.fromEntries(
+            Object.entries(value).map(([key, val]) => [
+              key,
+              { name: key, value: val },
+            ])
+          ),
+        };
+      }
+    } else if (value !== null) {
+      result.stepData.prodDelivery[field] = {
+        name: field,
+        value,
+        ...platforms,
+      };
+    }
   });
 
   // Handle prodMedia separately per platform
