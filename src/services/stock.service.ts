@@ -10,6 +10,12 @@ export class stockService {
       throw new Error("Product not found. Please provide a valid productId.");
     }
 
+    // Check for duplicate batch number
+    const existingStock = await Stock.findOne({ batchNumber: data.batchNumber });
+    if (existingStock) {
+      throw new Error("Batch number already exists. Please provide a unique batch number.");
+    }
+
     const stock = new Stock(data);
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
@@ -28,10 +34,7 @@ export class stockService {
       return { message: "No stock records found", totalQuantity: 0 };
     }
 
-    const totalQuantity = stocks.reduce(
-      (sum, stock) => sum + stock.quantity,
-      0
-    );
+    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.quantity, 0);
     const lastStockEntry = stocks[stocks.length - 1];
 
     return {

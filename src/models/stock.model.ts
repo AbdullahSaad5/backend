@@ -17,7 +17,7 @@ const StockSchema = new Schema<IStock>(
     purchasePricePerUnit: { type: Number, required: true, min: 0 },
     costPricePerUnit: { type: Number, required: true, min: 0 },
     retailPricePerUnit: { type: Number, required: true, min: 0 },
-    batchNumber: { type: Number, required: true, min: 0 },
+    batchNumber: { type: Number, required: true, unique: true , min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
     purchaseDate: { type: Date, default: Date.now },
   },

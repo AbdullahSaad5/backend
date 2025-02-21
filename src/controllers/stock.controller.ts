@@ -32,6 +32,8 @@ export const stockController = {
         return res.status(400).json({ message: "Invalid Product ID format" });
       }
 
+
+
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
     } catch (error: any) {
@@ -55,7 +57,7 @@ export const stockController = {
 
       res
         .status(500)
-        .json({ message: "Internal Server Error", error: error.message });
+        .json({ message: error.message, error: error.message });
     }
   },
   // 📌 Get Products That Have Stock Along With Their Stock Entries
