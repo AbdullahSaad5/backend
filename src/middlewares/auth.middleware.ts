@@ -5,7 +5,11 @@ import { jwtVerify } from "@/utils/jwt.util";
 // import { userService } from "@/services";
 import { authService } from "@/services";
 
-export const authMiddleware = async (req: Request, _: Response, next: NextFunction): Promise<void> => {
+export const authMiddleware = async (
+  req: Request,
+  _: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
     Object.assign(req, { context: {} });
 

@@ -5,13 +5,15 @@ import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 const setNestedValue = (obj: any, path: string[], value: any) => {
   let current = obj;
-  for (let i = 0; i < path.length - 1; i++) {
-    if (!current[path[i]] || typeof current[path[i]] !== "object") {
-      current[path[i]] = {};
+  for (let i = 0; i < path.length; i++) {
+    const key = path[i];
+    if (i === path.length - 1) {
+      current[key] = value;
+    } else {
+      current[key] = current[key] || {};
+      current = current[key];
     }
-    current = current[path[i]];
   }
-  current[path[path.length - 1]] = value;
 };
 export const productService = {
   // Create a new draft product
@@ -236,17 +238,16 @@ export const productService = {
             } else if (step === "prodDelivery") {
               const updateNestedField = (
                 platform: string,
-                shouldUpdate: boolean
+                shouldUpdate: boolean,
+                key: string,
+                entry: any
               ) => {
                 if (!platformDetails[platform]) platformDetails[platform] = {};
                 if (!platformDetails[platform].prodDelivery)
                   platformDetails[platform].prodDelivery = {};
 
                 if (!shouldUpdate) {
-                  // If false, remove the entire field
                   delete platformDetails[platform].prodDelivery[key];
-
-                  // If prodDelivery becomes empty, remove prodDelivery itself
                   if (
                     Object.keys(platformDetails[platform].prodDelivery)
                       .length === 0
@@ -256,31 +257,57 @@ export const productService = {
                   return;
                 }
 
-                // Handle nested objects like packageWeight and packageDimensions
-                if (["packageWeight", "packageDimensions"].includes(key)) {
-                  if (!platformDetails[platform].prodDelivery[key]) {
-                    platformDetails[platform].prodDelivery[key] = {};
-                  }
-
-                  Object.keys(entry).forEach((subKey) => {
-                    if (
-                      !["name", "isAmz", "isEbay", "isWeb", "value"].includes(
-                        subKey
-                      )
-                    ) {
-                      platformDetails[platform].prodDelivery[key][subKey] =
-                        entry[subKey].value;
-                    }
-                  });
+                // Directly update prodDelivery fields (like irregularPackage, postagePolicy)
+                if (key === "irregularPackage" || key === "postagePolicy") {
+                  platformDetails[platform].prodDelivery[key] = entry.value;
+                  console.log(
+                    `✅ Updated ${key} for ${platform}:`,
+                    platformDetails[platform].prodDelivery[key]
+                  );
                 } else {
-                  platformDetails[platform].prodDelivery[key] = value;
+                  // Handle nested fields like packageWeight and packageDimensions
+                  if (key === "packageWeight" || key === "packageDimensions") {
+                    if (!platformDetails[platform].prodDelivery[key]) {
+                      platformDetails[platform].prodDelivery[key] = {};
+                    }
+
+                    // Update the nested fields inside packageWeight or packageDimensions
+                    Object.entries(entry).forEach(([subKey, subValue]) => {
+                      if (
+                        subValue &&
+                        typeof subValue === "object" &&
+                        "value" in subValue
+                      ) {
+                        platformDetails[platform].prodDelivery[key][subKey] =
+                          subValue.value;
+                      }
+                    });
+                    console.log(
+                      `✅ Updated ${key} for ${platform}:`,
+                      platformDetails[platform].prodDelivery[key]
+                    );
+                  } else {
+                    // For other fields, just assign directly
+                    platformDetails[platform].prodDelivery[key] = entry.value;
+                  }
                 }
               };
 
-              // Apply the function based on flag values
-              updateNestedField("amazon", isAmz);
-              updateNestedField("ebay", isEbay);
-              updateNestedField("website", isWeb);
+              // Then call the updated function with proper parameters
+              updateNestedField("amazon", isAmz, "packageWeight", entry);
+              updateNestedField("ebay", isEbay, "packageWeight", entry);
+              updateNestedField("website", isWeb, "packageWeight", entry);
+
+              updateNestedField("amazon", isAmz, "packageDimensions", entry);
+              updateNestedField("ebay", isEbay, "packageDimensions", entry);
+              updateNestedField("website", isWeb, "packageDimensions", entry);
+            } else {
+              if (isAmz) platformDetails.amazon.prodSeo ||= {};
+              if (isEbay) platformDetails.ebay.prodSeo ||= {};
+              if (isWeb) platformDetails.website.prodSeo ||= {};
+              if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
+              if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
+              if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
             }
           }
         });

@@ -1,4 +1,4 @@
-import { productService } from "@/services";
+import { ebayService, productService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -9,8 +9,6 @@ export const productController = {
     try {
       const { stepData } = req.body;
 
-      // console.log("stepData in controller : " , stepData)
-
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -18,6 +16,7 @@ export const productController = {
         });
       }
 
+      // Save draft product in MongoDB
       const draftProduct = await productService.createDraftProduct(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -53,11 +52,20 @@ export const productController = {
         });
       }
 
-      // Call the service to update the draft product with conditional updates based on discriminator
+      // Update draft product in MongoDB
       const updatedProduct = await productService.updateDraftProduct(
         productId,
         stepData
       );
+
+      // If product is now marked for publishing, sync to eBay
+      if (stepData.publishToEbay) {
+        const ebayItemId =
+          await ebayService.syncProductWithEbay(updatedProduct);
+        await productService.updateDraftProduct(updatedProduct._id, {
+          ebayItemId,
+        });
+      }
 
       return res.status(StatusCodes.OK).json({
         success: true,
@@ -176,11 +184,10 @@ export const productController = {
         });
       }
 
-      const templateList = templates.map((template, index) => {
+      let templateList = templates.map((template, index) => {
         const productId = template._id;
         const kind = template.kind || "UNKNOWN";
 
-        // Determine fields based on category (kind)
         let fields: string[] = [];
         const prodInfo: any =
           template.platformDetails.website?.prodTechInfo || {};
@@ -225,7 +232,6 @@ export const productController = {
             break;
         }
 
-        // Filter out undefined/null fields and join to form the name
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
         const srno = (index + 1).toString().padStart(2, "0");
@@ -233,6 +239,13 @@ export const productController = {
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, productId };
+      });
+
+      // 🔹 Sort by the number at the end of templateName in descending order
+      templateList.sort((a, b) => {
+        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
       });
 
       return res.status(StatusCodes.OK).json({
@@ -248,6 +261,7 @@ export const productController = {
       });
     }
   },
+
   //Get All Draft Product Names
   getAllDraftProductNames: async (req: Request, res: Response) => {
     try {
@@ -258,15 +272,14 @@ export const productController = {
       if (!drafts.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "No templates found",
+          message: "No draft products found",
         });
       }
 
-      const draftList = drafts.map((draft, index) => {
+      let draftList = drafts.map((draft, index) => {
         const productId = draft._id;
         const kind = draft.kind || "UNKNOWN";
 
-        // Determine fields based on category (kind)
         let fields: string[] = [];
         const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
@@ -310,7 +323,6 @@ export const productController = {
             break;
         }
 
-        // Filter out undefined/null fields and join to form the name
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
         const srno = (index + 1).toString().padStart(2, "0");
@@ -320,9 +332,16 @@ export const productController = {
         return { draftName, productId };
       });
 
+      // 🔹 Sort by the number at the end of draftName in descending order
+      draftList.sort((a, b) => {
+        const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
+      });
+
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "draft products names fetched successfully",
+        message: "Draft products names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -333,6 +352,7 @@ export const productController = {
       });
     }
   },
+
   //Selected transformed draft Product
   transformAndSendDraftProduct: async (req: Request, res: Response) => {
     try {
@@ -580,32 +600,43 @@ export const productController = {
   bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
     try {
       const { productIds, discountValue, vat } = req.body;
-  
+
       if (!Array.isArray(productIds) || productIds.length === 0) {
-        return res.status(400).json({ message: "productIds array is required" });
+        return res
+          .status(400)
+          .json({ message: "productIds array is required" });
       }
-  
+
       if (discountValue === undefined || vat === undefined) {
-        return res.status(400).json({ message: "Both discount and VAT/tax are required" });
+        return res
+          .status(400)
+          .json({ message: "Both discount and VAT/tax are required" });
       }
-  
+
       // Validate each productId format
       for (const productId of productIds) {
         if (!mongoose.Types.ObjectId.isValid(productId)) {
-          return res.status(400).json({ message: `Invalid productId: ${productId}` });
+          return res
+            .status(400)
+            .json({ message: `Invalid productId: ${productId}` });
         }
       }
-  
+
       // Perform bulk update
-      const result = await productService.bulkUpdateProductTaxDiscount(productIds, discountValue, vat);
-  
+      const result = await productService.bulkUpdateProductTaxDiscount(
+        productIds,
+        discountValue,
+        vat
+      );
+
       return res.status(200).json({
         message: "Product VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Internal Server Error", error: error.message });
+      res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
     }
-  }
-  
+  },
 };

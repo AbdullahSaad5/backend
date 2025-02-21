@@ -1283,6 +1283,11 @@
   dependencies:
     dotenv "*"
 
+"@types/ebay-oauth-nodejs-client@^1.2.4":
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/@types/ebay-oauth-nodejs-client/-/ebay-oauth-nodejs-client-1.2.4.tgz#23da306978b4ff1e9816234bb0fc6928a40bf51e"
+  integrity sha512-v2ABjemtKhFpe6x4+8rxqoo6N4cg/vrBXeXWh6Ru+jRU0UqqygxzZdqxuvF6zy3A9l8L5qRQC09X+3vcu9KTSA==
+
 "@types/estree@1.0.6", "@types/estree@^1.0.6":
   version "1.0.6"
   resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.6.tgz#628effeeae2064a1b4e79f78e81d87b7e5fc7b50"
@@ -2183,6 +2188,13 @@ eastasianwidth@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/eastasianwidth/-/eastasianwidth-0.2.0.tgz#696ce2ec0aa0e6ea93a397ffcf24aa7840c827cb"
   integrity sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==
+
+ebay-oauth-nodejs-client@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/ebay-oauth-nodejs-client/-/ebay-oauth-nodejs-client-1.2.2.tgz#d0f8ff67e3edcd0aa81be01ca73dae17c1624af3"
+  integrity sha512-loTlaN0tgmB4W9jVKUMJC8TjIs4OZ6U/ktjI1ctJQKCZi3qAWkwt26sUtMkWCGaZbJgjZhNMoUi2bEvVGdGc/w==
+  dependencies:
+    querystring "^0.2.0"
 
 ecdsa-sig-formatter@1.0.11, ecdsa-sig-formatter@^1.0.11:
   version "1.0.11"
@@ -3975,6 +3987,11 @@ qs@^6.11.0:
   integrity sha512-YWWTjgABSKcvs/nWBi9PycY/JiPJqOD4JA6o9Sej2AtvSGarXxKC3OQSk4pAarbdQlKAh5D4FCQkJNkW+GAn3w==
   dependencies:
     side-channel "^1.1.0"
+
+querystring@^0.2.0:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/querystring/-/querystring-0.2.1.tgz#40d77615bb09d16902a85c3e38aa8b5ed761c2dd"
+  integrity sha512-wkvS7mL/JMugcup3/rMitHmd9ecIGd2lhFhK9N3UUQ450h66d1r3Y9nvXzQAW1Lq+wyx61k/1pfKS5KuKiyEbg==
 
 range-parser@~1.2.1:
   version "1.2.1"
