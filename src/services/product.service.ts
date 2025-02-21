@@ -112,7 +112,7 @@ export const productService = {
   // Update an existing draft product when user move to next stepper
   updateDraftProduct: async (productId: string, stepData: any) => {
     try {
-      console.log("🔹 Incoming stepData:", JSON.stringify(stepData, null, 2));
+      // console.log("🔹 Incoming stepData:", JSON.stringify(stepData, null, 2));
 
       // Fetch the existing draft product
       const draftProduct: any = await Product.findById(productId);
@@ -122,19 +122,19 @@ export const productService = {
       // console.log("draftProduct in updateDraftProduct service : ", draftProduct);
       // console.log("stepDataaa in updateDraftProduct service : ", stepData);
 
-      console.log(
-        "🔹 Draft product before update:",
-        JSON.stringify(draftProduct, null, 2)
-      );
+      // console.log(
+      //   "🔹 Draft product before update:",
+      //   JSON.stringify(draftProduct, null, 2)
+      // );
 
       // Final step update (status and isTemplate)
       if (stepData.status !== undefined) {
         draftProduct.status = stepData.status;
         draftProduct.isTemplate = stepData.isTemplate;
-        console.log("🔹 Updating status and isTemplate:", {
-          status: stepData.status,
-          isTemplate: stepData.isTemplate,
-        });
+        // console.log("🔹 Updating status and isTemplate:", {
+        //   status: stepData.status,
+        //   isTemplate: stepData.isTemplate,
+        // });
         await draftProduct.save({ validateBeforeSave: false });
         return draftProduct;
       }
@@ -160,6 +160,9 @@ export const productService = {
             isEbay = inheritedFlags.isEbay,
             isWeb = inheritedFlags.isWeb,
           } = entry || {};
+          console.log("inheritedFlags.isAmz", inheritedFlags.isAmz);
+          console.log("inheritedFlags.isEbay", inheritedFlags.isEbay);
+          console.log("inheritedFlags.isWeb", inheritedFlags.isWeb);
 
           if (
             entry &&
@@ -235,55 +238,71 @@ export const productService = {
               if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
               if (isWeb)
                 platformDetails.website.prodPricing[currentKey] = value;
-            } else if (step === "prodDelivery") {
-              const updateNestedField = (
-                platform: string,
-                shouldUpdate: boolean
-              ) => {
-                if (!platformDetails[platform]) platformDetails[platform] = {};
-                if (!platformDetails[platform].prodDelivery)
-                  platformDetails[platform].prodDelivery = {};
-
-                if (!shouldUpdate) {
-                  // If false, remove the entire field
-                  delete platformDetails[platform].prodDelivery[key];
-
-                  // If prodDelivery becomes empty, remove prodDelivery itself
+            }else if (step === "prodDelivery") {
+              console.log("🟡 Processing prodDelivery step...");
+            
+              // Function to update fields dynamically
+              const updateNestedField = (platform: string, shouldUpdate: boolean) => {
+                if (!shouldUpdate) return; // ❌ Skip if flag is false
+            
+                if (!draftProduct.platformDetails[platform]) draftProduct.platformDetails[platform] = {};
+                if (!draftProduct.platformDetails[platform].prodDelivery) draftProduct.platformDetails[platform].prodDelivery = {};
+            
+                console.log(`🔹 Platform: ${platform} | shouldUpdate: ${shouldUpdate}`);
+            
+                Object.keys(entry).forEach((subKey) => {
+                  const subEntry = entry[subKey];
+                  console.log(`🔍 Checking key: ${subKey}`, subEntry);
+            
                   if (
-                    Object.keys(platformDetails[platform].prodDelivery)
-                      .length === 0
+                    typeof subEntry === "object" &&
+                    subEntry !== null &&
+                    "value" in subEntry
                   ) {
-                    delete platformDetails[platform].prodDelivery;
-                  }
-                  return;
-                }
-
-                // Handle nested objects like packageWeight and packageDimensions
-                if (["packageWeight", "packageDimensions"].includes(key)) {
-                  if (!platformDetails[platform].prodDelivery[key]) {
-                    platformDetails[platform].prodDelivery[key] = {};
-                  }
-
-                  Object.keys(entry).forEach((subKey) => {
-                    if (
-                      !["name", "isAmz", "isEbay", "isWeb", "value"].includes(
-                        subKey
-                      )
-                    ) {
-                      platformDetails[platform].prodDelivery[key][subKey] =
-                        entry[subKey].value;
+                    console.log(`✅ Storing direct field: ${subKey} -> ${subEntry.value}`);
+                    draftProduct.platformDetails[platform].prodDelivery[subKey] = subEntry.value;
+                  } else if (
+                    typeof subEntry === "object" &&
+                    subEntry !== null &&
+                    !("value" in subEntry)
+                  ) {
+                    // ✅ Handle nested objects like packageWeight & packageDimensions
+                    if (!draftProduct.platformDetails[platform].prodDelivery[subKey]) {
+                      draftProduct.platformDetails[platform].prodDelivery[subKey] = {};
                     }
-                  });
-                } else {
-                  platformDetails[platform].prodDelivery[key] = value;
-                }
+            
+                    Object.keys(subEntry).forEach((nestedKey) => {
+                      if (
+                        typeof subEntry[nestedKey] === "object" &&
+                        subEntry[nestedKey] !== null &&
+                        "value" in subEntry[nestedKey]
+                      ) {
+                        console.log(
+                          `✅ Storing nested field: ${subKey}.${nestedKey} -> ${subEntry[nestedKey].value}`
+                        );
+                        draftProduct.platformDetails[platform].prodDelivery[subKey][nestedKey] =
+                          subEntry[nestedKey].value;
+                      }
+                    });
+                  }
+                });
+            
+                console.log(
+                  `📌 Updated prodDelivery for ${platform}:`,
+                  JSON.stringify(draftProduct.platformDetails[platform].prodDelivery, null, 2)
+                );
               };
-
-              // Apply the function based on flag values
-              updateNestedField("amazon", isAmz);
-              updateNestedField("ebay", isEbay);
-              updateNestedField("website", isWeb);
-            } else {
+            
+              // ✅ Apply updates only if the flag is true
+              updateNestedField("amazon", entry.isAmz);
+              updateNestedField("ebay", entry.isEbay);
+              updateNestedField("website", entry.isWeb);
+            
+              console.log("🚀 Final prodDelivery object before saving:");
+              console.log(JSON.stringify(draftProduct.platformDetails, null, 2));
+            }
+            
+             else {
               if (isAmz) platformDetails.amazon.prodSeo ||= {};
               if (isEbay) platformDetails.ebay.prodSeo ||= {};
               if (isWeb) platformDetails.website.prodSeo ||= {};
@@ -297,14 +316,20 @@ export const productService = {
 
       processStepData(stepData, draftProduct.platformDetails);
 
-      console.log(
-        "🔹 Draft product after update:",
-        JSON.stringify(draftProduct, null, 2)
-      );
+      // console.log(
+      //   "🔹 Draft product after update:",
+      //   JSON.stringify(draftProduct, null, 2)
+      // );
 
       // Save the updated draft product without running validations
+      // await draftProduct.save({ validateBeforeSave: false });
+
+      draftProduct.markModified("platformDetails.amazon.prodDelivery");
+      draftProduct.markModified("platformDetails.ebay.prodDelivery");
+      draftProduct.markModified("platformDetails.website.prodDelivery");
+
       await draftProduct.save({ validateBeforeSave: false });
-      console.log("✅ Draft product updated successfully.");
+      // console.log("✅ Draft product updated successfully.");
 
       return draftProduct;
     } catch (error: any) {
