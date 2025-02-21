@@ -3,33 +3,40 @@
     "step": "prodDelivery",
     "postagePolicy": {
       "name": "postagePolicy",
-      "value": "test shitty shipping",
+      "value": "test shitty newwwwewewe shipping",
       "isAmz": true,
       "isEbay": true,
       "isWeb": true
     },
     "packageWeight": {
-      "name": "packageWeight",
-      "value": { "weightKg": "110 bc", "weightG": "120323 test vc" },
-      "isAmz": true,
-      "isEbay": true,
-      "isWeb": true,
-      "weightKg": { "value": "5 kg" },
-      "weightG": { "value": "200 g" }
-    },
-    "packageDimensions": {
-      "name": "packageDimensions",
-      "value": {
-        "dimensionLength": "130 bc",
-        "dimensionWidth": "140 bc ",
-        "dimensionHeight": "150 bc"
+      "weightKg": {
+        "name": "weightKg",
+        "value": "234342523453 kg"
+      },
+      "weightG": {
+        "name": "weightG",
+        "value": "200 g"
       },
       "isAmz": true,
       "isEbay": true,
+      "isWeb": true
+    },
+    "packageDimensions": {
+      "isAmz": true,
+      "isEbay": true,
       "isWeb": true,
-      "dimensionLength": { "value": "10 cm" },
-      "dimensionWidth": { "value": "10 cm" },
-      "dimensionHeight": { "value": "20 cm" }
+      "dimensionLength": {
+        "name": "dimensionLength",
+        "value": "10 cm"
+      },
+      "dimensionWidth": {
+        "name": "dimensionWidth",
+        "value": "10 cm"
+      },
+      "dimensionHeight": {
+        "name": "dimensionHeight",
+        "value": "20 cm"
+      }
     },
     "irregularPackage": {
       "name": "irregularPackage",
