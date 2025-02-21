@@ -238,71 +238,54 @@ export const productService = {
               if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
               if (isWeb)
                 platformDetails.website.prodPricing[currentKey] = value;
-            }else if (step === "prodDelivery") {
+            } else if (step === "prodDelivery") {
               console.log("🟡 Processing prodDelivery step...");
-            
+
               // Function to update fields dynamically
-              const updateNestedField = (platform: string, shouldUpdate: boolean) => {
-                if (!shouldUpdate) return; // ❌ Skip if flag is false
-            
-                if (!draftProduct.platformDetails[platform]) draftProduct.platformDetails[platform] = {};
-                if (!draftProduct.platformDetails[platform].prodDelivery) draftProduct.platformDetails[platform].prodDelivery = {};
-            
-                console.log(`🔹 Platform: ${platform} | shouldUpdate: ${shouldUpdate}`);
-            
-                Object.keys(entry).forEach((subKey) => {
-                  const subEntry = entry[subKey];
-                  console.log(`🔍 Checking key: ${subKey}`, subEntry);
-            
-                  if (
-                    typeof subEntry === "object" &&
-                    subEntry !== null &&
-                    "value" in subEntry
-                  ) {
-                    console.log(`✅ Storing direct field: ${subKey} -> ${subEntry.value}`);
-                    draftProduct.platformDetails[platform].prodDelivery[subKey] = subEntry.value;
-                  } else if (
-                    typeof subEntry === "object" &&
-                    subEntry !== null &&
-                    !("value" in subEntry)
-                  ) {
-                    // ✅ Handle nested objects like packageWeight & packageDimensions
-                    if (!draftProduct.platformDetails[platform].prodDelivery[subKey]) {
-                      draftProduct.platformDetails[platform].prodDelivery[subKey] = {};
-                    }
-            
-                    Object.keys(subEntry).forEach((nestedKey) => {
-                      if (
-                        typeof subEntry[nestedKey] === "object" &&
-                        subEntry[nestedKey] !== null &&
-                        "value" in subEntry[nestedKey]
-                      ) {
-                        console.log(
-                          `✅ Storing nested field: ${subKey}.${nestedKey} -> ${subEntry[nestedKey].value}`
-                        );
-                        draftProduct.platformDetails[platform].prodDelivery[subKey][nestedKey] =
-                          subEntry[nestedKey].value;
-                      }
-                    });
-                  }
-                });
-            
+             const updateNestedField = (
+                platform: string,
+                shouldUpdate: boolean
+              ) => {
+                if (!platformDetails[platform]) platformDetails[platform] = {};
+                if (!platformDetails[platform].prodDelivery) {
+                  platformDetails[platform].prodDelivery = {};
+                }
+
+                if (!shouldUpdate) {
+                  delete platformDetails[platform].prodDelivery[currentKey];
+                  return;
+                }
+
+                // Extract value (use entry.value if exists, otherwise the whole entry)
+                let valueToStore =
+                  entry.value !== undefined ? entry.value : entry;
+
+                // Remove platform flags if the value is an object
+                if (typeof valueToStore === "object" && valueToStore !== null) {
+                  const { isAmz, isEbay, isWeb, ...cleanValue } = valueToStore;
+                  valueToStore = cleanValue;
+                }
+
+                // Assign the cleaned value to the currentKey in prodDelivery
+                platformDetails[platform].prodDelivery[currentKey] =
+                  valueToStore;
+
                 console.log(
-                  `📌 Updated prodDelivery for ${platform}:`,
-                  JSON.stringify(draftProduct.platformDetails[platform].prodDelivery, null, 2)
+                  `✅ Updated ${currentKey} for ${platform}:`,
+                  valueToStore
                 );
               };
-            
+
               // ✅ Apply updates only if the flag is true
               updateNestedField("amazon", entry.isAmz);
               updateNestedField("ebay", entry.isEbay);
               updateNestedField("website", entry.isWeb);
-            
+
               console.log("🚀 Final prodDelivery object before saving:");
-              console.log(JSON.stringify(draftProduct.platformDetails, null, 2));
-            }
-            
-             else {
+              console.log(
+                JSON.stringify(draftProduct.platformDetails, null, 2)
+              );
+            } else {
               if (isAmz) platformDetails.amazon.prodSeo ||= {};
               if (isEbay) platformDetails.ebay.prodSeo ||= {};
               if (isWeb) platformDetails.website.prodSeo ||= {};
