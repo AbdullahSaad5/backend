@@ -184,11 +184,10 @@ export const productController = {
         });
       }
 
-      const templateList = templates.map((template, index) => {
+      let templateList = templates.map((template, index) => {
         const productId = template._id;
         const kind = template.kind || "UNKNOWN";
 
-        // Determine fields based on category (kind)
         let fields: string[] = [];
         const prodInfo: any =
           template.platformDetails.website?.prodTechInfo || {};
@@ -233,7 +232,6 @@ export const productController = {
             break;
         }
 
-        // Filter out undefined/null fields and join to form the name
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
         const srno = (index + 1).toString().padStart(2, "0");
@@ -241,6 +239,13 @@ export const productController = {
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, productId };
+      });
+
+      // 🔹 Sort by the number at the end of templateName in descending order
+      templateList.sort((a, b) => {
+        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
       });
 
       return res.status(StatusCodes.OK).json({
@@ -256,6 +261,7 @@ export const productController = {
       });
     }
   },
+
   //Get All Draft Product Names
   getAllDraftProductNames: async (req: Request, res: Response) => {
     try {
