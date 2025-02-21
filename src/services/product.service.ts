@@ -112,208 +112,197 @@ export const productService = {
   // Update an existing draft product when user move to next stepper
   updateDraftProduct: async (productId: string, stepData: any) => {
     try {
-      // console.log("🔹 Incoming stepData:", JSON.stringify(stepData, null, 2));
-
-      // Fetch the existing draft product
       const draftProduct: any = await Product.findById(productId);
       if (!draftProduct) {
         throw new Error("Draft product not found");
       }
-      // console.log("draftProduct in updateDraftProduct service : ", draftProduct);
-      // console.log("stepDataaa in updateDraftProduct service : ", stepData);
 
-      // console.log(
-      //   "🔹 Draft product before update:",
-      //   JSON.stringify(draftProduct, null, 2)
-      // );
-
-      // Final step update (status and isTemplate)
       if (stepData.status !== undefined) {
         draftProduct.status = stepData.status;
         draftProduct.isTemplate = stepData.isTemplate;
-        // console.log("🔹 Updating status and isTemplate:", {
-        //   status: stepData.status,
-        //   isTemplate: stepData.isTemplate,
-        // });
         await draftProduct.save({ validateBeforeSave: false });
         return draftProduct;
       }
 
-      // Recursive function to update platform details
-      const processStepData = (
-        data: any,
-        platformDetails: any,
-        keyPrefix: string = "",
-        inheritedFlags: {
-          isAmz?: boolean;
-          isEbay?: boolean;
-          isWeb?: boolean;
-        } = {}
-      ) => {
-        Object.keys(data).forEach((key) => {
-          const currentKey = keyPrefix ? `${keyPrefix}.${key}` : key;
-          const entry = data[key];
+      const step = stepData.step;
 
-          // Inherit platform flags
-          const {
-            isAmz = inheritedFlags.isAmz,
-            isEbay = inheritedFlags.isEbay,
-            isWeb = inheritedFlags.isWeb,
-          } = entry || {};
-          console.log("inheritedFlags.isAmz", inheritedFlags.isAmz);
-          console.log("inheritedFlags.isEbay", inheritedFlags.isEbay);
-          console.log("inheritedFlags.isWeb", inheritedFlags.isWeb);
+      if (step === "prodDelivery") {
+        console.log("🟡 Processing prodDelivery step separately...");
 
-          if (
-            entry &&
-            typeof entry === "object" &&
-            !Array.isArray(entry) &&
-            entry.value === undefined
-          ) {
-            // Recursive call for nested objects
-            processStepData(entry, platformDetails, currentKey, {
-              isAmz,
-              isEbay,
-              isWeb,
-            });
-          } else {
-            let value = entry?.value ?? entry;
-            const step = stepData.step;
-            console.log(`🔹 Processing: ${currentKey} | Value:`, value);
+        if (!draftProduct.platformDetails) {
+          draftProduct.platformDetails = { amazon: {}, ebay: {}, website: {} };
+        }
 
-            if (step === "productInfo") {
-              if (isAmz) platformDetails.amazon.productInfo ||= {};
-              if (isEbay) platformDetails.ebay.productInfo ||= {};
-              if (isWeb) platformDetails.website.productInfo ||= {};
-              if (isAmz) platformDetails.amazon.productInfo[currentKey] = value;
-              if (isEbay) platformDetails.ebay.productInfo[currentKey] = value;
-              if (isWeb)
-                platformDetails.website.productInfo[currentKey] = value;
-              if (currentKey === "productSupplier") {
-                platformDetails.amazon.productInfo.productSupplier = value;
-                platformDetails.ebay.productInfo.productSupplier = value;
-                platformDetails.website.productInfo.productSupplier = value;
-              }
-            } else if (step === "prodMedia") {
-              if (currentKey.startsWith("platformMedia.")) {
-                const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
-                if (
-                  keyParts.length === 2 &&
-                  ["amazon", "ebay", "website"].includes(keyParts[0]) &&
-                  ["images", "videos"].includes(keyParts[1])
-                ) {
-                  const [platform, mediaType] = keyParts;
+        ["amazon", "ebay", "website"].forEach((platform) => {
+          if (!draftProduct.platformDetails[platform]) {
+            draftProduct.platformDetails[platform] = {};
+          }
 
-                  // 1. Initialize platform if missing
-                  if (!platformDetails[platform]) {
-                    platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
-                  }
-
-                  // 2. Initialize prodMedia structure
-                  if (!platformDetails[platform].prodMedia) {
-                    platformDetails[platform].prodMedia = {
-                      images: [],
-                      videos: [],
-                    };
-                  }
-
-                  // 3. Assign the media array
-                  platformDetails[platform].prodMedia[mediaType] = value;
-                }
-              }
-            } else if (step === "prodTechInfo") {
-              if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
-              if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
-              if (isWeb) platformDetails.website.prodTechInfo ||= {};
-              if (isAmz)
-                platformDetails.amazon.prodTechInfo[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodTechInfo[currentKey] = value;
-              if (isWeb)
-                platformDetails.website.prodTechInfo[currentKey] = value;
-            } else if (step === "prodPricing") {
-              if (isAmz) platformDetails.amazon.prodPricing ||= {};
-              if (isEbay) platformDetails.ebay.prodPricing ||= {};
-              if (isWeb) platformDetails.website.prodPricing ||= {};
-              if (isAmz) platformDetails.amazon.prodPricing[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
-              if (isWeb)
-                platformDetails.website.prodPricing[currentKey] = value;
-            } else if (step === "prodDelivery") {
-              console.log("🟡 Processing prodDelivery step...");
-
-              // Function to update fields dynamically
-             const updateNestedField = (
-                platform: string,
-                shouldUpdate: boolean
-              ) => {
-                if (!platformDetails[platform]) platformDetails[platform] = {};
-                if (!platformDetails[platform].prodDelivery) {
-                  platformDetails[platform].prodDelivery = {};
-                }
-
-                if (!shouldUpdate) {
-                  delete platformDetails[platform].prodDelivery[currentKey];
-                  return;
-                }
-
-                // Extract value (use entry.value if exists, otherwise the whole entry)
-                let valueToStore =
-                  entry.value !== undefined ? entry.value : entry;
-
-                // Remove platform flags if the value is an object
-                if (typeof valueToStore === "object" && valueToStore !== null) {
-                  const { isAmz, isEbay, isWeb, ...cleanValue } = valueToStore;
-                  valueToStore = cleanValue;
-                }
-
-                // Assign the cleaned value to the currentKey in prodDelivery
-                platformDetails[platform].prodDelivery[currentKey] =
-                  valueToStore;
-
-                console.log(
-                  `✅ Updated ${currentKey} for ${platform}:`,
-                  valueToStore
-                );
-              };
-
-              // ✅ Apply updates only if the flag is true
-              updateNestedField("amazon", entry.isAmz);
-              updateNestedField("ebay", entry.isEbay);
-              updateNestedField("website", entry.isWeb);
-
-              console.log("🚀 Final prodDelivery object before saving:");
-              console.log(
-                JSON.stringify(draftProduct.platformDetails, null, 2)
-              );
-            } else {
-              if (isAmz) platformDetails.amazon.prodSeo ||= {};
-              if (isEbay) platformDetails.ebay.prodSeo ||= {};
-              if (isWeb) platformDetails.website.prodSeo ||= {};
-              if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
-              if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
-              if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
-            }
+          if (!draftProduct.platformDetails[platform].prodDelivery) {
+            draftProduct.platformDetails[platform].prodDelivery = {};
           }
         });
-      };
 
-      processStepData(stepData, draftProduct.platformDetails);
+        Object.keys(stepData).forEach((key) => {
+          if (key === "step") return;
 
-      // console.log(
-      //   "🔹 Draft product after update:",
-      //   JSON.stringify(draftProduct, null, 2)
-      // );
+          const entry = stepData[key];
+          const { isAmz, isEbay, isWeb, ...rest } = entry;
 
-      // Save the updated draft product without running validations
-      // await draftProduct.save({ validateBeforeSave: false });
+          const updateField = (platform: string, shouldUpdate: boolean) => {
+            if (!shouldUpdate) return;
+            if (!draftProduct.platformDetails[platform].prodDelivery) {
+              draftProduct.platformDetails[platform].prodDelivery = {};
+            }
 
-      draftProduct.markModified("platformDetails.amazon.prodDelivery");
-      draftProduct.markModified("platformDetails.ebay.prodDelivery");
-      draftProduct.markModified("platformDetails.website.prodDelivery");
+            if (
+              typeof entry === "object" &&
+              !Array.isArray(entry) &&
+              entry.value === undefined
+            ) {
+              // Handle nested objects (e.g., packageWeight, packageDimensions)
+              draftProduct.platformDetails[platform].prodDelivery[key] = {};
+              Object.keys(entry).forEach((subKey) => {
+                if (subKey.startsWith("is")) return; // Ignore flags
+                draftProduct.platformDetails[platform].prodDelivery[key][
+                  subKey
+                ] = entry[subKey].value;
+              });
+            } else {
+              // Handle direct key-value pairs (e.g., postagePolicy, irregularPackage)
+              draftProduct.platformDetails[platform].prodDelivery[key] =
+                entry.value;
+            }
+          };
+
+          updateField("amazon", isAmz);
+          updateField("ebay", isEbay);
+          updateField("website", isWeb);
+        });
+
+        draftProduct.markModified("platformDetails.amazon.prodDelivery");
+        draftProduct.markModified("platformDetails.ebay.prodDelivery");
+        draftProduct.markModified("platformDetails.website.prodDelivery");
+      } else {
+        // Recursive function to update platform details
+        const processStepData = (
+          data: any,
+          platformDetails: any,
+          keyPrefix: string = "",
+          inheritedFlags: {
+            isAmz?: boolean;
+            isEbay?: boolean;
+            isWeb?: boolean;
+          } = {}
+        ) => {
+          Object.keys(data).forEach((key) => {
+            const currentKey = keyPrefix ? `${keyPrefix}.${key}` : key;
+            const entry = data[key];
+
+            // Inherit platform flags
+            const {
+              isAmz = inheritedFlags.isAmz,
+              isEbay = inheritedFlags.isEbay,
+              isWeb = inheritedFlags.isWeb,
+            } = entry || {};
+            console.log("inheritedFlags.isAmz", inheritedFlags.isAmz);
+            console.log("inheritedFlags.isEbay", inheritedFlags.isEbay);
+            console.log("inheritedFlags.isWeb", inheritedFlags.isWeb);
+
+            if (
+              entry &&
+              typeof entry === "object" &&
+              !Array.isArray(entry) &&
+              entry.value === undefined
+            ) {
+              // Recursive call for nested objects
+              processStepData(entry, platformDetails, currentKey, {
+                isAmz,
+                isEbay,
+                isWeb,
+              });
+            } else {
+              let value = entry?.value ?? entry;
+              const step = stepData.step;
+              console.log(`🔹 Processing: ${currentKey} | Value:`, value);
+
+              if (step === "productInfo") {
+                if (isAmz) platformDetails.amazon.productInfo ||= {};
+                if (isEbay) platformDetails.ebay.productInfo ||= {};
+                if (isWeb) platformDetails.website.productInfo ||= {};
+                if (isAmz)
+                  platformDetails.amazon.productInfo[currentKey] = value;
+                if (isEbay)
+                  platformDetails.ebay.productInfo[currentKey] = value;
+                if (isWeb)
+                  platformDetails.website.productInfo[currentKey] = value;
+                if (currentKey === "productSupplier") {
+                  platformDetails.amazon.productInfo.productSupplier = value;
+                  platformDetails.ebay.productInfo.productSupplier = value;
+                  platformDetails.website.productInfo.productSupplier = value;
+                }
+              } else if (step === "prodMedia") {
+                if (currentKey.startsWith("platformMedia.")) {
+                  const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
+                  if (
+                    keyParts.length === 2 &&
+                    ["amazon", "ebay", "website"].includes(keyParts[0]) &&
+                    ["images", "videos"].includes(keyParts[1])
+                  ) {
+                    const [platform, mediaType] = keyParts;
+
+                    // 1. Initialize platform if missing
+                    if (!platformDetails[platform]) {
+                      platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
+                    }
+
+                    // 2. Initialize prodMedia structure
+                    if (!platformDetails[platform].prodMedia) {
+                      platformDetails[platform].prodMedia = {
+                        images: [],
+                        videos: [],
+                      };
+                    }
+
+                    // 3. Assign the media array
+                    platformDetails[platform].prodMedia[mediaType] = value;
+                  }
+                }
+              } else if (step === "prodTechInfo") {
+                if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
+                if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
+                if (isWeb) platformDetails.website.prodTechInfo ||= {};
+                if (isAmz)
+                  platformDetails.amazon.prodTechInfo[currentKey] = value;
+                if (isEbay)
+                  platformDetails.ebay.prodTechInfo[currentKey] = value;
+                if (isWeb)
+                  platformDetails.website.prodTechInfo[currentKey] = value;
+              } else if (step === "prodPricing") {
+                if (isAmz) platformDetails.amazon.prodPricing ||= {};
+                if (isEbay) platformDetails.ebay.prodPricing ||= {};
+                if (isWeb) platformDetails.website.prodPricing ||= {};
+                if (isAmz)
+                  platformDetails.amazon.prodPricing[currentKey] = value;
+                if (isEbay)
+                  platformDetails.ebay.prodPricing[currentKey] = value;
+                if (isWeb)
+                  platformDetails.website.prodPricing[currentKey] = value;
+              } else {
+                if (isAmz) platformDetails.amazon.prodSeo ||= {};
+                if (isEbay) platformDetails.ebay.prodSeo ||= {};
+                if (isWeb) platformDetails.website.prodSeo ||= {};
+                if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
+                if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
+                if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
+              }
+            }
+          });
+        };
+        processStepData(stepData, draftProduct.platformDetails);
+      }
 
       await draftProduct.save({ validateBeforeSave: false });
-      // console.log("✅ Draft product updated successfully.");
-
       return draftProduct;
     } catch (error: any) {
       console.error(
@@ -324,6 +313,7 @@ export const productService = {
       throw new Error(`Failed to update draft product: ${error.message}`);
     }
   },
+
   getFullProductById: async (id: string) => {
     try {
       const product = await Product.findById(id)
