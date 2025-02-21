@@ -238,16 +238,17 @@ export const productService = {
             } else if (step === "prodDelivery") {
               const updateNestedField = (
                 platform: string,
-                shouldUpdate: boolean,
-                key: string,
-                entry: any
+                shouldUpdate: boolean
               ) => {
                 if (!platformDetails[platform]) platformDetails[platform] = {};
                 if (!platformDetails[platform].prodDelivery)
                   platformDetails[platform].prodDelivery = {};
 
                 if (!shouldUpdate) {
+                  // If false, remove the entire field
                   delete platformDetails[platform].prodDelivery[key];
+
+                  // If prodDelivery becomes empty, remove prodDelivery itself
                   if (
                     Object.keys(platformDetails[platform].prodDelivery)
                       .length === 0
@@ -257,50 +258,31 @@ export const productService = {
                   return;
                 }
 
-                // Directly update prodDelivery fields (like irregularPackage, postagePolicy)
-                if (key === "irregularPackage" || key === "postagePolicy") {
-                  platformDetails[platform].prodDelivery[key] = entry.value;
-                  console.log(
-                    `✅ Updated ${key} for ${platform}:`,
-                    platformDetails[platform].prodDelivery[key]
-                  );
-                } else {
-                  // Handle nested fields like packageWeight and packageDimensions
-                  if (key === "packageWeight" || key === "packageDimensions") {
-                    if (!platformDetails[platform].prodDelivery[key]) {
-                      platformDetails[platform].prodDelivery[key] = {};
-                    }
-
-                    // Update the nested fields inside packageWeight or packageDimensions
-                    Object.entries(entry).forEach(([subKey, subValue]) => {
-                      if (
-                        subValue &&
-                        typeof subValue === "object" &&
-                        "value" in subValue
-                      ) {
-                        platformDetails[platform].prodDelivery[key][subKey] =
-                          subValue.value;
-                      }
-                    });
-                    console.log(
-                      `✅ Updated ${key} for ${platform}:`,
-                      platformDetails[platform].prodDelivery[key]
-                    );
-                  } else {
-                    // For other fields, just assign directly
-                    platformDetails[platform].prodDelivery[key] = entry.value;
+                // Handle nested objects like packageWeight and packageDimensions
+                if (["packageWeight", "packageDimensions"].includes(key)) {
+                  if (!platformDetails[platform].prodDelivery[key]) {
+                    platformDetails[platform].prodDelivery[key] = {};
                   }
+
+                  Object.keys(entry).forEach((subKey) => {
+                    if (
+                      !["name", "isAmz", "isEbay", "isWeb", "value"].includes(
+                        subKey
+                      )
+                    ) {
+                      platformDetails[platform].prodDelivery[key][subKey] =
+                        entry[subKey].value;
+                    }
+                  });
+                } else {
+                  platformDetails[platform].prodDelivery[key] = value;
                 }
               };
 
-              // Then call the updated function with proper parameters
-              updateNestedField("amazon", isAmz, "packageWeight", entry);
-              updateNestedField("ebay", isEbay, "packageWeight", entry);
-              updateNestedField("website", isWeb, "packageWeight", entry);
-
-              updateNestedField("amazon", isAmz, "packageDimensions", entry);
-              updateNestedField("ebay", isEbay, "packageDimensions", entry);
-              updateNestedField("website", isWeb, "packageDimensions", entry);
+              // Apply the function based on flag values
+              updateNestedField("amazon", isAmz);
+              updateNestedField("ebay", isEbay);
+              updateNestedField("website", isWeb);
             } else {
               if (isAmz) platformDetails.amazon.prodSeo ||= {};
               if (isEbay) platformDetails.ebay.prodSeo ||= {};

@@ -57,7 +57,7 @@ const options: EbayAuthOptions = {
 
 export const getStoredEbayAccessToken = async () => {
   // Read the ebay_tokens.json file and parse the content
-  const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+  const credentialsText = fs.readFileSync("../../ebay_tokens.json", "utf-8");
   const credentials = JSON.parse(credentialsText);
 
   // Check if the credentials are present

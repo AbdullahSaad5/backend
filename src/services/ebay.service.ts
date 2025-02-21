@@ -37,7 +37,7 @@ export const ebayService = {
         credentials,
       });
     } catch (error) {
-      console.log(error);
+      // console.log(error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
@@ -125,9 +125,10 @@ export const ebayService = {
 
   async syncProductWithEbay(product: any): Promise<string> {
     const token = await getStoredEbayAccessToken();
-    const ebayApiUrl = "https://api.ebay.com/sell/inventory/v1/inventory_item";
+    console.log("token in service:", token);
+    const ebayApiUrl =
+      "https://api.ebay.com/api/sell/inventory/v1/inventory_item";
 
-    // Extract eBay-specific details
     const ebayData = product.platformDetails?.ebay;
     if (!ebayData) throw new Error("Missing eBay product details");
 
@@ -148,28 +149,39 @@ export const ebayService = {
       categoryName,
       ebayData.prodTechInfo
     );
-
     const requestBody = {
       product: {
         title: ebayData.productInfo?.title,
-        aspects: aspects, // Dynamically assigned aspects
+        aspects: aspects,
         description: ebayData.productInfo?.productDescription || "",
         upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
         imageUrls: ebayData.prodMedia?.images.map((img: any) => img.url) || [],
       },
-      categoryId: categoryId, // Hardcoded category ID
+      categoryId: 179,
       condition: ebayData.prodPricing?.condition || "New",
       packageWeightAndSize: {
         dimensions: {
-          height: ebayData.prodTechInfo?.height || "10in",
-          length: ebayData.prodTechInfo?.length || "10in",
-          width: ebayData.prodTechInfo?.width || "10in",
+          height: {
+            value: parseFloat(ebayData.prodTechInfo?.height) || 10,
+            unit: "CM",
+          },
+          length: {
+            value: parseFloat(ebayData.prodTechInfo?.length) || 10,
+            unit: "CM",
+          },
+          width: {
+            value: parseFloat(ebayData.prodTechInfo?.width) || 10,
+            unit: "CM",
+          },
         },
-        weight: ebayData.prodTechInfo?.weight || "5lb",
+        weight: {
+          value: parseFloat(ebayData.prodTechInfo?.weight) || 5,
+          unit: "LB",
+        },
       },
       availability: {
         shipToLocationAvailability: {
-          quantity: ebayData.prodPricing?.quantity || 1,
+          quantity: parseInt(ebayData.prodPricing?.quantity) || 1,
         },
       },
       fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
@@ -181,13 +193,16 @@ export const ebayService = {
           packageType: "USPSPriorityMailFlatRateBox",
         },
       ],
-      listingPolicies: ebayData.prodPricing?.paymentPolicy || {},
+      listingPolicies: {
+        paymentPolicyId:
+          ebayData.prodPricing?.paymentPolicy || "default-payment-id",
+        returnPolicyId: "return-policy-id",
+        fulfillmentPolicyId: "fulfillment-policy-id",
+      },
     };
 
-    // Check if we need to create or update the listing
-    const isUpdate = product.ebayItemId ? true : false;
-    const method = isUpdate ? "PUT" : "POST";
-    const ebayUrl = isUpdate
+    const method = product.ebayItemId ? "PUT" : "POST";
+    const ebayUrl = product.ebayItemId
       ? `${ebayApiUrl}/${product.ebayItemId}`
       : ebayApiUrl;
 
@@ -203,10 +218,6 @@ export const ebayService = {
 
     return response.data.sku;
   },
-
-  /**
-   * Returns category-specific aspects based on the product's category.
-   */
   getCategoryAspects(categoryName: string, prodTechInfo: any) {
     switch (categoryName) {
       case "PC Laptops & Netbooks":
