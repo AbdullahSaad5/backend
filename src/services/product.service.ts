@@ -301,6 +301,13 @@ export const productService = {
               updateNestedField("amazon", isAmz, "packageDimensions", entry);
               updateNestedField("ebay", isEbay, "packageDimensions", entry);
               updateNestedField("website", isWeb, "packageDimensions", entry);
+            } else {
+              if (isAmz) platformDetails.amazon.prodSeo ||= {};
+              if (isEbay) platformDetails.ebay.prodSeo ||= {};
+              if (isWeb) platformDetails.website.prodSeo ||= {};
+              if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
+              if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
+              if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
             }
           }
         });
