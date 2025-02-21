@@ -272,15 +272,14 @@ export const productController = {
       if (!drafts.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "No templates found",
+          message: "No draft products found",
         });
       }
 
-      const draftList = drafts.map((draft, index) => {
+      let draftList = drafts.map((draft, index) => {
         const productId = draft._id;
         const kind = draft.kind || "UNKNOWN";
 
-        // Determine fields based on category (kind)
         let fields: string[] = [];
         const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
@@ -324,7 +323,6 @@ export const productController = {
             break;
         }
 
-        // Filter out undefined/null fields and join to form the name
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
         const srno = (index + 1).toString().padStart(2, "0");
@@ -334,9 +332,16 @@ export const productController = {
         return { draftName, productId };
       });
 
+      // 🔹 Sort by the number at the end of draftName in descending order
+      draftList.sort((a, b) => {
+        const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
+      });
+
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "draft products names fetched successfully",
+        message: "Draft products names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -347,6 +352,7 @@ export const productController = {
       });
     }
   },
+
   //Selected transformed draft Product
   transformAndSendDraftProduct: async (req: Request, res: Response) => {
     try {
