@@ -124,100 +124,131 @@ export const ebayService = {
   },
 
   async syncProductWithEbay(product: any): Promise<string> {
-    const token = await getStoredEbayAccessToken();
-    console.log("token in service:", token);
-    const ebayApiUrl =
-      "https://api.ebay.com/api/sell/inventory/v1/inventory_item";
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
 
-    const ebayData = product.platformDetails?.ebay;
-    if (!ebayData) throw new Error("Missing eBay product details");
+      const ebayApiUrl =
+        "https://api.ebay.com/api/sell/inventory/v1/inventory_item";
+      const ebayData = product.platformDetails?.ebay;
 
-    // Determine category ID based on product type
-    const categoryMap: Record<string, number> = {
-      "PC Laptops & Netbooks": 177,
-      "PC Desktops & All-In-Ones": 179,
-      Monitors: 80053,
-      Projectors: 25321,
-      "Wireless Access Points": 175709,
-    };
-    const categoryName =
-      ebayData.productInfo?.productCategory.name || "PC Desktops & All-In-Ones";
-    const categoryId = categoryMap[categoryName] || 179; // Default to Desktops
+      if (!ebayData) {
+        throw new Error("Missing eBay product details");
+      }
 
-    // Aspect mapping based on category
-    const aspects = this.getCategoryAspects(
-      categoryName,
-      ebayData.prodTechInfo
-    );
-    const requestBody = {
-      product: {
-        title: ebayData.productInfo?.title,
-        aspects: aspects,
-        description: ebayData.productInfo?.productDescription || "",
-        upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
-        imageUrls: ebayData.prodMedia?.images.map((img: any) => img.url) || [],
-      },
-      categoryId: 179,
-      condition: ebayData.prodPricing?.condition || "New",
-      packageWeightAndSize: {
-        dimensions: {
-          height: {
-            value: parseFloat(ebayData.prodTechInfo?.height) || 10,
-            unit: "CM",
+      // Category mapping
+      const categoryMap: Record<string, number> = {
+        "PC Laptops & Netbooks": 177,
+        "PC Desktops & All-In-Ones": 179,
+        Monitors: 80053,
+        Projectors: 25321,
+        "Wireless Access Points": 175709,
+      };
+      const categoryName =
+        ebayData.productInfo?.productCategory?.name ||
+        "PC Desktops & All-In-Ones";
+      const categoryId = categoryMap[categoryName] || 179; // Default category
+
+      // Aspect mapping
+      const aspects = this.getCategoryAspects(
+        categoryName,
+        ebayData.prodTechInfo
+      );
+
+      // Validate mandatory fields
+      if (!ebayData.productInfo?.title) {
+        throw new Error("Missing product title");
+      }
+      if (!ebayData.productInfo?.productDescription) {
+        throw new Error("Missing product description");
+      }
+
+      const requestBody = {
+        product: {
+          title: ebayData.productInfo.title,
+          aspects: aspects,
+          description: ebayData.productInfo.productDescription,
+          upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
+          imageUrls:
+            ebayData.prodMedia?.images?.map((img: any) => img.url) || [],
+        },
+        categoryId: categoryId,
+        condition: ebayData.prodPricing?.condition || "New",
+        packageWeightAndSize: {
+          dimensions: {
+            height: {
+              value: parseFloat(ebayData.prodTechInfo?.height) || 10,
+              unit: "CM",
+            },
+            length: {
+              value: parseFloat(ebayData.prodTechInfo?.length) || 10,
+              unit: "CM",
+            },
+            width: {
+              value: parseFloat(ebayData.prodTechInfo?.width) || 10,
+              unit: "CM",
+            },
           },
-          length: {
-            value: parseFloat(ebayData.prodTechInfo?.length) || 10,
-            unit: "CM",
-          },
-          width: {
-            value: parseFloat(ebayData.prodTechInfo?.width) || 10,
-            unit: "CM",
+          weight: {
+            value: parseFloat(ebayData.prodTechInfo?.weight) || 5,
+            unit: "LB",
           },
         },
-        weight: {
-          value: parseFloat(ebayData.prodTechInfo?.weight) || 5,
-          unit: "LB",
+        availability: {
+          shipToLocationAvailability: {
+            quantity: parseInt(ebayData.prodPricing?.quantity) || 1,
+          },
         },
-      },
-      availability: {
-        shipToLocationAvailability: {
-          quantity: parseInt(ebayData.prodPricing?.quantity) || 1,
+        fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
+        shippingOptions: [
+          {
+            shippingCost: { value: "0.00", currency: "USD" },
+            shippingServiceCode: "USPSPriorityMail",
+            shipToLocations: [{ countryCode: "US" }],
+            packageType: "USPSPriorityMailFlatRateBox",
+          },
+        ],
+        listingPolicies: {
+          paymentPolicyId:
+            ebayData.prodPricing?.paymentPolicy || "default-payment-id",
+          returnPolicyId: "return-policy-id",
+          fulfillmentPolicyId: "fulfillment-policy-id",
         },
-      },
-      fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
-      shippingOptions: [
-        {
-          shippingCost: { value: "0.00", currency: "USD" },
-          shippingServiceCode: "USPSPriorityMail",
-          shipToLocations: [{ countryCode: "US" }],
-          packageType: "USPSPriorityMailFlatRateBox",
+      };
+
+      const method = product.ebayItemId ? "PUT" : "POST";
+      const ebayUrl = product.ebayItemId
+        ? `${ebayApiUrl}/${product.ebayItemId}`
+        : ebayApiUrl;
+
+      const response = await axios({
+        method,
+        url: ebayUrl,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      ],
-      listingPolicies: {
-        paymentPolicyId:
-          ebayData.prodPricing?.paymentPolicy || "default-payment-id",
-        returnPolicyId: "return-policy-id",
-        fulfillmentPolicyId: "fulfillment-policy-id",
-      },
-    };
+        data: requestBody,
+      });
 
-    const method = product.ebayItemId ? "PUT" : "POST";
-    const ebayUrl = product.ebayItemId
-      ? `${ebayApiUrl}/${product.ebayItemId}`
-      : ebayApiUrl;
+      console.log("eBay API Response:", response.data);
 
-    const response = await axios({
-      method,
-      url: ebayUrl,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      data: requestBody,
-    });
+      if (!response.data || !response.data.sku) {
+        throw new Error("Failed to sync product with eBay");
+      }
 
-    return response.data.sku;
+      return response.data.sku;
+    } catch (error: any) {
+      console.error(
+        "Error syncing product with eBay:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
   },
+
   getCategoryAspects(categoryName: string, prodTechInfo: any) {
     switch (categoryName) {
       case "PC Laptops & Netbooks":
