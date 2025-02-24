@@ -132,12 +132,11 @@ export const ebayService = {
       const ebayApiUrl =
         "https://api.ebay.com/sell/inventory/v1/inventory_item";
       const ebayData = product.platformDetails?.ebay;
-      console.log("ebayData", ebayData);
+
       if (!ebayData) {
         throw new Error("Missing eBay product details");
       }
 
-      // Category mapping
       const categoryMap: Record<string, number> = {
         "PC Laptops & Netbooks": 177,
         "PC Desktops & All-In-Ones": 179,
@@ -145,50 +144,53 @@ export const ebayService = {
         Projectors: 25321,
         "Wireless Access Points": 175709,
       };
+
       const categoryName =
         ebayData.productInfo?.productCategory?.name ||
         "PC Desktops & All-In-Ones";
-      const categoryId = categoryMap[categoryName] || 179; // Default category
+      const categoryId = categoryMap[categoryName] || 179;
 
-      // Aspect mapping
       const aspects = this.getCategoryAspects(
         categoryName,
         ebayData.prodTechInfo
       );
 
-      // Validate mandatory fields
-      if (!ebayData.productInfo?.title) {
-        throw new Error("Missing product title");
+      if (
+        !ebayData.productInfo?.title ||
+        !ebayData.productInfo?.productDescription
+      ) {
+        throw new Error(
+          "Missing required product details (title or description)"
+        );
       }
-      if (!ebayData.productInfo?.productDescription) {
-        throw new Error("Missing product description");
-      }
-      if (!ebayData.prodTechInfo?.ean) {
-        throw new Error("Missing EAN");
-      }
+
+      const sku = ebayData.productInfo?.sku || "123234"; // Ensure SKU is present
+
       const requestBody = {
         product: {
           title: ebayData.productInfo.title,
           aspects: aspects,
-          description: ebayData.productInfo.productDescription,
-          upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
+          description: ebayData.productInfo.productDescription.replace(
+            /[\[\]]/g,
+            ""
+          ), // Remove placeholders
+          upc: [ebayData.prodTechInfo?.upc || "888462079522"],
           imageUrls:
             ebayData.prodMedia?.images?.map((img: any) => img.url) || [],
         },
-        categoryId: categoryId,
-        condition: ebayData.prodPricing?.condition || "NEW",
+        condition: "NEW",
         packageWeightAndSize: {
           dimensions: {
             height: {
-              value: parseFloat(ebayData.prodTechInfo?.height) || 5,
+              value: parseFloat(ebayData.prodTechInfo?.height) || 10,
               unit: "INCH",
             },
             length: {
-              value: parseFloat(ebayData.prodTechInfo?.length) || 10,
+              value: parseFloat(ebayData.prodTechInfo?.length) || 15,
               unit: "INCH",
             },
             width: {
-              value: parseFloat(ebayData.prodTechInfo?.width) || 15,
+              value: parseFloat(ebayData.prodTechInfo?.width) || 5,
               unit: "INCH",
             },
           },
@@ -202,10 +204,7 @@ export const ebayService = {
             quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
           },
         },
-        fulfillmentTime: {
-          value: 1,
-          unit: "BUSINESS_DAY",
-        },
+        fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
         shippingOptions: [
           {
             shippingCost: { value: "0.00", currency: "USD" },
@@ -221,14 +220,15 @@ export const ebayService = {
         },
       };
 
-      const method = "PUT";
-      const ebayUrl = `${ebayApiUrl}/123455`;
+      const ebayUrl = `${ebayApiUrl}/${sku}`;
 
-      // const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/1235133`;
+      console.log(
+        "Final eBay Request Body:",
+        JSON.stringify(requestBody, null, 2)
+      );
 
-      console.log("ebayyUrl", ebayUrl);
       const response = await axios({
-        method,
+        method: "PUT",
         url: ebayUrl,
         headers: {
           Authorization: `Bearer ${token}`,
