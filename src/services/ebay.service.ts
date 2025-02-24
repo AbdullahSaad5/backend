@@ -129,70 +129,38 @@ export const ebayService = {
         throw new Error("Missing or invalid eBay access token");
       }
 
-      const ebayApiUrl =
-        "https://api.ebay.com/sell/inventory/v1/inventory_item";
       const ebayData = product.platformDetails?.ebay;
-
       if (!ebayData) {
         throw new Error("Missing eBay product details");
       }
 
-      const categoryMap: Record<string, number> = {
-        "PC Laptops & Netbooks": 177,
-        "PC Desktops & All-In-Ones": 179,
-        Monitors: 80053,
-        Projectors: 25321,
-        "Wireless Access Points": 175709,
-      };
-
-      const categoryName =
-        ebayData.productInfo?.productCategory?.name ||
-        "PC Desktops & All-In-Ones";
-      const categoryId = categoryMap[categoryName] || 179;
-
-      const aspects = this.getCategoryAspects(
-        categoryName,
-        ebayData.prodTechInfo
-      );
-
-      if (
-        !ebayData.productInfo?.title ||
-        !ebayData.productInfo?.productDescription
-      ) {
-        throw new Error(
-          "Missing required product details (title or description)"
-        );
-      }
-
       const sku = ebayData.productInfo?.sku || "123234"; // Ensure SKU is present
+      const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
 
       const requestBody = {
         product: {
-          title: ebayData.productInfo.title,
-          aspects: aspects,
-          description: ebayData.productInfo.productDescription.replace(
-            /[\[\]]/g,
-            ""
-          ), // Remove placeholders
-          upc: [ebayData.prodTechInfo?.upc || "888462079522"],
-          imageUrls:
-            ebayData.prodMedia?.images?.map((img: any) => img.url) || [],
+          title: ebayData.productInfo?.title ?? "All In One PC",
+          aspects: {
+            Feature: ebayData.prodTechInfo?.features
+              ? [ebayData.prodTechInfo.features]
+              : ["bluetooth"],
+            ...(ebayData.prodTechInfo?.cpu
+              ? { CPU: [ebayData.prodTechInfo.cpu] }
+              : {}), // ✅ Removes CPU if empty
+          },
+          description: ebayData.productInfo?.productDescription
+            ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
+            : "No description available.",
+          upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : ["888462079522"],
+          imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
         condition: "NEW",
         packageWeightAndSize: {
           dimensions: {
-            height: {
-              value: parseFloat(ebayData.prodTechInfo?.height) || 10,
-              unit: "INCH",
-            },
-            length: {
-              value: parseFloat(ebayData.prodTechInfo?.length) || 15,
-              unit: "INCH",
-            },
-            width: {
-              value: parseFloat(ebayData.prodTechInfo?.width) || 5,
-              unit: "INCH",
-            },
+            height: parseFloat(ebayData.prodTechInfo?.height) || 5,
+            length: parseFloat(ebayData.prodTechInfo?.length) || 10,
+            width: parseFloat(ebayData.prodTechInfo?.width) || 15,
+            unit: "INCH",
           },
           weight: {
             value: parseFloat(ebayData.prodTechInfo?.weight) || 2,
@@ -219,17 +187,16 @@ export const ebayService = {
           returnPolicyId: "247178019010",
         },
       };
-
-      const ebayUrl = `${ebayApiUrl}/${sku}`;
+      
+      
 
       console.log(
         "Final eBay Request Body:",
         JSON.stringify(requestBody, null, 2)
       );
 
-      const response = await axios({
+      const response = await fetch(ebayUrl, {
         method: "PUT",
-        url: ebayUrl,
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -237,25 +204,24 @@ export const ebayService = {
           "Content-Language": "en-US",
           "Accept-Language": "en-US",
         },
-        data: JSON.stringify(requestBody),
+        body: JSON.stringify(requestBody),
       });
 
-      console.log("eBay API Response:", response.data);
+      const responseData = await response.json();
+      console.log("eBay API Response:", responseData);
 
-      if (!response.data || !response.data.sku) {
-        throw new Error("Failed to sync product with eBay");
+      if (!response.ok) {
+        throw new Error(
+          `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
+        );
       }
 
-      return response.data.sku;
+      return responseData.sku;
     } catch (error: any) {
-      console.error(
-        "Error syncing product with eBay:",
-        error.response?.data || error.message
-      );
+      console.error("Error syncing product with eBay:", error.message);
       throw error;
     }
   },
-
   getCategoryAspects(categoryName: string, prodTechInfo: any) {
     switch (categoryName) {
       case "PC Laptops & Netbooks":
