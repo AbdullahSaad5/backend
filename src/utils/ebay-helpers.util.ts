@@ -57,43 +57,41 @@ const options: EbayAuthOptions = {
 };
 
 export const getStoredEbayAccessToken = async () => {
-  // Read the ebay_tokens.json file and parse the content
-  const filePath = path.resolve(__dirname, "ebay_tokens.json");
-  // const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
-  const credentialsText = fs.readFileSync(filePath, "utf-8");
-  const credentials = JSON.parse(credentialsText);
+  try {
+    const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
-  // Check if the credentials are present
-  if (!credentials) {
+
+    // Check if file exists before reading
+    if (!fs.existsSync(filePath)) {
+      console.error("❌ Token file not found.");
+      return null;
+    }
+
+    const credentialsText = fs.readFileSync(filePath, "utf-8");
+    const credentials = JSON.parse(credentialsText);
+
+    if (
+      !credentials ||
+      !credentials.access_token ||
+      !credentials.generated_at ||
+      !credentials.expires_in
+    ) {
+      console.error("❌ Invalid token data.");
+      return null;
+    }
+
+    const { access_token, generated_at, expires_in } = credentials;
+    const currentTime = Date.now();
+    if (currentTime - generated_at > expires_in * 1000) {
+      console.error("❌ Token expired.");
+      return null;
+    }
+
+    return access_token;
+  } catch (error) {
+    console.error("❌ Error reading token:", error);
     return null;
   }
-
-  // Extract the access token from the credentials
-  const accessToken = credentials.access_token;
-  if (!accessToken) {
-    return null;
-  }
-
-  // Extract the generated_at and expires_in values from the credentials
-  const generatedAt = credentials.generated_at;
-  if (!generatedAt) {
-    return null;
-  }
-
-  // Extract the expires_in value from the credentials
-  const expiresIn = credentials.expires_in;
-  if (!expiresIn) {
-    return null;
-  }
-
-  // Check if the access token has expired
-  const currentTime = Date.now();
-  if (currentTime - generatedAt > expiresIn * 1000) {
-    return null;
-  }
-
-  // Return the access token
-  return accessToken;
 };
 
 export const getNormalAccessToken = async () => {
