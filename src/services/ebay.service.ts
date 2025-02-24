@@ -134,7 +134,7 @@ export const ebayService = {
         throw new Error("Missing eBay product details");
       }
 
-      const sku = ebayData.productInfo?.sku || "123234"; // Ensure SKU is present
+      const sku = ebayData.productInfo?.sku || "123322"; // Ensure SKU is present
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
 
       const requestBody = {
@@ -144,15 +144,19 @@ export const ebayService = {
             Feature: ebayData.prodTechInfo?.features
               ? [ebayData.prodTechInfo.features]
               : ["bluetooth"],
-            ...(ebayData.prodTechInfo?.cpu
+            // ✅ Removes "CPU" aspect if it's empty
+            ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
-              : {}), // ✅ Removes CPU if empty
+              : {}),
           },
           description: ebayData.productInfo?.productDescription
             ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
             : "No description available.",
-          upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : ["888462079522"],
-          imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
+          upc: ebayData.prodTechInfo?.upc
+            ? [ebayData.prodTechInfo.upc]
+            : ["888462079522"],
+          imageUrls:
+            ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
         condition: "NEW",
         packageWeightAndSize: {
@@ -187,8 +191,6 @@ export const ebayService = {
           returnPolicyId: "247178019010",
         },
       };
-      
-      
 
       console.log(
         "Final eBay Request Body:",
@@ -207,7 +209,19 @@ export const ebayService = {
         body: JSON.stringify(requestBody),
       });
 
-      const responseData = await response.json();
+      const responseText = await response.text();
+
+      if (!responseText) {
+        throw new Error("Empty response from eBay API");
+      }
+
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (error) {
+        throw new Error(`Invalid JSON response from eBay: ${responseText}`);
+      }
+
       console.log("eBay API Response:", responseData);
 
       if (!response.ok) {
@@ -215,13 +229,18 @@ export const ebayService = {
           `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
         );
       }
-
-      return responseData.sku;
+      return responseData.json({
+        status: response.status,
+        statusText: response.statusText,
+        message: "Item created successfully",
+      });
+      // return responseData.sku;
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
       throw error;
     }
   },
+
   getCategoryAspects(categoryName: string, prodTechInfo: any) {
     switch (categoryName) {
       case "PC Laptops & Netbooks":
