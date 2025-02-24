@@ -25,8 +25,7 @@ import {
   IParamsRequest,
 } from "@/contracts/request.contract";
 // import { Ebay } from "@/models"; // Import the  ebay model
-const baseURL = "https://api.ebay.com";
-const ebayApiUrl = "https://api.ebay.com/sell/inventory/v1/inventory_item";
+
 export const ebayService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -131,9 +130,9 @@ export const ebayService = {
       }
 
       const ebayApiUrl =
-        "https://api.ebay.com/api/sell/inventory/v1/inventory_item";
+        "https://api.ebay.com/sell/inventory/v1/inventory_item";
       const ebayData = product.platformDetails?.ebay;
-
+      console.log("ebayData", ebayData);
       if (!ebayData) {
         throw new Error("Missing eBay product details");
       }
@@ -164,7 +163,9 @@ export const ebayService = {
       if (!ebayData.productInfo?.productDescription) {
         throw new Error("Missing product description");
       }
-
+      if (!ebayData.prodTechInfo?.ean) {
+        throw new Error("Missing EAN");
+      }
       const requestBody = {
         product: {
           title: ebayData.productInfo.title,
@@ -175,33 +176,36 @@ export const ebayService = {
             ebayData.prodMedia?.images?.map((img: any) => img.url) || [],
         },
         categoryId: categoryId,
-        condition: ebayData.prodPricing?.condition || "New",
+        condition: ebayData.prodPricing?.condition || "NEW",
         packageWeightAndSize: {
           dimensions: {
             height: {
-              value: parseFloat(ebayData.prodTechInfo?.height) || 10,
-              unit: "CM",
+              value: parseFloat(ebayData.prodTechInfo?.height) || 5,
+              unit: "INCH",
             },
             length: {
               value: parseFloat(ebayData.prodTechInfo?.length) || 10,
-              unit: "CM",
+              unit: "INCH",
             },
             width: {
-              value: parseFloat(ebayData.prodTechInfo?.width) || 10,
-              unit: "CM",
+              value: parseFloat(ebayData.prodTechInfo?.width) || 15,
+              unit: "INCH",
             },
           },
           weight: {
-            value: parseFloat(ebayData.prodTechInfo?.weight) || 5,
-            unit: "LB",
+            value: parseFloat(ebayData.prodTechInfo?.weight) || 2,
+            unit: "POUND",
           },
         },
         availability: {
           shipToLocationAvailability: {
-            quantity: parseInt(ebayData.prodPricing?.quantity) || 1,
+            quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
           },
         },
-        fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
+        fulfillmentTime: {
+          value: 1,
+          unit: "BUSINESS_DAY",
+        },
         shippingOptions: [
           {
             shippingCost: { value: "0.00", currency: "USD" },
@@ -211,26 +215,29 @@ export const ebayService = {
           },
         ],
         listingPolicies: {
-          paymentPolicyId:
-            ebayData.prodPricing?.paymentPolicy || "default-payment-id",
-          returnPolicyId: "return-policy-id",
-          fulfillmentPolicyId: "fulfillment-policy-id",
+          fulfillmentPolicyId: "247178000010",
+          paymentPolicyId: "247178015010",
+          returnPolicyId: "247178019010",
         },
       };
 
-      const method = product.ebayItemId ? "PUT" : "POST";
-      const ebayUrl = product.ebayItemId
-        ? `${ebayApiUrl}/${product.ebayItemId}`
-        : ebayApiUrl;
+      const method = "PUT";
+      const ebayUrl = `${ebayApiUrl}/123455`;
 
+      // const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/1235133`;
+
+      console.log("ebayyUrl", ebayUrl);
       const response = await axios({
         method,
         url: ebayUrl,
         headers: {
           Authorization: `Bearer ${token}`,
+          Accept: "application/json",
           "Content-Type": "application/json",
+          "Content-Language": "en-US",
+          "Accept-Language": "en-US",
         },
-        data: requestBody,
+        data: JSON.stringify(requestBody),
       });
 
       console.log("eBay API Response:", response.data);
