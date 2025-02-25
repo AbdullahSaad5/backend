@@ -134,8 +134,11 @@ export const ebayService = {
         throw new Error("Missing eBay product details");
       }
 
-      const sku = ebayData.productInfo?.sku || "123322"; // Ensure SKU is present
+      // ✅ Use product._id as the SKU (or replace with the correct ID field)
+      const sku = product._id?.toString() ;
+
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
+      console.log("ebayUrl", ebayUrl);
 
       const requestBody = {
         product: {
@@ -229,12 +232,12 @@ export const ebayService = {
           `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
         );
       }
-      return responseData.json({
+
+      return JSON.stringify({
         status: response.status,
         statusText: response.statusText,
         message: "Item created successfully",
       });
-      // return responseData.sku;
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
       throw error;
