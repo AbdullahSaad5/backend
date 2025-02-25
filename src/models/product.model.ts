@@ -62,8 +62,7 @@ const prodPricingSchema = {
   warrantyDuration: { type: Number, required: true }, // Duration in days
   warrantyCoverage: { type: String, required: true }, // Coverage description
   warrantyDocument: { type: String }, // URL or file path
-};
-
+}
 const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: {
@@ -142,7 +141,7 @@ const allInOnePCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String },
+  ean: { type: String, unique: true, },
   series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },

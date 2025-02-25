@@ -25,8 +25,7 @@ import {
   IParamsRequest,
 } from "@/contracts/request.contract";
 // import { Ebay } from "@/models"; // Import the  ebay model
-const baseURL = "https://api.ebay.com";
-const ebayApiUrl = "https://api.ebay.com/sell/inventory/v1/inventory_item";
+
 export const ebayService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -124,100 +123,127 @@ export const ebayService = {
   },
 
   async syncProductWithEbay(product: any): Promise<string> {
-    const token = await getStoredEbayAccessToken();
-    console.log("token in service:", token);
-    const ebayApiUrl =
-      "https://api.ebay.com/api/sell/inventory/v1/inventory_item";
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
 
-    const ebayData = product.platformDetails?.ebay;
-    if (!ebayData) throw new Error("Missing eBay product details");
+      const ebayData = product.platformDetails?.ebay;
+      if (!ebayData) {
+        throw new Error("Missing eBay product details");
+      }
 
-    // Determine category ID based on product type
-    const categoryMap: Record<string, number> = {
-      "PC Laptops & Netbooks": 177,
-      "PC Desktops & All-In-Ones": 179,
-      Monitors: 80053,
-      Projectors: 25321,
-      "Wireless Access Points": 175709,
-    };
-    const categoryName =
-      ebayData.productInfo?.productCategory.name || "PC Desktops & All-In-Ones";
-    const categoryId = categoryMap[categoryName] || 179; // Default to Desktops
+      // ✅ Use product._id as the SKU (or replace with the correct ID field)
+      const sku = product._id?.toString() ;
 
-    // Aspect mapping based on category
-    const aspects = this.getCategoryAspects(
-      categoryName,
-      ebayData.prodTechInfo
-    );
-    const requestBody = {
-      product: {
-        title: ebayData.productInfo?.title,
-        aspects: aspects,
-        description: ebayData.productInfo?.productDescription || "",
-        upc: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
-        imageUrls: ebayData.prodMedia?.images.map((img: any) => img.url) || [],
-      },
-      categoryId: 179,
-      condition: ebayData.prodPricing?.condition || "New",
-      packageWeightAndSize: {
-        dimensions: {
-          height: {
-            value: parseFloat(ebayData.prodTechInfo?.height) || 10,
-            unit: "CM",
+      const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
+      console.log("ebayUrl", ebayUrl);
+
+      const requestBody = {
+        product: {
+          title: ebayData.productInfo?.title ?? "All In One PC",
+          aspects: {
+            Feature: ebayData.prodTechInfo?.features
+              ? [ebayData.prodTechInfo.features]
+              : ["bluetooth"],
+            // ✅ Removes "CPU" aspect if it's empty
+            ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
+              ? { CPU: [ebayData.prodTechInfo.cpu] }
+              : {}),
           },
-          length: {
-            value: parseFloat(ebayData.prodTechInfo?.length) || 10,
-            unit: "CM",
+          description: ebayData.productInfo?.productDescription
+            ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
+            : "No description available.",
+          upc: ebayData.prodTechInfo?.upc
+            ? [ebayData.prodTechInfo.upc]
+            : ["888462079522"],
+          imageUrls:
+            ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
+        },
+        condition: "NEW",
+        packageWeightAndSize: {
+          dimensions: {
+            height: parseFloat(ebayData.prodTechInfo?.height) || 5,
+            length: parseFloat(ebayData.prodTechInfo?.length) || 10,
+            width: parseFloat(ebayData.prodTechInfo?.width) || 15,
+            unit: "INCH",
           },
-          width: {
-            value: parseFloat(ebayData.prodTechInfo?.width) || 10,
-            unit: "CM",
+          weight: {
+            value: parseFloat(ebayData.prodTechInfo?.weight) || 2,
+            unit: "POUND",
           },
         },
-        weight: {
-          value: parseFloat(ebayData.prodTechInfo?.weight) || 5,
-          unit: "LB",
+        availability: {
+          shipToLocationAvailability: {
+            quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
+          },
         },
-      },
-      availability: {
-        shipToLocationAvailability: {
-          quantity: parseInt(ebayData.prodPricing?.quantity) || 1,
+        fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
+        shippingOptions: [
+          {
+            shippingCost: { value: "0.00", currency: "USD" },
+            shippingServiceCode: "USPSPriorityMail",
+            shipToLocations: [{ countryCode: "US" }],
+            packageType: "USPSPriorityMailFlatRateBox",
+          },
+        ],
+        listingPolicies: {
+          fulfillmentPolicyId: "247178000010",
+          paymentPolicyId: "247178015010",
+          returnPolicyId: "247178019010",
         },
-      },
-      fulfillmentTime: ebayData.prodDelivery?.fulfillmentTime || "2 days",
-      shippingOptions: [
-        {
-          shippingCost: { value: "0.00", currency: "USD" },
-          shippingServiceCode: "USPSPriorityMail",
-          shipToLocations: [{ countryCode: "US" }],
-          packageType: "USPSPriorityMailFlatRateBox",
+      };
+
+      console.log(
+        "Final eBay Request Body:",
+        JSON.stringify(requestBody, null, 2)
+      );
+
+      const response = await fetch(ebayUrl, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "Content-Language": "en-US",
+          "Accept-Language": "en-US",
         },
-      ],
-      listingPolicies: {
-        paymentPolicyId:
-          ebayData.prodPricing?.paymentPolicy || "default-payment-id",
-        returnPolicyId: "return-policy-id",
-        fulfillmentPolicyId: "fulfillment-policy-id",
-      },
-    };
+        body: JSON.stringify(requestBody),
+      });
 
-    const method = product.ebayItemId ? "PUT" : "POST";
-    const ebayUrl = product.ebayItemId
-      ? `${ebayApiUrl}/${product.ebayItemId}`
-      : ebayApiUrl;
+      const responseText = await response.text();
 
-    const response = await axios({
-      method,
-      url: ebayUrl,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      data: requestBody,
-    });
+      if (!responseText) {
+        throw new Error("Empty response from eBay API");
+      }
 
-    return response.data.sku;
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (error) {
+        throw new Error(`Invalid JSON response from eBay: ${responseText}`);
+      }
+
+      console.log("eBay API Response:", responseData);
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
+        );
+      }
+
+      return JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        message: "Item created successfully",
+      });
+    } catch (error: any) {
+      console.error("Error syncing product with eBay:", error.message);
+      throw error;
+    }
   },
+
   getCategoryAspects(categoryName: string, prodTechInfo: any) {
     switch (categoryName) {
       case "PC Laptops & Netbooks":
