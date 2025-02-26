@@ -639,4 +639,33 @@ export const productController = {
         .json({ message: "Internal Server Error", error: error.message });
     }
   },
+  upsertProductVariations: async (req: Request, res: Response) => {
+    try {
+      const product = await productService.upsertProductVariationsService(
+        req.params.id,
+        req.body.selectedVariations
+      );
+      if (!product)
+        return res.status(404).json({ message: "Product not found" });
+
+      res
+        .status(200)
+        .json({ message: "Product variations updated successfully", product });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+  // Get selected variations
+  getSelectedProductVariations: async (req: Request, res: Response) => {
+    try {
+      const product: any =
+        await productService.getSelectedProductVariationsService(req.params.id);
+      if (!product)
+        return res.status(404).json({ message: "Product not found" });
+
+      res.status(200).json({ selectedVariations: product.selectedVariations });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  },
 };
