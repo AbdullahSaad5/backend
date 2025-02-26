@@ -62,7 +62,7 @@ const prodPricingSchema = {
   warrantyDuration: { type: Number, required: true }, // Duration in days
   warrantyCoverage: { type: String, required: true }, // Coverage description
   warrantyDocument: { type: String }, // URL or file path
-}
+};
 const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: {
@@ -141,7 +141,7 @@ const allInOnePCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String, unique: true, },
+  ean: { type: String, unique: true },
   series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
@@ -318,6 +318,14 @@ const networkEquipmentsTechnicalSchema = {
   width: { type: String },
 };
 
+// Define variation schema
+const selectedVariationsSchema = new Schema({
+  cpu: [{ type: String }], // Multiple CPU options
+  ram: [{ type: String }], // Multiple RAM options
+  storage: [{ type: String }], // Multiple storage options
+  graphics: [{ type: String }],
+  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
+});
 // Main Product Schema
 const productSchema = new Schema(
   {
@@ -334,6 +342,8 @@ const productSchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
+
+    selectedVariations: selectedVariationsSchema,
   },
   options
 );

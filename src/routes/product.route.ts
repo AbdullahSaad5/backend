@@ -79,4 +79,10 @@ export const product = (router: Router) => {
 
   // route for toggle block status
   router.patch("/block/:id", productController.toggleBlock);
+
+  // Upsert (Create or Update) selected variations
+  router.post("/:id/variations", productController.upsertProductVariations);
+
+  // Get selected variations for a product
+  router.get("/:id/variations", productController.getSelectedProductVariations);
 };
