@@ -789,4 +789,20 @@ export const productService = {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
+
+  upsertProductVariationsService: async (
+    productId: string,
+    selectedVariations: any
+  ) => {
+    return await Product.findByIdAndUpdate(
+      productId,
+      { $set: { selectedVariations } }, // If exists, update. If not, create.
+      { new: true, upsert: true } // `upsert: true` ensures creation if missing.
+    );
+  },
+
+  // Get selected variations for a product
+  getSelectedProductVariationsService: async (productId: string) => {
+    return await Product.findById(productId).select("selectedVariations");
+  },
 };
