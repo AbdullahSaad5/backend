@@ -1,20 +1,16 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+// Interface for platform-specific variation data
 interface IPlatformData {
   stock: number;
   price: number;
-  cpu: string;
-  ram: string;
   sku: string;
   variationQuantity: number;
   variationPrice: string;
-  storage: string;
-  graphics: string;
-  height: string;
-  length: string;
-  width: string;
+  attributes: Record<string, string | number>; // 👈 Stores dynamic attributes
 }
 
+// Interface for the Variation document
 export interface IVariation extends Document {
   productId: mongoose.Types.ObjectId;
   variationData?: {
@@ -24,21 +20,17 @@ export interface IVariation extends Document {
   };
 }
 
+// Schema for PlatformData
 const PlatformDataSchema = new Schema<IPlatformData>({
   stock: { type: Number, default: 0 },
   price: { type: Number },
-  cpu: { type: String },
-  ram: { type: String },
   sku: { type: String },
   variationQuantity: { type: Number },
   variationPrice: { type: String },
-  storage: { type: String },
-  graphics: { type: String },
-  height: { type: String },
-  length: { type: String },
-  width: { type: String },
+  attributes: { type: Map, of: Schema.Types.Mixed, default: {} }, // 👈 Stores dynamic properties
 });
 
+// Schema for Variation
 const VariationSchema = new Schema<IVariation>(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
