@@ -639,9 +639,9 @@ export const productController = {
         .json({ message: "Internal Server Error", error: error.message });
     }
   },
-  upsertProductVariations: async (req: Request, res: Response) => {
+  upsertProductParts: async (req: Request, res: Response) => {
     try {
-      const product = await productService.upsertProductVariationsService(
+      const product = await productService.upsertProductPartsService(
         req.params.id,
         req.body.selectedVariations
       );
@@ -656,10 +656,11 @@ export const productController = {
     }
   },
   // Get selected variations
-  getSelectedProductVariations: async (req: Request, res: Response) => {
+  getSelectedProductParts: async (req: Request, res: Response) => {
     try {
-      const product: any =
-        await productService.getSelectedProductVariationsService(req.params.id);
+      const product: any = await productService.getSelectedProductPartsService(
+        req.params.id
+      );
       if (!product)
         return res.status(404).json({ message: "Product not found" });
 

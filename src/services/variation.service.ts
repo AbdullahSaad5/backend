@@ -79,7 +79,6 @@ export const variationService = {
       throw new Error("Error updating variation: " + error.message);
     }
   },
-  
 
   getVariationsByProduct: async (productId: string) => {
     return Variation.find({ productId });
@@ -93,5 +92,4 @@ export const variationService = {
       throw new Error("Error deleting variation: " + error.message);
     }
   },
-  
 };

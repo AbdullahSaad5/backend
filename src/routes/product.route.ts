@@ -81,8 +81,8 @@ export const product = (router: Router) => {
   router.patch("/block/:id", productController.toggleBlock);
 
   // Upsert (Create or Update) selected variations
-  router.post("/:id/variations", productController.upsertProductVariations);
+  router.post("/:id/selected-parts", productController.upsertProductParts);
 
   // Get selected variations for a product
-  router.get("/:id/variations", productController.getSelectedProductVariations);
+  router.get("/:id/selected-parts", productController.getSelectedProductParts);
 };

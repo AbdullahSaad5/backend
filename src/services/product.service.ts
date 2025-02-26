@@ -790,7 +790,7 @@ export const productService = {
     }
   },
 
-  upsertProductVariationsService: async (
+  upsertProductPartsService: async (
     productId: string,
     selectedVariations: any
   ) => {
@@ -802,7 +802,7 @@ export const productService = {
   },
 
   // Get selected variations for a product
-  getSelectedProductVariationsService: async (productId: string) => {
+  getSelectedProductPartsService: async (productId: string) => {
     return await Product.findById(productId).select("selectedVariations");
   },
 };
