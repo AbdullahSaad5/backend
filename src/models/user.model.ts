@@ -45,7 +45,7 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     supplierCategory: {
       type: Schema.Types.ObjectId,
       ref: "SupplierCategory",
-      required: true,
+      required: false,
     },
     additionalAccessRights: { type: [String], default: [] },
     restrictedAccessRights: { type: [String], default: [] },
