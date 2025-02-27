@@ -134,7 +134,7 @@ export const ebayService = {
         throw new Error("Missing eBay product details");
       }
 
-      // ✅ Use product._id as the SKU (or replace with the correct ID field)
+      // Use product._id as the SKU (or replace with the correct ID field)
       const sku = product._id?.toString();
 
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
@@ -147,7 +147,6 @@ export const ebayService = {
             Feature: ebayData.prodTechInfo?.features
               ? [ebayData.prodTechInfo.features]
               : ["bluetooth"],
-            // ✅ Removes "CPU" aspect if it's empty
             ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
@@ -215,22 +214,26 @@ export const ebayService = {
       const responseText = await response.text();
 
       if (!responseText) {
-        throw new Error("Empty response from eBay API");
+        // Specific error for empty response
+        throw new Error("Received empty response from eBay API");
       }
 
       let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (error) {
+        // Handle invalid JSON error
         throw new Error(`Invalid JSON response from eBay: ${responseText}`);
       }
 
       console.log("eBay API Response:", responseData);
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
-        );
+        // Handle API-specific error codes, e.g. 400, 404, 500
+        const errorMessage =
+          responseData?.errors?.map((e: any) => e.message).join(", ") ||
+          "Unknown error from eBay";
+        throw new Error(`Failed to sync product with eBay: ${errorMessage}`);
       }
 
       return JSON.stringify({
@@ -240,7 +243,20 @@ export const ebayService = {
       });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
-      throw error;
+
+      // Determine error type and send specific response
+      if (error.message.includes("eBay API")) {
+        return JSON.stringify({
+          status: 500,
+          message: error.message || "Error syncing with eBay API",
+        });
+      }
+
+      // Generic fallback error
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Internal server error",
+      });
     }
   },
 
