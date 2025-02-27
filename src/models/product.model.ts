@@ -196,7 +196,7 @@ const projectorTechnicalSchema = {
   imageBrightness: { type: String },
   throwRatio: { type: String },
 
-  
+
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
@@ -204,7 +204,7 @@ const projectorTechnicalSchema = {
   californiaProp65Warning: { type: String },
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
-  yearOfManufacture: { type: String },
+  yearManufactured: { type: String },
 
 };
 

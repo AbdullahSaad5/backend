@@ -131,7 +131,7 @@ export function transformProductData(data: any) {
       "supportedWirelessProtocol",
       "compatibleOperatingSystems",
       "californiaProp65Warning",
-      "yearOfManufacture",
+      "yearManufactured",
 
       // adding amazon specific fields
 
