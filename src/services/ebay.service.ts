@@ -25,7 +25,41 @@ import {
   IParamsRequest,
 } from "@/contracts/request.contract";
 // import { Ebay } from "@/models"; // Import the  ebay model
+const getEbayErrorMessage = function (errors: any[]): string {
+  if (!errors || errors.length === 0) {
+    return "Unknown error from eBay";
+  }
 
+  const error = errors[0]; // Assuming we are dealing with a single error for simplicity
+  switch (error.code) {
+    case "25001":
+      return `System error occurred: ${error.message}`;
+    case "25002":
+      return `User error occurred: ${error.message}`;
+    case "25003":
+      return `Invalid price: ${error.message}`;
+    case "25004":
+      return `Invalid quantity: ${error.message}`;
+    case "25005":
+      return `Invalid category ID: ${error.message}`;
+    case "25006":
+      return `Invalid listing option: ${error.message}`;
+    case "25007":
+      return `Invalid Fulfillment policy: ${error.message}`;
+    case "25008":
+      return `Invalid Payment policy: ${error.message}`;
+    case "25009":
+      return `Invalid Return policy: ${error.message}`;
+    case "25014":
+      return `Invalid pictures: ${error.message}`;
+    case "25019":
+      return `Cannot revise listing: ${error.message}`;
+    case "25710":
+      return `Resource not found: ${error.message}`;
+    default:
+      return `eBay error occurred: ${error.message || "Unknown error"}`;
+  }
+};
 export const ebayService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -214,8 +248,12 @@ export const ebayService = {
       const responseText = await response.text();
 
       if (!responseText) {
-        // Specific error for empty response
-        throw new Error("Received empty response from eBay API");
+        // If empty response is received, return success status
+        return JSON.stringify({
+          status: 201,
+          statusText: "Created",
+          message: "Item created successfully on eBay",
+        });
       }
 
       let responseData;
@@ -229,34 +267,61 @@ export const ebayService = {
       console.log("eBay API Response:", responseData);
 
       if (!response.ok) {
-        // Handle API-specific error codes, e.g. 400, 404, 500
-        const errorMessage =
-          responseData?.errors?.map((e: any) => e.message).join(", ") ||
-          "Unknown error from eBay";
-        throw new Error(`Failed to sync product with eBay: ${errorMessage}`);
+        // Handle eBay-specific error codes from the response
+        const errorMessage = getEbayErrorMessage(responseData.errors);
+        throw new Error(errorMessage);
       }
 
       return JSON.stringify({
         status: response.status,
         statusText: response.statusText,
-        message: "Item created successfully",
+        message: "Item created successfully on eBay",
       });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
 
-      // Determine error type and send specific response
-      if (error.message.includes("eBay API")) {
-        return JSON.stringify({
-          status: 500,
-          message: error.message || "Error syncing with eBay API",
-        });
-      }
-
-      // Generic fallback error
+      // If the error is related to eBay API, return a detailed error message
       return JSON.stringify({
         status: 500,
-        message: error.message || "Internal server error",
+        message: error.message || "Error syncing with eBay API",
       });
+    }
+  },
+
+  // Helper function to map eBay error codes to human-readable messages
+  getEbayErrorMessage(errors: any[]): string {
+    if (!errors || errors.length === 0) {
+      return "Unknown error from eBay";
+    }
+
+    const error = errors[0]; // Assuming we are dealing with a single error for simplicity
+    switch (error.code) {
+      case "25001":
+        return `System error occurred: ${error.message}`;
+      case "25002":
+        return `User error occurred: ${error.message}`;
+      case "25003":
+        return `Invalid price: ${error.message}`;
+      case "25004":
+        return `Invalid quantity: ${error.message}`;
+      case "25005":
+        return `Invalid category ID: ${error.message}`;
+      case "25006":
+        return `Invalid listing option: ${error.message}`;
+      case "25007":
+        return `Invalid Fulfillment policy: ${error.message}`;
+      case "25008":
+        return `Invalid Payment policy: ${error.message}`;
+      case "25009":
+        return `Invalid Return policy: ${error.message}`;
+      case "25014":
+        return `Invalid pictures: ${error.message}`;
+      case "25019":
+        return `Cannot revise listing: ${error.message}`;
+      case "25710":
+        return `Resource not found: ${error.message}`;
+      default:
+        return `eBay error occurred: ${error.message || "Unknown error"}`;
     }
   },
 
