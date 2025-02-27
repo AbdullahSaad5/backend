@@ -12,7 +12,6 @@ export const stockController = {
         purchasePricePerUnit,
         costPricePerUnit,
         retailPricePerUnit,
-        batchNumber,
       } = req.body;
 
       if (
@@ -20,8 +19,7 @@ export const stockController = {
         !quantity ||
         !purchasePricePerUnit ||
         !costPricePerUnit ||
-        !retailPricePerUnit ||
-        !batchNumber
+        !retailPricePerUnit
       ) {
         return res
           .status(400)
@@ -31,8 +29,6 @@ export const stockController = {
       if (!mongoose.Types.ObjectId.isValid(productId)) {
         return res.status(400).json({ message: "Invalid Product ID format" });
       }
-
-
 
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
@@ -55,9 +51,7 @@ export const stockController = {
         });
       }
 
-      res
-        .status(500)
-        .json({ message: error.message, error: error.message });
+      res.status(500).json({ message: error.message, error: error.message });
     }
   },
   // 📌 Get Products That Have Stock Along With Their Stock Entries
