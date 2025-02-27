@@ -147,55 +147,39 @@ export const ebayService = {
             Feature: ebayData.prodTechInfo?.features
               ? [ebayData.prodTechInfo.features]
               : ["bluetooth"],
-            ...(ebayData.prodTechInfo?.cpu?.trim()
+            // ✅ Removes "CPU" aspect if it's empty
+            ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
           },
           description: ebayData.productInfo?.productDescription
             ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
             : "No description available.",
-          // upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : [],
-          ean: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
-          // isbn: ebayData.prodTechInfo?.isbn ? [ebayData.prodTechInfo.isbn] : [],
-          mpn: ebayData.prodTechInfo?.mpn ?? "",
-          // epid: ebayData.prodTechInfo?.epid ?? "",
-          brand: ebayData.productInfo?.brand ?? "Unknown",
-
-          videoIds:ebayData.prodMedia?.videos?.map((video: any) => video.url) ?? [],
+          upc: ebayData.prodTechInfo?.upc
+            ? [ebayData.prodTechInfo.upc]
+            : ["888462079522"],
           imageUrls:
             ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
-        condition: ebayData.prodPricing?.condition ?? "NEW",
-        conditionDescription: ebayData.prodPricing?.conditionDescription ?? "",
-        // conditionDescriptors: ebayData.prodPricing?.conditionDescriptors ?? [],
-
+        condition: "NEW",
         packageWeightAndSize: {
           dimensions: {
             height: parseFloat(ebayData.prodTechInfo?.height) || 5,
             length: parseFloat(ebayData.prodTechInfo?.length) || 10,
             width: parseFloat(ebayData.prodTechInfo?.width) || 15,
-            unit: ebayData.prodTechInfo?.unit ?? "INCH",
+            unit: "INCH",
           },
           weight: {
             value: parseFloat(ebayData.prodTechInfo?.weight) || 2,
             unit: "POUND",
           },
-          packageType:
-            ebayData.prodDelivery?.packageType ?? "PARCEL_OR_PADDED_ENVELOPE",
-          shippingIrregular: ebayData.prodTechInfo?.shippingIrregular ?? false,
         },
-
         availability: {
-          pickupAtLocationAvailability:
-            ebayData.availability?.pickupAtLocationAvailability ?? [],
           shipToLocationAvailability: {
             quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
-            availabilityDistributions:
-              ebayData.availability?.shipToLocationAvailability
-                ?.availabilityDistributions ?? [],
           },
         },
-            fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
+        fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
         shippingOptions: [
           {
             shippingCost: { value: "0.00", currency: "USD" },
@@ -209,7 +193,6 @@ export const ebayService = {
           paymentPolicyId: "247178015010",
           returnPolicyId: "247178019010",
         },
-        
       };
 
       console.log(
