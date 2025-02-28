@@ -13,7 +13,7 @@ export const stockController = {
         costPricePerUnit,
         retailPricePerUnit,
         purchaseDate,
-        receivedDate
+        receivedDate,
       } = req.body;
 
       if (
@@ -21,10 +21,9 @@ export const stockController = {
         !quantity ||
         !purchasePricePerUnit ||
         !costPricePerUnit ||
-        !retailPricePerUnit||
+        !retailPricePerUnit ||
         !purchaseDate ||
         !receivedDate
-
       ) {
         return res
           .status(400)
