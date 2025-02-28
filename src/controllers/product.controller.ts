@@ -38,6 +38,7 @@ export const productController = {
       const productId = req.params.id;
       const { stepData } = req.body;
 
+      // Validate productId
       if (!mongoose.isValidObjectId(productId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -45,6 +46,7 @@ export const productController = {
         });
       }
 
+      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -52,21 +54,33 @@ export const productController = {
         });
       }
 
-      // Update draft product in MongoDB
+      // Update the draft product in MongoDB
       const updatedProduct = await productService.updateDraftProduct(
         productId,
         stepData
       );
 
-      // If product is now marked for publishing, sync to eBay
+      // Check if the product is marked for publishing
       if (stepData.publishToEbay) {
+        // Sync product with eBay if it's marked for publishing
         const ebayItemId =
           await ebayService.syncProductWithEbay(updatedProduct);
+
+        // Update the product with the eBay Item ID
         await productService.updateDraftProduct(updatedProduct._id, {
           ebayItemId,
         });
+
+        // Return success with the updated product
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Draft product updated and synced with eBay successfully",
+          data: updatedProduct,
+          ebayItemId, // Include eBay Item ID in the response
+        });
       }
 
+      // If not marked for publishing, just return the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated successfully",
@@ -74,6 +88,16 @@ export const productController = {
       });
     } catch (error: any) {
       console.error("Error updating draft product:", error);
+
+      // Check if the error is related to eBay synchronization
+      if (error.message.includes("eBay")) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: `Error syncing product with eBay: ${error.message}`,
+        });
+      }
+
+      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft product",
@@ -639,9 +663,9 @@ export const productController = {
         .json({ message: "Internal Server Error", error: error.message });
     }
   },
-  upsertProductVariations: async (req: Request, res: Response) => {
+  upsertProductParts: async (req: Request, res: Response) => {
     try {
-      const product = await productService.upsertProductVariationsService(
+      const product = await productService.upsertProductPartsService(
         req.params.id,
         req.body.selectedVariations
       );
@@ -656,10 +680,11 @@ export const productController = {
     }
   },
   // Get selected variations
-  getSelectedProductVariations: async (req: Request, res: Response) => {
+  getSelectedProductParts: async (req: Request, res: Response) => {
     try {
-      const product: any =
-        await productService.getSelectedProductVariationsService(req.params.id);
+      const product: any = await productService.getSelectedProductPartsService(
+        req.params.id
+      );
       if (!product)
         return res.status(404).json({ message: "Product not found" });
 

@@ -25,7 +25,41 @@ import {
   IParamsRequest,
 } from "@/contracts/request.contract";
 // import { Ebay } from "@/models"; // Import the  ebay model
+const getEbayErrorMessage = function (errors: any[]): string {
+  if (!errors || errors.length === 0) {
+    return "Unknown error from eBay";
+  }
 
+  const error = errors[0]; // Assuming we are dealing with a single error for simplicity
+  switch (error.code) {
+    case "25001":
+      return `System error occurred: ${error.message}`;
+    case "25002":
+      return `User error occurred: ${error.message}`;
+    case "25003":
+      return `Invalid price: ${error.message}`;
+    case "25004":
+      return `Invalid quantity: ${error.message}`;
+    case "25005":
+      return `Invalid category ID: ${error.message}`;
+    case "25006":
+      return `Invalid listing option: ${error.message}`;
+    case "25007":
+      return `Invalid Fulfillment policy: ${error.message}`;
+    case "25008":
+      return `Invalid Payment policy: ${error.message}`;
+    case "25009":
+      return `Invalid Return policy: ${error.message}`;
+    case "25014":
+      return `Invalid pictures: ${error.message}`;
+    case "25019":
+      return `Cannot revise listing: ${error.message}`;
+    case "25710":
+      return `Resource not found: ${error.message}`;
+    default:
+      return `eBay error occurred: ${error.message || "Unknown error"}`;
+  }
+};
 export const ebayService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -134,7 +168,7 @@ export const ebayService = {
         throw new Error("Missing eBay product details");
       }
 
-      // ✅ Use product._id as the SKU (or replace with the correct ID field)
+      // Use product._id as the SKU (or replace with the correct ID field)
       const sku = product._id?.toString();
 
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
@@ -147,55 +181,38 @@ export const ebayService = {
             Feature: ebayData.prodTechInfo?.features
               ? [ebayData.prodTechInfo.features]
               : ["bluetooth"],
-            ...(ebayData.prodTechInfo?.cpu?.trim()
+            ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
           },
           description: ebayData.productInfo?.productDescription
             ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
             : "No description available.",
-          // upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : [],
-          ean: ebayData.prodTechInfo?.ean ? [ebayData.prodTechInfo.ean] : [],
-          // isbn: ebayData.prodTechInfo?.isbn ? [ebayData.prodTechInfo.isbn] : [],
-          mpn: ebayData.prodTechInfo?.mpn ?? "",
-          // epid: ebayData.prodTechInfo?.epid ?? "",
-          brand: ebayData.productInfo?.brand ?? "Unknown",
-
-          videoIds:ebayData.prodMedia?.videos?.map((video: any) => video.url) ?? [],
+          upc: ebayData.prodTechInfo?.upc
+            ? [ebayData.prodTechInfo.upc]
+            : ["888462079522"],
           imageUrls:
             ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
-        condition: ebayData.prodPricing?.condition ?? "NEW",
-        conditionDescription: ebayData.prodPricing?.conditionDescription ?? "",
-        // conditionDescriptors: ebayData.prodPricing?.conditionDescriptors ?? [],
-
+        condition: "NEW",
         packageWeightAndSize: {
           dimensions: {
             height: parseFloat(ebayData.prodTechInfo?.height) || 5,
             length: parseFloat(ebayData.prodTechInfo?.length) || 10,
             width: parseFloat(ebayData.prodTechInfo?.width) || 15,
-            unit: ebayData.prodTechInfo?.unit ?? "INCH",
+            unit: "INCH",
           },
           weight: {
             value: parseFloat(ebayData.prodTechInfo?.weight) || 2,
             unit: "POUND",
           },
-          packageType:
-            ebayData.prodDelivery?.packageType ?? "PARCEL_OR_PADDED_ENVELOPE",
-          shippingIrregular: ebayData.prodTechInfo?.shippingIrregular ?? false,
         },
-
         availability: {
-          pickupAtLocationAvailability:
-            ebayData.availability?.pickupAtLocationAvailability ?? [],
           shipToLocationAvailability: {
             quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
-            availabilityDistributions:
-              ebayData.availability?.shipToLocationAvailability
-                ?.availabilityDistributions ?? [],
           },
         },
-            fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
+        fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
         shippingOptions: [
           {
             shippingCost: { value: "0.00", currency: "USD" },
@@ -209,7 +226,6 @@ export const ebayService = {
           paymentPolicyId: "247178015010",
           returnPolicyId: "247178019010",
         },
-        
       };
 
       console.log(
@@ -232,32 +248,80 @@ export const ebayService = {
       const responseText = await response.text();
 
       if (!responseText) {
-        throw new Error("Empty response from eBay API");
+        // If empty response is received, return success status
+        return JSON.stringify({
+          status: 201,
+          statusText: "Created",
+          message: "Item created successfully on eBay",
+        });
       }
 
       let responseData;
       try {
         responseData = JSON.parse(responseText);
       } catch (error) {
+        // Handle invalid JSON error
         throw new Error(`Invalid JSON response from eBay: ${responseText}`);
       }
 
       console.log("eBay API Response:", responseData);
 
       if (!response.ok) {
-        throw new Error(
-          `Failed to sync product with eBay: ${JSON.stringify(responseData)}`
-        );
+        // Handle eBay-specific error codes from the response
+        const errorMessage = getEbayErrorMessage(responseData.errors);
+        throw new Error(errorMessage);
       }
 
       return JSON.stringify({
         status: response.status,
         statusText: response.statusText,
-        message: "Item created successfully",
+        message: "Item created successfully on eBay",
       });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
-      throw error;
+
+      // If the error is related to eBay API, return a detailed error message
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error syncing with eBay API",
+      });
+    }
+  },
+
+  // Helper function to map eBay error codes to human-readable messages
+  getEbayErrorMessage(errors: any[]): string {
+    if (!errors || errors.length === 0) {
+      return "Unknown error from eBay";
+    }
+
+    const error = errors[0]; // Assuming we are dealing with a single error for simplicity
+    switch (error.code) {
+      case "25001":
+        return `System error occurred: ${error.message}`;
+      case "25002":
+        return `User error occurred: ${error.message}`;
+      case "25003":
+        return `Invalid price: ${error.message}`;
+      case "25004":
+        return `Invalid quantity: ${error.message}`;
+      case "25005":
+        return `Invalid category ID: ${error.message}`;
+      case "25006":
+        return `Invalid listing option: ${error.message}`;
+      case "25007":
+        return `Invalid Fulfillment policy: ${error.message}`;
+      case "25008":
+        return `Invalid Payment policy: ${error.message}`;
+      case "25009":
+        return `Invalid Return policy: ${error.message}`;
+      case "25014":
+        return `Invalid pictures: ${error.message}`;
+      case "25019":
+        return `Cannot revise listing: ${error.message}`;
+      case "25710":
+        return `Resource not found: ${error.message}`;
+      default:
+        return `eBay error occurred: ${error.message || "Unknown error"}`;
     }
   },
 

@@ -168,16 +168,16 @@ const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
-const projectTechnicalSchema = {
+const projectorTechnicalSchema = {
   model: { type: String },
+  type: { type: String },
+  features: { type: String },
+  connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
-  features: { type: String },
   mpn: { type: String },
   ean: { type: String },
-  type: { type: String },
   color: { type: String },
-  connectivity: { type: String },
   numberOfLANPorts: { type: String },
   maximumWirelessData: { type: String },
   maximumLANDataRate: { type: String },
@@ -190,6 +190,20 @@ const projectTechnicalSchema = {
   width: { type: String },
   // Uncomment if weight is required
   // weight: { type: String },
+
+  displayTechnology: { type: String },
+  nativeResolution: { type: String },
+  imageBrightness: { type: String },
+  throwRatio: { type: String },
+
+  aspectRatio: { type: String },
+  maxResolution: { type: String },
+  contrastRatio: { type: String },
+  compatibleOperatingSystems: { type: String },
+  californiaProp65Warning: { type: String },
+  compatibleFormat: { type: String },
+  lensMagnification: { type: String },
+  yearManufactured: { type: String },
 };
 
 const monitorTechnicalSchema = {
@@ -430,7 +444,7 @@ Product.discriminator(
     {
       platformDetails: {
         amazon: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
@@ -438,7 +452,7 @@ Product.discriminator(
           prodMedia: prodMediaSchema,
         },
         ebay: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
@@ -446,7 +460,7 @@ Product.discriminator(
           prodMedia: prodMediaSchema,
         },
         website: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
