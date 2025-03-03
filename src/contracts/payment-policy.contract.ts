@@ -1,15 +1,14 @@
-import { Document, Model, Types } from "mongoose";
+import { Document, Model } from "mongoose";
 
 export interface IPaymentPolicy extends Document {
-  policyName: string;
-  policyDescription: string;
-  immediatePayment: boolean;
-  cashOnPickUp: boolean;
-  isBlocked: boolean;
-  categoryTypes: {
-    name: "MOTORS_VEHICLES" | "ALL_EXCLUDING_MOTORS_VEHICLES";
-  }[];
+  name: string;
+  description?: string;
   marketplaceId: string;
+
+  categoryTypes: {
+    name: "ALL_EXCLUDING_MOTORS_VEHICLES";
+  }[];
+
   deposit?: {
     amount: {
       currency: string;
@@ -17,13 +16,17 @@ export interface IPaymentPolicy extends Document {
     };
     dueIn: {
       unit: "HOUR";
-      value: number;
+      value: 24 | 48 | 72;
     };
   };
+
   fullPaymentDueIn?: {
     unit: "DAY";
     value: 3 | 7 | 10 | 14;
   };
+
+  immediatePay?: boolean;
+
   paymentMethods?: {
     paymentMethodType:
       | "CASH_ON_PICKUP"
