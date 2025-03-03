@@ -5,7 +5,7 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 
 const baseURL = "https://api.ebay.com"; // Replace with actual base URL if different
 
-export class EbayPolicyService {
+export const ebayCustomPolicyService = {
   async createCustomPolicy(body: any): Promise<any> {
     try {
       const accessToken = await getStoredEbayAccessToken();
@@ -33,7 +33,7 @@ export class EbayPolicyService {
       return {
         status: response.status,
         statusText: response.statusText,
-        message: "Policy created successfully",
+        message: "Policy created successfully on ebay",
       };
     } catch (error) {
       console.error("Error creating eBay custom policy:", error);
@@ -43,7 +43,7 @@ export class EbayPolicyService {
         error,
       };
     }
-  }
+  },
 
   async getAllCustomPolicies(): Promise<any> {
     try {
@@ -76,7 +76,7 @@ export class EbayPolicyService {
         error,
       };
     }
-  }
+  },
 
   async updateCustomPolicy(policyId: string, body: any): Promise<any> {
     try {
@@ -108,7 +108,7 @@ export class EbayPolicyService {
       return {
         status: response.status,
         statusText: response.statusText,
-        message: "Policy updated successfully",
+        message: "Policy updated successfully on Ebay",
       };
     } catch (error) {
       console.error("Error updating eBay custom policy:", error);

@@ -15,4 +15,4 @@ export { variationService } from "./variation.service";
 export { stockService } from "./stock.service";
 export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
-
+export { ebayCustomPolicyService } from "./ebay-custom-policy.service";

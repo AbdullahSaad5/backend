@@ -24,6 +24,7 @@ import { coupon } from "./coupon.route";
 import { discount } from "./discount.route";
 import { taxes } from "./taxes.route";
 import { stock } from "./stock.route";
+import { customPolicy } from "./custom-policy.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -47,6 +48,7 @@ const routes: {
   product,
   productCategory,
   productBrand,
+  customPolicy,
   bundle,
   orderRoutes,
   cartRoutes,

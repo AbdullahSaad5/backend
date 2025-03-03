@@ -10,6 +10,16 @@ export const customPolicyService = {
     return await CustomPolicy.findById(id);
   },
 
+  async createCustomPolicy(policyData: ICustomPolicy): Promise<ICustomPolicy> {
+    const existingPolicy = await CustomPolicy.findOne({
+      name: policyData.name,
+    });
+    if (existingPolicy) {
+      throw new Error("A policy with this name already exists");
+    }
+    return await CustomPolicy.create(policyData);
+  },
+
   async updateCustomPolicy(
     id: string,
     updateData: Partial<ICustomPolicy>

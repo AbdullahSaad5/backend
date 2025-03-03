@@ -20,7 +20,7 @@ const customPolicySchema = new Schema<ICustomPolicy>(
       type: String,
       required: true,
       maxlength: 65,
-      unique: true,
+      unique: false,
     },
     policyType: {
       type: String,
