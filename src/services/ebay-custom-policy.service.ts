@@ -99,13 +99,16 @@ export const ebayCustomPolicyService = {
     }
   },
 
-  async updateCustomPolicy(policyId: string, body: any): Promise<any> {
-    try {
-      const accessToken = await getStoredEbayAccessToken();
-
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/custom_policy/${policyId}`,
-        {
+ 
+    async updateCustomPolicy(policyId: string, body: any): Promise<any> {
+      try {
+        const accessToken = await getStoredEbayAccessToken();
+        const url = `${baseURL}/sell/account/v1/custom_policy/${policyId}`;
+  
+        console.log(`🔹 Sending eBay Update Request: ${url}`);
+        console.log(`📤 Request Body:`, JSON.stringify(body, null, 2));
+  
+        const response = await fetch(url, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -115,29 +118,48 @@ export const ebayCustomPolicyService = {
             "Accept-Language": "en-US",
           },
           body: JSON.stringify(body),
+        });
+  
+        console.log(`🔹 eBay Response Status: ${response.status} ${response.statusText}`);
+  
+        // ✅ Fix: Handle empty response before parsing JSON
+        const rawText = await response.text();
+        if (!rawText) {
+          console.warn("⚠️ Warning: eBay response is empty.");
+          return {
+            status: response.status,
+            statusText: response.statusText,
+            message: "Empty response from eBay",
+          };
         }
-      );
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw {
+  
+        const data = JSON.parse(rawText);
+  
+        if (!response.ok) {
+          console.error("❌ eBay API Error:", JSON.stringify(data, null, 2));
+          throw {
+            status: response.status,
+            statusText: response.statusText,
+            data,
+          };
+        }
+  
+        console.log("✅ eBay Update Success:", JSON.stringify(data, null, 2));
+        return {
           status: response.status,
           statusText: response.statusText,
+          message: "Policy updated successfully on eBay",
           data,
         };
+      } catch (error: any) {
+        console.error("❌ Error updating eBay custom policy:", error);
+        return {
+          status: error?.status || StatusCodes.INTERNAL_SERVER_ERROR,
+          statusText: error?.statusText || ReasonPhrases.INTERNAL_SERVER_ERROR,
+          message: "Failed to update eBay policy",
+          error: error?.data || error,
+        };
       }
-      return {
-        status: response.status,
-        statusText: response.statusText,
-        message: "Policy updated successfully on Ebay",
-      };
-    } catch (error) {
-      console.error("Error updating eBay custom policy:", error);
-      throw {
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error,
-      };
-    }
-  },
+    },
+  
 };
