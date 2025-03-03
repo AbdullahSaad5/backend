@@ -14,7 +14,6 @@ export const ebayPaymentPolicyService = {
         throw new Error("❌ Missing required field: marketplaceId");
 
       const accessToken = await getStoredEbayAccessToken();
-
       // Determine if it's a Motors category
       const isMotorsCategory = data.categoryTypes.some(
         (type: any) => type.name === "MOTORS_VEHICLES"
@@ -30,7 +29,6 @@ export const ebayPaymentPolicyService = {
         data.paymentMethods?.filter((method: any) =>
           allowedPaymentMethods.includes(method.paymentMethodType)
         ) || [];
-
       const requestBody: any = {
         name: data.name,
         description: data.description || "",
@@ -38,7 +36,7 @@ export const ebayPaymentPolicyService = {
         categoryTypes:
           data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
         immediatePay: data.immediatePay,
-        paymentMethods: validPaymentMethods,
+        paymentMethods: data.paymentMethods || [],
       };
 
       console.log(
@@ -59,25 +57,25 @@ export const ebayPaymentPolicyService = {
         }
       );
 
+      const result = await response.json();
+
       if (!response.ok) {
-        let errorResponse;
-        try {
-          errorResponse = await response.json();
-        } catch (jsonError) {
-          console.error("⚠️ Failed to parse eBay error response.");
-          throw new Error("Invalid JSON response from eBay");
+        // Check if the error is due to a duplicate policy
+        if (result.errors?.[0]?.errorId === 20400) {
+          console.warn(
+            "⚠️ Duplicate Payment Policy Found, Using Existing Policy ID:",
+            result.errors?.[0]?.parameters?.[0]?.value
+          );
+          return {
+            message: "Using existing payment policy",
+            policyId: result.errors?.[0]?.parameters?.[0]?.value,
+          };
         }
 
-        console.error(
-          "⚠️ eBay API Error:",
-          JSON.stringify(errorResponse, null, 2)
-        );
-        throw new Error(
-          errorResponse.errors?.[0]?.message || "eBay API call failed"
-        );
+        console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
+        throw new Error(result.errors?.[0]?.message || "eBay API call failed");
       }
 
-      const result = await response.json();
       console.log("✅ Payment Policy Created Successfully:", result);
       return result;
     } catch (error: any) {
