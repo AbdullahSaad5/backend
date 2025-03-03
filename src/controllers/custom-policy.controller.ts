@@ -51,31 +51,51 @@ export const customPolicyController = {
 
   update: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const { id } = req.params; // Local DB policy ID
       const updateData = req.body;
 
-      // Update policy in DB
+      // 1️⃣ Retrieve existing policy from DB
+      const existingPolicy = await customPolicyService.getCustomPolicyById(id);
+      if (!existingPolicy) {
+        return res.status(404).json({ error: "Policy not found in database" });
+      }
+
+      // 2️⃣ Extract the eBay Policy ID from the DB policy
+      const ebayPolicyId = existingPolicy.ebayPolicyId; // Ensure this field exists in your DB schema
+      if (!ebayPolicyId) {
+        return res
+          .status(400)
+          .json({ error: "eBay policy ID not found for this policy" });
+      }
+
+      // 3️⃣ Update policy in MongoDB
       const updatedPolicy = await customPolicyService.updateCustomPolicy(
         id,
         updateData
       );
       if (!updatedPolicy) {
-        return res.status(404).json({ error: "Policy not found" });
+        return res
+          .status(404)
+          .json({ error: "Policy update failed in database" });
       }
 
-      // Update policy on eBay
+      // 4️⃣ Update policy on eBay using the correct eBay policy ID
       const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(
-        id,
+        ebayPolicyId,
         updateData
       );
 
+      // 5️⃣ Send response back
       res.status(200).json({
         message: "Policy updated successfully in both DB and eBay",
         updatedPolicy,
         ebayResponse,
       });
     } catch (error: any) {
-      res.status(error.status || 500).json({ error: error.message });
+      console.error("Error updating policy:", error);
+      res
+        .status(error.status || 500)
+        .json({ error: error.message || "Internal Server Error" });
     }
   },
 };
