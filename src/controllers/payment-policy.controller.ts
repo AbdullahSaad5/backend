@@ -63,8 +63,11 @@ export const paymentPolicyController = {
     try {
       const { id } = req.params;
       const policy = await paymentPolicyService.editPolicy(id, req.body);
-      const ebayResponse =
-        await ebayPaymentPolicyService.createPaymentPolicy(req);
+      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(
+        id,
+        req.body
+      );
+
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Policy updated successfully",
