@@ -6,72 +6,63 @@ import {
 
 const paymentPolicySchema = new Schema<IPaymentPolicy>(
   {
-    policyName: { type: String, required: true, maxlength: 64 },
+    name: { type: String, required: true, maxlength: 64 },
+    description: { type: String, maxlength: 250 },
+
     categoryTypes: [
       {
         name: {
           type: String,
-          enum: ["MOTORS_VEHICLES", "ALL_EXCLUDING_MOTORS_VEHICLES"],
+          enum: ["ALL_EXCLUDING_MOTORS_VEHICLES"],
           required: true,
         },
       },
     ],
+
     marketplaceId: { type: String, required: true },
+
     deposit: {
       amount: {
         currency: {
           type: String,
-          required: function () {
-            return !!this.deposit;
-          },
+          required: true,
         },
         value: {
           type: String,
-          required: function () {
-            return !!this.deposit;
-          },
+          required: true,
         },
       },
       dueIn: {
         unit: {
           type: String,
           enum: ["HOUR"],
-          required: function () {
-            return !!this.deposit;
-          },
+          required: true,
         },
         value: {
           type: Number,
-          min: 24,
-          max: 72,
-          required: function () {
-            return !!this.deposit;
-          },
+          enum: [24, 48, 72], // Allowed values per docs
+          default: 48,
+          required: true,
         },
       },
     },
+
     fullPaymentDueIn: {
       unit: {
         type: String,
         enum: ["DAY"],
-        required: function () {
-          return !!this.categoryTypes.some(
-            (c: any) => c.name === "MOTORS_VEHICLES"
-          );
-        },
+        required: true,
       },
       value: {
         type: Number,
-        enum: [3, 7, 10, 14],
+        enum: [3, 7, 10, 14], // Allowed values per docs
         default: 7,
-        required: function () {
-          return !!this.categoryTypes.some(
-            (c: any) => c.name === "MOTORS_VEHICLES"
-          );
-        },
+        required: true,
       },
     },
-    immediatePayment: { type: Boolean },
+
+    immediatePay: { type: Boolean, default: false },
+
     paymentMethods: [
       {
         paymentMethodType: {
@@ -82,11 +73,7 @@ const paymentPolicySchema = new Schema<IPaymentPolicy>(
             "MONEY_ORDER",
             "PERSONAL_CHECK",
           ],
-          required: function () {
-            return !!this.categoryTypes.some(
-              (c: any) => c.name === "MOTORS_VEHICLES"
-            );
-          },
+          required: true,
         },
       },
     ],
