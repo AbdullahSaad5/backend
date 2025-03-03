@@ -5,9 +5,9 @@ export interface IPaymentPolicy extends Document {
   description?: string;
   marketplaceId: string;
   isBlocked: boolean;
-  categoryTypes: {
-    name: "ALL_EXCLUDING_MOTORS_VEHICLES";
-  }[];
+  categoryTypes: [{
+    name: "ALL_EXCLUDING_MOTORS_VEHICLES"
+  }];
 
   deposit?: {
     amount: {

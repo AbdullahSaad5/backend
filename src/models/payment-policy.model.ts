@@ -11,14 +11,10 @@ const paymentPolicySchema = new Schema<IPaymentPolicy>(
     isBlocked: { type: Boolean, default: false },
     categoryTypes: [
       {
-        name: {
-          type: String,
-          enum: ["ALL_EXCLUDING_MOTORS_VEHICLES"],
-          required: true,
-        },
-      },
+        name: { type: String, required: true }
+      }
     ],
-
+    
     marketplaceId: { type: String, required: true },
 
     deposit: {
