@@ -16,3 +16,4 @@ export { stockService } from "./stock.service";
 export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
 export { ebayCustomPolicyService } from "./ebay-custom-policy.service";
+export { ebayPaymentPolicyService } from "./ebay-payment-policy.service";

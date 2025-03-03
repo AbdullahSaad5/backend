@@ -1,29 +1,47 @@
-// Updated Controller
-import { paymentPolicyService } from "@/services";
+import { paymentPolicyService, ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
 export const paymentPolicyController = {
   createPaymentPolicy: async (req: Request, res: Response) => {
     try {
-      const paymentPolicy = await paymentPolicyService.createPaymentPolicy(req.body);
+      // Create policy in DB
+      const paymentPolicy = await paymentPolicyService.createPaymentPolicy(
+        req.body
+      );
+
+      // Sync with eBay
+      const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(
+        req.body
+      ); // ✅ Fixed (passing req.body)
+
       res.status(StatusCodes.CREATED).json({
         message: "Payment policy created successfully",
         paymentPolicy,
+        ebayResponse,
       });
     } catch (error: any) {
-      console.error(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating payment policy" });
+      console.error("❌ Create Payment Policy Error:", error.message);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error creating payment policy" });
     }
   },
 
   getAllPaymentPolicies: async (_req: Request, res: Response) => {
     try {
-      const paymentPolicies = await paymentPolicyService.getAllPaymentPolicies();
-      res.status(StatusCodes.OK).json(paymentPolicies);
+      const paymentPolicies =
+        await paymentPolicyService.getAllPaymentPolicies();
+      const ebayPolicies = await ebayPaymentPolicyService.getAllPaymentPolicies(
+        _req,
+        res
+      );
+      res.status(StatusCodes.OK).json({ paymentPolicies, ebayPolicies });
     } catch (error: any) {
-      console.error(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching payment policies" });
+      console.error("Get Payment Policies Error:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error fetching payment policies" });
     }
   },
 
@@ -35,7 +53,9 @@ export const paymentPolicyController = {
       res.status(StatusCodes.OK).json({ success: true, data: policy });
     } catch (error) {
       console.error("View Policy Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting policy" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error getting policy" });
     }
   },
 
@@ -43,10 +63,19 @@ export const paymentPolicyController = {
     try {
       const { id } = req.params;
       const policy = await paymentPolicyService.editPolicy(id, req.body);
-      res.status(StatusCodes.OK).json({ success: true, message: "Policy updated successfully", data: policy });
+      const ebayResponse =
+        await ebayPaymentPolicyService.createPaymentPolicy(req);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Policy updated successfully",
+        data: policy,
+        ebayResponse,
+      });
     } catch (error) {
       console.error("Edit Policy Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating policy" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error updating policy" });
     }
   },
 
@@ -54,17 +83,26 @@ export const paymentPolicyController = {
     try {
       const { id } = req.params;
       const result = await paymentPolicyService.deletePolicy(id);
-      res.status(StatusCodes.OK).json({ success: true, message: "Policy deleted successfully", deletedPolicy: result });
+      const ebayResponse =
+        await ebayPaymentPolicyService.deletePaymentPolicy(id);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Policy deleted successfully",
+        deletedPolicy: result,
+        ebayResponse,
+      });
     } catch (error) {
       console.error("Delete Policy Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting policy" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error deleting policy" });
     }
   },
+
   toggleBlock: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { isBlocked } = req.body;
-    //   console.log(object)
       const result = await paymentPolicyService.toggleBlock(id, isBlocked);
       res.status(StatusCodes.OK).json({
         success: true,
@@ -78,6 +116,4 @@ export const paymentPolicyController = {
         .json({ success: false, message: "Error updating policy status" });
     }
   },
-
 };
-
