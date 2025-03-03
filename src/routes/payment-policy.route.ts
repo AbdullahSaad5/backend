@@ -6,7 +6,7 @@ export const paymentPolicy = (router: Router) => {
 
     router.post("/" , paymentPolicyController.createPaymentPolicy);
 
-    router.get("/" , paymentPolicyController.getAllPaymentPolicy);
+    router.get("/" , paymentPolicyController.getAllPaymentPolicies);
 
     router.get("/:id" ,  paymentPolicyController.getSpecificPolicy)
 

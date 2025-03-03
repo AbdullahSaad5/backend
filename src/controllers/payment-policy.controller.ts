@@ -1,15 +1,15 @@
+// Updated Controller
 import { paymentPolicyService } from "@/services";
 import { Request, Response } from "express";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
+import { StatusCodes } from "http-status-codes";
 
 export const paymentPolicyController = {
   createPaymentPolicy: async (req: Request, res: Response) => {
     try {
       const paymentPolicy = await paymentPolicyService.createPaymentPolicy(req.body);
-
       res.status(StatusCodes.CREATED).json({
         message: "Payment policy created successfully",
-        paymentPolicy: paymentPolicy,
+        paymentPolicy,
       });
     } catch (error: any) {
       console.error(error);
@@ -17,41 +17,32 @@ export const paymentPolicyController = {
     }
   },
 
-  getAllPaymentPolicy: async (req: Request, res: Response) => {
+  getAllPaymentPolicies: async (_req: Request, res: Response) => {
     try {
-      // console.log("Hello")
       const paymentPolicies = await paymentPolicyService.getAllPaymentPolicies();
       res.status(StatusCodes.OK).json(paymentPolicies);
     } catch (error: any) {
-      console.log(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching payment policies", error: error });
+      console.error(error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching payment policies" });
     }
   },
 
   getSpecificPolicy: async (req: Request, res: Response) => {
     try {
-      const id = req.params.id;
-      const result = await paymentPolicyService.getById(id);
-      if (!result) return res.status(404).json({ message: "Policy not found" });
-      res.status(StatusCodes.OK).json({ success: true, data: result });
+      const { id } = req.params;
+      const policy = await paymentPolicyService.getById(id);
+      if (!policy) return res.status(404).json({ message: "Policy not found" });
+      res.status(StatusCodes.OK).json({ success: true, data: policy });
     } catch (error) {
       console.error("View Policy Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting policy" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting policy" });
     }
   },
 
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { policyName, policyDescription, immediatePayment, cashOnPickUp } = req.body;
-      const policy = await paymentPolicyService.editPolicy(id, {
-        policyName,
-        policyDescription,
-        immediatePayment,
-        cashOnPickUp,
-      });
+      const policy = await paymentPolicyService.editPolicy(id, req.body);
       res.status(StatusCodes.OK).json({ success: true, message: "Policy updated successfully", data: policy });
     } catch (error) {
       console.error("Edit Policy Error:", error);
@@ -69,7 +60,6 @@ export const paymentPolicyController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting policy" });
     }
   },
-
   toggleBlock: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -90,3 +80,4 @@ export const paymentPolicyController = {
   },
 
 };
+

@@ -4,7 +4,7 @@ export interface IPaymentPolicy extends Document {
   name: string;
   description?: string;
   marketplaceId: string;
-
+  isBlocked: boolean;
   categoryTypes: {
     name: "ALL_EXCLUDING_MOTORS_VEHICLES";
   }[];

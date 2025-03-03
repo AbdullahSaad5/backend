@@ -8,7 +8,7 @@ const paymentPolicySchema = new Schema<IPaymentPolicy>(
   {
     name: { type: String, required: true, maxlength: 64 },
     description: { type: String, maxlength: 250 },
-
+    isBlocked: { type: Boolean, default: false },
     categoryTypes: [
       {
         name: {
