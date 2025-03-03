@@ -22,7 +22,25 @@ export const ebayCustomPolicyService = {
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      // ✅ Read response as text first
+      const text = await response.text();
+      let data;
+
+      // ✅ Parse JSON only if response is not empty
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (jsonError) {
+          console.error("Failed to parse eBay response as JSON:", text);
+          throw {
+            status: response.status,
+            statusText: response.statusText,
+            message: "Invalid JSON response from eBay",
+          };
+        }
+      }
+
+      // ✅ Handle non-200 responses properly
       if (!response.ok) {
         throw {
           status: response.status,
@@ -30,17 +48,20 @@ export const ebayCustomPolicyService = {
           data,
         };
       }
+
       return {
         status: response.status,
         statusText: response.statusText,
-        message: "Policy created successfully on ebay",
+        message: "Policy created successfully on eBay",
+        data,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating eBay custom policy:", error);
+
       throw {
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error,
+        status: error.status || StatusCodes.INTERNAL_SERVER_ERROR,
+        message: error.message || ReasonPhrases.INTERNAL_SERVER_ERROR,
+        details: error,
       };
     }
   },
@@ -118,5 +139,5 @@ export const ebayCustomPolicyService = {
         error,
       };
     }
-  }
-}
+  },
+};
