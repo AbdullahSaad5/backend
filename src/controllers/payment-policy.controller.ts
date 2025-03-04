@@ -5,26 +5,56 @@ import { StatusCodes } from "http-status-codes";
 export const paymentPolicyController = {
   createPaymentPolicy: async (req: Request, res: Response) => {
     try {
-      // Create policy in DB
-      const paymentPolicy = await paymentPolicyService.createPaymentPolicy(
+      console.log(
+        "📩 Received request to create payment policy",
+        JSON.stringify(req.body, null, 2)
+      );
+
+      // ✅ Sync with eBay API first
+      const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(
         req.body
       );
 
-      // Sync with eBay
-      const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(
-        req.body
-      ); // ✅ Fixed (passing req.body)
+      if (!ebayResponse || !ebayResponse.policyId) {
+        console.error(
+          "❌ eBay failed to create payment policy. Aborting DB save.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to create payment policy on eBay. Policy not saved in database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay payment policy created successfully. Proceeding to save in DB.",
+        ebayResponse.policyId
+      );
+
+      // ✅ Create policy in DB only if eBay creation was successful
+      const paymentPolicy = await paymentPolicyService.createPaymentPolicy({
+        ...req.body,
+        ebayPolicyId: ebayResponse.policyId,
+      });
 
       res.status(StatusCodes.CREATED).json({
-        message: "Payment policy created successfully",
+        message:
+          "Payment policy created successfully on both eBay and database",
         paymentPolicy,
         ebayResponse,
       });
     } catch (error: any) {
-      console.error("❌ Create Payment Policy Error:", error.message);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error creating payment policy" });
+      console.error("❌ Create Payment Policy Error:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error,
+      });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error creating payment policy",
+        error: error.message,
+      });
     }
   },
 
@@ -62,23 +92,66 @@ export const paymentPolicyController = {
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const policy = await paymentPolicyService.editPolicy(id, req.body);
-      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(
+      console.log(
+        "📩 Received request to edit payment policy",
         id,
+        JSON.stringify(req.body, null, 2)
+      );
+
+      // ✅ Retrieve stored policy to get the correct eBay Policy ID
+      const storedPolicy = await paymentPolicyService.getById(id);
+      if (!storedPolicy || !storedPolicy.ebayPolicyId) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Payment policy not found or missing eBay policy ID.",
+        });
+      }
+
+      const ebayPolicyId = storedPolicy.ebayPolicyId;
+      console.log("🔄 Syncing update with eBay for Policy ID:", ebayPolicyId);
+
+      // ✅ Sync update with eBay API first
+      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(
+        ebayPolicyId,
         req.body
       );
 
+      if (!ebayResponse || (ebayResponse as any).errors) {
+        console.error(
+          "❌ eBay failed to update payment policy. Aborting DB update.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to update payment policy on eBay. Policy not updated in database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay payment policy updated successfully. Proceeding to update in DB."
+      );
+
+      // ✅ Update policy in DB only if eBay update was successful
+      const policy = await paymentPolicyService.editPolicy(id, req.body);
+
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Policy updated successfully",
+        message: "Policy updated successfully on both eBay and database",
         data: policy,
         ebayResponse,
       });
-    } catch (error) {
-      console.error("Edit Policy Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating policy" });
+    } catch (error: any) {
+      console.error("❌ Edit Payment Policy Error:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error,
+      });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating payment policy",
+        error: error.message,
+      });
     }
   },
 
