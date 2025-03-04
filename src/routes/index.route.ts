@@ -26,6 +26,7 @@ import { taxes } from "./taxes.route";
 import { stock } from "./stock.route";
 import { customPolicy } from "./custom-policy.route";
 import { fulfillmentPolicy } from "./fulfillment-policy.route";
+import { returnPolicy } from "./return-policy.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -50,6 +51,7 @@ const routes: {
   productCategory,
   productBrand,
   customPolicy,
+  returnPolicy,
   bundle,
   orderRoutes,
   cartRoutes,

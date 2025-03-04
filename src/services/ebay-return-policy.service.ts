@@ -10,33 +10,41 @@ export const ebayReturnPolicyService = {
         JSON.stringify(data, null, 2)
       );
 
+      // ✅ Validate required fields
       if (!data.marketplaceId)
         throw new Error("❌ Missing required field: marketplaceId");
+      if (!data.returnPeriod)
+        throw new Error("❌ Missing required field: returnPeriod");
 
       const accessToken = await getStoredEbayAccessToken();
-      // Determine if it's a Motors category
-      const isMotorsCategory = data.categoryTypes.some(
+
+      // ✅ Determine if the policy applies to Motors Vehicles
+      const isMotorsCategory = data.categoryTypes?.some(
         (type: any) => type.name === "MOTORS_VEHICLES"
       );
 
-      // Allowed return methods based on category
+      // ✅ Allowed return methods based on category
       const allowedReturnMethods = isMotorsCategory
         ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
-        : ["CREDIT_CARD", "PAYPAL", "DEBIT_CARD"]; // Adjust based on eBay docs
+        : ["CREDIT_CARD", "PAYPAL", "DEBIT_CARD"];
 
-      // Filter return methods
+      // ✅ Validate return methods
       const validReturnMethods =
         data.returnMethods?.filter((method: any) =>
-          allowedReturnMethods.includes(method.returnMethodType)
+          allowedReturnMethods.includes(method)
         ) || [];
+
+      // ✅ Construct API request payload
       const requestBody: any = {
         name: data.name,
         description: data.description || "",
         marketplaceId: data.marketplaceId,
         categoryTypes:
           data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
-        immediatePay: data.immediatePay,
-        returnMethods: data.returnMethods || [],
+        returnMethods: validReturnMethods, // ✅ Ensure only valid methods are sent
+        returnPeriod: data.returnPeriod, // ✅ Ensure returnPeriod is sent
+        returnsAccepted: data.returnsAccepted,
+        returnShippingCostPayer: data.returnShippingCostPayer,
       };
 
       console.log(
@@ -44,23 +52,21 @@ export const ebayReturnPolicyService = {
         JSON.stringify(requestBody, null, 2)
       );
 
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/return_policy`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
+      // ✅ Send request to eBay API
+      const response = await fetch(`${baseURL}/sell/account/v1/return_policy`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       const result = await response.json();
 
+      // ✅ Handle API errors
       if (!response.ok) {
-        // Check if the error is due to a duplicate policy
         if (result.errors?.[0]?.errorId === 20400) {
           console.warn(
             "⚠️ Duplicate Return Policy Found, Using Existing Policy ID:",

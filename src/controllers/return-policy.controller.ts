@@ -5,15 +5,15 @@ import { StatusCodes } from "http-status-codes";
 export const returnPolicyController = {
   createReturnPolicy: async (req: Request, res: Response) => {
     try {
-      // Create policy in DB
+      // ✅ Create policy in DB
       const returnPolicy = await returnPolicyService.createReturnPolicy(
         req.body
       );
 
-      // Sync with eBay
+      // ✅ Sync with eBay API
       const ebayResponse = await ebayReturnPolicyService.createReturnPolicy(
         req.body
-      ); // ✅ Fixed (passing req.body)
+      );
 
       res.status(StatusCodes.CREATED).json({
         message: "Return policy created successfully",
@@ -24,14 +24,13 @@ export const returnPolicyController = {
       console.error("❌ Create Return Policy Error:", error.message);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error creating return policy" });
+        .json({ message: error.message || "Error creating return policy" });
     }
   },
 
   getAllReturnPolicies: async (_req: Request, res: Response) => {
     try {
-      const returnPolicies =
-        await returnPolicyService.getAllReturnPolicies();
+      const returnPolicies = await returnPolicyService.getAllReturnPolicies();
       const ebayPolicies = await ebayReturnPolicyService.getAllReturnPolicies(
         _req,
         res
@@ -86,8 +85,7 @@ export const returnPolicyController = {
     try {
       const { id } = req.params;
       const result = await returnPolicyService.deletePolicy(id);
-      const ebayResponse =
-        await ebayReturnPolicyService.deleteReturnPolicy(id);
+      const ebayResponse = await ebayReturnPolicyService.deleteReturnPolicy(id);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Policy deleted successfully",
