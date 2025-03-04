@@ -1,54 +1,54 @@
-import { fulfillmentPolicyService, ebayFulfillmentPolicyService } from "@/services";
+import { returnPolicyService, ebayReturnPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
-export const fulfillmentPolicyController = {
-  createFulfillmentPolicy: async (req: Request, res: Response) => {
+export const returnPolicyController = {
+  createReturnPolicy: async (req: Request, res: Response) => {
     try {
       // Create policy in DB
-      const fulfillmentPolicy = await fulfillmentPolicyService.createFulfillmentPolicy(
+      const returnPolicy = await returnPolicyService.createReturnPolicy(
         req.body
       );
 
       // Sync with eBay
-      const ebayResponse = await ebayFulfillmentPolicyService.createFulfillmentPolicy(
+      const ebayResponse = await ebayReturnPolicyService.createReturnPolicy(
         req.body
       ); // ✅ Fixed (passing req.body)
 
       res.status(StatusCodes.CREATED).json({
-        message: "Fulfillment policy created successfully",
-        fulfillmentPolicy,
+        message: "Return policy created successfully",
+        returnPolicy,
         ebayResponse,
       });
     } catch (error: any) {
-      console.error("❌ Create Fulfillment Policy Error:", error.message);
+      console.error("❌ Create Return Policy Error:", error.message);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error creating fulfillment policy" });
+        .json({ message: "Error creating return policy" });
     }
   },
 
-  getAllFulfillmentPolicies: async (_req: Request, res: Response) => {
+  getAllReturnPolicies: async (_req: Request, res: Response) => {
     try {
-      const fulfillmentPolicies =
-        await fulfillmentPolicyService.getAllFulfillmentPolicies();
-      const ebayPolicies = await ebayFulfillmentPolicyService.getAllFulfillmentPolicies(
+      const returnPolicies =
+        await returnPolicyService.getAllReturnPolicies();
+      const ebayPolicies = await ebayReturnPolicyService.getAllReturnPolicies(
         _req,
         res
       );
-      res.status(StatusCodes.OK).json({ fulfillmentPolicies, ebayPolicies });
+      res.status(StatusCodes.OK).json({ returnPolicies, ebayPolicies });
     } catch (error: any) {
-      console.error("Get Fulfillment Policies Error:", error);
+      console.error("Get Return Policies Error:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error fetching fulfillment policies" });
+        .json({ message: "Error fetching return policies" });
     }
   },
 
   getSpecificPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const policy = await fulfillmentPolicyService.getById(id);
+      const policy = await returnPolicyService.getById(id);
       if (!policy) return res.status(404).json({ message: "Policy not found" });
       res.status(StatusCodes.OK).json({ success: true, data: policy });
     } catch (error) {
@@ -62,8 +62,8 @@ export const fulfillmentPolicyController = {
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const policy = await fulfillmentPolicyService.editPolicy(id, req.body);
-      const ebayResponse = await ebayFulfillmentPolicyService.editFulfillmentPolicy(
+      const policy = await returnPolicyService.editPolicy(id, req.body);
+      const ebayResponse = await ebayReturnPolicyService.editReturnPolicy(
         id,
         req.body
       );
@@ -85,9 +85,9 @@ export const fulfillmentPolicyController = {
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await fulfillmentPolicyService.deletePolicy(id);
+      const result = await returnPolicyService.deletePolicy(id);
       const ebayResponse =
-        await ebayFulfillmentPolicyService.deleteFulfillmentPolicy(id);
+        await ebayReturnPolicyService.deleteReturnPolicy(id);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Policy deleted successfully",
@@ -106,7 +106,7 @@ export const fulfillmentPolicyController = {
     try {
       const { id } = req.params;
       const { isBlocked } = req.body;
-      const result = await fulfillmentPolicyService.toggleBlock(id, isBlocked);
+      const result = await returnPolicyService.toggleBlock(id, isBlocked);
       res.status(StatusCodes.OK).json({
         success: true,
         message: `Policy ${isBlocked ? "blocked" : "unblocked"} successfully`,
