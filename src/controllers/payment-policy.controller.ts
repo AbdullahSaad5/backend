@@ -158,20 +158,51 @@ export const paymentPolicyController = {
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await paymentPolicyService.deletePolicy(id);
+      console.log("📩 Received request to delete payment policy", id);
+
+      // ✅ Retrieve stored policy to get the correct eBay Policy ID
+      const storedPolicy = await paymentPolicyService.getById(id);
+      if (!storedPolicy || !storedPolicy.ebayPolicyId) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Payment policy not found or missing eBay policy ID.",
+        });
+      }
+
+      const ebayPolicyId = storedPolicy.ebayPolicyId;
+
+      // ✅ Sync delete with eBay API first
       const ebayResponse =
-        await ebayPaymentPolicyService.deletePaymentPolicy(id);
+        await ebayPaymentPolicyService.deletePaymentPolicy(ebayPolicyId);
+
+      if (!ebayResponse || (ebayResponse as any).errors) {
+        console.error(
+          "❌ eBay failed to delete payment policy. Aborting DB delete.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to delete payment policy on eBay. Policy not deleted from database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay payment policy deleted successfully. Proceeding to delete in DB."
+      );
+
+      await paymentPolicyService.deletePolicy(id);
+
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Policy deleted successfully",
-        deletedPolicy: result,
-        ebayResponse,
+        message: "Policy deleted successfully from both eBay and database",
       });
-    } catch (error) {
-      console.error("Delete Policy Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting policy" });
+    } catch (error: any) {
+      console.error("❌ Delete Payment Policy Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error deleting payment policy",
+        error: error.message,
+      });
     }
   },
 
