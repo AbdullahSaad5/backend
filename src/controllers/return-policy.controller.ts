@@ -5,26 +5,55 @@ import { StatusCodes } from "http-status-codes";
 export const returnPolicyController = {
   createReturnPolicy: async (req: Request, res: Response) => {
     try {
-      // ✅ Create policy in DB
-      const returnPolicy = await returnPolicyService.createReturnPolicy(
-        req.body
+      console.log(
+        "📩 Received request to create return policy",
+        JSON.stringify(req.body, null, 2)
       );
 
-      // ✅ Sync with eBay API
+      // ✅ Sync with eBay API first
       const ebayResponse = await ebayReturnPolicyService.createReturnPolicy(
         req.body
       );
 
+      if (!ebayResponse || !ebayResponse.policyId) {
+        console.error(
+          "❌ eBay failed to create return policy. Aborting DB save.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to create return policy on eBay. Policy not saved in database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay return policy created successfully. Proceeding to save in DB.",
+        ebayResponse.policyId
+      );
+
+      // ✅ Create policy in DB only if eBay creation was successful
+      const returnPolicy = await returnPolicyService.createReturnPolicy({
+        ...req.body,
+        ebayPolicyId: ebayResponse.policyId,
+      });
+
       res.status(StatusCodes.CREATED).json({
-        message: "Return policy created successfully",
+        message: "Return policy created successfully on both eBay and database",
         returnPolicy,
         ebayResponse,
       });
     } catch (error: any) {
-      console.error("❌ Create Return Policy Error:", error.message);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: error.message || "Error creating return policy" });
+      console.error("❌ Create Return Policy Error:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error,
+      });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error creating return policy",
+        error: error.message,
+      });
     }
   },
 

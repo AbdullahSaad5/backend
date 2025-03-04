@@ -78,14 +78,23 @@ export const ebayReturnPolicyService = {
           };
         }
 
-        console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
+        console.error("⚠️ eBay API Error:", {
+          status: response.status,
+          statusText: response.statusText,
+          errors: result.errors,
+        });
         throw new Error(result.errors?.[0]?.message || "eBay API call failed");
       }
 
       console.log("✅ Return Policy Created Successfully:", result);
       return result;
     } catch (error: any) {
-      console.error("❌ Error creating eBay return policy:", error.message);
+      console.error("❌ Error creating eBay return policy:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error,
+      });
       throw new Error(error.message);
     }
   },
