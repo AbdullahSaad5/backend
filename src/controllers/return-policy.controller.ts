@@ -90,42 +90,117 @@ export const returnPolicyController = {
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const policy = await returnPolicyService.editPolicy(id, req.body);
-      const ebayResponse = await ebayReturnPolicyService.editReturnPolicy(
+      console.log(
+        "📩 Received request to edit return policy",
         id,
+        JSON.stringify(req.body, null, 2)
+      );
+
+      // ✅ Retrieve stored policy to get the correct eBay Policy ID
+      const storedPolicy = await returnPolicyService.getById(id);
+      if (!storedPolicy || !storedPolicy.ebayPolicyId) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Return policy not found or missing eBay policy ID.",
+        });
+      }
+
+      const ebayPolicyId = storedPolicy.ebayPolicyId;
+      console.log("🔄 Syncing update with eBay for Policy ID:", ebayPolicyId);
+
+      // ✅ Sync update with eBay API first
+      const ebayResponse = await ebayReturnPolicyService.editReturnPolicy(
+        ebayPolicyId,
         req.body
       );
 
+      if (!ebayResponse || (ebayResponse as any).errors) {
+        console.error(
+          "❌ eBay failed to update return policy. Aborting DB update.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to update return policy on eBay. Policy not updated in database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay return policy updated successfully. Proceeding to update in DB."
+      );
+
+      // ✅ Update policy in DB only if eBay update was successful
+      const policy = await returnPolicyService.editPolicy(id, req.body);
+
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Policy updated successfully",
+        message: "Policy updated successfully on both eBay and database",
         data: policy,
         ebayResponse,
       });
-    } catch (error) {
-      console.error("Edit Policy Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating policy" });
+    } catch (error: any) {
+      console.error("❌ Edit Return Policy Error:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        error,
+      });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating return policy",
+        error: error.message,
+      });
     }
   },
 
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await returnPolicyService.deletePolicy(id);
-      const ebayResponse = await ebayReturnPolicyService.deleteReturnPolicy(id);
+      console.log("📩 Received request to delete return policy", id);
+
+      // ✅ Retrieve stored policy to get the correct eBay Policy ID
+      const storedPolicy = await returnPolicyService.getById(id);
+      if (!storedPolicy || !storedPolicy.ebayPolicyId) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Return policy not found or missing eBay policy ID.",
+        });
+      }
+
+      const ebayPolicyId = storedPolicy.ebayPolicyId;
+
+      // ✅ Sync delete with eBay API first
+      const ebayResponse =
+        await ebayReturnPolicyService.deleteReturnPolicy(ebayPolicyId);
+
+      if (!ebayResponse || (ebayResponse as any).errors) {
+        console.error(
+          "❌ eBay failed to delete return policy. Aborting DB delete.",
+          ebayResponse
+        );
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Failed to delete return policy on eBay. Policy not deleted from database.",
+          ebayResponse,
+        });
+      }
+
+      console.log(
+        "✅ eBay return policy deleted successfully. Proceeding to delete in DB."
+      );
+
+      await returnPolicyService.deletePolicy(id);
+
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Policy deleted successfully",
-        deletedPolicy: result,
-        ebayResponse,
+        message: "Policy deleted successfully from both eBay and database",
       });
-    } catch (error) {
-      console.error("Delete Policy Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting policy" });
+    } catch (error: any) {
+      console.error("❌ Delete Return Policy Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error deleting return policy",
+        error: error.message,
+      });
     }
   },
 
