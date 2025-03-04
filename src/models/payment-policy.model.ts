@@ -9,6 +9,7 @@ const paymentPolicySchema = new Schema<IPaymentPolicy>(
     name: { type: String, required: true, maxlength: 64 },
     description: { type: String, maxlength: 250 },
     isBlocked: { type: Boolean, default: false },
+    ebayPolicyId: { type: String, required: true },
     categoryTypes: [
       {
         name: { type: String, required: true },

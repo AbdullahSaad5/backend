@@ -5,6 +5,7 @@ export interface IPaymentPolicy extends Document {
   description?: string;
   marketplaceId: string;
   isBlocked: boolean;
+  ebayPolicyId: string;
   categoryTypes: [{
     name: "ALL_EXCLUDING_MOTORS_VEHICLES"
   }];
