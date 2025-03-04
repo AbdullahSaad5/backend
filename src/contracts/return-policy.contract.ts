@@ -4,6 +4,7 @@ export interface IReturnPolicy extends Document {
   name: string;
   description?: string;
   marketplaceId: string;
+  ebayPolicyId: string;
   isBlocked: boolean;
   categoryTypes: [
     {
