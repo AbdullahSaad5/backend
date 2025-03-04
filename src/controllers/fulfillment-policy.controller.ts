@@ -1,4 +1,7 @@
-import { fulfillmentPolicyService, ebayFulfillmentPolicyService } from "@/services";
+import {
+  fulfillmentPolicyService,
+  ebayFulfillmentPolicyService,
+} from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -6,14 +9,12 @@ export const fulfillmentPolicyController = {
   createFulfillmentPolicy: async (req: Request, res: Response) => {
     try {
       // Create policy in DB
-      const fulfillmentPolicy = await fulfillmentPolicyService.createFulfillmentPolicy(
-        req.body
-      );
+      const fulfillmentPolicy =
+        await fulfillmentPolicyService.createFulfillmentPolicy(req.body);
 
       // Sync with eBay
-      const ebayResponse = await ebayFulfillmentPolicyService.createFulfillmentPolicy(
-        req.body
-      ); // ✅ Fixed (passing req.body)
+      const ebayResponse =
+        await ebayFulfillmentPolicyService.createFulfillmentPolicy(req.body); // ✅ Fixed (passing req.body)
 
       res.status(StatusCodes.CREATED).json({
         message: "Fulfillment policy created successfully",
@@ -32,10 +33,8 @@ export const fulfillmentPolicyController = {
     try {
       const fulfillmentPolicies =
         await fulfillmentPolicyService.getAllFulfillmentPolicies();
-      const ebayPolicies = await ebayFulfillmentPolicyService.getAllFulfillmentPolicies(
-        _req,
-        res
-      );
+      const ebayPolicies =
+        await ebayFulfillmentPolicyService.getAllFulfillmentPolicies(_req, res);
       res.status(StatusCodes.OK).json({ fulfillmentPolicies, ebayPolicies });
     } catch (error: any) {
       console.error("Get Fulfillment Policies Error:", error);
@@ -63,10 +62,8 @@ export const fulfillmentPolicyController = {
     try {
       const { id } = req.params;
       const policy = await fulfillmentPolicyService.editPolicy(id, req.body);
-      const ebayResponse = await ebayFulfillmentPolicyService.editFulfillmentPolicy(
-        id,
-        req.body
-      );
+      const ebayResponse =
+        await ebayFulfillmentPolicyService.editFulfillmentPolicy(id, req.body);
 
       res.status(StatusCodes.OK).json({
         success: true,

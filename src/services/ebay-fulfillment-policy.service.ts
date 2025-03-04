@@ -79,7 +79,10 @@ export const ebayFulfillmentPolicyService = {
       console.log("✅ Fulfillment Policy Created Successfully:", result);
       return result;
     } catch (error: any) {
-      console.error("❌ Error creating eBay fulfillment policy:", error.message);
+      console.error(
+        "❌ Error creating eBay fulfillment policy:",
+        error.message
+      );
       throw new Error(error.message);
     }
   },
