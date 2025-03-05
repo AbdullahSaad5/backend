@@ -89,24 +89,43 @@ export const ebayFulfillmentPolicyService = {
 
       const result = await response.json();
 
-      if (!response.ok) {
-        console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
-
-        // ✅ Return Full Error Response for Debugging
-        return {
-          success: false,
-          status: response.status,
-          errors: result.errors || [{ message: "Unknown eBay API error" }],
-        };
+      // ✅ Handle HTTP status codes
+      if (response.status === 201) {
+        console.log(
+          "✅ Fulfillment Policy Created Successfully:",
+          JSON.stringify(result, null, 2)
+        );
+        return { success: true, fulfillmentPolicy: result };
       }
 
-      console.log(
-        "✅ Fulfillment Policy Created Successfully:",
-        JSON.stringify(result, null, 2)
-      );
+      console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
+
+      // ✅ Handle Specific eBay Error Codes
+      const errorDetails = result.errors
+        ?.map((error: any) => {
+          switch (error.errorId) {
+            case 20400:
+              return `❌ Invalid request: ${error.longMessage || "Unknown issue"}`;
+            case 20401:
+              return `❌ Missing field: ${error.parameters?.[0]?.value || "Unknown field"}`;
+            case 20402:
+              return `❌ Invalid input: ${error.longMessage || "Check request format"}`;
+            case 20403:
+              return `❌ Invalid ${error.parameters?.[0]?.name}: ${error.longMessage}`;
+            case 20500:
+              return "❌ System error. Try again later.";
+            case 20501:
+              return "❌ Service unavailable. Try again in 24 hours.";
+            default:
+              return `⚠️ eBay API Error: ${error.message}`;
+          }
+        })
+        .join("\n");
+
       return {
-        success: true,
-        fulfillmentPolicy: result,
+        success: false,
+        status: response.status,
+        errors: errorDetails || [{ message: "Unknown eBay API error" }],
       };
     } catch (error: any) {
       console.error(
@@ -114,7 +133,6 @@ export const ebayFulfillmentPolicyService = {
         error.message
       );
 
-      // ✅ Return Error in Correct Format
       return {
         success: false,
         status: 500,
