@@ -5,8 +5,9 @@ export interface IFulfillmentPolicy extends Document {
   description?: string;
   marketplaceId: string;
   isBlocked: boolean;
-freightShipping: boolean,
-    globalShipping: boolean,
+  freightShipping: boolean;
+  ebayPolicyId: string;
+  globalShipping: boolean;
   categoryTypes: [
     {
       name: "MOTORS_VEHICLES" | "ALL_EXCLUDING_MOTORS_VEHICLES";

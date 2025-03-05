@@ -4,163 +4,93 @@ import {
   FulfillmentPolicyModel,
 } from "@/contracts/fulfillment-policy.contract";
 
-const fulfillmentPolicySchema = new Schema<IFulfillmentPolicy>(
-  {
-    categoryTypes: [
-      {
-        default: { type: Boolean, required: true },
-        name: {
-          type: String,
-          enum: ["MOTORS_VEHICLES", "ALL_EXCLUDING_MOTORS_VEHICLES"],
-          required: true,
-        },
-      },
-    ],
-    description: { type: String, required: false },
-    freightShipping: { type: Boolean, default: false },
-    globalShipping: { type: Boolean, default: false },
-    handlingTime: {
-      unit: {
-        type: String,
-        enum: ["YEAR", "MONTH", "DAY", "HOUR"],
-        required: true,
-      },
-      value: { type: Number, required: true },
+const fulfillmentPolicySchema = new Schema<IFulfillmentPolicy>({
+  categoryTypes: [
+    {
+      default: Boolean,
+      name: String,
     },
-    localPickup: { type: Boolean, default: false },
-    marketplaceId: {
-      type: String,
-      enum: [
-        "EBAY_AT",
-        "EBAY_AU",
-        "EBAY_BE",
-        "EBAY_US", // Add all MarketplaceIdEnum values
-      ],
-      required: true,
-    },
-    name: { type: String, required: true },
-    pickupDropOff: { type: Boolean, default: false },
-    shippingOptions: [
-      new Schema(
-        {
-          costType: {
-            type: String,
-            enum: ["CALCULATED", "FLAT_RATE", "NOT_SPECIFIED"],
-            required: true,
-          },
-          insuranceFee: {
-            currency: { type: String, required: true },
-            value: { type: String, required: true },
-          },
-          insuranceOffered: { type: Boolean, default: false },
-          optionType: {
-            type: String,
-            enum: ["DOMESTIC", "INTERNATIONAL"],
-            required: true,
-          },
-          packageHandlingCost: {
-            currency: { type: String, required: true },
-            value: { type: String, required: true },
-          },
-          rateTableId: { type: String, required: false },
-          shippingDiscountProfileId: { type: String, required: false },
-          shippingPromotionOffered: { type: Boolean, default: false },
-          shippingServices: [
-            new Schema(
-              {
-                additionalShippingCost: {
-                  currency: { type: String, required: true },
-                  value: { type: String, required: true },
-                },
-                buyerResponsibleForPickup: { type: Boolean, default: false },
-                buyerResponsibleForShipping: { type: Boolean, default: false },
-                freeShipping: { type: Boolean, default: false },
-                shippingCarrierCode: { type: String, required: true },
-                shippingCost: {
-                  currency: { type: String, required: true },
-                  value: { type: String, required: true },
-                },
-                shippingServiceCode: { type: String, required: true },
-                shipToLocations: {
-                  regionExcluded: [
-                    new Schema(
-                      {
-                        regionName: { type: String, required: true },
-                        regionType: {
-                          type: String,
-                          enum: [
-                            "COUNTRY",
-                            "COUNTRY_REGION",
-                            "STATE_OR_PROVINCE",
-                          ],
-                          required: true,
-                        },
-                      },
-                      { _id: false }
-                    ),
-                  ],
-                  regionIncluded: [
-                    new Schema(
-                      {
-                        regionName: { type: String, required: true },
-                        regionType: {
-                          type: String,
-                          enum: [
-                            "COUNTRY",
-                            "COUNTRY_REGION",
-                            "STATE_OR_PROVINCE",
-                          ],
-                          required: true,
-                        },
-                      },
-                      { _id: false }
-                    ),
-                  ],
-                },
-                sortOrder: { type: Number, required: false },
-                surcharge: {
-                  currency: { type: String, required: true },
-                  value: { type: String, required: true },
-                },
-              },
-              { _id: false }
-            ),
-          ],
-        },
-        { _id: false }
-      ),
-    ],
-    shipToLocations: {
-      regionExcluded: [
-        new Schema(
-          {
-            regionName: { type: String, required: true },
-            regionType: {
-              type: String,
-              enum: ["COUNTRY", "COUNTRY_REGION", "STATE_OR_PROVINCE"],
-              required: true,
-            },
-          },
-          { _id: false }
-        ),
-      ],
-      regionIncluded: [
-        new Schema(
-          {
-            regionName: { type: String, required: true },
-            regionType: {
-              type: String,
-              enum: ["COUNTRY", "COUNTRY_REGION", "STATE_OR_PROVINCE"],
-              required: true,
-            },
-          },
-          { _id: false }
-        ),
-      ],
-    },
+  ],
+  description: { type: String, required: true },
+  freightShipping: { type: Boolean, required: true },
+  globalShipping: { type: Boolean, required: true },
+  handlingTime: {
+    unit: { type: String, required: true },
+    value: { type: Number, required: true },
   },
-  { timestamps: true }
-);
+  localPickup: { type: Boolean, required: true },
+  marketplaceId: { type: String, required: true },
+  name: { type: String, required: true },
+  pickupDropOff: { type: Boolean, required: true },
+  shippingOptions: [
+    {
+      costType: { type: String, required: true },
+      insuranceFee: {
+        currency: String,
+        value: String,
+      },
+      insuranceOffered: { type: Boolean, required: true },
+      optionType: { type: String, required: true },
+      packageHandlingCost: {
+        currency: String,
+        value: String,
+      },
+      rateTableId: String,
+      shippingDiscountProfileId: String,
+      shippingPromotionOffered: { type: Boolean, required: true },
+      shippingServices: [
+        {
+          additionalShippingCost: {
+            currency: String,
+            value: String,
+          },
+          buyerResponsibleForPickup: { type: Boolean, required: true },
+          buyerResponsibleForShipping: { type: Boolean, required: true },
+          freeShipping: { type: Boolean, required: true },
+          shippingCarrierCode: { type: String, required: true },
+          shippingCost: {
+            currency: String,
+            value: String,
+          },
+          shippingServiceCode: { type: String, required: true },
+          shipToLocations: {
+            regionExcluded: [
+              {
+                regionName: String,
+                regionType: String,
+              },
+            ],
+            regionIncluded: [
+              {
+                regionName: String,
+                regionType: String,
+              },
+            ],
+          },
+          sortOrder: { type: Number, required: true },
+          surcharge: {
+            currency: String,
+            value: String,
+          },
+        },
+      ],
+    },
+  ],
+  shipToLocations: {
+    regionExcluded: [
+      {
+        regionName: String,
+        regionType: String,
+      },
+    ],
+    regionIncluded: [
+      {
+        regionName: String,
+        regionType: String,
+      },
+    ],
+  },
+});
 
 export const FulfillmentPolicy = model<
   IFulfillmentPolicy,
