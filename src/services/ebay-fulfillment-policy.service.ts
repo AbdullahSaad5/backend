@@ -3,7 +3,7 @@ import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 const baseURL = "https://api.ebay.com"; // Ensure this is correct for the eBay environment
 
 export const ebayFulfillmentPolicyService = {
-  async createFulfillmentPolicy(data: any) {
+  createEbayFulfillmentPolicy: async (data: any) => {
     try {
       console.log(
         "📩 Received Fulfillment Policy Data:",
@@ -14,26 +14,28 @@ export const ebayFulfillmentPolicyService = {
         throw new Error("❌ Missing required field: marketplaceId");
 
       const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken)
+        throw new Error("❌ Missing or invalid eBay access token");
 
-      const requestBody: any = {
+      // ✅ Validate shipping data before making the request
+      validateShippingServices(data.shippingOptions);
+
+      const requestBody = {
         name: data.name,
         description: data.description || "",
         marketplaceId: data.marketplaceId,
         categoryTypes:
           data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
-        immediatePay: data.immediatePay,
+        immediatePay: data.immediatePay ?? false,
         fulfillmentMethods: data.fulfillmentMethods || [],
-
-        // ✅ Required Fields Added
-        pickupDropOff: data.pickupDropOff ?? false, // Default false
-        localPickup: data.localPickup ?? false, // Default false
+        pickupDropOff: data.pickupDropOff ?? false,
+        localPickup: data.localPickup ?? false,
         handlingTime: {
-          value: data.handlingTime?.value ?? 1, // Default 1 day
+          value: data.handlingTime?.value ?? 1,
           unit: data.handlingTime?.unit ?? "DAY",
         },
-        globalShipping: data.globalShipping ?? false, // Default false
-        freightShipping: data.freightShipping ?? false, // Default false
-
+        globalShipping: data.globalShipping ?? false,
+        freightShipping: data.freightShipping ?? false,
         shippingOptions:
           data.shippingOptions?.map((option: any) => ({
             costType: option.costType,
@@ -44,8 +46,8 @@ export const ebayFulfillmentPolicyService = {
                   value: option.packageHandlingCost.value,
                 }
               : undefined,
-            shippingPromotionOffered: option.shippingPromotionOffered ?? false, // Required field
-            insuranceOffered: option.insuranceOffered ?? false, // Required field
+            shippingPromotionOffered: option.shippingPromotionOffered ?? false,
+            insuranceOffered: option.insuranceOffered ?? false,
             shippingServices: option.shippingServices?.map((service: any) => ({
               freeShipping: service.freeShipping,
               shippingCarrierCode: service.shippingCarrierCode,
@@ -57,14 +59,13 @@ export const ebayFulfillmentPolicyService = {
                   }
                 : undefined,
               shipToLocations: service.shipToLocations,
-              sortOrder: service.sortOrder ?? 1, // Required field
+              sortOrder: service.sortOrder ?? 1,
               buyerResponsibleForShipping:
-                service.buyerResponsibleForShipping ?? false, // Required field
+                service.buyerResponsibleForShipping ?? false,
               buyerResponsibleForPickup:
-                service.buyerResponsibleForPickup ?? false, // Required field
+                service.buyerResponsibleForPickup ?? false,
             })),
           })) || [],
-
         shipToLocations: data.shipToLocations || {},
       };
 
@@ -90,17 +91,35 @@ export const ebayFulfillmentPolicyService = {
 
       if (!response.ok) {
         console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
-        throw new Error(result.errors?.[0]?.message || "eBay API call failed");
+
+        // ✅ Return Full Error Response for Debugging
+        return {
+          success: false,
+          status: response.status,
+          errors: result.errors || [{ message: "Unknown eBay API error" }],
+        };
       }
 
-      console.log("✅ Fulfillment Policy Created Successfully:", result);
-      return result;
+      console.log(
+        "✅ Fulfillment Policy Created Successfully:",
+        JSON.stringify(result, null, 2)
+      );
+      return {
+        success: true,
+        fulfillmentPolicy: result,
+      };
     } catch (error: any) {
       console.error(
         "❌ Error creating eBay fulfillment policy:",
         error.message
       );
-      throw new Error(error.message);
+
+      // ✅ Return Error in Correct Format
+      return {
+        success: false,
+        status: 500,
+        errors: [{ message: error.message }],
+      };
     }
   },
   async getAllFulfillmentPolicies(_req: unknown, res: unknown) {
@@ -165,3 +184,26 @@ export const ebayFulfillmentPolicyService = {
     }
   },
 };
+function validateShippingServices(shippingOptions: any[]) {
+  if (!shippingOptions || shippingOptions.length === 0) {
+    throw new Error(
+      "❌ Shipping options are missing. At least one is required."
+    );
+  }
+
+  shippingOptions.forEach((option, index) => {
+    if (!option.shippingServices || option.shippingServices.length === 0) {
+      throw new Error(
+        `❌ Shipping option ${index + 1} is missing shippingServices.`
+      );
+    }
+
+    option.shippingServices.forEach((service: any, svcIndex: number) => {
+      if (!service.shippingServiceCode) {
+        throw new Error(
+          `❌ Shipping service at index ${svcIndex + 1} is missing 'shippingServiceCode'.`
+        );
+      }
+    });
+  });
+}

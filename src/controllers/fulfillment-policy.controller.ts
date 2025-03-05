@@ -8,20 +8,33 @@ import { StatusCodes } from "http-status-codes";
 export const fulfillmentPolicyController = {
   createFulfillmentPolicy: async (req: Request, res: Response) => {
     try {
+      console.log("📩 Received request to create fulfillment policy", {
+        body: req.body,
+      });
+
+      // ✅ Validate Request Data
+      if (!req.body.marketplaceId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "❌ Missing required field: marketplaceId",
+        });
+      }
+
+      // ✅ Sync with eBay API First
+
+      const ebayResponse =
+        await ebayFulfillmentPolicyService.createEbayFulfillmentPolicy(
+          req.body
+        );
+
       console.log(
-        "📩 Received request to create fulfillment policy",
-        JSON.stringify(req.body, null, 2)
+        "🔍 eBay Fulfillment Policy Response:",
+        JSON.stringify(ebayResponse, null, 2)
       );
 
-      // ✅ Sync with eBay API first
-      const ebayResponse =
-        await ebayFulfillmentPolicyService.createFulfillmentPolicy(req.body);
-
-      if (!ebayResponse || !ebayResponse.policyId) {
-        console.error(
-          "❌ eBay failed to create fulfillment policy. Aborting DB save.",
-          ebayResponse
-        );
+      if (!ebayResponse?.fulfillmentPolicy?.fulfillmentPolicyId) {
+        console.error("❌ eBay failed to create fulfillment policy.", {
+          ebayResponse,
+        });
         return res.status(StatusCodes.BAD_REQUEST).json({
           message:
             "Failed to create fulfillment policy on eBay. Policy not saved in database.",
@@ -29,19 +42,20 @@ export const fulfillmentPolicyController = {
         });
       }
 
+      const policyId = ebayResponse.fulfillmentPolicy.fulfillmentPolicyId;
+
       console.log(
-        "✅ eBay fulfillment policy created successfully. Proceeding to save in DB.",
-        ebayResponse.policyId
+        "✅ eBay fulfillment policy created. Proceeding to save in DB.",
+        { policyId }
       );
 
-      // ✅ Create policy in DB only if eBay creation was successful
       const fulfillmentPolicy =
         await fulfillmentPolicyService.createFulfillmentPolicy({
           ...req.body,
-          ebayPolicyId: ebayResponse.policyId,
+          ebayPolicyId: policyId,
         });
 
-      res.status(StatusCodes.CREATED).json({
+      return res.status(StatusCodes.CREATED).json({
         message:
           "Fulfillment policy created successfully on both eBay and database",
         fulfillmentPolicy,
@@ -52,15 +66,14 @@ export const fulfillmentPolicyController = {
         message: error.message,
         stack: error.stack,
         name: error.name,
-        error,
       });
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         message: "Error creating fulfillment policy",
         error: error.message,
       });
     }
   },
-
   getAllFulfillmentPolicies: async (_req: Request, res: Response) => {
     try {
       const fulfillmentPolicies =

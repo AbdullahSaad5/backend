@@ -14,6 +14,7 @@ const fulfillmentPolicySchema = new Schema<IFulfillmentPolicy>({
   description: { type: String, required: true },
   freightShipping: { type: Boolean, required: true },
   globalShipping: { type: Boolean, required: true },
+  ebayPolicyId: { type: String, required: true },
   handlingTime: {
     unit: { type: String, required: true },
     value: { type: Number, required: true },
