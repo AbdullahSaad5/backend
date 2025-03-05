@@ -1,4 +1,4 @@
-import { productService } from "@/services";
+import { ebayService, productService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -9,8 +9,6 @@ export const productController = {
     try {
       const { stepData } = req.body;
 
-      // console.log("stepData in controller : " , stepData)
-
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -18,6 +16,7 @@ export const productController = {
         });
       }
 
+      // Save draft product in MongoDB
       const draftProduct = await productService.createDraftProduct(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -39,6 +38,7 @@ export const productController = {
       const productId = req.params.id;
       const { stepData } = req.body;
 
+      // Validate productId
       if (!mongoose.isValidObjectId(productId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -46,6 +46,7 @@ export const productController = {
         });
       }
 
+      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -53,12 +54,33 @@ export const productController = {
         });
       }
 
-      // Call the service to update the draft product with conditional updates based on discriminator
+      // Update the draft product in MongoDB
       const updatedProduct = await productService.updateDraftProduct(
         productId,
         stepData
       );
 
+      // Check if the product is marked for publishing
+      if (stepData.publishToEbay) {
+        // Sync product with eBay if it's marked for publishing
+        const ebayItemId =
+          await ebayService.syncProductWithEbay(updatedProduct);
+
+        // Update the product with the eBay Item ID
+        await productService.updateDraftProduct(updatedProduct._id, {
+          ebayItemId,
+        });
+
+        // Return success with the updated product
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Draft product updated and synced with eBay successfully",
+          data: updatedProduct,
+          ebayItemId, // Include eBay Item ID in the response
+        });
+      }
+
+      // If not marked for publishing, just return the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated successfully",
@@ -66,6 +88,16 @@ export const productController = {
       });
     } catch (error: any) {
       console.error("Error updating draft product:", error);
+
+      // Check if the error is related to eBay synchronization
+      if (error.message.includes("eBay")) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: `Error syncing product with eBay: ${error.message}`,
+        });
+      }
+
+      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft product",
@@ -176,11 +208,10 @@ export const productController = {
         });
       }
 
-      const templateList = templates.map((template, index) => {
+      let templateList = templates.map((template, index) => {
         const productId = template._id;
         const kind = template.kind || "UNKNOWN";
 
-        // Determine fields based on category (kind)
         let fields: string[] = [];
         const prodInfo: any =
           template.platformDetails.website?.prodTechInfo || {};
@@ -225,7 +256,6 @@ export const productController = {
             break;
         }
 
-        // Filter out undefined/null fields and join to form the name
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
         const srno = (index + 1).toString().padStart(2, "0");
@@ -233,6 +263,13 @@ export const productController = {
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, productId };
+      });
+
+      // 🔹 Sort by the number at the end of templateName in descending order
+      templateList.sort((a, b) => {
+        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
       });
 
       return res.status(StatusCodes.OK).json({
@@ -248,7 +285,139 @@ export const productController = {
       });
     }
   },
-  //Selected Template Product
+
+  //Get All Draft Product Names
+  getAllDraftProductNames: async (req: Request, res: Response) => {
+    try {
+      const drafts = await productService.getProductsByCondition({
+        status: "draft",
+      });
+
+      if (!drafts.length) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No draft products found",
+        });
+      }
+
+      let draftList = drafts.map((draft, index) => {
+        const productId = draft._id;
+        const kind = draft.kind || "UNKNOWN";
+
+        let fields: string[] = [];
+        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
+
+        switch (kind.toLowerCase()) {
+          case "laptops":
+            fields = [
+              prodInfo.processor,
+              prodInfo.model,
+              prodInfo.ssdCapacity,
+              prodInfo.hardDriveCapacity,
+              prodInfo.manufacturerWarranty,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "all in one pc":
+            fields = [
+              prodInfo.type,
+              prodInfo.memory,
+              prodInfo.processor,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "projectors":
+            fields = [prodInfo.type, prodInfo.model];
+            break;
+          case "monitors":
+            fields = [prodInfo.screenSize, prodInfo.maxResolution];
+            break;
+          case "gaming pc":
+            fields = [
+              prodInfo.processor,
+              prodInfo.gpu,
+              prodInfo.operatingSystem,
+            ];
+            break;
+          case "network equipments":
+            fields = [prodInfo.networkType, prodInfo.processorType];
+            break;
+          default:
+            fields = ["UNKNOWN"];
+            break;
+        }
+
+        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+
+        const srno = (index + 1).toString().padStart(2, "0");
+
+        const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
+
+        return { draftName, productId };
+      });
+
+      // 🔹 Sort by the number at the end of draftName in descending order
+      draftList.sort((a, b) => {
+        const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+        return numB - numA; // Descending order
+      });
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Draft products names fetched successfully",
+        data: draftList,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Draft names:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching draft names",
+      });
+    }
+  },
+
+  //Selected transformed draft Product
+  transformAndSendDraftProduct: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Validate product ID
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid draft ID",
+        });
+      }
+
+      // Fetch product from DB
+      const product = await productService.getFullProductById(id);
+
+      if (!product) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Product not found",
+        });
+      }
+
+      // Transform product data using utility
+      const transformedProductDraft = transformProductData(product);
+
+      // Send transformed Draft product as response
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "draft transformed and Fetched successfully",
+        data: transformedProductDraft,
+      });
+    } catch (error: any) {
+      console.error("Error transforming product Draft:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error transforming product Draft",
+      });
+    }
+  },
+  //Selected transformed Template Product
   transformAndSendTemplateProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -389,51 +558,139 @@ export const productController = {
     }
   },
   searchAndFilterProducts: async (req: Request, res: Response) => {
-      try {
-        // Extract filters from query params
-        const {
-          searchQuery = "",
-          userType,
-          isBlocked,
-          isTemplate,
-          startDate,
-          endDate,
-          // additionalAccessRights,
-          page = "1",
-          limit = "10",
-        } = req.query;
-  
-        // Prepare the filters object
-        const filters = {
-          searchQuery: searchQuery as string,
-          userType: userType ? userType.toString() : undefined,
-          isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
-          isTemplate: isTemplate ? JSON.parse(isTemplate as string) : undefined, // Convert string to boolean
-          startDate: startDate ? new Date(startDate as string) : undefined,
-          endDate: endDate ? new Date(endDate as string) : undefined,
-          // additionalAccessRights:
-          //   additionalAccessRights && typeof additionalAccessRights === "string"
-          //     ? additionalAccessRights.split(",")
-          //     : undefined,
-          page: parseInt(page as string, 10), // Convert page to number
-          limit: parseInt(limit as string, 10), // Convert limit to number
-        };
-  
-        // Call the service to search and filter the products
-        const products = await productService.searchAndFilterProducts(filters);
-  
-        // Return the results
-        res.status(200).json({
-          success: true,
-          message: "Search and filter completed successfully",
-          data: products,
-        });
-      } catch (error) {
-        console.error("Error in search and filter:", error);
-        res.status(500).json({
-          success: false,
-          message: "Error in search and filter users",
-        });
+    try {
+      // Extract filters from query params
+      const {
+        searchQuery = "",
+        userType,
+        status, // Extract status properly
+        isBlocked,
+        isTemplate,
+        startDate,
+        endDate,
+        page = "1",
+        limit = "10",
+      } = req.query;
+
+      // Safe parsing and validation
+      const filters = {
+        searchQuery: searchQuery as string,
+        userType: userType ? userType.toString() : undefined,
+        status:
+          status && ["draft", "published"].includes(status.toString())
+            ? status.toString()
+            : undefined, // Validate status
+        isBlocked:
+          isBlocked === "true"
+            ? true
+            : isBlocked === "false"
+              ? false
+              : undefined, // Convert only valid booleans
+        isTemplate:
+          isTemplate === "true"
+            ? true
+            : isTemplate === "false"
+              ? false
+              : undefined, // Convert only valid booleans
+        startDate:
+          startDate && !isNaN(Date.parse(startDate as string))
+            ? new Date(startDate as string)
+            : undefined,
+        endDate:
+          endDate && !isNaN(Date.parse(endDate as string))
+            ? new Date(endDate as string)
+            : undefined,
+        page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
+        limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
+      };
+
+      // Call the service to search and filter the products
+      const products = await productService.searchAndFilterProducts(filters);
+
+      // Return the results
+      res.status(200).json({
+        success: true,
+        message: "Search and filter completed successfully",
+        data: products,
+      });
+    } catch (error) {
+      console.error("Error in search and filter:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error in search and filter products",
+      });
+    }
+  },
+  bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
+    try {
+      const { productIds, discountValue, vat } = req.body;
+
+      if (!Array.isArray(productIds) || productIds.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "productIds array is required" });
       }
-    },
+
+      if (discountValue === undefined || vat === undefined) {
+        return res
+          .status(400)
+          .json({ message: "Both discount and VAT/tax are required" });
+      }
+
+      // Validate each productId format
+      for (const productId of productIds) {
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+          return res
+            .status(400)
+            .json({ message: `Invalid productId: ${productId}` });
+        }
+      }
+
+      // Perform bulk update
+      const result = await productService.bulkUpdateProductTaxDiscount(
+        productIds,
+        discountValue,
+        vat
+      );
+
+      return res.status(200).json({
+        message: "Product VAT/tax and discount updated successfully",
+        result,
+      });
+    } catch (error: any) {
+      res
+        .status(500)
+        .json({ message: "Internal Server Error", error: error.message });
+    }
+  },
+  upsertProductParts: async (req: Request, res: Response) => {
+    try {
+      const product = await productService.upsertProductPartsService(
+        req.params.id,
+        req.body.selectedVariations
+      );
+      if (!product)
+        return res.status(404).json({ message: "Product not found" });
+
+      res
+        .status(200)
+        .json({ message: "Product variations updated successfully", product });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  },
+  // Get selected variations
+  getSelectedProductParts: async (req: Request, res: Response) => {
+    try {
+      const product: any = await productService.getSelectedProductPartsService(
+        req.params.id
+      );
+      if (!product)
+        return res.status(404).json({ message: "Product not found" });
+
+      res.status(200).json({ selectedVariations: product.selectedVariations });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  },
 };

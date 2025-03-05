@@ -1,5 +1,9 @@
 import { Cart } from "@/models/cart.model"; // Import the Cart model
-import { ICart, ICartUpdatePayload, ICartItem } from "@/contracts/cart.contract"; // Import the ICart contract
+import {
+  ICart,
+  ICartUpdatePayload,
+  ICartItem,
+} from "@/contracts/cart.contract"; // Import the ICart contract
 
 export const cartService = {
   // Create a new cart
@@ -72,7 +76,7 @@ export const cartService = {
         return null; // Return null if item not found (to handle in the controller)
       }
       //TODO:fix
-    //   cart.items[itemIndex] = { ...cart.items[itemIndex], ...updateData }; // Update the item
+      //   cart.items[itemIndex] = { ...cart.items[itemIndex], ...updateData }; // Update the item
       await cart.save(); // Save the updated cart
       return cart; // Return the updated cart
     } catch (error) {
@@ -109,8 +113,8 @@ export const cartService = {
       const cart = await Cart.findById(cartId); // Find the cart by ID
       if (!cart) {
         return null; // Return null if cart not found (to handle in the controller)
-      }//TODO:fix
-    //   cart.status = status; // Update the cart status
+      } //TODO:fix
+      //   cart.status = status; // Update the cart status
       await cart.save(); // Save the updated cart
       return cart; // Return the updated cart
     } catch (error) {
@@ -120,22 +124,23 @@ export const cartService = {
   },
 
   // Get cart pricing details
-//   getCartPricing: async (cartId: string) => {
-//     try {
-//       const cart = await Cart.findById(cartId); // Find the cart by ID
-//       if (!cart) {
-//         return null; // Return null if cart not found (to handle in the controller)
-//       }
-//       const pricing = cart.items.reduce(//TODO:fix
-//         (total, item) => total + item.price * item.quantity,
-//         0
-//       ); // Calculate total pricing
-//       return { totalPrice: pricing }; // Return total pricing
-//     } catch (error) {
-//       console.error("Error fetching cart pricing:", error);
-//       throw new Error("Failed to fetch cart pricing");
-//     }
-//   },
+  getCartPricing: async (cartId: string) => {
+    try {
+      const cart = await Cart.findById(cartId); // Find the cart by ID
+      if (!cart) {
+        return null; // Return null if cart not found (to handle in the controller)
+      }
+      const pricing = cart.items.reduce(
+        //TODO:fix
+        (total, item: any) => total + item?.price * item.quantity,
+        0
+      ); // Calculate total pricing
+      return { totalPrice: pricing }; // Return total pricing
+    } catch (error) {
+      console.error("Error fetching cart pricing:", error);
+      throw new Error("Failed to fetch cart pricing");
+    }
+  },
 
   // Update cart pricing (e.g., after applying discounts)
   updateCartPricing: async (
@@ -146,8 +151,8 @@ export const cartService = {
       const cart = await Cart.findById(cartId); // Find the cart by ID
       if (!cart) {
         return null; // Return null if cart not found (to handle in the controller)
-      }//TODO:fix
-    //   cart.totalPrice = pricingData.totalPrice; // Update the pricing with the provided data
+      } //TODO:fix
+      //   cart.totalPrice = pricingData.totalPrice; // Update the pricing with the provided data
       await cart.save(); // Save the updated cart
       return cart; // Return the updated cart
     } catch (error) {

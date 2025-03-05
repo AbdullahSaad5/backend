@@ -2,7 +2,6 @@ import { Bundle } from "@/models/bundle.model"; // Import the Bundle model
 import { IBundle, IBundleUpdatePayload } from "@/contracts/bundle.contract"; // Import the IBundle contract
 
 export const bundleService = {
-
   // Add a new bundle
   addBundle: async (bundleData: IBundle) => {
     try {
@@ -42,7 +41,9 @@ export const bundleService = {
   // Update a bundle by ID
   updateBundleById: async (bundleId: string, data: IBundleUpdatePayload) => {
     try {
-      const updatedBundle = await Bundle.findByIdAndUpdate(bundleId, data, { new: true }); // Update the bundle by ID
+      const updatedBundle = await Bundle.findByIdAndUpdate(bundleId, data, {
+        new: true,
+      }); // Update the bundle by ID
       if (!updatedBundle) {
         throw new Error("Bundle not found");
       }
@@ -66,5 +67,4 @@ export const bundleService = {
       throw new Error("Failed to delete the bundle");
     }
   },
-
 };

@@ -14,11 +14,24 @@ export const orderRoutes = (router: Router) => {
   router.get("/", orderController.getAllOrders);
 
   // Route to get a specific order by ID with validation
-  router.get("/:id", orderValidation.validateOrderId, orderController.getOrderById);
+  router.get(
+    "/:id",
+    orderValidation.validateOrderId,
+    orderController.getOrderById
+  );
 
   // Route to update an order by ID with validation
-  router.patch("/:id", orderValidation.validateOrderId, orderValidation.updateOrder, orderController.updateOrderById);
+  router.patch(
+    "/:id",
+    orderValidation.validateOrderId,
+    orderValidation.updateOrder,
+    orderController.updateOrderById
+  );
 
   // Route to delete an order by ID with validation
-  router.delete("/:id", orderValidation.validateOrderId, orderController.deleteOrderById);
+  router.delete(
+    "/:id",
+    orderValidation.validateOrderId,
+    orderController.deleteOrderById
+  );
 };

@@ -1,14 +1,10 @@
+// Updated Service
 import { PaymentPolicy } from "@/models";
+import { IPaymentPolicy } from "@/contracts/payment-policy.contract";
 
 export const paymentPolicyService = {
-  createPaymentPolicy: (data: {policyName: string , policyDescription: string , immediatePayment: boolean , cashOnPickUp: boolean }) => {
-    const {policyName , policyDescription , immediatePayment , cashOnPickUp} = data
-    const paymentPolicy = new PaymentPolicy({
-      policyName,
-      policyDescription,
-      immediatePayment,
-      cashOnPickUp,
-    });
+  createPaymentPolicy: (data: IPaymentPolicy) => {
+    const paymentPolicy = new PaymentPolicy(data);
     return paymentPolicy.save();
   },
 
@@ -20,29 +16,22 @@ export const paymentPolicyService = {
     return PaymentPolicy.findById(id);
   },
 
-  editPolicy: (
-    id: string,
-    data: { policyName?: string; policyDescription?: string; immediatePayment?: boolean; cashOnPickUp?: boolean }
-  ) => {
+  editPolicy: (id: string, data: Partial<IPaymentPolicy>) => {
     return PaymentPolicy.findByIdAndUpdate(id, data, { new: true });
   },
 
   deletePolicy: (id: string) => {
-    const policy = PaymentPolicy.findByIdAndDelete(id);
-    if (!policy) {
-      throw new Error("policy not found");
-    }
-    return policy;
+    return PaymentPolicy.findByIdAndDelete(id);
   },
-
   toggleBlock: async (id: string, isBlocked: boolean) => {
-    console.log("block : " , isBlocked)
-    console.log("id : " , id)
-    const updatedCategory = await PaymentPolicy.findByIdAndUpdate(id, { isBlocked: isBlocked }, { new: true });
+    const updatedCategory = await PaymentPolicy.findByIdAndUpdate(
+      id,
+      { isBlocked: isBlocked },
+      { new: true }
+    );
     if (!updatedCategory) {
       throw new Error("Policy not found");
     }
     return updatedCategory;
   },
-
 };

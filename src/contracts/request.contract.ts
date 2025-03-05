@@ -24,8 +24,12 @@ export interface IQueryRequest<T> extends Request {
   headers: Request["headers"];
 }
 
-export interface ICombinedRequest<Context, Body, Params = Record<string, unknown>, Query = Record<string, unknown>>
-  extends Pick<IContextRequest<Context>, "context" | "headers">,
+export interface ICombinedRequest<
+  Context,
+  Body,
+  Params = Record<string, unknown>,
+  Query = Record<string, unknown>,
+> extends Pick<IContextRequest<Context>, "context" | "headers">,
     Pick<IBodyRequest<Body>, "body">,
     Pick<IParamsRequest<Params>, "params">,
     Pick<IQueryRequest<Query>, "query"> {

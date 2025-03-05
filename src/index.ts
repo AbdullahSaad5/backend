@@ -5,7 +5,7 @@ import morgan from "morgan";
 import { mongoose } from "./datasources";
 import { authMiddleware, corsMiddleware } from "./middlewares";
 import { router } from "./routes/index.route";
-import { Producttt } from "./models/descriminator.model";
+import { Producttt } from "./models/discriminator.model";
 // import Stripe from "stripe";
 // import { stripeController } from "./controllers/stripe.controller";
 
@@ -16,11 +16,9 @@ dotenv.config({
 
 const app: Express = express();
 
-
 // Connect to MongoDB
 mongoose.run();
-app.options("*", corsMiddleware); 
-// const accessLogStream = fs.createWriteStream(__dirname + "/access.log", { flags: "a" });
+app.options("*", corsMiddleware);
 
 // This route is specifically handled before the express.json() middleware to allow raw JSON requests
 // from Stripe webhook
@@ -39,6 +37,16 @@ app.use(
   authMiddleware,
   helmet()
 );
+
+// Add the new route to show the welcome message
+app.get("/", (req, res) => {
+  res.send("Welcome to Bavit Backend");
+});
+
+// Optional: A different endpoint for showing the welcome message
+// app.get("/welcome", (req, res) => {
+//   res.send("Welcome to Bavit Backend");
+// });
 
 app.post("/", async (req, res) => {
   await Producttt.create({
@@ -76,7 +84,7 @@ app.post("/", async (req, res) => {
 
 app.use("/api", router);
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 6000;
 
 const httpServer = app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);

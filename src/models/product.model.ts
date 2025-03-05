@@ -5,8 +5,18 @@ import {
   IWebsitePlatformDetails,
   IProduct,
 } from "@/contracts/product.contract";
-import { fileSchema } from "./user.model";
+import { invokeMap } from "lodash";
 
+export const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+  filename: { type: String },
+};
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
@@ -15,27 +25,44 @@ const prodInfoSchema = {
     ref: "ProductCategory",
     required: true,
   },
+  productSupplier: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
   title: { type: String, required: true },
   productDescription: { type: String },
   brand: { type: String, required: true },
-  images: {type: [fileSchema] , _id: false},
-  videos: { type: [fileSchema] , _id: false }
+};
+
+const prodMediaSchema = {
+  images: { type: [mediaSchema], _id: false },
+  videos: { type: [mediaSchema], _id: false },
 };
 
 const prodPricingSchema = {
   // prod pricing details
   quantity: { type: String },
+  discountType: { type: String, enum: ["fixed", "percentage"] },
+  discountValue: { type: Number },
   price: { type: String },
   condition: { type: String },
   conditionDescription: { type: String },
   pricingFormat: { type: String },
-  vat: { type: String },
-  paymentPolicy: { type: Schema.Types.ObjectId, ref: "PaymentPolicy" },
+  vat: { type: Number },
+  paymentPolicy: {
+    type: Schema.Types.ObjectId,
+    ref: "PaymentPolicy",
+    default: null,
+    set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+  },
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
+  warrantyDuration: { type: Number, required: true }, // Duration in days
+  warrantyCoverage: { type: String, required: true }, // Coverage description
+  warrantyDocument: { type: String }, // URL or file path
 };
-
 const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: {
@@ -114,7 +141,7 @@ const allInOnePCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String },
+  ean: { type: String, unique: true },
   series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
@@ -141,16 +168,16 @@ const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
-const projectTechnicalSchema = {
+const projectorTechnicalSchema = {
   model: { type: String },
+  type: { type: String },
+  features: { type: String },
+  connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
-  features: { type: String },
   mpn: { type: String },
   ean: { type: String },
-  type: { type: String },
   color: { type: String },
-  connectivity: { type: String },
   numberOfLANPorts: { type: String },
   maximumWirelessData: { type: String },
   maximumLANDataRate: { type: String },
@@ -163,6 +190,20 @@ const projectTechnicalSchema = {
   width: { type: String },
   // Uncomment if weight is required
   // weight: { type: String },
+
+  displayTechnology: { type: String },
+  nativeResolution: { type: String },
+  imageBrightness: { type: String },
+  throwRatio: { type: String },
+
+  aspectRatio: { type: String },
+  maxResolution: { type: String },
+  contrastRatio: { type: String },
+  compatibleOperatingSystems: { type: String },
+  californiaProp65Warning: { type: String },
+  compatibleFormat: { type: String },
+  lensMagnification: { type: String },
+  yearManufactured: { type: String },
 };
 
 const monitorTechnicalSchema = {
@@ -176,7 +217,7 @@ const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String },
+  ean: { type: String, required: true },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -205,7 +246,7 @@ const gamingPCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String },
+  ean: { type: String, required: true },
   series: { type: String },
   operatingSystem: { type: String },
   customBundle: { type: String },
@@ -225,6 +266,38 @@ const gamingPCTechnicalSchema = {
   height: { type: String },
   length: { type: String },
   width: { type: String },
+  //amazon fields below
+  // recommendedBrowseNotes: { type: String, required: true },
+  // bulletPoint: { type: String, required: true },
+  // powerPlug: { type: String, required: true },
+  // graphicsCardInterface: { type: String, required: true },
+  // ramMemoryMaximumSize: { type: String, required: true },
+  // ramMemoryMaximumSizeUnit: { type: String, required: true },
+  // ramMemoryTechnology: { type: String, required: true },
+  // humanInterfaceInput: { type: String, required: true },
+  // includedComponents: { type: String, required: true },
+  // specificUsesForProduct: { type: String, required: true },
+  // cacheMemoryInstalledSize: { type: String, required: true },
+  // cacheMemoryInstalledSizeUnit: { type: String, required: true },
+  // cpuModel: { type: String, required: true },
+  // cpuModelManufacturer: { type: String, required: true },
+  // cpuModelNumber: { type: String, required: true },
+  // cpuSocket: { type: String, required: true },
+  // cpuBaseSpeed: { type: String, required: true },
+  // cpuBaseSpeedUnit: { type: String, required: true },
+  // graphicsRam: { type: String, required: true },
+  // hardDiskDescription: { type: String, required: true },
+  // hardDiskInterface: { type: String, required: true },
+  // hardDiskRotationalSpeed: { type: String, required: true },
+  // hardDiskRotationalSpeedUnit: { type: String, required: true },
+  // totalUsb2oPorts: { type: String, required: true },
+  // totalUsb3oPorts: { type: String, required: true },
+  // productWarranty: { type: String, required: true },
+  // gdprRisk: { type: String, required: true },
+  // opticalStorageDevice: { type: String, required: true },
+  // dangerousGoodsRegulation: { type: String, required: true },
+  // safetyAndCompliance: { type: String, required: true },
+  // manufacturer: { type: String, required: true },
 };
 
 const networkEquipmentsTechnicalSchema = {
@@ -259,6 +332,14 @@ const networkEquipmentsTechnicalSchema = {
   width: { type: String },
 };
 
+// Define variation schema
+const selectedVariationsSchema = new Schema({
+  cpu: [{ type: String }], // Multiple CPU options
+  ram: [{ type: String }], // Multiple RAM options
+  storage: [{ type: String }], // Multiple storage options
+  graphics: [{ type: String }],
+  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
+});
 // Main Product Schema
 const productSchema = new Schema(
   {
@@ -268,8 +349,15 @@ const productSchema = new Schema(
       website: {},
     },
     isBlocked: { type: Boolean, default: false },
+    publishToEbay: { type: Boolean },
+    publishToAmazon: { type: Boolean },
+    publishToWebsite: { type: Boolean },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
+    stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
+    stockThreshold: { type: Number, default: 10 },
+
+    selectedVariations: selectedVariationsSchema,
   },
   options
 );
@@ -279,7 +367,7 @@ const Product = model<IProduct>("Product", productSchema);
 
 // discriminator for laptops
 Product.discriminator(
-  "Laptops",
+  "laptops",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -289,6 +377,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
           prodTechInfo: laptopTechnicalSchema,
@@ -296,6 +385,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
           prodTechInfo: laptopTechnicalSchema,
@@ -303,6 +393,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },
@@ -310,9 +401,9 @@ Product.discriminator(
   )
 );
 
-// descriminator for all in one pc
+// discriminator for all in one pc
 Product.discriminator(
-  "All In One PC",
+  "all in one pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -322,6 +413,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
           prodTechInfo: allInOnePCTechnicalSchema,
@@ -329,6 +421,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
           prodTechInfo: allInOnePCTechnicalSchema,
@@ -336,6 +429,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },
@@ -345,30 +439,33 @@ Product.discriminator(
 
 // discriminator for projectors
 Product.discriminator(
-  "Projectors",
+  "projectors",
   new mongoose.Schema(
     {
       platformDetails: {
         amazon: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
-          prodTechInfo: projectTechnicalSchema,
+          prodTechInfo: projectorTechnicalSchema,
           prodPricing: prodPricingSchema,
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },
@@ -378,7 +475,7 @@ Product.discriminator(
 
 // discriminator for Monitors
 Product.discriminator(
-  "Monitors",
+  "monitors",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -388,6 +485,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
           prodTechInfo: monitorTechnicalSchema,
@@ -395,6 +493,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
           prodTechInfo: monitorTechnicalSchema,
@@ -402,6 +501,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },
@@ -411,7 +511,7 @@ Product.discriminator(
 
 // discriminator for Gaming PC
 Product.discriminator(
-  "Gaming PC",
+  "gaming pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -421,6 +521,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
           prodTechInfo: gamingPCTechnicalSchema,
@@ -428,6 +529,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
           prodTechInfo: gamingPCTechnicalSchema,
@@ -435,6 +537,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },
@@ -442,9 +545,9 @@ Product.discriminator(
   )
 );
 
-// descriminator for Network Equipments
+// discriminator for Network Equipments
 Product.discriminator(
-  "Network Equipments",
+  "network equipments",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -454,6 +557,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         ebay: {
           prodTechInfo: networkEquipmentsTechnicalSchema,
@@ -461,6 +565,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
         website: {
           prodTechInfo: networkEquipmentsTechnicalSchema,
@@ -468,6 +573,7 @@ Product.discriminator(
           prodDelivery: prodDeliverySchema,
           prodSeo: prodSeoSchema,
           productInfo: prodInfoSchema,
+          prodMedia: prodMediaSchema,
         },
       },
     },

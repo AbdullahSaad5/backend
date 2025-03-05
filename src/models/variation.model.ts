@@ -1,29 +1,51 @@
-import mongoose, { Schema, model } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const options = { timestamps: true };
+// Interface for platform-specific variation data
+interface IPlatformData {
+  stock: number;
 
-const variationSchema = new Schema(
+  sku: string;
+
+  variationPrice: string;
+  parts: Record<string, string | number>; // 👈 Stores dynamic attributes
+}
+
+// Interface for the Variation document
+export interface IVariation extends Document {
+  productId: mongoose.Types.ObjectId;
+  variationData?: {
+    amazon?: IPlatformData;
+    ebay?: IPlatformData;
+    website?: IPlatformData;
+  };
+}
+
+// Schema for PlatformData
+const PlatformDataSchema = new Schema<IPlatformData>({
+  // stock: { type: Number, default: 0 },
+
+  sku: { type: String },
+
+  variationPrice: { type: String },
+  parts: { type: Map, of: Schema.Types.Mixed, default: {} }, // 👈 Stores dynamic properties
+  //variations will contain parts' objects ids in array[id1,id2,id3,...]
+  // variations: [{ type: Schema.Types.ObjectId, ref: "Variation" }],
+});
+
+// Schema for Variation
+const VariationSchema = new Schema<IVariation>(
   {
     productId: { type: Schema.Types.ObjectId, ref: "Product", required: true },
-    platform: {
-      type: String,
-      enum: ["amazon", "ebay", "website"],
-      required: true,
+    variationData: {
+      amazon: PlatformDataSchema,
+      ebay: PlatformDataSchema,
+      website: PlatformDataSchema,
     },
-    stock: { type: Number, default: 0 },
-    price: { type: Number, required: true },
-    cpu: { type: String, required: true },
-    ram: { type: String, required: true },
-    sku: { type: String, required: true },
-    variationQuantity: { type: Number, required: true },
-    variationPrice: { type: String, required: true },
-    storage: { type: String, required: true },
-    graphics: { type: String, required: true },
-    height: { type: String },
-    length: { type: String },
-    width: { type: String },
   },
-  options
+  { timestamps: true }
 );
 
-export const Variation = model("Variation", variationSchema);
+export const Variation = mongoose.model<IVariation>(
+  "Variation",
+  VariationSchema
+);

@@ -1,11 +1,12 @@
 import { supplierAddPayload } from "@/contracts/supplier.contract";
-import { IUserAddress } from "@/contracts/user-address.contracts";
+import { ISupplierAddress } from "@/contracts/supplier.contract";
 import { IFile } from "@/contracts/user.contract";
 import { User } from "@/models";
 import { Address } from "@/models";
+import { UserCategory } from "@/models";
 import { createHash } from "@/utils/hash.util";
 import mongoose, { Types } from "mongoose";
-
+import { generateUniqueSupplierKey } from "./user.service";
 export const supplierService = {
   findExistingEmail: async (email: string) => {
     const userExists = await User.findOne({ email });
@@ -17,40 +18,48 @@ export const supplierService = {
   },
 
   createSupplier: async (data: supplierAddPayload) => {
-    // console.log("data in service : " , data)
     const {
       firstName,
       lastName,
       email,
       password,
       phoneNumber,
-      userType,
       additionalDocuments,
       supplierCategory,
     } = data;
-
-    // Here this id refers to the supplier in user category
-    // TODO: find other solutiuon for this
+  
     const hashedPassword = await createHash(password);
-
-    // console.log("additionalDocuments : " , additionalDocuments)
-
-    const user = new User({
+  
+    // Find supplier userType from UserCategory
+    const supplierCategoryDoc = await UserCategory.findOne({ role: "supplier" });
+  
+    if (!supplierCategoryDoc) {
+      throw new Error("Supplier user type not found in UserCategory.");
+    }
+  
+    const userType = supplierCategoryDoc._id; // Hardcoded userType as "supplier"
+  
+    // Generate unique supplier key
+    const supplierKey = await generateUniqueSupplierKey(firstName, lastName);
+  
+    // Create the new supplier
+    const supplier = new User({
       firstName,
       lastName,
       email,
       password: hashedPassword,
       phoneNumber,
       supplierCategory,
-      userType,
+      userType, // Ensuring userType is set as "supplier"
       additionalDocuments,
-      // documents,
+      supplierKey, // Ensure supplierKey is generated and added
     });
-
-    return user.save();
+  
+    return supplier.save();
   },
+  
 
-  createAddress: (address: IUserAddress) => {
+  createAddress: (address: ISupplierAddress) => {
     const newAddress = new Address(address);
     return newAddress.save();
   },
@@ -58,7 +67,7 @@ export const supplierService = {
   getAllSuppliers: () => {
     return User.aggregate([
       {
-        // Join with the 'usercategories' collection to get the user type details
+        // Join with the 'usercategories' collection to get the supplier type details
         $lookup: {
           from: "usercategories",
           localField: "userType",
@@ -129,7 +138,7 @@ export const supplierService = {
     return Address.find({ userId: userId });
   },
 
-  findAddressandUpdate: (id: string, address: IUserAddress) => {
+  findAddressAndUpdate: (id: string, address: ISupplierAddress) => {
     return Address.findByIdAndUpdate(id, address, { new: true });
   },
 
@@ -148,7 +157,7 @@ export const supplierService = {
     }
     return updateSupplier;
   },
-  // New API for fetching user stats (separate service logic)
+  // New API for fetching supplier stats (separate service logic)
   getSupplierStats: async () => {
     try {
       const totalSuppliers = await User.countDocuments({
@@ -165,8 +174,8 @@ export const supplierService = {
 
       return { totalSuppliers, activeSuppliers, blockedSuppliers };
     } catch (error) {
-      console.error("Error fetching user stats:", error);
-      throw new Error("Error fetching user statistics");
+      console.error("Error fetching supplier stats:", error);
+      throw new Error("Error fetching supplier statistics");
     }
   },
 
@@ -189,7 +198,7 @@ export const supplierService = {
 
       // Build the query dynamically based on filters
       const query: any = {
-        //todo: confusion here regarding query
+        //TODO: confusion here regarding query
         userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
       };
 

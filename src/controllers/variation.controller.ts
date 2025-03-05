@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { variationService } from "@/services/variation.service";
 import { Product } from "@/models/product.model";
-import { Variation } from "@/models/variation.model";
 
 export const variationController = {
   // Get parts by platform
@@ -447,91 +446,94 @@ export const variationController = {
   },
   createVariation: async (req: Request, res: Response) => {
     try {
-      const { platform, productId, variationData } = req.body;
+      const { productId, variationData, isAmz, isEbay, isWeb } = req.body;
 
-      if (!platform || !productId || !variationData) {
+      // Validate input
+      if (!productId || !variationData) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Platform, productId, and variationData are required",
+          message: "Product ID and variation data are required",
         });
       }
 
-      const variation = new Variation({
-        ...variationData,
-        productId,
-        platform,
-      });
-      await variation.save();
+      // Prepare the variation object
+      const variationObject: any = { productId, variationData: {} };
+
+      // Conditionally add platform-specific data based on the booleans
+      if (isAmz) variationObject.variationData.amazon = variationData;
+      if (isEbay) variationObject.variationData.ebay = variationData;
+      if (isWeb) variationObject.variationData.website = variationData;
+
+      // Ensure that at least one platform is added
+      if (!isAmz && !isEbay && !isWeb) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message:
+            "At least one platform (Amazon, Ebay, Website) must be selected.",
+        });
+      }
+
+      // Save the variation data using the service
+      const variation = await variationService.createVariation(variationObject);
 
       res.status(StatusCodes.CREATED).json({
         success: true,
-        message: "Variation created successfully",
+        message: "Variation saved successfully",
         data: variation,
       });
     } catch (error: any) {
-      console.error("Error creating variation:", error.message);
+      console.error("Error saving variation:", error.message);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Error creating variation",
+        message: "Error saving variation",
       });
     }
   },
-
-  getVariationsByProduct: async (req: Request, res: Response) => {
-    try {
-      const { productId } = req.params;
-      if (!productId) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Product ID is required",
-        });
-      }
-
-      const variations = await Variation.find({ productId });
-
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Variations fetched successfully",
-        data: variations,
-      });
-    } catch (error: any) {
-      console.error("Error fetching variations:", error.message);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Error fetching variations",
-      });
-    }
-  },
-
   updateVariation: async (req: Request, res: Response) => {
     try {
       const { variationId } = req.params;
-      const updateData = req.body;
+      const { platform, updateData } = req.body;
 
-      if (!variationId || !updateData) {
+      // Validate input
+      if (!variationId || !platform || !updateData) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Variation ID and update data are required",
+          message: "Variation ID, platform, and update data are required",
         });
       }
 
-      const updatedVariation = await Variation.findByIdAndUpdate(
+      // Ensure platform is valid (either 'amazon', 'ebay', or 'website')
+      if (!["amazon", "ebay", "website"].includes(platform)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message:
+            "Invalid platform. It must be 'amazon', 'ebay', or 'website'.",
+        });
+      }
+
+      // Prepare the update data in the correct format
+      const updateObject: any = {};
+      updateObject[`variationData.${platform}`] = updateData;
+
+      // Update the variation in the database
+      const variation = await variationService.updateVariation(
         variationId,
-        updateData,
-        { new: true }
+        updateObject
       );
 
-      if (!updatedVariation) {
+      // Check if the variation was found and updated
+      if (!variation) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Variation not found",
         });
       }
 
+      // Send the success response
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Variation updated successfully",
-        data: updatedVariation,
+        data: variation,
       });
     } catch (error: any) {
       console.error("Error updating variation:", error.message);
@@ -542,10 +544,38 @@ export const variationController = {
     }
   },
 
+  getVariationsByProduct: async (req: Request, res: Response) => {
+    try {
+      const { productId } = req.params;
+
+      if (!productId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Product ID is required",
+        });
+      }
+
+      const variations =
+        await variationService.getVariationsByProduct(productId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Variations retrieved successfully",
+        data: variations,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error retrieving variations",
+      });
+    }
+  },
+
   deleteVariation: async (req: Request, res: Response) => {
     try {
-      const { variationId } = req.params;
+      const { variationId } = req.params; // Extracting variationId from URL parameters
 
+      // Validate input: ensure that variationId is provided
       if (!variationId) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -553,8 +583,11 @@ export const variationController = {
         });
       }
 
-      const deletedVariation = await Variation.findByIdAndDelete(variationId);
+      // Attempt to delete the variation from the database
+      const deletedVariation =
+        await variationService.deleteVariation(variationId);
 
+      // Check if the variation was found and deleted
       if (!deletedVariation) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
@@ -562,10 +595,10 @@ export const variationController = {
         });
       }
 
+      // Respond with success if the deletion was successful
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Variation deleted successfully",
-        data: deletedVariation,
       });
     } catch (error: any) {
       console.error("Error deleting variation:", error.message);
