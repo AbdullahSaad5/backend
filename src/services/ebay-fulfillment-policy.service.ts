@@ -179,10 +179,62 @@ export const ebayFulfillmentPolicyService = {
       throw new Error("eBay API call failed");
     }
   },
+//to get rateTables
+  async getRateTables(marketplaceId: string = "EBAY_GB") {
+    try {
+      const accessToken = await getStoredEbayAccessToken();
+      const response = await fetch(
+        `${baseURL}/sell/account/v1/rate_table?marketplace_id=${marketplaceId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.rateTables || data.rateTables.length === 0) {
+        console.warn("⚠️ No rate tables found for", marketplaceId);
+        return [];
+      }
+
+      console.log("✅ Retrieved eBay rate tables:", data.rateTables);
+      return data.rateTables;
+    } catch (error) {
+      console.error("❌ Error fetching eBay rate tables:", error);
+      throw new Error("Failed to fetch eBay rate tables");
+    }
+  },
 
   async editFulfillmentPolicy(policyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+
+      // ✅ Ensure required fields are included
+      const updatedData = {
+        ...data,
+        shippingOptions: data.shippingOptions.map((option: any) => ({
+          ...option,
+          rateTableId: option.rateTableId ?? "", // Use empty string instead of removing
+          shippingServices: option.shippingServices.map((service: any) => ({
+            ...service,
+            buyerResponsibleForShipping:
+              service.buyerResponsibleForShipping ?? false,
+            buyerResponsibleForPickup:
+              service.buyerResponsibleForPickup ?? false,
+            surcharge: service.surcharge || { currency: "GBP", value: "0.00" },
+            additionalShippingCost: service.additionalShippingCost || {
+              currency: "GBP",
+              value: "0.00",
+            },
+          })),
+        })),
+      };
+
       const response = await fetch(
         `${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`,
         {
@@ -192,9 +244,10 @@ export const ebayFulfillmentPolicyService = {
             Accept: "application/json",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify(updatedData),
         }
       );
+
       return await response.json();
     } catch (error) {
       console.error("Error updating eBay fulfillment policy:", error);
