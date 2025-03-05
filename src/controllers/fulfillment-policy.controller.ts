@@ -103,6 +103,28 @@ export const fulfillmentPolicyController = {
     }
   },
 
+  getRateTables: async (req: Request, res: Response) => {
+    try {
+      const marketplaceId = req.query.marketplaceId || "EBAY_GB"; // Default to UK
+      const rateTables = await ebayFulfillmentPolicyService.getRateTables(
+        marketplaceId as string
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Rate tables fetched successfully",
+        data: rateTables,
+      });
+    } catch (error: any) {
+      console.error("❌ Error in getRateTables:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch rate tables",
+        error: error.message,
+      });
+    }
+  },
+  
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -112,7 +134,7 @@ export const fulfillmentPolicyController = {
         JSON.stringify(req.body, null, 2)
       );
 
-      // ✅ Retrieve stored policy to get the correct eBay Policy ID
+      // ✅ Retrieve stored policy to get eBay Policy ID
       const storedPolicy = await fulfillmentPolicyService.getById(id);
       if (!storedPolicy || !storedPolicy.ebayPolicyId) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -123,14 +145,14 @@ export const fulfillmentPolicyController = {
       const ebayPolicyId = storedPolicy.ebayPolicyId;
       console.log("🔄 Syncing update with eBay for Policy ID:", ebayPolicyId);
 
-      // ✅ Sync update with eBay API first
+      // ✅ Sync update with eBay API
       const ebayResponse =
         await ebayFulfillmentPolicyService.editFulfillmentPolicy(
           ebayPolicyId,
           req.body
         );
 
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse || ebayResponse.errors) {
         console.error(
           "❌ eBay failed to update fulfillment policy. Aborting DB update.",
           ebayResponse
@@ -147,7 +169,24 @@ export const fulfillmentPolicyController = {
       );
 
       // ✅ Update policy in DB only if eBay update was successful
-      const policy = await fulfillmentPolicyService.editPolicy(id, req.body);
+      const updatedPolicyData = {
+        ...req.body,
+        shippingOptions: req.body.shippingOptions.map((option: any) => ({
+          ...option,
+          shippingServices: option.shippingServices.map((service: any) => ({
+            ...service,
+            buyerResponsibleForShipping:
+              service.buyerResponsibleForShipping ?? false,
+            buyerResponsibleForPickup:
+              service.buyerResponsibleForPickup ?? false,
+          })),
+        })),
+      };
+
+      const policy = await fulfillmentPolicyService.editPolicy(
+        id,
+        updatedPolicyData
+      );
 
       res.status(StatusCodes.OK).json({
         success: true,
