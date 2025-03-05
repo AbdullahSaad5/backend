@@ -14,21 +14,7 @@ export const ebayFulfillmentPolicyService = {
         throw new Error("❌ Missing required field: marketplaceId");
 
       const accessToken = await getStoredEbayAccessToken();
-      // Determine if it's a Motors category
-      const isMotorsCategory = data.categoryTypes.some(
-        (type: any) => type.name === "MOTORS_VEHICLES"
-      );
 
-      // Allowed fulfillment methods based on category
-      const allowedFulfillmentMethods = isMotorsCategory
-        ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
-        : ["CREDIT_CARD", "PAYPAL", "DEBIT_CARD"]; // Adjust based on eBay docs
-
-      // Filter fulfillment methods
-      const validFulfillmentMethods =
-        data.fulfillmentMethods?.filter((method: any) =>
-          allowedFulfillmentMethods.includes(method.fulfillmentMethodType)
-        ) || [];
       const requestBody: any = {
         name: data.name,
         description: data.description || "",
@@ -37,6 +23,49 @@ export const ebayFulfillmentPolicyService = {
           data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
         immediatePay: data.immediatePay,
         fulfillmentMethods: data.fulfillmentMethods || [],
+
+        // ✅ Required Fields Added
+        pickupDropOff: data.pickupDropOff ?? false, // Default false
+        localPickup: data.localPickup ?? false, // Default false
+        handlingTime: {
+          value: data.handlingTime?.value ?? 1, // Default 1 day
+          unit: data.handlingTime?.unit ?? "DAY",
+        },
+        globalShipping: data.globalShipping ?? false, // Default false
+        freightShipping: data.freightShipping ?? false, // Default false
+
+        shippingOptions:
+          data.shippingOptions?.map((option: any) => ({
+            costType: option.costType,
+            optionType: option.optionType,
+            packageHandlingCost: option.packageHandlingCost
+              ? {
+                  currency: option.packageHandlingCost.currency,
+                  value: option.packageHandlingCost.value,
+                }
+              : undefined,
+            shippingPromotionOffered: option.shippingPromotionOffered ?? false, // Required field
+            insuranceOffered: option.insuranceOffered ?? false, // Required field
+            shippingServices: option.shippingServices?.map((service: any) => ({
+              freeShipping: service.freeShipping,
+              shippingCarrierCode: service.shippingCarrierCode,
+              shippingServiceCode: service.shippingServiceCode,
+              shippingCost: service.shippingCost
+                ? {
+                    currency: service.shippingCost.currency,
+                    value: service.shippingCost.value,
+                  }
+                : undefined,
+              shipToLocations: service.shipToLocations,
+              sortOrder: service.sortOrder ?? 1, // Required field
+              buyerResponsibleForShipping:
+                service.buyerResponsibleForShipping ?? false, // Required field
+              buyerResponsibleForPickup:
+                service.buyerResponsibleForPickup ?? false, // Required field
+            })),
+          })) || [],
+
+        shipToLocations: data.shipToLocations || {},
       };
 
       console.log(
@@ -60,18 +89,6 @@ export const ebayFulfillmentPolicyService = {
       const result = await response.json();
 
       if (!response.ok) {
-        // Check if the error is due to a duplicate policy
-        if (result.errors?.[0]?.errorId === 20400) {
-          console.warn(
-            "⚠️ Duplicate Fulfillment Policy Found, Using Existing Policy ID:",
-            result.errors?.[0]?.parameters?.[0]?.value
-          );
-          return {
-            message: "Using existing fulfillment policy",
-            policyId: result.errors?.[0]?.parameters?.[0]?.value,
-          };
-        }
-
         console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
         throw new Error(result.errors?.[0]?.message || "eBay API call failed");
       }
