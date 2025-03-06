@@ -21,4 +21,6 @@ export { couponController } from "./coupon.controller";
 export { taxesController } from "./taxes.controller";
 export { discountController } from "./discount.controller";
 export { stockController } from "./stock.controller";
-
+export { customPolicyController } from "./custom-policy.controller";
+export { fulfillmentPolicyController } from "./fulfillment-policy.controller";
+export { returnPolicyController } from "./return-policy.controller";

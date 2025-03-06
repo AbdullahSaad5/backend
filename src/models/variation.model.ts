@@ -3,11 +3,11 @@ import mongoose, { Schema, Document } from "mongoose";
 // Interface for platform-specific variation data
 interface IPlatformData {
   stock: number;
-  price: number;
+
   sku: string;
-  variationQuantity: number;
+
   variationPrice: string;
-  attributes: Record<string, string | number>; // 👈 Stores dynamic attributes
+  parts: Record<string, string | number>; // 👈 Stores dynamic attributes
 }
 
 // Interface for the Variation document
@@ -22,12 +22,14 @@ export interface IVariation extends Document {
 
 // Schema for PlatformData
 const PlatformDataSchema = new Schema<IPlatformData>({
-  stock: { type: Number, default: 0 },
-  price: { type: Number },
+  // stock: { type: Number, default: 0 },
+
   sku: { type: String },
-  variationQuantity: { type: Number },
+
   variationPrice: { type: String },
-  attributes: { type: Map, of: Schema.Types.Mixed, default: {} }, // 👈 Stores dynamic properties
+  parts: { type: Map, of: Schema.Types.Mixed, default: {} }, // 👈 Stores dynamic properties
+  //variations will contain parts' objects ids in array[id1,id2,id3,...]
+  // variations: [{ type: Schema.Types.ObjectId, ref: "Variation" }],
 });
 
 // Schema for Variation

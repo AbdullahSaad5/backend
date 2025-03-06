@@ -175,7 +175,7 @@ const projectorTechnicalSchema = {
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
-  mpn: { type: String },//
+  mpn: { type: String },
   ean: { type: String },
   color: { type: String },
   numberOfLANPorts: { type: String },
@@ -196,7 +196,6 @@ const projectorTechnicalSchema = {
   imageBrightness: { type: String },
   throwRatio: { type: String },
 
-
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
@@ -205,7 +204,6 @@ const projectorTechnicalSchema = {
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
   yearManufactured: { type: String },
-
 };
 
 const monitorTechnicalSchema = {

@@ -12,6 +12,8 @@ export const stockController = {
         purchasePricePerUnit,
         costPricePerUnit,
         retailPricePerUnit,
+        purchaseDate,
+        receivedDate,
       } = req.body;
 
       if (
@@ -19,7 +21,9 @@ export const stockController = {
         !quantity ||
         !purchasePricePerUnit ||
         !costPricePerUnit ||
-        !retailPricePerUnit
+        !retailPricePerUnit ||
+        !purchaseDate ||
+        !receivedDate
       ) {
         return res
           .status(400)
@@ -142,6 +146,8 @@ export const stockController = {
         "purchasePricePerUnit",
         "costPricePerUnit",
         "retailPricePerUnit",
+        "receivedDate",
+        "purchaseDate",
       ];
 
       // Check if any forbidden field is in the request

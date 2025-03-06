@@ -2,39 +2,46 @@ import { Stock } from "@/models/stock.model";
 import { Product } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
 
-export class stockService {
+export const stockService = {
   // 📌 Add New Stock Purchase Entry
-  static async addStock(data: any) {
+  async addStock(data: any) {
     const productExists = await Product.findById(data.productId);
     if (!productExists) {
       throw new Error("Product not found. Please provide a valid productId.");
     }
 
     // Check for duplicate batch number
-    const existingStock = await Stock.findOne({ batchNumber: data.batchNumber });
+    const existingStock = await Stock.findOne({
+      batchNumber: data.batchNumber,
+    });
     if (existingStock) {
-      throw new Error("Batch number already exists. Please provide a unique batch number.");
+      throw new Error(
+        "Batch number already exists. Please provide a unique batch number."
+      );
     }
 
     const stock = new Stock(data);
     await stock.save();
     return { message: "Stock purchase recorded successfully", stock };
-  }
+  },
 
   // 📌 Get All Stock Entries for a Product
-  static async getStockByProduct(productId: string) {
+  async getStockByProduct(productId: string) {
     return await Stock.find({ productId }).populate("productId");
-  }
+  },
 
   // 📌 Get Stock Summary (Total Quantity & Last Purchase)
-  static async getStockSummary(productId: string) {
+  async getStockSummary(productId: string) {
     const stocks = await Stock.find({ productId });
 
     if (stocks.length === 0) {
       return { message: "No stock records found", totalQuantity: 0 };
     }
 
-    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+    const totalQuantity = stocks.reduce(
+      (sum, stock) => sum + stock.quantity,
+      0
+    );
     const lastStockEntry = stocks[stocks.length - 1];
 
     return {
@@ -44,28 +51,28 @@ export class stockService {
       lastUpdated: lastStockEntry.purchaseDate,
       stockEntries: stocks,
     };
-  }
+  },
 
   // 📌 Delete Stock Entry
-  static async deleteStock(stockId: string) {
+  async deleteStock(stockId: string) {
     return await Stock.findByIdAndDelete(stockId);
-  }
-  static async updateStock(stockId: string, updateData: Partial<IStock>) {
+  },
+  async updateStock(stockId: string, updateData: Partial<IStock>) {
     return await Stock.findByIdAndUpdate(stockId, updateData, {
       new: true, // Return updated document
       runValidators: true, // Ensure validations are applied
     });
-  }
-  static async getStockById(stockId: string) {
+  },
+  async getStockById(stockId: string) {
     return await Stock.findById(stockId);
-  }
+  },
   // 📌 Get Existing Stock Records
-  static async getExistingStocks(stockIds: string[]) {
+  async getExistingStocks(stockIds: string[]) {
     return await Stock.find({ _id: { $in: stockIds } }, { _id: 1 });
-  }
+  },
 
   // 📌 Bulk Update Stock Costs
-  static async bulkUpdateStockCost(
+  async bulkUpdateStockCost(
     stockIds: string[],
     costPricePerUnit: number,
     purchasePricePerUnit: number,
@@ -81,10 +88,10 @@ export class stockService {
         },
       }
     );
-  }
+  },
 
   // 📌 Get Products That Have Stock Along With Their Stock Entries
-  static async getProductsWithStock() {
+  async getProductsWithStock() {
     return await Product.aggregate([
       {
         $lookup: {
@@ -98,5 +105,5 @@ export class stockService {
         $match: { stocks: { $ne: [] } }, // Ensure we only get products with stock
       },
     ]);
-  }
-}
+  },
+};

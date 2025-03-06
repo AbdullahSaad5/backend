@@ -10,6 +10,8 @@ export { bundleService } from "./bundle.service";
 export { orderService } from "./order.service";
 export { cartService } from "./cart.service";
 export { paymentPolicyService } from "./payment-policy.service";
+export { fulfillmentPolicyService } from "./fulfillment-policy.service";
+export { returnPolicyService } from "./return-policy.service";
 export { postagePolicyService } from "./postage-policy.service";
 export { variationService } from "./variation.service";
 export { stockService } from "./stock.service";
@@ -17,3 +19,7 @@ export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
 export { inventoryService } from "./inventory.service";
 
+export { ebayCustomPolicyService } from "./ebay-custom-policy.service";
+export { ebayPaymentPolicyService } from "./ebay-payment-policy.service";
+export { ebayFulfillmentPolicyService } from "./ebay-fulfillment-policy.service";
+export { ebayReturnPolicyService } from "./ebay-return-policy.service";
