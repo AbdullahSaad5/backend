@@ -1,10 +1,12 @@
-import { ebayService,inventoryService } from "@/services";
+import { ebayService, inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 
 export const inventoryController = {
+  // Controller - inventoryController.js
+
   createDraftInventory: async (req: Request, res: Response) => {
     try {
       const { stepData } = req.body;
@@ -16,7 +18,6 @@ export const inventoryController = {
         });
       }
 
-      // Save draft inventory in MongoDB
       const draftInventory = await inventoryService.createDraftInventory(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -55,13 +56,9 @@ export const inventoryController = {
       }
 
       // Update the draft inventory in MongoDB
-      const updatedInventory = await inventoryService.updateDraftInventory(
-        inventoryId,
-        stepData
-      );
+      const updatedInventory = await inventoryService.updateDraftInventory(inventoryId, stepData);
 
       // Check if the inventory is marked for publishing
-
 
       // If not marked for publishing, just return the updated inventory
       return res.status(StatusCodes.OK).json({
@@ -90,7 +87,7 @@ export const inventoryController = {
 
   getAllInventory: async (req: Request, res: Response) => {
     try {
-      const inventorys = await inventoryService.getAllInventorys();
+      const inventorys = await inventoryService.getAllInventory();
       return res.status(StatusCodes.OK).json({
         success: true,
         inventorys,
@@ -452,11 +449,7 @@ export const inventoryController = {
         });
       }
 
-      const updatedInventory = await inventoryService.updateInventory(
-        id,
-        platform,
-        data
-      );
+      const updatedInventory = await inventoryService.updateInventory(id, platform, data);
 
       if (!updatedInventory) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -490,9 +483,7 @@ export const inventoryController = {
       });
     } catch (error) {
       console.error("Delete Inventory Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting inventory" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting inventory" });
     }
   },
 
@@ -535,9 +526,7 @@ export const inventoryController = {
       const stats = await inventoryService.getInventoryStats();
       return res.status(StatusCodes.OK).json(stats);
     } catch (error) {
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error fetching inventorys statistics" });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching inventorys statistics" });
     }
   },
   searchAndFilterInventorys: async (req: Request, res: Response) => {
@@ -559,30 +548,11 @@ export const inventoryController = {
       const filters = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
-        status:
-          status && ["draft", "published"].includes(status.toString())
-            ? status.toString()
-            : undefined, // Validate status
-        isBlocked:
-          isBlocked === "true"
-            ? true
-            : isBlocked === "false"
-              ? false
-              : undefined, // Convert only valid booleans
-        isTemplate:
-          isTemplate === "true"
-            ? true
-            : isTemplate === "false"
-              ? false
-              : undefined, // Convert only valid booleans
-        startDate:
-          startDate && !isNaN(Date.parse(startDate as string))
-            ? new Date(startDate as string)
-            : undefined,
-        endDate:
-          endDate && !isNaN(Date.parse(endDate as string))
-            ? new Date(endDate as string)
-            : undefined,
+        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
+        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
+        isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
+        startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
+        endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
         limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
       };
@@ -609,55 +579,37 @@ export const inventoryController = {
       const { inventoryIds, discountValue, vat } = req.body;
 
       if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "inventoryIds array is required" });
+        return res.status(400).json({ message: "inventoryIds array is required" });
       }
 
       if (discountValue === undefined || vat === undefined) {
-        return res
-          .status(400)
-          .json({ message: "Both discount and VAT/tax are required" });
+        return res.status(400).json({ message: "Both discount and VAT/tax are required" });
       }
 
       // Validate each inventoryId format
       for (const inventoryId of inventoryIds) {
         if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
-          return res
-            .status(400)
-            .json({ message: `Invalid inventoryId: ${inventoryId}` });
+          return res.status(400).json({ message: `Invalid inventoryId: ${inventoryId}` });
         }
       }
 
       // Perform bulk update
-      const result = await inventoryService.bulkUpdateInventoryTaxDiscount(
-        inventoryIds,
-        discountValue,
-        vat
-      );
+      const result = await inventoryService.bulkUpdateInventoryTaxDiscount(inventoryIds, discountValue, vat);
 
       return res.status(200).json({
         message: "Inventory VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({ message: "Internal Server Error", error: error.message });
+      res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
   upsertInventoryParts: async (req: Request, res: Response) => {
     try {
-      const inventory = await inventoryService.upsertInventoryPartsService(
-        req.params.id,
-        req.body.selectedVariations
-      );
-      if (!inventory)
-        return res.status(404).json({ message: "Inventory not found" });
+      const inventory = await inventoryService.upsertInventoryPartsService(req.params.id, req.body.selectedVariations);
+      if (!inventory) return res.status(404).json({ message: "Inventory not found" });
 
-      res
-        .status(200)
-        .json({ message: "Inventory variations updated successfully", inventory });
+      res.status(200).json({ message: "Inventory variations updated successfully", inventory });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -665,11 +617,8 @@ export const inventoryController = {
   // Get selected variations
   getSelectedInventoryParts: async (req: Request, res: Response) => {
     try {
-      const inventory: any = await inventoryService.getSelectedInventoryPartsService(
-        req.params.id
-      );
-      if (!inventory)
-        return res.status(404).json({ message: "Inventory not found" });
+      const inventory: any = await inventoryService.getSelectedInventoryPartsService(req.params.id);
+      if (!inventory) return res.status(404).json({ message: "Inventory not found" });
 
       res.status(200).json({ selectedVariations: inventory.selectedVariations });
     } catch (error: any) {

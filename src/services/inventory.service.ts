@@ -7,87 +7,37 @@ export const inventoryService = {
   // Create a new draft inventory
   createDraftInventory: async (stepData: any) => {
     try {
-      const productCategory =
-        stepData.productCategory &&
-        mongoose.isValidObjectId(stepData.productCategory)
-          ? new mongoose.Types.ObjectId(stepData.productCategory)
-          : null;
-      const inventorySupplier =
-        stepData.inventorySupplier &&
-        mongoose.isValidObjectId(stepData.inventorySupplier)
-          ? new mongoose.Types.ObjectId(stepData.inventorySupplier)
-          : null;
-      if (!productCategory) {
+      const { kind, productCategory, inventorySupplier } = stepData;
+
+      const categoryId = mongoose.isValidObjectId(productCategory)
+        ? new mongoose.Types.ObjectId(productCategory)
+        : null;
+      const supplierId = mongoose.isValidObjectId(inventorySupplier)
+        ? new mongoose.Types.ObjectId(inventorySupplier)
+        : null;
+
+      if (!categoryId) {
         throw new Error("Invalid or missing 'productCategory'");
       }
-      if (!inventorySupplier) {
+      if (!supplierId) {
         throw new Error("Invalid or missing 'inventorySupplier'");
       }
 
-      const draftInventory: any = new Inventory({
-        platformDetails: {
-          amazon: {
-            inventoryInfo: {
-              productCategory: null,
-              produuctSupplier: null,
-              title: "",
-              productDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-          ebay: {
-            inventoryInfo: {
-              productCategory: null,
-              inventorySupplier: null,
-
-              title: "",
-              inventoryDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-          website: {
-            inventoryInfo: {
-              productCategory: null,
-              inventorySupplier: null,
-              title: "",
-              inventoryDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-        },
+      const draftInventory = new Inventory({
         status: "draft",
         isBlocked: false,
-      });
-
-      Object.entries(stepData).forEach(([key, value]: [string, any]) => {
-        const { value: fieldValue, isAmz, isEbay, isWeb } = value || {};
-        if (isAmz)
-          draftInventory.platformDetails.amazon.inventoryInfo[key] = fieldValue;
-        if (isEbay)
-          draftInventory.platformDetails.ebay.inventoryInfo[key] = fieldValue;
-        if (isWeb)
-          draftInventory.platformDetails.website.inventoryInfo[key] = fieldValue;
-      });
-      //  if(stepData.prodPricing.images){
-      // Object.entries(stepData).forEach(([key, value]: [string, any]) => {
-      //   const { value: fieldValue, amazon, ebay, website } = value || {};
-      //   if (amazon)
-      //     draftInventory.platformDetails.amazon.inventoryInfo[key] = fieldValue;
-      //   if (ebay)
-      //     draftInventory.platformDetails.ebay.inventoryInfo[key] = fieldValue;
-      //   if (website)
-      //     draftInventory.platformDetails.website.inventoryInfo[key] = fieldValue;
-      // });
-      // }
-      ["amazon", "ebay", "website"].forEach((platform) => {
-        draftInventory.platformDetails[platform].inventoryInfo.productCategory =
-          productCategory;
-        draftInventory.platformDetails[platform].inventoryInfo.inventorySupplier =
-          inventorySupplier;
-        draftInventory.kind = stepData.kind;
+        kind,
+        productInfo: {
+          productCategory: categoryId,
+          productSupplier: supplierId,
+          title: stepData.title || "",
+          productDescription: stepData.productDescription || "",
+          brand: stepData.brand || "",
+        },
+        prodPricing: stepData.prodPricing || {},
+        prodMedia: stepData.prodMedia || {},
+        prodDelivery: stepData.prodDelivery || {},
+        prodSeo: stepData.prodSeo || {},
       });
 
       await draftInventory.save();
@@ -97,6 +47,7 @@ export const inventoryService = {
       throw new Error("Failed to create draft inventory");
     }
   },
+
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
@@ -143,23 +94,16 @@ export const inventoryService = {
               draftInventory.platformDetails[platform].prodDelivery = {};
             }
 
-            if (
-              typeof entry === "object" &&
-              !Array.isArray(entry) &&
-              entry.value === undefined
-            ) {
+            if (typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
               // Handle nested objects (e.g., packageWeight, packageDimensions)
               draftInventory.platformDetails[platform].prodDelivery[key] = {};
               Object.keys(entry).forEach((subKey) => {
                 if (subKey.startsWith("is")) return; // Ignore flags
-                draftInventory.platformDetails[platform].prodDelivery[key][
-                  subKey
-                ] = entry[subKey].value;
+                draftInventory.platformDetails[platform].prodDelivery[key][subKey] = entry[subKey].value;
               });
             } else {
               // Handle direct key-value pairs (e.g., postagePolicy, irregularPackage)
-              draftInventory.platformDetails[platform].prodDelivery[key] =
-                entry.value;
+              draftInventory.platformDetails[platform].prodDelivery[key] = entry.value;
             }
           };
 
@@ -193,12 +137,7 @@ export const inventoryService = {
               isEbay = inheritedFlags.isEbay,
               isWeb = inheritedFlags.isWeb,
             } = entry || {};
-            if (
-              entry &&
-              typeof entry === "object" &&
-              !Array.isArray(entry) &&
-              entry.value === undefined
-            ) {
+            if (entry && typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
               // Recursive call for nested objects
               processStepData(entry, platformDetails, currentKey, {
                 isAmz,
@@ -214,12 +153,9 @@ export const inventoryService = {
                 if (isAmz) platformDetails.amazon.inventoryInfo ||= {};
                 if (isEbay) platformDetails.ebay.inventoryInfo ||= {};
                 if (isWeb) platformDetails.website.inventoryInfo ||= {};
-                if (isAmz)
-                  platformDetails.amazon.inventoryInfo[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.inventoryInfo[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.inventoryInfo[currentKey] = value;
+                if (isAmz) platformDetails.amazon.inventoryInfo[currentKey] = value;
+                if (isEbay) platformDetails.ebay.inventoryInfo[currentKey] = value;
+                if (isWeb) platformDetails.website.inventoryInfo[currentKey] = value;
                 if (currentKey === "inventorySupplier") {
                   platformDetails.amazon.inventoryInfo.inventorySupplier = value;
                   platformDetails.ebay.inventoryInfo.inventorySupplier = value;
@@ -256,22 +192,16 @@ export const inventoryService = {
                 if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
                 if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
                 if (isWeb) platformDetails.website.prodTechInfo ||= {};
-                if (isAmz)
-                  platformDetails.amazon.prodTechInfo[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.prodTechInfo[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.prodTechInfo[currentKey] = value;
+                if (isAmz) platformDetails.amazon.prodTechInfo[currentKey] = value;
+                if (isEbay) platformDetails.ebay.prodTechInfo[currentKey] = value;
+                if (isWeb) platformDetails.website.prodTechInfo[currentKey] = value;
               } else if (step === "prodPricing") {
                 if (isAmz) platformDetails.amazon.prodPricing ||= {};
                 if (isEbay) platformDetails.ebay.prodPricing ||= {};
                 if (isWeb) platformDetails.website.prodPricing ||= {};
-                if (isAmz)
-                  platformDetails.amazon.prodPricing[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.prodPricing[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.prodPricing[currentKey] = value;
+                if (isAmz) platformDetails.amazon.prodPricing[currentKey] = value;
+                if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
+                if (isWeb) platformDetails.website.prodPricing[currentKey] = value;
               } else {
                 if (isAmz) platformDetails.amazon.prodSeo ||= {};
                 if (isEbay) platformDetails.ebay.prodSeo ||= {};
@@ -289,11 +219,7 @@ export const inventoryService = {
       await draftInventory.save({ validateBeforeSave: false });
       return draftInventory;
     } catch (error: any) {
-      console.error(
-        "❌ Error updating draft inventory:",
-        error.message,
-        error.stack
-      );
+      console.error("❌ Error updating draft inventory:", error.message, error.stack);
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
@@ -345,9 +271,7 @@ export const inventoryService = {
         .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
         .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
         .populate("platformDetails.website.inventoryInfo.inventorySupplier")
-        .select(
-          "_id platformDetails website.inventoryInfo productCategory brand model srno kind"
-        );
+        .select("_id platformDetails website.inventoryInfo productCategory brand model srno kind");
     } catch (error) {
       console.error("Error fetching inventorys by condition:", error);
       throw new Error("Failed to fetch inventorys by condition");
@@ -377,11 +301,7 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
-  updateInventory: async (
-    id: string,
-    platform: "amazon" | "ebay" | "website",
-    data: any
-  ) => {
+  updateInventory: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
     try {
       const updateQuery = { [`platformDetails.${platform}`]: data };
       const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
@@ -403,11 +323,7 @@ export const inventoryService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        { isBlocked },
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isBlocked }, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -543,18 +459,13 @@ export const inventoryService = {
       // Date range filter for createdAt
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate)))
-          dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate)))
-          dateFilter.$lte = new Date(endDate);
+        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
       // Fetch inventorys with pagination
-      const inventorys = await Inventory.find(query)
-        .populate("userType")
-        .skip(skip)
-        .limit(limitNumber);
+      const inventorys = await Inventory.find(query).populate("userType").skip(skip).limit(limitNumber);
 
       // Count total inventorys
       const totalInventorys = await Inventory.countDocuments(query);
@@ -592,9 +503,7 @@ export const inventoryService = {
       }
 
       // ✅ Fetch all existing inventory titles to prevent duplicates
-      const existingTitles = new Set(
-        (await Inventory.find({}, "title")).map((p: any) => p.title)
-      );
+      const existingTitles = new Set((await Inventory.find({}, "title")).map((p: any) => p.title));
 
       // ✅ Fetch all suppliers in one query to optimize validation
       const supplierKeys = validRows.map(({ data }) => data.inventorySupplierKey);
@@ -603,12 +512,7 @@ export const inventoryService = {
         "_id supplierKey"
         // ).lean();
       );
-      const supplierMap = new Map(
-        existingSuppliers.map((supplier) => [
-          supplier.supplierKey,
-          supplier._id,
-        ])
-      );
+      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
 
       // ✅ Filter out invalid suppliers
       const filteredRows = validRows.filter(({ data }) => {
@@ -623,9 +527,7 @@ export const inventoryService = {
       });
 
       if (filteredRows.length === 0) {
-        console.log(
-          "❌ No valid inventorys to insert after supplier validation."
-        );
+        console.log("❌ No valid inventorys to insert after supplier validation.");
         return;
       }
 
@@ -638,9 +540,7 @@ export const inventoryService = {
               title: data.title,
               brand: data.brand,
               inventoryDescription: data.inventoryDescription,
-              productCategory: new mongoose.Types.ObjectId(
-                data.productCategory
-              ),
+              productCategory: new mongoose.Types.ObjectId(data.productCategory),
               inventorySupplier: supplierMap.get(data.inventorySupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
               media: {
@@ -653,39 +553,34 @@ export const inventoryService = {
                   type: "video/mp4",
                 })),
               },
-              platformDetails: ["amazon", "ebay", "website"].reduce(
-                (acc: { [key: string]: any }, platform) => {
-                  acc[platform] = {
-                    inventoryInfo: {
-                      brand: data.brand,
-                      title: data.title,
-                      inventoryDescription: data.inventoryDescription,
-                      productCategory: new mongoose.Types.ObjectId(
-                        data.productCategory
-                      ),
-                      inventorySupplier: supplierMap.get(data.inventorySupplierKey),
-                    },
-                    prodPricing: {
-                      price: parseFloat(data.price),
-                      condition: "new",
-                      quantity: 10,
-                      vat: 5,
-                    },
-                    prodMedia: {
-                      images: data.images.map((url: string) => ({
-                        url,
-                        type: "image/jpeg",
-                      })),
-                      videos: data.videos.map((url: string) => ({
-                        url,
-                        type: "video/mp4",
-                      })),
-                    },
-                  };
-                  return acc;
-                },
-                {}
-              ),
+              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
+                acc[platform] = {
+                  inventoryInfo: {
+                    brand: data.brand,
+                    title: data.title,
+                    inventoryDescription: data.inventoryDescription,
+                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
+                    inventorySupplier: supplierMap.get(data.inventorySupplierKey),
+                  },
+                  prodPricing: {
+                    price: parseFloat(data.price),
+                    condition: "new",
+                    quantity: 10,
+                    vat: 5,
+                  },
+                  prodMedia: {
+                    images: data.images.map((url: string) => ({
+                      url,
+                      type: "image/jpeg",
+                    })),
+                    videos: data.videos.map((url: string) => ({
+                      url,
+                      type: "video/mp4",
+                    })),
+                  },
+                };
+                return acc;
+              }, {}),
             },
           },
         }));
@@ -697,9 +592,7 @@ export const inventoryService = {
 
       // ✅ Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
-      console.log(
-        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventorys.`
-      );
+      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventorys.`);
 
       // ✅ Log skipped rows due to invalid suppliers
       if (invalidRows.length > 0) {
@@ -731,9 +624,7 @@ export const inventoryService = {
         SupplierId: inventory.supplier?._id,
         AmazonInfo: JSON.stringify(inventory.platformDetails.amazon.inventoryInfo),
         EbayInfo: JSON.stringify(inventory.platformDetails.ebay.inventoryInfo),
-        WebsiteInfo: JSON.stringify(
-          inventory.platformDetails.website.inventoryInfo
-        ),
+        WebsiteInfo: JSON.stringify(inventory.platformDetails.website.inventoryInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -752,11 +643,7 @@ export const inventoryService = {
       throw new Error("Failed to export inventorys.");
     }
   },
-  bulkUpdateInventoryTaxDiscount: async (
-    inventoryIds: string[],
-    discountValue: number,
-    vat: number
-  ) => {
+  bulkUpdateInventoryTaxDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -779,9 +666,7 @@ export const inventoryService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error(
-          "No inventorys were updated. Please verify inventory IDs and data."
-        );
+        throw new Error("No inventorys were updated. Please verify inventory IDs and data.");
       }
 
       return result;
@@ -790,10 +675,7 @@ export const inventoryService = {
     }
   },
 
-  upsertInventoryPartsService: async (
-    inventoryId: string,
-    selectedVariations: any
-  ) => {
+  upsertInventoryPartsService: async (inventoryId: string, selectedVariations: any) => {
     return await Inventory.findByIdAndUpdate(
       inventoryId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
