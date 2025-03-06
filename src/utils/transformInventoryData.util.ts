@@ -1,7 +1,7 @@
 export function transformInventoryData(data: any) {
   const result: any = {
     stepData: {
-      inventoryInfo: {},
+      productInfo: {},
       prodMedia: {}, // Restructured to hold platforms
       prodTechInfo: {},
       prodPricing: {},
@@ -20,11 +20,7 @@ export function transformInventoryData(data: any) {
   });
 
   // Generic transformation logic for non-media sections (excluding prodDelivery customization)
-  const transformFields = (
-    fields: string[],
-    sectionKey: string,
-    target: any
-  ) => {
+  const transformFields = (fields: string[], sectionKey: string, target: any) => {
     fields.forEach((field) => {
       const platforms = {
         amazon: data.platformDetails.amazon?.[sectionKey],
@@ -32,11 +28,7 @@ export function transformInventoryData(data: any) {
         website: data.platformDetails.website?.[sectionKey],
       };
 
-      const value =
-        platforms.amazon?.[field] ||
-        platforms.ebay?.[field] ||
-        platforms.website?.[field] ||
-        null;
+      const value = platforms.amazon?.[field] || platforms.ebay?.[field] || platforms.website?.[field] || null;
 
       if (value !== null) {
         target[field] = createField(field, value, platforms);
@@ -46,14 +38,7 @@ export function transformInventoryData(data: any) {
 
   // Define the field groups (excluding prodMedia)
   const fieldGroups = {
-    inventoryInfo: [
-      "brand",
-      "title",
-      "inventoryDescription",
-      "inventoryCategory",
-      "inventorySupplier",
-      "kind",
-    ],
+    productInfo: ["brand", "title", "productDescription", "productCategory", "productSupplier", "kind"],
     prodTechInfo: [
       "processor",
       "model",
@@ -114,7 +99,7 @@ export function transformInventoryData(data: any) {
       "brightness",
       "contrastRatio",
       "ecRange",
-      "inventoryLine",
+      "productLine",
       "customBundle",
       "interface",
       "networkConnectivity",
@@ -160,7 +145,7 @@ export function transformInventoryData(data: any) {
       // "hardDiskRotationalSpeedUnit",
       // "totalUsb2oPorts",
       // "totalUsb3oPorts",
-      // "inventoryWarranty",
+      // "productWarranty",
       // "gdprRisk",
       // "opticalStorageDevice",
       // "dangerousGoodsRegulation",
@@ -184,12 +169,7 @@ export function transformInventoryData(data: any) {
       "warrantyCoverage",
       "warrantyDocument",
     ],
-    prodDelivery: [
-      "postagePolicy",
-      "packageWeight",
-      "packageDimensions",
-      "irregularPackage",
-    ],
+    prodDelivery: ["postagePolicy", "packageWeight", "packageDimensions", "irregularPackage"],
     prodSeo: ["seoTags", "relevantTags", "suggestedTags"],
   };
 
@@ -205,19 +185,11 @@ export function transformInventoryData(data: any) {
     website: data.platformDetails.website?.prodDelivery,
   };
 
-  const deliveryFields = [
-    "postagePolicy",
-    "packageWeight",
-    "packageDimensions",
-    "irregularPackage",
-  ];
+  const deliveryFields = ["postagePolicy", "packageWeight", "packageDimensions", "irregularPackage"];
 
   deliveryFields.forEach((field) => {
     const value =
-      prodDeliveryData.amazon?.[field] ||
-      prodDeliveryData.ebay?.[field] ||
-      prodDeliveryData.website?.[field] ||
-      null;
+      prodDeliveryData.amazon?.[field] || prodDeliveryData.ebay?.[field] || prodDeliveryData.website?.[field] || null;
 
     const platforms = {
       isAmz: prodDeliveryData.amazon?.hasOwnProperty(field) || false,
@@ -229,12 +201,7 @@ export function transformInventoryData(data: any) {
       if (value) {
         result.stepData.prodDelivery[field] = {
           ...platforms,
-          ...Object.fromEntries(
-            Object.entries(value).map(([key, val]) => [
-              key,
-              { name: key, value: val },
-            ])
-          ),
+          ...Object.fromEntries(Object.entries(value).map(([key, val]) => [key, { name: key, value: val }])),
         };
       }
     } else if (value !== null) {

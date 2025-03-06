@@ -1,4 +1,4 @@
-import { ebayService, inventoryService } from "@/services";
+import { ebayService,inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -60,7 +60,8 @@ export const inventoryController = {
         stepData
       );
 
-    
+      // Check if the inventory is marked for publishing
+     
 
       // If not marked for publishing, just return the updated inventory
       return res.status(StatusCodes.OK).json({

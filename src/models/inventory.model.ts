@@ -1,11 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import {
-  IAmazonPlatformDetails,
-  IEbayPlatformDetails,
-  IWebsitePlatformDetails,
-  IInventory,
-} from "@/contracts/inventory.contract";
-import { invokeMap } from "lodash";
+import { IInventory } from "@/contracts/inventory.contract";
 
 export const mediaSchema = {
   id: { type: String },
@@ -20,18 +14,18 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  inventoryCategory: {
+  productCategory: {
     type: Schema.Types.ObjectId,
-    ref: "InventoryCategory",
+    ref: "ProductCategory",
     required: true,
   },
-  inventorySupplier: {
+  productSupplier: {
     type: Schema.Types.ObjectId,
     ref: "User",
     required: true,
   },
   title: { type: String, required: true },
-  inventoryDescription: { type: String },
+  productDescription: { type: String },
   brand: { type: String, required: true },
 };
 
@@ -175,7 +169,7 @@ const projectorTechnicalSchema = {
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
-  mpn: { type: String },//
+  mpn: { type: String }, //
   ean: { type: String },
   color: { type: String },
   numberOfLANPorts: { type: String },
@@ -196,7 +190,6 @@ const projectorTechnicalSchema = {
   imageBrightness: { type: String },
   throwRatio: { type: String },
 
-
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
@@ -205,7 +198,6 @@ const projectorTechnicalSchema = {
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
   yearManufactured: { type: String },
-
 };
 
 const monitorTechnicalSchema = {
@@ -230,7 +222,7 @@ const monitorTechnicalSchema = {
   brightness: { type: String },
   contrastRatio: { type: String },
   ecRange: { type: String },
-  inventoryLine: { type: String },
+  productLine: { type: String },
   height: { type: String },
   length: { type: String },
   width: { type: String },
@@ -307,7 +299,7 @@ const networkEquipmentsTechnicalSchema = {
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
   unitType: { type: String },
-  inventoryLine: { type: String },
+  productLine: { type: String },
   mpn: { type: String },
   type: { type: String },
   ramSize: { type: String },
@@ -334,22 +326,9 @@ const networkEquipmentsTechnicalSchema = {
   width: { type: String },
 };
 
-// Define variation schema
-const selectedVariationsSchema = new Schema({
-  cpu: [{ type: String }], // Multiple CPU options
-  ram: [{ type: String }], // Multiple RAM options
-  storage: [{ type: String }], // Multiple storage options
-  graphics: [{ type: String }],
-  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
-});
 // Main Inventory Schema
 const inventorySchema = new Schema(
   {
-    platformDetails: {
-      amazon: {},
-      ebay: {},
-      website: {},
-    },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
@@ -358,8 +337,6 @@ const inventorySchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-
-    selectedVariations: selectedVariationsSchema,
   },
   options
 );
@@ -372,32 +349,12 @@ Inventory.discriminator(
   "laptops",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: laptopTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -408,32 +365,12 @@ Inventory.discriminator(
   "all in one pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: allInOnePCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -444,32 +381,12 @@ Inventory.discriminator(
   "projectors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: projectorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -480,32 +397,12 @@ Inventory.discriminator(
   "monitors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: monitorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -516,32 +413,12 @@ Inventory.discriminator(
   "gaming pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: gamingPCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -552,32 +429,12 @@ Inventory.discriminator(
   "network equipments",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          inventoryInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: networkEquipmentsTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )

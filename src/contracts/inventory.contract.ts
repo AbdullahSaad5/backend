@@ -204,12 +204,6 @@ interface IPlatformInventoryInfo {
 // Full Inventory Interface
 interface IInventory {
   isBlocked: boolean; // Common details for all platforms
-  platformDetails: {
-    amazon?: IAmazonPlatformDetails; // Amazon-specific details
-    ebay?: IEbayPlatformDetails; // eBay-specific details
-    website?: IWebsitePlatformDetails;
-    // Website-specific details
-  };
   status: "draft" | "published"; // Inventory status
   isTemplate: boolean;
   kind?: string;
