@@ -1,3 +1,4 @@
+import { Inventory } from "@/models";
 export { User } from "./user.model";
 export { UserCategory } from "./user-category.model";
 export { Address } from "./user-address.model";
@@ -13,4 +14,4 @@ export { Coupon } from "./coupon.model";
 export { Discount } from "./discount.model";
 export { Stock } from "./stock.model";
 export { Taxes } from "./taxes.model";
-
+export { Inventory } from "./inventory.model";

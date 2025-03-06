@@ -15,4 +15,5 @@ export { variationService } from "./variation.service";
 export { stockService } from "./stock.service";
 export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
+export { inventoryService } from "./inventory.service";
 
