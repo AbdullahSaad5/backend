@@ -7,23 +7,27 @@ export const inventoryService = {
   // Create a new draft inventory
   createDraftInventory: async (stepData: any) => {
     try {
-      const { kind, productCategory, inventorySupplier } = stepData;
+      const { kind, productCategory, productSupplier } = stepData;
+
+      if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
+        throw new Error("Invalid or missing 'kind' (inventory type)");
+      }
 
       const categoryId = mongoose.isValidObjectId(productCategory)
         ? new mongoose.Types.ObjectId(productCategory)
         : null;
-      const supplierId = mongoose.isValidObjectId(inventorySupplier)
-        ? new mongoose.Types.ObjectId(inventorySupplier)
+      const supplierId = mongoose.isValidObjectId(productSupplier)
+        ? new mongoose.Types.ObjectId(productSupplier)
         : null;
 
       if (!categoryId) {
         throw new Error("Invalid or missing 'productCategory'");
       }
       if (!supplierId) {
-        throw new Error("Invalid or missing 'inventorySupplier'");
+        throw new Error("Invalid or missing 'productSupplier'");
       }
 
-      const draftInventory = new Inventory({
+      const draftInventoryData: { [key: string]: any } = {
         status: "draft",
         isBlocked: false,
         kind,
@@ -35,12 +39,29 @@ export const inventoryService = {
           brand: stepData.brand || "",
         },
         prodPricing: stepData.prodPricing || {},
+        prodTechInfo: stepData.prodTechInfo || {},
         prodMedia: stepData.prodMedia || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
+      };
+
+      // ✅ Remove undefined fields to prevent validation errors
+      Object.keys(draftInventoryData).forEach((key) => {
+        if (draftInventoryData[key] && typeof draftInventoryData[key] === "object") {
+          Object.keys(draftInventoryData[key]).forEach((subKey) => {
+            if (draftInventoryData[key][subKey] === undefined) {
+              delete draftInventoryData[key][subKey];
+            }
+          });
+        }
       });
 
-      await draftInventory.save();
+      if (!Inventory.discriminators || !Inventory.discriminators[kind]) {
+        throw new Error("Invalid or missing 'kind' (inventory type)");
+      }
+      const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
+
+      await draftInventory.save({ validateBeforeSave: false });
       return draftInventory;
     } catch (error) {
       console.error("Error creating draft inventory:", error);
@@ -63,163 +84,16 @@ export const inventoryService = {
         return draftInventory;
       }
 
-      const step = stepData.step;
-
-      if (step === "prodDelivery") {
-        // console.log("🟡 Processing prodDelivery step separately...");
-
-        if (!draftInventory.platformDetails) {
-          draftInventory.platformDetails = { amazon: {}, ebay: {}, website: {} };
+      Object.entries(stepData).forEach(([key, value]) => {
+        if (key !== "step") {
+          draftInventory[key] = value;
         }
-
-        ["amazon", "ebay", "website"].forEach((platform) => {
-          if (!draftInventory.platformDetails[platform]) {
-            draftInventory.platformDetails[platform] = {};
-          }
-
-          if (!draftInventory.platformDetails[platform].prodDelivery) {
-            draftInventory.platformDetails[platform].prodDelivery = {};
-          }
-        });
-
-        Object.keys(stepData).forEach((key) => {
-          if (key === "step") return;
-
-          const entry = stepData[key];
-          const { isAmz, isEbay, isWeb, ...rest } = entry;
-
-          const updateField = (platform: string, shouldUpdate: boolean) => {
-            if (!shouldUpdate) return;
-            if (!draftInventory.platformDetails[platform].prodDelivery) {
-              draftInventory.platformDetails[platform].prodDelivery = {};
-            }
-
-            if (typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
-              // Handle nested objects (e.g., packageWeight, packageDimensions)
-              draftInventory.platformDetails[platform].prodDelivery[key] = {};
-              Object.keys(entry).forEach((subKey) => {
-                if (subKey.startsWith("is")) return; // Ignore flags
-                draftInventory.platformDetails[platform].prodDelivery[key][subKey] = entry[subKey].value;
-              });
-            } else {
-              // Handle direct key-value pairs (e.g., postagePolicy, irregularPackage)
-              draftInventory.platformDetails[platform].prodDelivery[key] = entry.value;
-            }
-          };
-
-          updateField("amazon", isAmz);
-          updateField("ebay", isEbay);
-          updateField("website", isWeb);
-        });
-
-        draftInventory.markModified("platformDetails.amazon.prodDelivery");
-        draftInventory.markModified("platformDetails.ebay.prodDelivery");
-        draftInventory.markModified("platformDetails.website.prodDelivery");
-      } else {
-        // Recursive function to update platform details
-        const processStepData = (
-          data: any,
-          platformDetails: any,
-          keyPrefix: string = "",
-          inheritedFlags: {
-            isAmz?: boolean;
-            isEbay?: boolean;
-            isWeb?: boolean;
-          } = {}
-        ) => {
-          Object.keys(data).forEach((key) => {
-            const currentKey = keyPrefix ? `${keyPrefix}.${key}` : key;
-            const entry = data[key];
-
-            // Inherit platform flags
-            const {
-              isAmz = inheritedFlags.isAmz,
-              isEbay = inheritedFlags.isEbay,
-              isWeb = inheritedFlags.isWeb,
-            } = entry || {};
-            if (entry && typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
-              // Recursive call for nested objects
-              processStepData(entry, platformDetails, currentKey, {
-                isAmz,
-                isEbay,
-                isWeb,
-              });
-            } else {
-              let value = entry?.value ?? entry;
-              const step = stepData.step;
-              // console.log(`🔹 Processing: ${currentKey} | Value:`, value);
-
-              if (step === "inventoryInfo") {
-                if (isAmz) platformDetails.amazon.inventoryInfo ||= {};
-                if (isEbay) platformDetails.ebay.inventoryInfo ||= {};
-                if (isWeb) platformDetails.website.inventoryInfo ||= {};
-                if (isAmz) platformDetails.amazon.inventoryInfo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.inventoryInfo[currentKey] = value;
-                if (isWeb) platformDetails.website.inventoryInfo[currentKey] = value;
-                if (currentKey === "inventorySupplier") {
-                  platformDetails.amazon.inventoryInfo.inventorySupplier = value;
-                  platformDetails.ebay.inventoryInfo.inventorySupplier = value;
-                  platformDetails.website.inventoryInfo.inventorySupplier = value;
-                }
-              } else if (step === "prodMedia") {
-                if (currentKey.startsWith("platformMedia.")) {
-                  const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
-                  if (
-                    keyParts.length === 2 &&
-                    ["amazon", "ebay", "website"].includes(keyParts[0]) &&
-                    ["images", "videos"].includes(keyParts[1])
-                  ) {
-                    const [platform, mediaType] = keyParts;
-
-                    // 1. Initialize platform if missing
-                    if (!platformDetails[platform]) {
-                      platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
-                    }
-
-                    // 2. Initialize prodMedia structure
-                    if (!platformDetails[platform].prodMedia) {
-                      platformDetails[platform].prodMedia = {
-                        images: [],
-                        videos: [],
-                      };
-                    }
-
-                    // 3. Assign the media array
-                    platformDetails[platform].prodMedia[mediaType] = value;
-                  }
-                }
-              } else if (step === "prodTechInfo") {
-                if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
-                if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
-                if (isWeb) platformDetails.website.prodTechInfo ||= {};
-                if (isAmz) platformDetails.amazon.prodTechInfo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodTechInfo[currentKey] = value;
-                if (isWeb) platformDetails.website.prodTechInfo[currentKey] = value;
-              } else if (step === "prodPricing") {
-                if (isAmz) platformDetails.amazon.prodPricing ||= {};
-                if (isEbay) platformDetails.ebay.prodPricing ||= {};
-                if (isWeb) platformDetails.website.prodPricing ||= {};
-                if (isAmz) platformDetails.amazon.prodPricing[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
-                if (isWeb) platformDetails.website.prodPricing[currentKey] = value;
-              } else {
-                if (isAmz) platformDetails.amazon.prodSeo ||= {};
-                if (isEbay) platformDetails.ebay.prodSeo ||= {};
-                if (isWeb) platformDetails.website.prodSeo ||= {};
-                if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
-                if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
-              }
-            }
-          });
-        };
-        processStepData(stepData, draftInventory.platformDetails);
-      }
+      });
 
       await draftInventory.save({ validateBeforeSave: false });
       return draftInventory;
     } catch (error: any) {
-      console.error("❌ Error updating draft inventory:", error.message, error.stack);
+      console.error("Error updating draft inventory:", error);
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
@@ -227,12 +101,12 @@ export const inventoryService = {
   getFullInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.amazon.inventoryInfo.productCategory")
-        .populate("platformDetails.ebay.inventoryInfo.productCategory")
-        .populate("platformDetails.website.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.website.inventoryInfo.inventorySupplier");
+        .populate("platformDetails.amazon.productInfo.productCategory")
+        .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.website.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier");
       // .lean();
 
       if (!inventory) throw new Error("Inventory not found");
@@ -246,12 +120,12 @@ export const inventoryService = {
   getAllInventory: async () => {
     try {
       return await Inventory.find()
-        .populate("platformDetails.website.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.productCategory")
-        .populate("platformDetails.ebay.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.website.inventoryInfo.inventorySupplier")
+        .populate("platformDetails.website.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productCategory")
+        .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
         .populate("platformDetails.website.prodPricing.paymentPolicy")
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
@@ -265,13 +139,13 @@ export const inventoryService = {
     try {
       // Find inventorys matching the condition
       return await Inventory.find(condition)
-        .populate("platformDetails.website.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.productCategory")
-        .populate("platformDetails.ebay.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.website.inventoryInfo.inventorySupplier")
-        .select("_id platformDetails website.inventoryInfo productCategory brand model srno kind");
+        .populate("platformDetails.website.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productCategory")
+        .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
+        .select("_id platformDetails website.productInfo productCategory brand model srno kind");
     } catch (error) {
       console.error("Error fetching inventorys by condition:", error);
       throw new Error("Failed to fetch inventorys by condition");
@@ -280,12 +154,12 @@ export const inventoryService = {
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.website.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.productCategory")
-        .populate("platformDetails.ebay.inventoryInfo.productCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
-        .populate("platformDetails.website.inventoryInfo.inventorySupplier")
+        .populate("platformDetails.website.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productCategory")
+        .populate("platformDetails.ebay.productInfo.productCategory")
+        .populate("platformDetails.amazon.productInfo.productSupplier")
+        .populate("platformDetails.ebay.productInfo.productSupplier")
+        .populate("platformDetails.website.productInfo.productSupplier")
         .populate("platformDetails.website.prodPricing.paymentPolicy")
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
@@ -301,19 +175,19 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
-  updateInventory: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
-    try {
-      const updateQuery = { [`platformDetails.${platform}`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
-        new: true,
-      });
-      if (!updatedInventory) throw new Error("Inventory not found");
-      return updatedInventory.platformDetails[platform];
-    } catch (error) {
-      console.error(`Error updating inventory for platform ${platform}:`, error);
-      throw new Error("Failed to update inventory");
-    }
-  },
+  // updateInventory: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
+  //   try {
+  //     const updateQuery = { [`platformDetails.${platform}`]: data };
+  //     const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
+  //       new: true,
+  //     });
+  //     if (!updatedInventory) throw new Error("Inventory not found");
+  //     return updatedInventory.platformDetails[platform];
+  //   } catch (error) {
+  //     console.error(`Error updating inventory for platform ${platform}:`, error);
+  //     throw new Error("Failed to update inventory");
+  //   }
+  // },
   deleteInventory: (id: string) => {
     const inventory = Inventory.findByIdAndDelete(id);
     if (!inventory) {
@@ -385,41 +259,41 @@ export const inventoryService = {
       // Build the query dynamically based on filters
       const query: any = {};
 
-      // Search within platformDetails (amazon, ebay, website) for inventoryInfo.title and inventoryInfo.brand
+      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
       if (searchQuery) {
         query.$or = [
           {
-            "platformDetails.amazon.inventoryInfo.title": {
+            "platformDetails.amazon.productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.amazon.inventoryInfo.brand": {
+            "platformDetails.amazon.productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.inventoryInfo.title": {
+            "platformDetails.ebay.productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.inventoryInfo.brand": {
+            "platformDetails.ebay.productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.inventoryInfo.title": {
+            "platformDetails.website.productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.inventoryInfo.brand": {
+            "platformDetails.website.productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
@@ -506,7 +380,7 @@ export const inventoryService = {
       const existingTitles = new Set((await Inventory.find({}, "title")).map((p: any) => p.title));
 
       // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.inventorySupplierKey);
+      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
       const existingSuppliers = await User.find(
         { supplierKey: { $in: supplierKeys } },
         "_id supplierKey"
@@ -516,10 +390,10 @@ export const inventoryService = {
 
       // ✅ Filter out invalid suppliers
       const filteredRows = validRows.filter(({ data }) => {
-        if (!supplierMap.has(data.inventorySupplierKey)) {
+        if (!supplierMap.has(data.productSupplierKey)) {
           invalidRows.push({
             row: data.row,
-            errors: [`supplierKey ${data.inventorySupplierKey} does not exist.`],
+            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
           });
           return false;
         }
@@ -541,7 +415,7 @@ export const inventoryService = {
               brand: data.brand,
               inventoryDescription: data.inventoryDescription,
               productCategory: new mongoose.Types.ObjectId(data.productCategory),
-              inventorySupplier: supplierMap.get(data.inventorySupplierKey), // ✅ Replace supplierKey with actual _id
+              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
               media: {
                 images: data.images.map((url: string) => ({
@@ -555,12 +429,12 @@ export const inventoryService = {
               },
               platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
                 acc[platform] = {
-                  inventoryInfo: {
+                  productInfo: {
                     brand: data.brand,
                     title: data.title,
                     inventoryDescription: data.inventoryDescription,
                     productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                    inventorySupplier: supplierMap.get(data.inventorySupplierKey),
+                    productSupplier: supplierMap.get(data.productSupplierKey),
                   },
                   prodPricing: {
                     price: parseFloat(data.price),
@@ -607,7 +481,7 @@ export const inventoryService = {
   },
 
   //bulk Export inventorys to CSV
-  exportInventorys: async (): Promise<string> => {
+  exportInventory: async (): Promise<string> => {
     try {
       // Fetch all inventorys from the database
       const inventorys = await Inventory.find({});
@@ -619,12 +493,12 @@ export const inventoryService = {
         Description: inventory.description,
         Price: inventory.price,
         Category: inventory.category,
-        // InventorySupplier: inventory?.supplier?.name,
+        // ProductSupplier: inventory?.supplier?.name,
         Stock: inventory.stock,
         SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.platformDetails.amazon.inventoryInfo),
-        EbayInfo: JSON.stringify(inventory.platformDetails.ebay.inventoryInfo),
-        WebsiteInfo: JSON.stringify(inventory.platformDetails.website.inventoryInfo),
+        AmazonInfo: JSON.stringify(inventory.platformDetails.amazon.productInfo),
+        EbayInfo: JSON.stringify(inventory.platformDetails.ebay.productInfo),
+        WebsiteInfo: JSON.stringify(inventory.platformDetails.website.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse

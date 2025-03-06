@@ -39,7 +39,6 @@ export const inventoryController = {
       const inventoryId = req.params.id;
       const { stepData } = req.body;
 
-      // Validate inventoryId
       if (!mongoose.isValidObjectId(inventoryId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -47,7 +46,6 @@ export const inventoryController = {
         });
       }
 
-      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -55,12 +53,8 @@ export const inventoryController = {
         });
       }
 
-      // Update the draft inventory in MongoDB
       const updatedInventory = await inventoryService.updateDraftInventory(inventoryId, stepData);
 
-      // Check if the inventory is marked for publishing
-
-      // If not marked for publishing, just return the updated inventory
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft inventory updated successfully",
@@ -69,15 +63,6 @@ export const inventoryController = {
     } catch (error: any) {
       console.error("Error updating draft inventory:", error);
 
-      // Check if the error is related to eBay synchronization
-      if (error.message.includes("eBay")) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          message: `Error syncing inventory with eBay: ${error.message}`,
-        });
-      }
-
-      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft inventory",
@@ -437,40 +422,40 @@ export const inventoryController = {
       });
     }
   },
-  updateInventoryById: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const { platform, data } = req.body;
+  // updateInventoryById: async (req: Request, res: Response) => {
+  //   try {
+  //     const { id } = req.params;
+  //     const { platform, data } = req.body;
 
-      if (!platform || !data) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Platform and data are required to update the inventory",
-        });
-      }
+  //     if (!platform || !data) {
+  //       return res.status(StatusCodes.BAD_REQUEST).json({
+  //         success: false,
+  //         message: "Platform and data are required to update the inventory",
+  //       });
+  //     }
 
-      const updatedInventory = await inventoryService.updateInventory(id, platform, data);
+  //     const updatedInventory = await inventoryService.updateInventory(id, platform, data);
 
-      if (!updatedInventory) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Inventory not found",
-        });
-      }
+  //     if (!updatedInventory) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({
+  //         success: false,
+  //         message: "Inventory not found",
+  //       });
+  //     }
 
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Inventory updated successfully",
-        data: updatedInventory,
-      });
-    } catch (error: any) {
-      console.error("Error updating inventory:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: error.message || "Error updating inventory",
-      });
-    }
-  },
+  //     return res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Inventory updated successfully",
+  //       data: updatedInventory,
+  //     });
+  //   } catch (error: any) {
+  //     console.error("Error updating inventory:", error);
+  //     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: error.message || "Error updating inventory",
+  //     });
+  //   }
+  // },
 
   deleteInventory: async (req: Request, res: Response) => {
     try {

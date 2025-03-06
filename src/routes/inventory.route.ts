@@ -45,10 +45,10 @@ export const inventory = (router: Router) => {
   );
 
   // Fetch all template inventory  names
-  router.get("/templates", inventoryController.getAllTemplateInventorys);
+  // router.get("/templates", inventoryController.getAllTemplateInventorys);
 
   // Fetch all Draft inventory  names
-  router.get("/drafts", inventoryController.getAllDraftInventoryNames);
+  // router.get("/drafts", inventoryController.getAllDraftInventoryNames);
 
   // Update a draft inventory by ID (subsequent steps)
   router.patch(
@@ -71,11 +71,11 @@ export const inventory = (router: Router) => {
     inventoryController.deleteInventory
   );
 
-  router.patch(
-    "/:id",
-    inventoryValidation.updateInventory,
-    inventoryController.updateInventoryById
-  );
+  // router.patch(
+  //   "/:id",
+  //   inventoryValidation.updateInventory,
+  //   inventoryController.updateInventoryById
+  // );
 
   // route for toggle block status
   router.patch("/block/:id", inventoryController.toggleBlock);
