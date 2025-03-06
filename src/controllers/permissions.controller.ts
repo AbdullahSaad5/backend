@@ -34,8 +34,21 @@ export const permissionsController = {
             "VIEW_INVENTORY_CATEGORY",
             "ADD_INVENTORY",
             "VIEW_INVENTORY",
+            "ADD_STOCK",
+            "VIEW_STOCK",
+            "MANAGE_VARIATION",
+            "MANAGE_DISCOUNTS",
           ],
         },
+        // discountAndTaxes: {
+        //   parent: "MANAGE_TAXES_AND_DISCOUNTS",
+        //   children: [
+        //     "ADD_TAXES",
+        //     "VIEW_TAXES",
+        //     "ADD_DISCOUNTS",
+        //     "VIEW_DISCOUNTS",
+        //   ],
+        // },
         gamersCommunity: {
           parent: "GAMERS_COMMUNITY",
           children: ["VIEW_GAMERS_COMMUNITY", "VIEW_BLOGS"],

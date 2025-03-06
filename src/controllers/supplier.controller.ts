@@ -17,19 +17,16 @@ export const supplierController = {
       if (userExists) {
         return res
           .status(StatusCodes.CONFLICT)
-          .json({ message: "User with this email already exists" });
+          .json({ message: "Supplier with this email already exists" });
       }
 
       if (req.body.phoneNumber) {
-        const existingphoneNumber =
+        const existingPhoneNumber =
           await supplierService.findExistingPhoneNumber(req.body.phoneNumber);
-        if (existingphoneNumber) {
-          return res
-            .status(StatusCodes.CONFLICT)
-            .json({
-              message:
-                "User with this phone number already exists! Try another",
-            });
+        if (existingPhoneNumber) {
+          return res.status(StatusCodes.CONFLICT).json({
+            message: "User with this phone number already exists! Try another",
+          });
         }
       }
 
@@ -105,15 +102,13 @@ export const supplierController = {
       }
 
       if (updateData.phoneNumber) {
-        const existingphoneNumber =
+        const existingPhoneNumber =
           await supplierService.findExistingPhoneNumber(updateData.phoneNumber);
-        if (existingphoneNumber) {
-          return res
-            .status(StatusCodes.CONFLICT)
-            .json({
-              message:
-                "User with this phone number already exists! Try another",
-            });
+        if (existingPhoneNumber) {
+          return res.status(StatusCodes.CONFLICT).json({
+            message:
+              "Supplier with this phone number already exists! Try another",
+          });
         }
       }
 
@@ -136,7 +131,7 @@ export const supplierController = {
         for (const addr of address) {
           if (addr._id) {
             // Update existing address
-            const updatedAddress = await supplierService.findAddressandUpdate(
+            const updatedAddress = await supplierService.findAddressAndUpdate(
               addr._id,
               addr
             );
@@ -162,7 +157,7 @@ export const supplierController = {
 
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
+        message: "Supplier Updated SuccessFully",
         data: updatedSupplier,
       });
     } catch (error) {

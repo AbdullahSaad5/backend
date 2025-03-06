@@ -16,3 +16,8 @@ export { paymentPolicyController } from "./payment-policy.controller";
 export { postagePolicyController } from "./postage-policy.controller";
 export { variationController } from "./variation.controller";
 export { faqsPolicyController } from "./faqs.controller";
+export { couponController } from "./coupon.controller";
+export { taxesController } from "./taxes.controller";
+export { discountController } from "./discount.controller";
+export { stockController } from "./stock.controller";
+

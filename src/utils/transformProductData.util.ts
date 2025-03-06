@@ -2,6 +2,7 @@ export function transformProductData(data: any) {
   const result: any = {
     stepData: {
       productInfo: {},
+      prodMedia: {}, // Restructured to hold platforms
       prodTechInfo: {},
       prodPricing: {},
       prodDelivery: {},
@@ -9,7 +10,7 @@ export function transformProductData(data: any) {
     },
   };
 
-  // Helper function to create the common structure
+  // Helper function to create the common structure for other sections
   const createField = (name: string, value: any, platforms: any) => ({
     name,
     value,
@@ -18,7 +19,7 @@ export function transformProductData(data: any) {
     isWeb: platforms.website?.hasOwnProperty(name) || false,
   });
 
-  // Generic transformation logic
+  // Generic transformation logic for non-media sections (excluding prodDelivery customization)
   const transformFields = (
     fields: string[],
     sectionKey: string,
@@ -37,22 +38,20 @@ export function transformProductData(data: any) {
         platforms.website?.[field] ||
         null;
 
-      // Add field only if it has a value in at least one platform
       if (value !== null) {
         target[field] = createField(field, value, platforms);
       }
     });
   };
 
-  // Define the field groups for each section
+  // Define the field groups (excluding prodMedia)
   const fieldGroups = {
     productInfo: [
       "brand",
       "title",
       "productDescription",
       "productCategory",
-      "images",
-      "videos",
+      "productSupplier",
       "kind",
     ],
     prodTechInfo: [
@@ -130,19 +129,60 @@ export function transformProductData(data: any) {
       "deviceConnectivity",
       "connectorType",
       "supportedWirelessProtocol",
+      "compatibleOperatingSystems",
+      "californiaProp65Warning",
+      "yearManufactured",
+
+      // adding amazon specific fields
+
+      // "recommendedBrowseNotes",
+      // "bulletPoint",
+      // "powerPlug",
+      // "graphicsCardInterface",
+      // "ramMemoryMaximumSize",
+      // "ramMemoryMaximumSizeUnit",
+      // "ramMemoryTechnology",
+      // "humanInterfaceInput",
+      // "includedComponents",
+      // "specificUsesForProduct",
+      // "cacheMemoryInstalledSize",
+      // "cacheMemoryInstalledSizeUnit",
+      // "cpuModel",
+      // "cpuModelManufacturer",
+      // "cpuModelNumber",
+      // "cpuSocket",
+      // "cpuBaseSpeed",
+      // "cpuBaseSpeedUnit",
+      // "graphicsRam",
+      // "hardDiskDescription",
+      // "hardDiskInterface",
+      // "hardDiskRotationalSpeed",
+      // "hardDiskRotationalSpeedUnit",
+      // "totalUsb2oPorts",
+      // "totalUsb3oPorts",
+      // "productWarranty",
+      // "gdprRisk",
+      // "opticalStorageDevice",
+      // "dangerousGoodsRegulation",
+      // "safetyAndCompliance",
+      // "manufacturer",
     ],
     prodPricing: [
-      
       "quantity",
       "price",
       "condition",
       "conditionDescription",
       "pricingFormat",
+      "discountType",
+      "discountValue",
       "vat",
       "paymentPolicy",
       "buy2andSave",
       "buy3andSave",
       "buy4andSave",
+      "warrantyDuration",
+      "warrantyCoverage",
+      "warrantyDocument",
     ],
     prodDelivery: [
       "postagePolicy",
@@ -153,9 +193,69 @@ export function transformProductData(data: any) {
     prodSeo: ["seoTags", "relevantTags", "suggestedTags"],
   };
 
-  // Transform each section
+  // Transform each section except prodMedia and prodDelivery
   Object.entries(fieldGroups).forEach(([sectionKey, fields]) => {
     transformFields(fields, sectionKey, result.stepData[sectionKey]);
+  });
+
+  // Custom transformation for prodDelivery to match the required structure
+  const prodDeliveryData = {
+    amazon: data.platformDetails.amazon?.prodDelivery,
+    ebay: data.platformDetails.ebay?.prodDelivery,
+    website: data.platformDetails.website?.prodDelivery,
+  };
+
+  const deliveryFields = [
+    "postagePolicy",
+    "packageWeight",
+    "packageDimensions",
+    "irregularPackage",
+  ];
+
+  deliveryFields.forEach((field) => {
+    const value =
+      prodDeliveryData.amazon?.[field] ||
+      prodDeliveryData.ebay?.[field] ||
+      prodDeliveryData.website?.[field] ||
+      null;
+
+    const platforms = {
+      isAmz: prodDeliveryData.amazon?.hasOwnProperty(field) || false,
+      isEbay: prodDeliveryData.ebay?.hasOwnProperty(field) || false,
+      isWeb: prodDeliveryData.website?.hasOwnProperty(field) || false,
+    };
+
+    if (field === "packageWeight" || field === "packageDimensions") {
+      if (value) {
+        result.stepData.prodDelivery[field] = {
+          ...platforms,
+          ...Object.fromEntries(
+            Object.entries(value).map(([key, val]) => [
+              key,
+              { name: key, value: val },
+            ])
+          ),
+        };
+      }
+    } else if (value !== null) {
+      result.stepData.prodDelivery[field] = {
+        name: field,
+        value,
+        ...platforms,
+      };
+    }
+  });
+
+  // Handle prodMedia separately per platform
+  const platforms = ["amazon", "ebay", "website"] as const;
+  result.stepData.prodMedia = { platformMedia: {} }; // Wrapping prodMedia inside platformMedia
+
+  platforms.forEach((platform) => {
+    const mediaData = data.platformDetails[platform]?.prodMedia;
+    result.stepData.prodMedia.platformMedia[platform] = {
+      images: mediaData?.images || [],
+      videos: mediaData?.videos || [],
+    };
   });
 
   return result;

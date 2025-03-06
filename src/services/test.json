@@ -1,0 +1,49 @@
+{
+  "stepData": {
+    "step": "prodDelivery",
+    "postagePolicy": {
+      "name": "postagePolicy",
+      "value": "test shitty newwwwewewe shipping",
+      "isAmz": true,
+      "isEbay": true,
+      "isWeb": true
+    },
+    "packageWeight": {
+      "weightKg": {
+        "name": "weightKg",
+        "value": "234342523453 kg"
+      },
+      "weightG": {
+        "name": "weightG",
+        "value": "200 g"
+      },
+      "isAmz": true,
+      "isEbay": true,
+      "isWeb": true
+    },
+    "packageDimensions": {
+      "isAmz": true,
+      "isEbay": true,
+      "isWeb": true,
+      "dimensionLength": {
+        "name": "dimensionLength",
+        "value": "10 cm"
+      },
+      "dimensionWidth": {
+        "name": "dimensionWidth",
+        "value": "10 cm"
+      },
+      "dimensionHeight": {
+        "name": "dimensionHeight",
+        "value": "20 cm"
+      }
+    },
+    "irregularPackage": {
+      "name": "irregularPackage",
+      "value": true,
+      "isAmz": true,
+      "isEbay": true,
+      "isWeb": true
+    }
+  }
+}

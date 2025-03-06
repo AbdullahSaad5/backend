@@ -18,6 +18,7 @@ export interface IUser extends Document {
   password: string;
   phoneNumber: string;
   dob: string;
+  supplierKey?: string;
   // address: Types.ObjectId
   signUpThrough: string;
   profileImage?: string;
@@ -47,7 +48,7 @@ export type UserCreatePayload = Pick<
   | "userType"
   | "additionalAccessRights"
   | "restrictedAccessRights"
-> & {address: Partial<IUserAddress>} ;
+> & { address: Partial<IUserAddress> };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
 

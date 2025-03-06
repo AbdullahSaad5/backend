@@ -30,7 +30,6 @@ const decrypt = (encryptedMessage, qrContent) => {
   } else {
     paddedQR = qrContent.slice(0, maxLength);
   }
-
   // XOR to decrypt
   for (let i = 0; i < encryptedMessage.length; i++) {
     const charCode1 = encryptedMessage.charCodeAt(i);
