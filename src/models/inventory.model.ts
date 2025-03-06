@@ -333,6 +333,7 @@ const inventorySchema = new Schema(
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
     publishToWebsite: { type: Boolean },
+    Kind: { type: String},
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
@@ -342,7 +343,7 @@ const inventorySchema = new Schema(
 );
 
 // Base Inventory Model
-const Inventory = model<IInventory>("Inventory", inventorySchema);
+const Inventory = model("Inventory", inventorySchema);
 
 // discriminator for laptops
 Inventory.discriminator(

@@ -61,7 +61,7 @@ export const inventoryController = {
       );
 
       // Check if the inventory is marked for publishing
-     
+
 
       // If not marked for publishing, just return the updated inventory
       return res.status(StatusCodes.OK).json({
@@ -177,188 +177,188 @@ export const inventoryController = {
       });
     }
   },
-  //Get All Template Inventory Names
-  getAllTemplateInventorys: async (req: Request, res: Response) => {
-    try {
-      const templates = await inventoryService.getInventorysByCondition({
-        isTemplate: true,
-      });
+  // //Get All Template Inventory Names
+  // getAllTemplateInventory: async (req: Request, res: Response) => {
+  //   try {
+  //     const templates = await inventoryService.getInventorysByCondition({
+  //       isTemplate: true,
+  //     });
 
-      if (!templates.length) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "No templates found",
-        });
-      }
+  //     if (!templates.length) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({
+  //         success: false,
+  //         message: "No templates found",
+  //       });
+  //     }
 
-      let templateList = templates.map((template, index) => {
-        const inventoryId = template._id;
-        const kind = template.kind || "UNKNOWN";
+  //     let templateList = templates.map((template, index) => {
+  //       const inventoryId = template._id;
+  //       const kind = template.kind || "UNKNOWN";
 
-        let fields: string[] = [];
-        const prodInfo: any =
-          template.platformDetails.website?.prodTechInfo || {};
+  //       let fields: string[] = [];
+  //       const prodInfo: any =
+  //         template.platformDetails.website?.prodTechInfo || {};
 
-        switch (kind.toLowerCase()) {
-          case "laptops":
-            fields = [
-              prodInfo.processor,
-              prodInfo.model,
-              prodInfo.ssdCapacity,
-              prodInfo.hardDriveCapacity,
-              prodInfo.manufacturerWarranty,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "all in one pc":
-            fields = [
-              prodInfo.type,
-              prodInfo.memory,
-              prodInfo.processor,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "projectors":
-            fields = [prodInfo.type, prodInfo.model];
-            break;
-          case "monitors":
-            fields = [prodInfo.screenSize, prodInfo.maxResolution];
-            break;
-          case "gaming pc":
-            fields = [
-              prodInfo.processor,
-              prodInfo.gpu,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "network equipments":
-            fields = [prodInfo.networkType, prodInfo.processorType];
-            break;
-          default:
-            fields = ["UNKNOWN"];
-            break;
-        }
+  //       switch (kind.toLowerCase()) {
+  //         case "laptops":
+  //           fields = [
+  //             prodInfo.processor,
+  //             prodInfo.model,
+  //             prodInfo.ssdCapacity,
+  //             prodInfo.hardDriveCapacity,
+  //             prodInfo.manufacturerWarranty,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "all in one pc":
+  //           fields = [
+  //             prodInfo.type,
+  //             prodInfo.memory,
+  //             prodInfo.processor,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "projectors":
+  //           fields = [prodInfo.type, prodInfo.model];
+  //           break;
+  //         case "monitors":
+  //           fields = [prodInfo.screenSize, prodInfo.maxResolution];
+  //           break;
+  //         case "gaming pc":
+  //           fields = [
+  //             prodInfo.processor,
+  //             prodInfo.gpu,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "network equipments":
+  //           fields = [prodInfo.networkType, prodInfo.processorType];
+  //           break;
+  //         default:
+  //           fields = ["UNKNOWN"];
+  //           break;
+  //       }
 
-        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+  //       const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
-        const srno = (index + 1).toString().padStart(2, "0");
+  //       const srno = (index + 1).toString().padStart(2, "0");
 
-        const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
+  //       const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { templateName, inventoryId };
-      });
+  //       return { templateName, inventoryId };
+  //     });
 
-      // 🔹 Sort by the number at the end of templateName in descending order
-      templateList.sort((a, b) => {
-        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
-      });
+  //     // 🔹 Sort by the number at the end of templateName in descending order
+  //     templateList.sort((a, b) => {
+  //       const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+  //       const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
+  //       return numB - numA; // Descending order
+  //     });
 
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Templates fetched successfully",
-        data: templateList,
-      });
-    } catch (error: any) {
-      console.error("Error fetching templates:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: error.message || "Error fetching templates",
-      });
-    }
-  },
+  //     return res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Templates fetched successfully",
+  //       data: templateList,
+  //     });
+  //   } catch (error: any) {
+  //     console.error("Error fetching templates:", error);
+  //     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: error.message || "Error fetching templates",
+  //     });
+  //   }
+  // },
 
   //Get All Draft Inventory Names
-  getAllDraftInventoryNames: async (req: Request, res: Response) => {
-    try {
-      const drafts = await inventoryService.getInventorysByCondition({
-        status: "draft",
-      });
+  // getAllDraftInventoryNames: async (req: Request, res: Response) => {
+  //   try {
+  //     const drafts = await inventoryService.getInventorysByCondition({
+  //       status: "draft",
+  //     });
 
-      if (!drafts.length) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "No draft inventorys found",
-        });
-      }
+  //     if (!drafts.length) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({
+  //         success: false,
+  //         message: "No draft inventorys found",
+  //       });
+  //     }
 
-      let draftList = drafts.map((draft, index) => {
-        const inventoryId = draft._id;
-        const kind = draft.kind || "UNKNOWN";
+  //     let draftList = drafts.map((draft, index) => {
+  //       const inventoryId = draft._id;
+  //       const kind = draft.kind || "UNKNOWN";
 
-        let fields: string[] = [];
-        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
+  //       let fields: string[] = [];
+  //       const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
-        switch (kind.toLowerCase()) {
-          case "laptops":
-            fields = [
-              prodInfo.processor,
-              prodInfo.model,
-              prodInfo.ssdCapacity,
-              prodInfo.hardDriveCapacity,
-              prodInfo.manufacturerWarranty,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "all in one pc":
-            fields = [
-              prodInfo.type,
-              prodInfo.memory,
-              prodInfo.processor,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "projectors":
-            fields = [prodInfo.type, prodInfo.model];
-            break;
-          case "monitors":
-            fields = [prodInfo.screenSize, prodInfo.maxResolution];
-            break;
-          case "gaming pc":
-            fields = [
-              prodInfo.processor,
-              prodInfo.gpu,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "network equipments":
-            fields = [prodInfo.networkType, prodInfo.processorType];
-            break;
-          default:
-            fields = ["UNKNOWN"];
-            break;
-        }
+  //       switch (kind.toLowerCase()) {
+  //         case "laptops":
+  //           fields = [
+  //             prodInfo.processor,
+  //             prodInfo.model,
+  //             prodInfo.ssdCapacity,
+  //             prodInfo.hardDriveCapacity,
+  //             prodInfo.manufacturerWarranty,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "all in one pc":
+  //           fields = [
+  //             prodInfo.type,
+  //             prodInfo.memory,
+  //             prodInfo.processor,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "projectors":
+  //           fields = [prodInfo.type, prodInfo.model];
+  //           break;
+  //         case "monitors":
+  //           fields = [prodInfo.screenSize, prodInfo.maxResolution];
+  //           break;
+  //         case "gaming pc":
+  //           fields = [
+  //             prodInfo.processor,
+  //             prodInfo.gpu,
+  //             prodInfo.operatingSystem,
+  //           ];
+  //           break;
+  //         case "network equipments":
+  //           fields = [prodInfo.networkType, prodInfo.processorType];
+  //           break;
+  //         default:
+  //           fields = ["UNKNOWN"];
+  //           break;
+  //       }
 
-        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+  //       const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
 
-        const srno = (index + 1).toString().padStart(2, "0");
+  //       const srno = (index + 1).toString().padStart(2, "0");
 
-        const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
+  //       const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { draftName, inventoryId };
-      });
+  //       return { draftName, inventoryId };
+  //     });
 
-      // 🔹 Sort by the number at the end of draftName in descending order
-      draftList.sort((a, b) => {
-        const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
-      });
+  //     // 🔹 Sort by the number at the end of draftName in descending order
+  //     draftList.sort((a, b) => {
+  //       const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+  //       const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
+  //       return numB - numA; // Descending order
+  //     });
 
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Draft inventorys names fetched successfully",
-        data: draftList,
-      });
-    } catch (error: any) {
-      console.error("Error fetching Draft names:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: error.message || "Error fetching draft names",
-      });
-    }
-  },
+  //     return res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Draft inventorys names fetched successfully",
+  //       data: draftList,
+  //     });
+  //   } catch (error: any) {
+  //     console.error("Error fetching Draft names:", error);
+  //     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: error.message || "Error fetching draft names",
+  //     });
+  //   }
+  // },
 
   //Selected transformed draft Inventory
   transformAndSendDraftInventory: async (req: Request, res: Response) => {

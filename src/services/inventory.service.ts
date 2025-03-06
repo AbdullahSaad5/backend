@@ -7,18 +7,18 @@ export const inventoryService = {
   // Create a new draft inventory
   createDraftInventory: async (stepData: any) => {
     try {
-      const inventoryCategory =
-        stepData.inventoryCategory &&
-        mongoose.isValidObjectId(stepData.inventoryCategory)
-          ? new mongoose.Types.ObjectId(stepData.inventoryCategory)
+      const productCategory =
+        stepData.productCategory &&
+        mongoose.isValidObjectId(stepData.productCategory)
+          ? new mongoose.Types.ObjectId(stepData.productCategory)
           : null;
       const inventorySupplier =
         stepData.inventorySupplier &&
         mongoose.isValidObjectId(stepData.inventorySupplier)
           ? new mongoose.Types.ObjectId(stepData.inventorySupplier)
           : null;
-      if (!inventoryCategory) {
-        throw new Error("Invalid or missing 'inventoryCategory'");
+      if (!productCategory) {
+        throw new Error("Invalid or missing 'productCategory'");
       }
       if (!inventorySupplier) {
         throw new Error("Invalid or missing 'inventorySupplier'");
@@ -28,17 +28,17 @@ export const inventoryService = {
         platformDetails: {
           amazon: {
             inventoryInfo: {
-              inventoryCategory: null,
-              inventorySupplier: null,
+              productCategory: null,
+              produuctSupplier: null,
               title: "",
-              inventoryDescription: "",
+              productDescription: "",
               brand: "",
               images: [],
             },
           },
           ebay: {
             inventoryInfo: {
-              inventoryCategory: null,
+              productCategory: null,
               inventorySupplier: null,
 
               title: "",
@@ -49,7 +49,7 @@ export const inventoryService = {
           },
           website: {
             inventoryInfo: {
-              inventoryCategory: null,
+              productCategory: null,
               inventorySupplier: null,
               title: "",
               inventoryDescription: "",
@@ -83,8 +83,8 @@ export const inventoryService = {
       // });
       // }
       ["amazon", "ebay", "website"].forEach((platform) => {
-        draftInventory.platformDetails[platform].inventoryInfo.inventoryCategory =
-          inventoryCategory;
+        draftInventory.platformDetails[platform].inventoryInfo.productCategory =
+          productCategory;
         draftInventory.platformDetails[platform].inventoryInfo.inventorySupplier =
           inventorySupplier;
         draftInventory.kind = stepData.kind;
@@ -301,9 +301,9 @@ export const inventoryService = {
   getFullInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.amazon.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.ebay.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.website.inventoryInfo.inventoryCategory")
+        .populate("platformDetails.amazon.inventoryInfo.productCategory")
+        .populate("platformDetails.ebay.inventoryInfo.productCategory")
+        .populate("platformDetails.website.inventoryInfo.productCategory")
         .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
         .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
         .populate("platformDetails.website.inventoryInfo.inventorySupplier");
@@ -317,12 +317,12 @@ export const inventoryService = {
     }
   },
 
-  getAllInventorys: async () => {
+  getAllInventory: async () => {
     try {
       return await Inventory.find()
-        .populate("platformDetails.website.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.ebay.inventoryInfo.inventoryCategory")
+        .populate("platformDetails.website.inventoryInfo.productCategory")
+        .populate("platformDetails.amazon.inventoryInfo.productCategory")
+        .populate("platformDetails.ebay.inventoryInfo.productCategory")
         .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
         .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
         .populate("platformDetails.website.inventoryInfo.inventorySupplier")
@@ -339,14 +339,14 @@ export const inventoryService = {
     try {
       // Find inventorys matching the condition
       return await Inventory.find(condition)
-        .populate("platformDetails.website.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.ebay.inventoryInfo.inventoryCategory")
+        .populate("platformDetails.website.inventoryInfo.productCategory")
+        .populate("platformDetails.amazon.inventoryInfo.productCategory")
+        .populate("platformDetails.ebay.inventoryInfo.productCategory")
         .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
         .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
         .populate("platformDetails.website.inventoryInfo.inventorySupplier")
         .select(
-          "_id platformDetails website.inventoryInfo inventoryCategory brand model srno kind"
+          "_id platformDetails website.inventoryInfo productCategory brand model srno kind"
         );
     } catch (error) {
       console.error("Error fetching inventorys by condition:", error);
@@ -356,9 +356,9 @@ export const inventoryService = {
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.website.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.amazon.inventoryInfo.inventoryCategory")
-        .populate("platformDetails.ebay.inventoryInfo.inventoryCategory")
+        .populate("platformDetails.website.inventoryInfo.productCategory")
+        .populate("platformDetails.amazon.inventoryInfo.productCategory")
+        .populate("platformDetails.ebay.inventoryInfo.productCategory")
         .populate("platformDetails.amazon.inventoryInfo.inventorySupplier")
         .populate("platformDetails.ebay.inventoryInfo.inventorySupplier")
         .populate("platformDetails.website.inventoryInfo.inventorySupplier")
@@ -638,8 +638,8 @@ export const inventoryService = {
               title: data.title,
               brand: data.brand,
               inventoryDescription: data.inventoryDescription,
-              inventoryCategory: new mongoose.Types.ObjectId(
-                data.inventoryCategory
+              productCategory: new mongoose.Types.ObjectId(
+                data.productCategory
               ),
               inventorySupplier: supplierMap.get(data.inventorySupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
@@ -660,8 +660,8 @@ export const inventoryService = {
                       brand: data.brand,
                       title: data.title,
                       inventoryDescription: data.inventoryDescription,
-                      inventoryCategory: new mongoose.Types.ObjectId(
-                        data.inventoryCategory
+                      productCategory: new mongoose.Types.ObjectId(
+                        data.productCategory
                       ),
                       inventorySupplier: supplierMap.get(data.inventorySupplierKey),
                     },
