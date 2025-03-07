@@ -103,7 +103,7 @@ const laptopTechnicalSchema = {
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
@@ -140,7 +140,7 @@ const allInOnePCTechnicalSchema = {
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
@@ -165,7 +165,8 @@ const allInOnePCTechnicalSchema = {
 const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -202,7 +203,8 @@ const projectorTechnicalSchema = {
 
 const monitorTechnicalSchema = {
   model: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   color: { type: String },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -245,7 +247,8 @@ const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   ssdCapacity: { type: String },
   gpu: { type: String },
   releaseYear: { type: String },
@@ -333,7 +336,7 @@ const inventorySchema = new Schema(
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
     publishToWebsite: { type: Boolean },
-    Kind: { type: String},
+    Kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
@@ -347,7 +350,7 @@ const Inventory = model("Inventory", inventorySchema);
 
 // discriminator for laptops
 Inventory.discriminator(
-  "laptops",
+  "inventory_laptops",
   new mongoose.Schema(
     {
       prodTechInfo: laptopTechnicalSchema,
@@ -363,7 +366,7 @@ Inventory.discriminator(
 
 // discriminator for all in one pc
 Inventory.discriminator(
-  "all in one pc",
+  "inventory_all_in_one_pc",
   new mongoose.Schema(
     {
       prodTechInfo: allInOnePCTechnicalSchema,
@@ -379,7 +382,7 @@ Inventory.discriminator(
 
 // discriminator for projectors
 Inventory.discriminator(
-  "projectors",
+  "inventory_projectors",
   new mongoose.Schema(
     {
       prodTechInfo: projectorTechnicalSchema,
@@ -395,7 +398,7 @@ Inventory.discriminator(
 
 // discriminator for Monitors
 Inventory.discriminator(
-  "monitors",
+  "inventory_monitors",
   new mongoose.Schema(
     {
       prodTechInfo: monitorTechnicalSchema,
@@ -411,7 +414,7 @@ Inventory.discriminator(
 
 // discriminator for Gaming PC
 Inventory.discriminator(
-  "gaming pc",
+  "inventory_gaming_pc",
   new mongoose.Schema(
     {
       prodTechInfo: gamingPCTechnicalSchema,
@@ -427,7 +430,7 @@ Inventory.discriminator(
 
 // discriminator for Network Equipments
 Inventory.discriminator(
-  "network equipments",
+  "inventory_network_equipments",
   new mongoose.Schema(
     {
       prodTechInfo: networkEquipmentsTechnicalSchema,
