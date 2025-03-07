@@ -3,6 +3,49 @@ import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
+import {
+  allInOnePCTechnicalSchema,
+  gamingPCTechnicalSchema,
+  laptopTechnicalSchema,
+  monitorTechnicalSchema,
+  networkEquipmentsTechnicalSchema,
+  prodDeliverySchema,
+  prodMediaSchema,
+  prodPricingSchema,
+  prodSeoSchema,
+  projectorTechnicalSchema,
+} from "@/models/inventory.model";
+
+// Define a type for the tech schemas
+type TechSchemas = {
+  laptops: typeof laptopTechnicalSchema;
+  all_in_one_pc: typeof allInOnePCTechnicalSchema;
+  projectors: typeof projectorTechnicalSchema;
+  monitors: typeof monitorTechnicalSchema;
+  gaming_pc: typeof gamingPCTechnicalSchema;
+  network_equipments: typeof networkEquipmentsTechnicalSchema;
+};
+
+// Helper function to get correct tech schema
+function getTechSchema(kind: keyof TechSchemas) {
+  const techSchemas: TechSchemas = {
+    laptops: laptopTechnicalSchema,
+    all_in_one_pc: allInOnePCTechnicalSchema,
+    projectors: projectorTechnicalSchema,
+    monitors: monitorTechnicalSchema,
+    gaming_pc: gamingPCTechnicalSchema,
+    network_equipments: networkEquipmentsTechnicalSchema,
+  };
+  return techSchemas[kind] || {};
+}
+
+// Utility function to pick allowed fields
+function pick(obj: any, keys: string[]) {
+  return keys.reduce((acc: { [key: string]: any }, key) => {
+    if (obj[key] !== undefined) acc[key] = obj[key];
+    return acc;
+  }, {});
+}
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventory: async (stepData: any) => {
@@ -20,14 +63,10 @@ export const inventoryService = {
         ? new mongoose.Types.ObjectId(productSupplier)
         : null;
 
-      if (!categoryId) {
-        throw new Error("Invalid or missing 'productCategory'");
-      }
-      if (!supplierId) {
-        throw new Error("Invalid or missing 'productSupplier'");
-      }
+      if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
+      if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
-      const draftInventoryData: { [key: string]: any } = {
+      const draftInventoryData: any = {
         status: "draft",
         isBlocked: false,
         kind,
@@ -47,7 +86,7 @@ export const inventoryService = {
 
       // ✅ Remove undefined fields to prevent validation errors
       Object.keys(draftInventoryData).forEach((key) => {
-        if (draftInventoryData[key] && typeof draftInventoryData[key] === "object") {
+        if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
           Object.keys(draftInventoryData[key]).forEach((subKey) => {
             if (draftInventoryData[key][subKey] === undefined) {
               delete draftInventoryData[key][subKey];
@@ -56,88 +95,83 @@ export const inventoryService = {
         }
       });
 
-      if (!Inventory.discriminators || !Inventory.discriminators[kind]) {
-        throw new Error("Invalid or missing 'kind' (inventory type)");
-      }
       const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
-
       await draftInventory.save({ validateBeforeSave: false });
+
       return draftInventory;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating draft inventory:", error);
-      throw new Error("Failed to create draft inventory");
+      throw new Error(error.message || "Failed to create draft inventory");
     }
   },
 
   // Update an existing draft inventory when user move to next stepper
-  updateDraftInventory: async (inventoryId: string, stepData: any) => {
+   updateDraftInventory : async (inventoryId: string, stepData: any) => {
     try {
-      const draftInventory = await Inventory.findById(inventoryId);
+      console.log("Received update request:", { inventoryId, stepData });
+
+      // Validate inventoryId
+      if (!mongoose.isValidObjectId(inventoryId)) {
+        throw new Error("Invalid inventory ID");
+      }
+
+      // Find inventory
+      const draftInventory: any = await Inventory.findById(inventoryId);
       if (!draftInventory) {
+        console.error("Draft inventory not found:", inventoryId);
         throw new Error("Draft inventory not found");
       }
 
-      // Handle status updates first
+      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
+
+      // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
         draftInventory.isTemplate = stepData.isTemplate || false;
-        await draftInventory.save({ validateBeforeSave: false });
-        return draftInventory;
       }
 
-      // Define schema sections and their paths
-      const schemaSections: string[] = ["prodPricing", "prodDelivery", "prodSeo", "prodTechInfo", "prodMedia"];
-
-      // Handle productInfo fields (special case - top-level fields)
-      const productInfoFields = ["productCategory", "productSupplier", "title", "productDescription", "brand"];
-
-      // 1. Update nested sections
-      for (const section of schemaSections) {
+      // Update Nested Sections Dynamically
+      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
+          console.log(`Updating ${section} with:`, stepData[section]);
           draftInventory[section] = {
             ...(draftInventory[section] || {}), // Preserve existing data
             ...stepData[section], // Merge new data
           };
-          draftInventory.markModified(section); // Force Mongoose to detect changes
+          draftInventory.markModified(section);
         }
-      }
+      });
 
-      // 2. Handle productInfo fields
-      const hasProductInfo = productInfoFields.some((field) => stepData[field]);
-      if (hasProductInfo) {
-        const productInfoUpdate: { [key: string]: any } = {};
-
-        // Only take allowed productInfo fields
-        productInfoFields.forEach((field) => {
-          if (stepData[field] !== undefined) {
-            productInfoUpdate[field] = stepData[field];
-          }
-        });
-
-        draftInventory.productInfo = {
-          ...(draftInventory.productInfo || {}),
-          ...productInfoUpdate,
-        };
-        draftInventory.markModified("productInfo");
-      }
-
-      // 3. Handle other top-level fields (publish flags, etc.)
-      const topLevelFields = ["publishToEbay", "publishToAmazon", "publishToWebsite", "stockThreshold"];
-
+      // Update Top-Level Fields
+      const topLevelFields = [
+        "publishToEbay",
+        "publishToAmazon",
+        "publishToWebsite",
+        "stockThreshold",
+        "isBlocked",
+        "Kind",
+      ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
           draftInventory[field] = stepData[field];
         }
       });
 
-      // 4. Save changes
+      console.log("Final inventory object before save:", JSON.stringify(draftInventory, null, 2));
+
+      // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
+
+      console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
+
       return draftInventory;
     } catch (error: any) {
       console.error("Error updating draft inventory:", error);
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
+
 
   getFullInventoryById: async (id: string) => {
     try {
