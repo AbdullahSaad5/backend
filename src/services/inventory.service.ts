@@ -72,45 +72,65 @@ export const inventoryService = {
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
-      const draftInventory: any = await Inventory.findById(inventoryId);
+      const draftInventory = await Inventory.findById(inventoryId);
       if (!draftInventory) {
         throw new Error("Draft inventory not found");
       }
 
+      // Handle status updates first
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
-        draftInventory.isTemplate = stepData.isTemplate;
+        draftInventory.isTemplate = stepData.isTemplate || false;
         await draftInventory.save({ validateBeforeSave: false });
         return draftInventory;
       }
 
-      // ✅ Ensure `productInfo` exists before updating
-      if (!draftInventory.productInfo) {
-        draftInventory.productInfo = {};
+      // Define schema sections and their paths
+      const schemaSections: string[] = ["prodPricing", "prodDelivery", "prodSeo", "prodTechInfo", "prodMedia"];
+
+      // Handle productInfo fields (special case - top-level fields)
+      const productInfoFields = ["productCategory", "productSupplier", "title", "productDescription", "brand"];
+
+      // 1. Update nested sections
+      for (const section of schemaSections) {
+        if (stepData[section]) {
+          draftInventory[section] = {
+            ...(draftInventory[section] || {}), // Preserve existing data
+            ...stepData[section], // Merge new data
+          };
+          draftInventory.markModified(section); // Force Mongoose to detect changes
+        }
       }
 
-      // ✅ Update `productInfo`
-      if (
-        stepData.productCategory ||
-        stepData.productSupplier ||
-        stepData.title ||
-        stepData.productDescription ||
-        stepData.brand
-      ) {
+      // 2. Handle productInfo fields
+      const hasProductInfo = productInfoFields.some((field) => stepData[field]);
+      if (hasProductInfo) {
+        const productInfoUpdate: { [key: string]: any } = {};
+
+        // Only take allowed productInfo fields
+        productInfoFields.forEach((field) => {
+          if (stepData[field] !== undefined) {
+            productInfoUpdate[field] = stepData[field];
+          }
+        });
+
         draftInventory.productInfo = {
-          ...draftInventory.productInfo, // Keep existing values
-          ...stepData, // Merge new values
+          ...(draftInventory.productInfo || {}),
+          ...productInfoUpdate,
         };
-        draftInventory.markModified("productInfo"); // ✅ Ensure update is detected
+        draftInventory.markModified("productInfo");
       }
 
-      // ✅ Handle other updates
-      Object.entries(stepData).forEach(([key, value]) => {
-        if (key !== "step" && key !== "productInfo") {
-          draftInventory[key] = value;
+      // 3. Handle other top-level fields (publish flags, etc.)
+      const topLevelFields = ["publishToEbay", "publishToAmazon", "publishToWebsite", "stockThreshold"];
+
+      topLevelFields.forEach((field) => {
+        if (stepData[field] !== undefined) {
+          draftInventory[field] = stepData[field];
         }
       });
 
+      // 4. Save changes
       await draftInventory.save({ validateBeforeSave: false });
       return draftInventory;
     } catch (error: any) {
