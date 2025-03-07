@@ -84,8 +84,29 @@ export const inventoryService = {
         return draftInventory;
       }
 
+      // ✅ Ensure `productInfo` exists before updating
+      if (!draftInventory.productInfo) {
+        draftInventory.productInfo = {};
+      }
+
+      // ✅ Update `productInfo`
+      if (
+        stepData.productCategory ||
+        stepData.productSupplier ||
+        stepData.title ||
+        stepData.productDescription ||
+        stepData.brand
+      ) {
+        draftInventory.productInfo = {
+          ...draftInventory.productInfo, // Keep existing values
+          ...stepData, // Merge new values
+        };
+        draftInventory.markModified("productInfo"); // ✅ Ensure update is detected
+      }
+
+      // ✅ Handle other updates
       Object.entries(stepData).forEach(([key, value]) => {
-        if (key !== "step") {
+        if (key !== "step" && key !== "productInfo") {
           draftInventory[key] = value;
         }
       });
