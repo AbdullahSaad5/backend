@@ -13,7 +13,7 @@ export const mediaSchema = {
 };
 const options = { timestamps: true, discriminatorKey: "kind" };
 
-const prodInfoSchema = {
+export const prodInfoSchema = {
   productCategory: {
     type: Schema.Types.ObjectId,
     ref: "ProductCategory",
@@ -34,7 +34,7 @@ const prodMediaSchema = {
   videos: { type: [mediaSchema], _id: false },
 };
 
-const prodPricingSchema = {
+export const prodPricingSchema = {
   // prod pricing details
   quantity: { type: String },
   discountType: { type: String, enum: ["fixed", "percentage"] },
@@ -57,7 +57,7 @@ const prodPricingSchema = {
   warrantyCoverage: { type: String, required: true }, // Coverage description
   warrantyDocument: { type: String }, // URL or file path
 };
-const prodDeliverySchema = {
+export const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: {
     type: String,
@@ -84,7 +84,7 @@ const prodDeliverySchema = {
   irregularPackage: { type: Boolean },
 };
 
-const prodSeoSchema = {
+export const prodSeoSchema = {
   seoTags: {
     type: [String],
   },
@@ -96,7 +96,7 @@ const prodSeoSchema = {
   },
 };
 // mock
-const laptopTechnicalSchema = {
+export const laptopTechnicalSchema = {
   processor: { type: String, required: true },
   model: { type: String },
   // inventoryCondition: { type: String },
@@ -123,7 +123,7 @@ const laptopTechnicalSchema = {
   width: { type: String },
 };
 
-const allInOnePCTechnicalSchema = {
+export const allInOnePCTechnicalSchema = {
   processor: { type: String },
   model: { type: String },
   memory: { type: String },
@@ -162,7 +162,7 @@ const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
-const projectorTechnicalSchema = {
+export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
   features: { type: [String] },
@@ -201,7 +201,7 @@ const projectorTechnicalSchema = {
   yearManufactured: { type: String },
 };
 
-const monitorTechnicalSchema = {
+export const monitorTechnicalSchema = {
   model: { type: String },
   features: { type: [String] },
 
@@ -230,7 +230,7 @@ const monitorTechnicalSchema = {
   width: { type: String },
 };
 
-const gamingPCTechnicalSchema = {
+export const gamingPCTechnicalSchema = {
   processor: { type: String },
   model: { type: String },
   maxRamCapacity: { type: String },
@@ -297,7 +297,7 @@ const gamingPCTechnicalSchema = {
   // manufacturer: { type: String, required: true },
 };
 
-const networkEquipmentsTechnicalSchema = {
+export const networkEquipmentsTechnicalSchema = {
   model: { type: String },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
