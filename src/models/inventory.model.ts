@@ -29,7 +29,7 @@ export const prodInfoSchema = {
   brand: { type: String, required: true },
 };
 
-const prodMediaSchema = {
+export const prodMediaSchema = {
   images: { type: [mediaSchema], _id: false },
   videos: { type: [mediaSchema], _id: false },
 };

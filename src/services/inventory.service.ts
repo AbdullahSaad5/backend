@@ -3,6 +3,39 @@ import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
+import { allInOnePCTechnicalSchema, gamingPCTechnicalSchema, laptopTechnicalSchema, monitorTechnicalSchema, networkEquipmentsTechnicalSchema, prodDeliverySchema, prodMediaSchema, prodPricingSchema, prodSeoSchema, projectorTechnicalSchema } from "@/models/inventory.model";
+
+
+// Define a type for the tech schemas
+type TechSchemas = {
+  laptops: typeof laptopTechnicalSchema,
+  all_in_one_pc: typeof allInOnePCTechnicalSchema,
+  projectors: typeof projectorTechnicalSchema,
+  monitors: typeof monitorTechnicalSchema,
+  gaming_pc: typeof gamingPCTechnicalSchema,
+  network_equipments: typeof networkEquipmentsTechnicalSchema
+};
+
+// Helper function to get correct tech schema
+function getTechSchema(kind: keyof TechSchemas) {
+  const techSchemas: TechSchemas = {
+    'laptops': laptopTechnicalSchema,
+    'all_in_one_pc': allInOnePCTechnicalSchema,
+    'projectors': projectorTechnicalSchema,
+    'monitors': monitorTechnicalSchema,
+    'gaming_pc': gamingPCTechnicalSchema,
+    'network_equipments': networkEquipmentsTechnicalSchema
+  };
+  return techSchemas[kind] || {};
+}
+
+// Utility function to pick allowed fields
+function pick(obj: any, keys: string[]) {
+  return keys.reduce((acc: { [key: string]: any }, key) => {
+    if (obj[key] !== undefined) acc[key] = obj[key];
+    return acc;
+  }, {});
+}
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventory: async (stepData: any) => {
@@ -72,7 +105,7 @@ export const inventoryService = {
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
-      const draftInventory = await Inventory.findById(inventoryId);
+      const draftInventory: any = await Inventory.findById(inventoryId);
       if (!draftInventory) {
         throw new Error("Draft inventory not found");
       }
@@ -85,52 +118,67 @@ export const inventoryService = {
         return draftInventory;
       }
 
-      // Define schema sections and their paths
-      const schemaSections: string[] = ["prodPricing", "prodDelivery", "prodSeo", "prodTechInfo", "prodMedia"];
+      // Define schema sections with their exact paths
+      const schemaSections = {
+        productInfo: ['productCategory', 'productSupplier', 'title', 'productDescription', 'brand'],
+        prodPricing: Object.keys(prodPricingSchema),
+        prodDelivery: Object.keys(prodDeliverySchema),
+        prodSeo: Object.keys(prodSeoSchema),
+        prodMedia: Object.keys(prodMediaSchema),
+        prodTechInfo: [] // Will be dynamically handled
+      };
 
-      // Handle productInfo fields (special case - top-level fields)
-      const productInfoFields = ["productCategory", "productSupplier", "title", "productDescription", "brand"];
+      // 1. Handle productInfo fields (special nested structure)
+      if (schemaSections.productInfo.some(field => stepData[field])) {
+        draftInventory.productInfo = {
+          ...draftInventory.productInfo,
+          ...pick(stepData, schemaSections.productInfo)
+        };
+        draftInventory.markModified('productInfo');
+      }
 
-      // 1. Update nested sections
-      for (const section of schemaSections) {
+      // 2. Handle nested sections with schema validation
+      for (const [section, allowedFields] of Object.entries(schemaSections)) {
+        if (section === 'productInfo' || section === 'prodTechInfo') continue;
+
         if (stepData[section]) {
+          // Filter valid fields for the section
+          const validUpdate = pick(stepData[section], allowedFields);
+
+          // Merge updates
           draftInventory[section] = {
-            ...(draftInventory[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
+            ...draftInventory[section],
+            ...validUpdate
           };
-          draftInventory.markModified(section); // Force Mongoose to detect changes
+
+          draftInventory.markModified(section);
         }
       }
 
-      // 2. Handle productInfo fields
-      const hasProductInfo = productInfoFields.some((field) => stepData[field]);
-      if (hasProductInfo) {
-        const productInfoUpdate: { [key: string]: any } = {};
+      // 3. Handle tech specs (discriminator-aware)
+      if (stepData.prodTechInfo) {
+        const techSchema = getTechSchema(draftInventory.kind);
+        const validTechFields = Object.keys(techSchema);
 
-        // Only take allowed productInfo fields
-        productInfoFields.forEach((field) => {
-          if (stepData[field] !== undefined) {
-            productInfoUpdate[field] = stepData[field];
-          }
-        });
-
-        draftInventory.productInfo = {
-          ...(draftInventory.productInfo || {}),
-          ...productInfoUpdate,
+        draftInventory.prodTechInfo = {
+          ...draftInventory.prodTechInfo,
+          ...pick(stepData.prodTechInfo, validTechFields)
         };
-        draftInventory.markModified("productInfo");
+        draftInventory.markModified('prodTechInfo');
       }
 
-      // 3. Handle other top-level fields (publish flags, etc.)
-      const topLevelFields = ["publishToEbay", "publishToAmazon", "publishToWebsite", "stockThreshold"];
+      // 4. Handle top-level inventory fields
+      const topLevelFields = [
+        'publishToEbay', 'publishToAmazon', 'publishToWebsite',
+        'stockThreshold', 'isBlocked', 'Kind'
+      ];
 
-      topLevelFields.forEach((field) => {
+      topLevelFields.forEach(field => {
         if (stepData[field] !== undefined) {
           draftInventory[field] = stepData[field];
         }
       });
 
-      // 4. Save changes
       await draftInventory.save({ validateBeforeSave: false });
       return draftInventory;
     } catch (error: any) {
@@ -138,6 +186,8 @@ export const inventoryService = {
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
+
+
 
   getFullInventoryById: async (id: string) => {
     try {
