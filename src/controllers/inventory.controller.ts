@@ -18,7 +18,7 @@ export const inventoryController = {
         });
       }
 
-      const draftInventory = await inventoryService.createDraftInventory(stepData);
+      const draftInventory = await inventoryService.createDraftInventoryService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
         success: true,
@@ -33,7 +33,6 @@ export const inventoryController = {
       });
     }
   },
-
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
@@ -172,7 +171,7 @@ export const inventoryController = {
     }
   },
   //Get All Template Inventory Names
-  getAllTemplateInventory: async (req: Request, res: Response) => {
+  getAllTemplateInventoryNames: async (req: Request, res: Response) => {
     try {
       const templates = await inventoryService.getInventoryByCondition({
         isTemplate: true,
@@ -187,7 +186,7 @@ export const inventoryController = {
 
       let templateList = templates.map((template, index) => {
         const inventoryId = template._id;
-        const kind = template.kind || "UNKNOWN";
+        const kind = template.Kind || "UNKNOWN";
 
         let fields: string[] = [];
         const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
@@ -256,26 +255,24 @@ export const inventoryController = {
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await inventoryService.getInventoryByCondition({
-        status: "draft",
-      });
+      const drafts = await inventoryService.getInventoryByCondition({ status: "draft" });
 
-      if (!drafts.length) {
+      if (!drafts || drafts.length === 0) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "No draft inventory found",
         });
       }
 
-      let draftList = drafts.map((draft, index) => {
+      const draftList = drafts.map((draft, index) => {
         const inventoryId = draft._id;
-        const kind = draft.kind || "UNKNOWN";
+        const kind = draft?.Kind || "UNKNOWN";
+        const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
 
         let fields: string[] = [];
-        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
         switch (kind.toLowerCase()) {
-          case "laptops":
+          case "inventory_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -285,19 +282,19 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "inventory_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "inventory_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "inventory_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "inventory_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "inventory_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -306,19 +303,16 @@ export const inventoryController = {
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { draftName, inventoryId };
       });
 
-      // 🔹 Sort by the number at the end of draftName in descending order
       draftList.sort((a, b) => {
         const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
         const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
@@ -427,7 +421,7 @@ export const inventoryController = {
         });
       }
 
-      const updatedInventory = await inventoryService.updateInventory(id, platform, data);
+      const updatedInventory = await inventoryService.updateInventory(id, data);
 
       if (!updatedInventory) {
         return res.status(StatusCodes.NOT_FOUND).json({

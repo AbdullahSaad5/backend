@@ -48,9 +48,9 @@ function pick(obj: any, keys: string[]) {
 }
 export const inventoryService = {
   // Create a new draft inventory
-  createDraftInventory: async (stepData: any) => {
+  createDraftInventoryService: async (stepData: any) => {
     try {
-      const { kind, productCategory, productSupplier } = stepData;
+      const { kind, productCategory, productSupplier, title, productDescription, brand } = stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
@@ -73,9 +73,9 @@ export const inventoryService = {
         productInfo: {
           productCategory: categoryId,
           productSupplier: supplierId,
-          title: stepData.title || "",
-          productDescription: stepData.productDescription || "",
-          brand: stepData.brand || "",
+          title: title || "",
+          productDescription: productDescription || "",
+          brand: brand || "",
         },
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
@@ -84,7 +84,6 @@ export const inventoryService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      // ✅ Remove undefined fields to prevent validation errors
       Object.keys(draftInventoryData).forEach((key) => {
         if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
           Object.keys(draftInventoryData[key]).forEach((subKey) => {
@@ -106,7 +105,7 @@ export const inventoryService = {
   },
 
   // Update an existing draft inventory when user move to next stepper
-   updateDraftInventory : async (inventoryId: string, stepData: any) => {
+  updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
       console.log("Received update request:", { inventoryId, stepData });
 
@@ -171,7 +170,6 @@ export const inventoryService = {
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
-
 
   getFullInventoryById: async (id: string) => {
     try {
@@ -281,7 +279,7 @@ export const inventoryService = {
     }
   },
   // New API for fetching inventory stats (separate service logic)
-  getInventorStats: async () => {
+  getInventoryStats: async () => {
     try {
       const totalInventory = await Inventory.countDocuments({});
       const activeInventory = await Inventory.countDocuments({

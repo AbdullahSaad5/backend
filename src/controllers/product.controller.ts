@@ -124,15 +124,6 @@ export const productController = {
   getProductById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      // const platform = req.query.platform as "amazon" | "ebay" | "website";
-
-      // if (!platform) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Platform query parameter is required",
-      //   });
-      // }
-
       const product = await productService.getProductById(id);
 
       if (!product) {
