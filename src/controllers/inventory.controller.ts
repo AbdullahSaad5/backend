@@ -18,7 +18,7 @@ export const inventoryController = {
         });
       }
 
-      const draftInventory = await inventoryService.createDraftInventory(stepData);
+      const draftInventory = await inventoryService.createDraftInventoryService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
         success: true,
@@ -33,7 +33,6 @@ export const inventoryController = {
       });
     }
   },
-
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
@@ -256,23 +255,21 @@ export const inventoryController = {
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await inventoryService.getInventoryByCondition({
-        status: "draft",
-      });
+      const drafts = await inventoryService.getInventoryByCondition({ status: "draft" });
 
-      if (!drafts.length) {
+      if (!drafts || drafts.length === 0) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "No draft inventory found",
         });
       }
 
-      let draftList = drafts.map((draft, index) => {
+      const draftList = drafts.map((draft, index) => {
         const inventoryId = draft._id;
         const kind = draft?.Kind || "UNKNOWN";
+        const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
 
         let fields: string[] = [];
-        const prodInfo: any = drafts.productInfo || {};
 
         switch (kind.toLowerCase()) {
           case "inventory_laptops":
@@ -306,19 +303,16 @@ export const inventoryController = {
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { draftName, inventoryId };
       });
 
-      // 🔹 Sort by the number at the end of draftName in descending order
       draftList.sort((a, b) => {
         const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
         const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
