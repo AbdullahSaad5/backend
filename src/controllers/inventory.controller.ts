@@ -72,16 +72,16 @@ export const inventoryController = {
 
   getAllInventory: async (req: Request, res: Response) => {
     try {
-      const inventorys = await inventoryService.getAllInventory();
+      const inventory = await inventoryService.getAllInventory();
       return res.status(StatusCodes.OK).json({
         success: true,
-        inventorys,
+        inventory,
       });
     } catch (error: any) {
-      console.error("Error fetching inventorys:", error);
+      console.error("Error fetching inventory:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error fetching inventorys",
+        message: error.message || "Error fetching inventory",
       });
     }
   },
@@ -251,7 +251,7 @@ export const inventoryController = {
       if (!drafts.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "No draft inventorys found",
+          message: "No draft inventory found",
         });
       }
 
@@ -311,7 +311,7 @@ export const inventoryController = {
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft inventorys names fetched successfully",
+        message: "Draft inventory names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -492,10 +492,10 @@ export const inventoryController = {
       const stats = await inventoryService.getInventoryStats();
       return res.status(StatusCodes.OK).json(stats);
     } catch (error) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching inventorys statistics" });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching inventory statistics" });
     }
   },
-  searchAndFilterInventorys: async (req: Request, res: Response) => {
+  searchAndFilterInventory: async (req: Request, res: Response) => {
     try {
       // Extract filters from query params
       const {
@@ -524,19 +524,19 @@ export const inventoryController = {
       };
 
       // Call the service to search and filter the inventorys
-      const inventorys = await inventoryService.searchAndFilterInventorys(filters);
+      const inventory = await inventoryService.searchAndFilterInventory(filters);
 
       // Return the results
       res.status(200).json({
         success: true,
         message: "Search and filter completed successfully",
-        data: inventorys,
+        data: inventory,
       });
     } catch (error) {
       console.error("Error in search and filter:", error);
       res.status(500).json({
         success: false,
-        message: "Error in search and filter inventorys",
+        message: "Error in search and filter inventory",
       });
     }
   },
