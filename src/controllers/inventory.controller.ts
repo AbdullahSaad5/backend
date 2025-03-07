@@ -172,7 +172,7 @@ export const inventoryController = {
     }
   },
   //Get All Template Inventory Names
-  getAllTemplateInventory: async (req: Request, res: Response) => {
+  getAllTemplateInventoryNames: async (req: Request, res: Response) => {
     try {
       const templates = await inventoryService.getInventoryByCondition({
         isTemplate: true,
@@ -187,7 +187,7 @@ export const inventoryController = {
 
       let templateList = templates.map((template, index) => {
         const inventoryId = template._id;
-        const kind = template.kind || "UNKNOWN";
+        const kind = template.Kind || "UNKNOWN";
 
         let fields: string[] = [];
         const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
@@ -269,13 +269,13 @@ export const inventoryController = {
 
       let draftList = drafts.map((draft, index) => {
         const inventoryId = draft._id;
-        const kind = draft.kind || "UNKNOWN";
+        const kind = draft?.Kind || "UNKNOWN";
 
         let fields: string[] = [];
-        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
+        const prodInfo: any = drafts.productInfo || {};
 
         switch (kind.toLowerCase()) {
-          case "laptops":
+          case "inventory_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -285,19 +285,19 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "inventory_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "inventory_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "inventory_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "inventory_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "inventory_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -427,7 +427,7 @@ export const inventoryController = {
         });
       }
 
-      const updatedInventory = await inventoryService.updateInventory(id, platform, data);
+      const updatedInventory = await inventoryService.updateInventory(id, data);
 
       if (!updatedInventory) {
         return res.status(StatusCodes.NOT_FOUND).json({

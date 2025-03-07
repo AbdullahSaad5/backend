@@ -33,7 +33,7 @@ export const inventory = (router: Router) => {
   router.get("/drafts/:id", inventoryValidation.validateId, inventoryController.transformAndSendDraftInventory);
 
   // Fetch all template inventory  names
-  router.get("/templates", inventoryController.getAllTemplateInventory);
+  router.get("/templates", inventoryController.getAllTemplateInventoryNames);
 
   // Fetch all Draft inventory  names
   router.get("/drafts", inventoryController.getAllDraftInventoryNames);

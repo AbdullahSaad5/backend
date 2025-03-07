@@ -106,7 +106,7 @@ export const inventoryService = {
   },
 
   // Update an existing draft inventory when user move to next stepper
-   updateDraftInventory : async (inventoryId: string, stepData: any) => {
+  updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
       console.log("Received update request:", { inventoryId, stepData });
 
@@ -171,7 +171,6 @@ export const inventoryService = {
       throw new Error(`Failed to update draft inventory: ${error.message}`);
     }
   },
-
 
   getFullInventoryById: async (id: string) => {
     try {
@@ -281,7 +280,7 @@ export const inventoryService = {
     }
   },
   // New API for fetching inventory stats (separate service logic)
-  getInventorStats: async () => {
+  getInventoryStats: async () => {
     try {
       const totalInventory = await Inventory.countDocuments({});
       const activeInventory = await Inventory.countDocuments({
