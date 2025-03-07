@@ -1,10 +1,7 @@
 import { inventoryController } from "@/controllers";
 import { inventoryValidation } from "@/validations";
 import { Router } from "express";
-import {
-  handleBulkImport,
-  handleBulkExport,
-} from "@/controllers/product.controller.helper"; // Adjust import path as needed
+import { handleBulkImport, handleBulkExport } from "@/controllers/product.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const inventory = (router: Router) => {
@@ -12,10 +9,8 @@ export const inventory = (router: Router) => {
 
   // Create or update a draft inventory
   router.post("/", inventoryController.createDraftInventory);
-  router.patch(
-    "/bulk-update-vat-and-discount",
-    inventoryController.bulkUpdateInventoryTaxDiscount
-  );
+
+  router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxDiscount);
   //new route for search and filter and pagination
   router.get("/search", inventoryController.searchAndFilterInventorys);
 
@@ -27,28 +22,16 @@ export const inventory = (router: Router) => {
   // Route for bulk export (GET request)
   router.get("/bulk-export", handleBulkExport);
 
-  router.get(
-    "/transform/:id",
-    inventoryValidation.validateId,
-    inventoryController.transformAndSendInventory
-  );
+  router.get("/transform/:id", inventoryValidation.validateId, inventoryController.transformAndSendInventory);
   // Fetch transformed template inventory by ID
-  router.get(
-    "/templates/:id",
-    inventoryValidation.validateId,
-    inventoryController.transformAndSendTemplateInventory
-  );
-  router.get(
-    "/drafts/:id",
-    inventoryValidation.validateId,
-    inventoryController.transformAndSendDraftInventory
-  );
+  router.get("/templates/:id", inventoryValidation.validateId, inventoryController.transformAndSendTemplateInventory);
+  router.get("/drafts/:id", inventoryValidation.validateId, inventoryController.transformAndSendDraftInventory);
 
   // Fetch all template inventory  names
-  // router.get("/templates", inventoryController.getAllTemplateInventorys);
+  router.get("/templates", inventoryController.getAllTemplateInventory);
 
   // Fetch all Draft inventory  names
-  // router.get("/drafts", inventoryController.getAllDraftInventoryNames);
+  router.get("/drafts", inventoryController.getAllDraftInventoryNames);
 
   // Update a draft inventory by ID (subsequent steps)
   router.patch(
@@ -59,23 +42,11 @@ export const inventory = (router: Router) => {
 
   router.get("/", inventoryController.getAllInventory);
 
-  router.get(
-    "/:id",
-    inventoryValidation.validateId,
-    inventoryController.getInventoryById
-  );
+  router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
 
-  router.delete(
-    "/:id",
-    inventoryValidation.validateId,
-    inventoryController.deleteInventory
-  );
+  router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
 
-  // router.patch(
-  //   "/:id",
-  //   inventoryValidation.updateInventory,
-  //   inventoryController.updateInventoryById
-  // );
+  router.patch("/:id", inventoryValidation.updateInventory, inventoryController.updateInventoryById);
 
   // route for toggle block status
   router.patch("/block/:id", inventoryController.toggleBlock);

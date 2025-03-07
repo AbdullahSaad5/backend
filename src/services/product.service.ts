@@ -8,13 +8,11 @@ export const productService = {
   createDraftProduct: async (stepData: any) => {
     try {
       const productCategory =
-        stepData.productCategory &&
-        mongoose.isValidObjectId(stepData.productCategory)
+        stepData.productCategory && mongoose.isValidObjectId(stepData.productCategory)
           ? new mongoose.Types.ObjectId(stepData.productCategory)
           : null;
       const productSupplier =
-        stepData.productSupplier &&
-        mongoose.isValidObjectId(stepData.productSupplier)
+        stepData.productSupplier && mongoose.isValidObjectId(stepData.productSupplier)
           ? new mongoose.Types.ObjectId(stepData.productSupplier)
           : null;
       if (!productCategory) {
@@ -64,12 +62,9 @@ export const productService = {
 
       Object.entries(stepData).forEach(([key, value]: [string, any]) => {
         const { value: fieldValue, isAmz, isEbay, isWeb } = value || {};
-        if (isAmz)
-          draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
-        if (isEbay)
-          draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
-        if (isWeb)
-          draftProduct.platformDetails.website.productInfo[key] = fieldValue;
+        if (isAmz) draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
+        if (isEbay) draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
+        if (isWeb) draftProduct.platformDetails.website.productInfo[key] = fieldValue;
       });
       //  if(stepData.prodPricing.images){
       // Object.entries(stepData).forEach(([key, value]: [string, any]) => {
@@ -83,10 +78,8 @@ export const productService = {
       // });
       // }
       ["amazon", "ebay", "website"].forEach((platform) => {
-        draftProduct.platformDetails[platform].productInfo.productCategory =
-          productCategory;
-        draftProduct.platformDetails[platform].productInfo.productSupplier =
-          productSupplier;
+        draftProduct.platformDetails[platform].productInfo.productCategory = productCategory;
+        draftProduct.platformDetails[platform].productInfo.productSupplier = productSupplier;
         draftProduct.kind = stepData.kind;
       });
 
@@ -143,23 +136,16 @@ export const productService = {
               draftProduct.platformDetails[platform].prodDelivery = {};
             }
 
-            if (
-              typeof entry === "object" &&
-              !Array.isArray(entry) &&
-              entry.value === undefined
-            ) {
+            if (typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
               // Handle nested objects (e.g., packageWeight, packageDimensions)
               draftProduct.platformDetails[platform].prodDelivery[key] = {};
               Object.keys(entry).forEach((subKey) => {
                 if (subKey.startsWith("is")) return; // Ignore flags
-                draftProduct.platformDetails[platform].prodDelivery[key][
-                  subKey
-                ] = entry[subKey].value;
+                draftProduct.platformDetails[platform].prodDelivery[key][subKey] = entry[subKey].value;
               });
             } else {
               // Handle direct key-value pairs (e.g., postagePolicy, irregularPackage)
-              draftProduct.platformDetails[platform].prodDelivery[key] =
-                entry.value;
+              draftProduct.platformDetails[platform].prodDelivery[key] = entry.value;
             }
           };
 
@@ -193,12 +179,7 @@ export const productService = {
               isEbay = inheritedFlags.isEbay,
               isWeb = inheritedFlags.isWeb,
             } = entry || {};
-            if (
-              entry &&
-              typeof entry === "object" &&
-              !Array.isArray(entry) &&
-              entry.value === undefined
-            ) {
+            if (entry && typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
               // Recursive call for nested objects
               processStepData(entry, platformDetails, currentKey, {
                 isAmz,
@@ -214,12 +195,9 @@ export const productService = {
                 if (isAmz) platformDetails.amazon.productInfo ||= {};
                 if (isEbay) platformDetails.ebay.productInfo ||= {};
                 if (isWeb) platformDetails.website.productInfo ||= {};
-                if (isAmz)
-                  platformDetails.amazon.productInfo[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.productInfo[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.productInfo[currentKey] = value;
+                if (isAmz) platformDetails.amazon.productInfo[currentKey] = value;
+                if (isEbay) platformDetails.ebay.productInfo[currentKey] = value;
+                if (isWeb) platformDetails.website.productInfo[currentKey] = value;
                 if (currentKey === "productSupplier") {
                   platformDetails.amazon.productInfo.productSupplier = value;
                   platformDetails.ebay.productInfo.productSupplier = value;
@@ -256,22 +234,16 @@ export const productService = {
                 if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
                 if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
                 if (isWeb) platformDetails.website.prodTechInfo ||= {};
-                if (isAmz)
-                  platformDetails.amazon.prodTechInfo[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.prodTechInfo[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.prodTechInfo[currentKey] = value;
+                if (isAmz) platformDetails.amazon.prodTechInfo[currentKey] = value;
+                if (isEbay) platformDetails.ebay.prodTechInfo[currentKey] = value;
+                if (isWeb) platformDetails.website.prodTechInfo[currentKey] = value;
               } else if (step === "prodPricing") {
                 if (isAmz) platformDetails.amazon.prodPricing ||= {};
                 if (isEbay) platformDetails.ebay.prodPricing ||= {};
                 if (isWeb) platformDetails.website.prodPricing ||= {};
-                if (isAmz)
-                  platformDetails.amazon.prodPricing[currentKey] = value;
-                if (isEbay)
-                  platformDetails.ebay.prodPricing[currentKey] = value;
-                if (isWeb)
-                  platformDetails.website.prodPricing[currentKey] = value;
+                if (isAmz) platformDetails.amazon.prodPricing[currentKey] = value;
+                if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
+                if (isWeb) platformDetails.website.prodPricing[currentKey] = value;
               } else {
                 if (isAmz) platformDetails.amazon.prodSeo ||= {};
                 if (isEbay) platformDetails.ebay.prodSeo ||= {};
@@ -289,11 +261,7 @@ export const productService = {
       await draftProduct.save({ validateBeforeSave: false });
       return draftProduct;
     } catch (error: any) {
-      console.error(
-        "❌ Error updating draft product:",
-        error.message,
-        error.stack
-      );
+      console.error("❌ Error updating draft product:", error.message, error.stack);
       throw new Error(`Failed to update draft product: ${error.message}`);
     }
   },
@@ -345,9 +313,7 @@ export const productService = {
         .populate("platformDetails.amazon.productInfo.productSupplier")
         .populate("platformDetails.ebay.productInfo.productSupplier")
         .populate("platformDetails.website.productInfo.productSupplier")
-        .select(
-          "_id platformDetails website.productInfo productCategory brand model srno kind"
-        );
+        .select("_id platformDetails website.productInfo productCategory brand model srno kind");
     } catch (error) {
       console.error("Error fetching products by condition:", error);
       throw new Error("Failed to fetch products by condition");
@@ -377,11 +343,7 @@ export const productService = {
       throw new Error("Failed to fetch product");
     }
   },
-  updateProduct: async (
-    id: string,
-    platform: "amazon" | "ebay" | "website",
-    data: any
-  ) => {
+  updateProduct: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
     try {
       const updateQuery = { [`platformDetails.${platform}`]: data };
       const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
@@ -403,11 +365,7 @@ export const productService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedProduct = await Product.findByIdAndUpdate(
-        id,
-        { isBlocked },
-        { new: true }
-      );
+      const updatedProduct = await Product.findByIdAndUpdate(id, { isBlocked }, { new: true });
       if (!updatedProduct) throw new Error("Product not found");
       return updatedProduct;
     } catch (error) {
@@ -543,18 +501,13 @@ export const productService = {
       // Date range filter for createdAt
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate)))
-          dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate)))
-          dateFilter.$lte = new Date(endDate);
+        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
       // Fetch products with pagination
-      const products = await Product.find(query)
-        .populate("userType")
-        .skip(skip)
-        .limit(limitNumber);
+      const products = await Product.find(query).populate("userType").skip(skip).limit(limitNumber);
 
       // Count total products
       const totalProducts = await Product.countDocuments(query);
@@ -592,9 +545,7 @@ export const productService = {
       }
 
       // ✅ Fetch all existing product titles to prevent duplicates
-      const existingTitles = new Set(
-        (await Product.find({}, "title")).map((p: any) => p.title)
-      );
+      const existingTitles = new Set((await Product.find({}, "title")).map((p: any) => p.title));
 
       // ✅ Fetch all suppliers in one query to optimize validation
       const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
@@ -603,12 +554,7 @@ export const productService = {
         "_id supplierKey"
         // ).lean();
       );
-      const supplierMap = new Map(
-        existingSuppliers.map((supplier) => [
-          supplier.supplierKey,
-          supplier._id,
-        ])
-      );
+      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
 
       // ✅ Filter out invalid suppliers
       const filteredRows = validRows.filter(({ data }) => {
@@ -623,9 +569,7 @@ export const productService = {
       });
 
       if (filteredRows.length === 0) {
-        console.log(
-          "❌ No valid products to insert after supplier validation."
-        );
+        console.log("❌ No valid products to insert after supplier validation.");
         return;
       }
 
@@ -638,9 +582,7 @@ export const productService = {
               title: data.title,
               brand: data.brand,
               productDescription: data.productDescription,
-              productCategory: new mongoose.Types.ObjectId(
-                data.productCategory
-              ),
+              productCategory: new mongoose.Types.ObjectId(data.productCategory),
               productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
               media: {
@@ -653,39 +595,34 @@ export const productService = {
                   type: "video/mp4",
                 })),
               },
-              platformDetails: ["amazon", "ebay", "website"].reduce(
-                (acc: { [key: string]: any }, platform) => {
-                  acc[platform] = {
-                    productInfo: {
-                      brand: data.brand,
-                      title: data.title,
-                      productDescription: data.productDescription,
-                      productCategory: new mongoose.Types.ObjectId(
-                        data.productCategory
-                      ),
-                      productSupplier: supplierMap.get(data.productSupplierKey),
-                    },
-                    prodPricing: {
-                      price: parseFloat(data.price),
-                      condition: "new",
-                      quantity: 10,
-                      vat: 5,
-                    },
-                    prodMedia: {
-                      images: data.images.map((url: string) => ({
-                        url,
-                        type: "image/jpeg",
-                      })),
-                      videos: data.videos.map((url: string) => ({
-                        url,
-                        type: "video/mp4",
-                      })),
-                    },
-                  };
-                  return acc;
-                },
-                {}
-              ),
+              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
+                acc[platform] = {
+                  productInfo: {
+                    brand: data.brand,
+                    title: data.title,
+                    productDescription: data.productDescription,
+                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
+                    productSupplier: supplierMap.get(data.productSupplierKey),
+                  },
+                  prodPricing: {
+                    price: parseFloat(data.price),
+                    condition: "new",
+                    quantity: 10,
+                    vat: 5,
+                  },
+                  prodMedia: {
+                    images: data.images.map((url: string) => ({
+                      url,
+                      type: "image/jpeg",
+                    })),
+                    videos: data.videos.map((url: string) => ({
+                      url,
+                      type: "video/mp4",
+                    })),
+                  },
+                };
+                return acc;
+              }, {}),
             },
           },
         }));
@@ -697,9 +634,7 @@ export const productService = {
 
       // ✅ Perform Bulk Insert Operation
       await Product.bulkWrite(bulkOperations);
-      console.log(
-        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`
-      );
+      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`);
 
       // ✅ Log skipped rows due to invalid suppliers
       if (invalidRows.length > 0) {
@@ -731,9 +666,7 @@ export const productService = {
         SupplierId: product.supplier?._id,
         AmazonInfo: JSON.stringify(product.platformDetails.amazon.productInfo),
         EbayInfo: JSON.stringify(product.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(
-          product.platformDetails.website.productInfo
-        ),
+        WebsiteInfo: JSON.stringify(product.platformDetails.website.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -752,11 +685,7 @@ export const productService = {
       throw new Error("Failed to export products.");
     }
   },
-  bulkUpdateProductTaxDiscount: async (
-    productIds: string[],
-    discountValue: number,
-    vat: number
-  ) => {
+  bulkUpdateProductTaxDiscount: async (productIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -779,9 +708,7 @@ export const productService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error(
-          "No products were updated. Please verify product IDs and data."
-        );
+        throw new Error("No products were updated. Please verify product IDs and data.");
       }
 
       return result;
@@ -790,10 +717,7 @@ export const productService = {
     }
   },
 
-  upsertProductPartsService: async (
-    productId: string,
-    selectedVariations: any
-  ) => {
+  upsertProductPartsService: async (productId: string, selectedVariations: any) => {
     return await Product.findByIdAndUpdate(
       productId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.

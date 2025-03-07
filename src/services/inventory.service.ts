@@ -84,8 +84,29 @@ export const inventoryService = {
         return draftInventory;
       }
 
+      // ✅ Ensure `productInfo` exists before updating
+      if (!draftInventory.productInfo) {
+        draftInventory.productInfo = {};
+      }
+
+      // ✅ Update `productInfo`
+      if (
+        stepData.productCategory ||
+        stepData.productSupplier ||
+        stepData.title ||
+        stepData.productDescription ||
+        stepData.brand
+      ) {
+        draftInventory.productInfo = {
+          ...draftInventory.productInfo, // Keep existing values
+          ...stepData, // Merge new values
+        };
+        draftInventory.markModified("productInfo"); // ✅ Ensure update is detected
+      }
+
+      // ✅ Handle other updates
       Object.entries(stepData).forEach(([key, value]) => {
-        if (key !== "step") {
+        if (key !== "step" && key !== "productInfo") {
           draftInventory[key] = value;
         }
       });
@@ -130,14 +151,14 @@ export const inventoryService = {
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
     } catch (error) {
-      console.error("Error fetching all inventorys:", error);
-      throw new Error("Failed to fetch inventorys");
+      console.error("Error fetching all inventory:", error);
+      throw new Error("Failed to fetch inventory");
     }
   },
-  //getting all template inventorys name and their id
-  getInventorysByCondition: async (condition: Record<string, any>) => {
+  //getting all template inventory name and their id
+  getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
-      // Find inventorys matching the condition
+      // Find inventory matching the condition
       return await Inventory.find(condition)
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
@@ -147,8 +168,8 @@ export const inventoryService = {
         .populate("platformDetails.website.productInfo.productSupplier")
         .select("_id platformDetails website.productInfo productCategory brand model srno kind");
     } catch (error) {
-      console.error("Error fetching inventorys by condition:", error);
-      throw new Error("Failed to fetch inventorys by condition");
+      console.error("Error fetching inventory by condition:", error);
+      throw new Error("Failed to fetch inventory by condition");
     }
   },
   getInventoryById: async (id: string) => {
@@ -175,19 +196,19 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
-  // updateInventory: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
-  //   try {
-  //     const updateQuery = { [`platformDetails.${platform}`]: data };
-  //     const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
-  //       new: true,
-  //     });
-  //     if (!updatedInventory) throw new Error("Inventory not found");
-  //     return updatedInventory.platformDetails[platform];
-  //   } catch (error) {
-  //     console.error(`Error updating inventory for platform ${platform}:`, error);
-  //     throw new Error("Failed to update inventory");
-  //   }
-  // },
+  updateInventory: async (id: string, data: any) => {
+    try {
+      const updateQuery = { [`platformDetails.`]: data };
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
+        new: true,
+      });
+      if (!updatedInventory) throw new Error("Inventory not found");
+      return updatedInventory;
+    } catch (error) {
+      console.error(`Error updating inventory`, error);
+      throw new Error("Failed to update inventory");
+    }
+  },
   deleteInventory: (id: string) => {
     const inventory = Inventory.findByIdAndDelete(id);
     if (!inventory) {
@@ -206,39 +227,39 @@ export const inventoryService = {
     }
   },
   // New API for fetching inventory stats (separate service logic)
-  getInventoryStats: async () => {
+  getInventorStats: async () => {
     try {
-      const totalInventorys = await Inventory.countDocuments({});
-      const activeInventorys = await Inventory.countDocuments({
+      const totalInventory = await Inventory.countDocuments({});
+      const activeInventory = await Inventory.countDocuments({
         isBlocked: false,
       });
-      const blockedInventorys = await Inventory.countDocuments({
+      const blockedInventory = await Inventory.countDocuments({
         isBlocked: true,
       });
-      const PublishedInventorys = await Inventory.countDocuments({
+      const PublishedInventory = await Inventory.countDocuments({
         status: "published",
       });
-      const DraftInventorys = await Inventory.countDocuments({
+      const DraftInventory = await Inventory.countDocuments({
         status: "draft",
       });
-      const TemplateInventorys = await Inventory.countDocuments({
+      const TemplateInventory = await Inventory.countDocuments({
         isTemplate: true,
       });
 
       return {
-        totalInventorys,
-        activeInventorys,
-        blockedInventorys,
-        PublishedInventorys,
-        DraftInventorys,
-        TemplateInventorys,
+        totalInventory,
+        activeInventory,
+        blockedInventory,
+        PublishedInventory,
+        DraftInventory,
+        TemplateInventory,
       };
     } catch (error) {
-      console.error("Error fetching Inventorys stats:", error);
-      throw new Error("Error fetching inventorys statistics");
+      console.error("Error fetching Inventory stats:", error);
+      throw new Error("Error fetching inventory statistics");
     }
   },
-  searchAndFilterInventorys: async (filters: any) => {
+  searchAndFilterInventory: async (filters: any) => {
     try {
       const {
         searchQuery = "",
@@ -263,55 +284,55 @@ export const inventoryService = {
       if (searchQuery) {
         query.$or = [
           {
-            "platformDetails.amazon.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.amazon.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.amazon.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
@@ -338,18 +359,18 @@ export const inventoryService = {
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
-      // Fetch inventorys with pagination
-      const inventorys = await Inventory.find(query).populate("userType").skip(skip).limit(limitNumber);
+      // Fetch inventory with pagination
+      const inventory = await Inventory.find(query).populate("userType").skip(skip).limit(limitNumber);
 
-      // Count total inventorys
-      const totalInventorys = await Inventory.countDocuments(query);
+      // Count total inventory
+      const totalInventory = await Inventory.countDocuments(query);
 
       return {
-        inventorys,
+        inventory,
         pagination: {
-          totalInventorys,
+          totalInventory,
           currentPage: pageNumber,
-          totalPages: Math.ceil(totalInventorys / limitNumber),
+          totalPages: Math.ceil(totalInventory / limitNumber),
           perPage: limitNumber,
         },
       };
@@ -358,8 +379,8 @@ export const inventoryService = {
       throw new Error("Error during search and filter");
     }
   },
-  //bulk import inventorys as CSV
-  bulkImportInventorys: async (filePath: string): Promise<void> => {
+  //bulk import inventory as CSV
+  bulkImportInventory: async (filePath: string): Promise<void> => {
     try {
       // ✅ Validate CSV data (supplier validation happens inside)
       const { validRows, invalidRows } = await validateCsvData(filePath);
@@ -372,7 +393,7 @@ export const inventoryService = {
       }
 
       if (validRows.length === 0) {
-        console.log("❌ No valid inventorys to import.");
+        console.log("❌ No valid inventory to import.");
         return;
       }
 
@@ -401,11 +422,11 @@ export const inventoryService = {
       });
 
       if (filteredRows.length === 0) {
-        console.log("❌ No valid inventorys to insert after supplier validation.");
+        console.log("❌ No valid inventory to insert after supplier validation.");
         return;
       }
 
-      // ✅ Bulk insert new inventorys (avoiding duplicates)
+      // ✅ Bulk insert new inventory (avoiding duplicates)
       const bulkOperations = filteredRows
         .filter(({ data }) => !existingTitles.has(data.title))
         .map(({ data }) => ({
@@ -460,17 +481,17 @@ export const inventoryService = {
         }));
 
       if (bulkOperations.length === 0) {
-        console.log("✅ No new inventorys to insert.");
+        console.log("✅ No new inventory to insert.");
         return;
       }
 
       // ✅ Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventorys.`);
+      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventory.`);
 
       // ✅ Log skipped rows due to invalid suppliers
       if (invalidRows.length > 0) {
-        console.log("❌ Some inventorys were skipped due to invalid suppliers:");
+        console.log("❌ Some inventory were skipped due to invalid suppliers:");
         invalidRows.forEach(({ row, errors }) => {
           console.log(`Row ${row}: ${errors.join(", ")}`);
         });
@@ -480,14 +501,14 @@ export const inventoryService = {
     }
   },
 
-  //bulk Export inventorys to CSV
+  //bulk Export inventory to CSV
   exportInventory: async (): Promise<string> => {
     try {
-      // Fetch all inventorys from the database
-      const inventorys = await Inventory.find({});
+      // Fetch all inventory from the database
+      const inventory = await Inventory.find({});
 
-      // Format the inventorys data for CSV export
-      const formattedData = inventorys.map((inventory: any) => ({
+      // Format the inventory data for CSV export
+      const formattedData = inventory.map((inventory: any) => ({
         InventoryID: inventory._id,
         Title: inventory.title,
         Description: inventory.description,
@@ -505,7 +526,7 @@ export const inventoryService = {
       const csv = Papa.unparse(formattedData);
 
       // Generate a unique file path for the export
-      const filePath = `exports/inventorys_${Date.now()}.csv`;
+      const filePath = `exports/inventory_${Date.now()}.csv`;
 
       // Write the CSV data to a file
       fs.writeFileSync(filePath, csv);
@@ -514,7 +535,7 @@ export const inventoryService = {
       return filePath;
     } catch (error) {
       console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export inventorys.");
+      throw new Error("Failed to export inventory.");
     }
   },
   bulkUpdateInventoryTaxDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
@@ -540,7 +561,7 @@ export const inventoryService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error("No inventorys were updated. Please verify inventory IDs and data.");
+        throw new Error("No inventory were updated. Please verify inventory IDs and data.");
       }
 
       return result;
