@@ -34,18 +34,22 @@ export const inventoryController = {
     }
   },
 
-  updateDraftInventory: async (req: Request, res: Response) => {
+  updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
       const { stepData } = req.body;
-      console.log("is it stepData", stepData);
+
+      console.log("Received request to update draft inventory:", { inventoryId, stepData });
+
+      // Validate inventory ID
       if (!mongoose.isValidObjectId(inventoryId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid or missing 'inventoryId'",
+          message: "Invalid inventory ID",
         });
       }
 
+      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -53,6 +57,7 @@ export const inventoryController = {
         });
       }
 
+      // Update inventory
       const updatedInventory = await inventoryService.updateDraftInventory(inventoryId, stepData);
 
       if (!updatedInventory) {

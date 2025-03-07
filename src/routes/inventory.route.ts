@@ -12,7 +12,7 @@ export const inventory = (router: Router) => {
   router.patch(
     "/:id",
     // inventoryValidation.updateInventory,
-    inventoryController.updateDraftInventory
+    inventoryController.updateDraftInventoryController
   );
 
   router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxDiscount);
@@ -39,7 +39,6 @@ export const inventory = (router: Router) => {
   router.get("/drafts", inventoryController.getAllDraftInventoryNames);
 
   // Update a draft inventory by ID (subsequent steps)
-
 
   router.get("/", inventoryController.getAllInventory);
 
