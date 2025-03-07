@@ -3,28 +3,38 @@ import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
-import { allInOnePCTechnicalSchema, gamingPCTechnicalSchema, laptopTechnicalSchema, monitorTechnicalSchema, networkEquipmentsTechnicalSchema, prodDeliverySchema, prodMediaSchema, prodPricingSchema, prodSeoSchema, projectorTechnicalSchema } from "@/models/inventory.model";
-
+import {
+  allInOnePCTechnicalSchema,
+  gamingPCTechnicalSchema,
+  laptopTechnicalSchema,
+  monitorTechnicalSchema,
+  networkEquipmentsTechnicalSchema,
+  prodDeliverySchema,
+  prodMediaSchema,
+  prodPricingSchema,
+  prodSeoSchema,
+  projectorTechnicalSchema,
+} from "@/models/inventory.model";
 
 // Define a type for the tech schemas
 type TechSchemas = {
-  laptops: typeof laptopTechnicalSchema,
-  all_in_one_pc: typeof allInOnePCTechnicalSchema,
-  projectors: typeof projectorTechnicalSchema,
-  monitors: typeof monitorTechnicalSchema,
-  gaming_pc: typeof gamingPCTechnicalSchema,
-  network_equipments: typeof networkEquipmentsTechnicalSchema
+  laptops: typeof laptopTechnicalSchema;
+  all_in_one_pc: typeof allInOnePCTechnicalSchema;
+  projectors: typeof projectorTechnicalSchema;
+  monitors: typeof monitorTechnicalSchema;
+  gaming_pc: typeof gamingPCTechnicalSchema;
+  network_equipments: typeof networkEquipmentsTechnicalSchema;
 };
 
 // Helper function to get correct tech schema
 function getTechSchema(kind: keyof TechSchemas) {
   const techSchemas: TechSchemas = {
-    'laptops': laptopTechnicalSchema,
-    'all_in_one_pc': allInOnePCTechnicalSchema,
-    'projectors': projectorTechnicalSchema,
-    'monitors': monitorTechnicalSchema,
-    'gaming_pc': gamingPCTechnicalSchema,
-    'network_equipments': networkEquipmentsTechnicalSchema
+    laptops: laptopTechnicalSchema,
+    all_in_one_pc: allInOnePCTechnicalSchema,
+    projectors: projectorTechnicalSchema,
+    monitors: monitorTechnicalSchema,
+    gaming_pc: gamingPCTechnicalSchema,
+    network_equipments: networkEquipmentsTechnicalSchema,
   };
   return techSchemas[kind] || {};
 }
@@ -103,83 +113,106 @@ export const inventoryService = {
   },
 
   // Update an existing draft inventory when user move to next stepper
+
+
+
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
+      console.log("Received update request:", { inventoryId, stepData });
+
       const draftInventory: any = await Inventory.findById(inventoryId);
       if (!draftInventory) {
+        console.error("Draft inventory not found:", inventoryId);
         throw new Error("Draft inventory not found");
       }
 
+      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
+
       // Handle status updates first
       if (stepData.status !== undefined) {
+        console.log("Updating status:", stepData.status);
         draftInventory.status = stepData.status;
         draftInventory.isTemplate = stepData.isTemplate || false;
         await draftInventory.save({ validateBeforeSave: false });
+
+        console.log("Updated inventory after status change:", JSON.stringify(draftInventory, null, 2));
         return draftInventory;
       }
 
-      // Define schema sections with their exact paths
-      const schemaSections = {
-        productInfo: ['productCategory', 'productSupplier', 'title', 'productDescription', 'brand'],
-        prodPricing: Object.keys(prodPricingSchema),
-        prodDelivery: Object.keys(prodDeliverySchema),
-        prodSeo: Object.keys(prodSeoSchema),
-        prodMedia: Object.keys(prodMediaSchema),
-        prodTechInfo: [] // Will be dynamically handled
-      };
+      // 1️⃣ **Fix: Directly Update `productInfo`**
+      if (stepData.productInfo) {
+        console.log("Updating productInfo with:", stepData.productInfo);
 
-      // 1. Handle productInfo fields (special nested structure)
-      if (schemaSections.productInfo.some(field => stepData[field])) {
-        draftInventory.productInfo = {
-          ...draftInventory.productInfo,
-          ...pick(stepData, schemaSections.productInfo)
-        };
-        draftInventory.markModified('productInfo');
+        // Ensure `productInfo` exists before updating
+        if (!draftInventory.productInfo) {
+          draftInventory.productInfo = {}; // Create empty object if missing
+        }
+
+        // Directly assign fields (instead of using pick)
+        Object.keys(stepData.productInfo).forEach((key) => {
+          draftInventory.productInfo[key] = stepData.productInfo[key];
+        });
+
+        draftInventory.markModified("productInfo"); // Force Mongoose to detect change
       }
 
-      // 2. Handle nested sections with schema validation
-      for (const [section, allowedFields] of Object.entries(schemaSections)) {
-        if (section === 'productInfo' || section === 'prodTechInfo') continue;
-
+      // 2️⃣ **Update other sections (prodPricing, prodDelivery, etc.)**
+      const schemaSections = ["prodPricing", "prodDelivery", "prodSeo", "prodMedia"];
+      schemaSections.forEach((section) => {
         if (stepData[section]) {
-          // Filter valid fields for the section
-          const validUpdate = pick(stepData[section], allowedFields);
+          console.log(`Updating ${section} with:`, stepData[section]);
 
-          // Merge updates
-          draftInventory[section] = {
-            ...draftInventory[section],
-            ...validUpdate
-          };
+          if (!draftInventory[section]) {
+            draftInventory[section] = {}; // Create empty object if missing
+          }
+
+          Object.keys(stepData[section]).forEach((key) => {
+            draftInventory[section][key] = stepData[section][key];
+          });
 
           draftInventory.markModified(section);
         }
-      }
+      });
 
-      // 3. Handle tech specs (discriminator-aware)
+      // 3️⃣ **Handle tech specs (discriminator-aware)**
       if (stepData.prodTechInfo) {
-        const techSchema = getTechSchema(draftInventory.kind);
-        const validTechFields = Object.keys(techSchema);
+        console.log("Updating prodTechInfo with:", stepData.prodTechInfo);
 
-        draftInventory.prodTechInfo = {
-          ...draftInventory.prodTechInfo,
-          ...pick(stepData.prodTechInfo, validTechFields)
-        };
-        draftInventory.markModified('prodTechInfo');
+        if (!draftInventory.prodTechInfo) {
+          draftInventory.prodTechInfo = {};
+        }
+
+        Object.keys(stepData.prodTechInfo).forEach((key) => {
+          draftInventory.prodTechInfo[key] = stepData.prodTechInfo[key];
+        });
+
+        draftInventory.markModified("prodTechInfo");
       }
 
-      // 4. Handle top-level inventory fields
+      // 4️⃣ **Handle top-level inventory fields**
       const topLevelFields = [
-        'publishToEbay', 'publishToAmazon', 'publishToWebsite',
-        'stockThreshold', 'isBlocked', 'Kind'
+        "publishToEbay",
+        "publishToAmazon",
+        "publishToWebsite",
+        "stockThreshold",
+        "isBlocked",
+        "Kind"
       ];
 
-      topLevelFields.forEach(field => {
+      topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
+          console.log(`Updating top-level field ${field}:`, stepData[field]);
           draftInventory[field] = stepData[field];
         }
       });
 
+      console.log("Final inventory object before save:", JSON.stringify(draftInventory, null, 2));
+
+      // 5️⃣ **Save updated inventory**
       await draftInventory.save({ validateBeforeSave: false });
+
+      console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
+
       return draftInventory;
     } catch (error: any) {
       console.error("Error updating draft inventory:", error);

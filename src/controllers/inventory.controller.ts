@@ -38,7 +38,7 @@ export const inventoryController = {
     try {
       const inventoryId = req.params.id;
       const { stepData } = req.body;
-
+      console.log("is it stepData", stepData);
       if (!mongoose.isValidObjectId(inventoryId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -54,6 +54,13 @@ export const inventoryController = {
       }
 
       const updatedInventory = await inventoryService.updateDraftInventory(inventoryId, stepData);
+
+      if (!updatedInventory) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Inventory not found or could not be updated",
+        });
+      }
 
       return res.status(StatusCodes.OK).json({
         success: true,

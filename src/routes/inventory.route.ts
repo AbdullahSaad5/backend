@@ -9,6 +9,11 @@ export const inventory = (router: Router) => {
 
   // Create or update a draft inventory
   router.post("/", inventoryController.createDraftInventory);
+  router.patch(
+    "/:id",
+    // inventoryValidation.updateInventory,
+    inventoryController.updateDraftInventory
+  );
 
   router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxDiscount);
   //new route for search and filter and pagination
@@ -34,11 +39,7 @@ export const inventory = (router: Router) => {
   router.get("/drafts", inventoryController.getAllDraftInventoryNames);
 
   // Update a draft inventory by ID (subsequent steps)
-  router.patch(
-    "/:id",
-    // inventoryValidation.updateInventory,
-    inventoryController.updateDraftInventory
-  );
+
 
   router.get("/", inventoryController.getAllInventory);
 
