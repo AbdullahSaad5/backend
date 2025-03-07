@@ -84,7 +84,7 @@ app.post("/", async (req, res) => {
 
 app.use("/api", router);
 
-const port = process.env.PORT || 6000;
+const port = process.env.PORT || 5000;
 
 const httpServer = app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
