@@ -18,6 +18,13 @@ export const inventoryController = {
         });
       }
 
+      if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid or missing 'productInfo' in request payload",
+        });
+      }
+
       const draftInventory = await inventoryService.createDraftInventoryService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -33,6 +40,7 @@ export const inventoryController = {
       });
     }
   },
+
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
