@@ -193,15 +193,9 @@ export const inventoryService = {
   getAllInventory: async () => {
     try {
       return await Inventory.find()
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .populate("platformDetails.website.prodPricing.paymentPolicy")
-        .populate("platformDetails.amazon.prodPricing.paymentPolicy")
-        .populate("platformDetails.ebay.prodPricing.paymentPolicy");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("prodPricing.paymentPolicy");
     } catch (error) {
       console.error("Error fetching all inventory:", error);
       throw new Error("Failed to fetch inventory");
@@ -212,13 +206,9 @@ export const inventoryService = {
     try {
       // Find inventory matching the condition
       return await Inventory.find(condition)
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .select("_id platformDetails website.productInfo productCategory brand model srno kind");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .select("_id productInfo productCategory brand model srno kind");
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");
@@ -227,20 +217,10 @@ export const inventoryService = {
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .populate("platformDetails.website.prodPricing.paymentPolicy")
-        .populate("platformDetails.amazon.prodPricing.paymentPolicy")
-        .populate("platformDetails.ebay.prodPricing.paymentPolicy");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("prodPricing.paymentPolicy");
       if (!inventory) throw new Error("Inventory not found");
-      // if (inventory.platformDetails[platform]) {
-      //   return inventory.platformDetails[platform];
-      // }
-      // throw new Error(`No details found for platform: ${platform}`);
       return inventory;
     } catch (error) {
       // console.error(`Error fetching inventory by ID for platform ${platform}:`, error);
@@ -602,12 +582,8 @@ export const inventoryService = {
         { _id: { $in: inventoryIds } }, // Filter valid inventory IDs
         {
           $set: {
-            "platformDetails.amazon.prodPricing.discountValue": discountValue,
-            "platformDetails.ebay.prodPricing.discountValue": discountValue,
-            "platformDetails.website.prodPricing.discountValue": discountValue,
-            "platformDetails.amazon.prodPricing.vat": vat,
-            "platformDetails.ebay.prodPricing.vat": vat,
-            "platformDetails.website.prodPricing.vat": vat,
+            "prodPricing.discountValue": discountValue,
+            "prodPricing.vat": vat,
           },
         }
       );
