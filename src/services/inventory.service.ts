@@ -50,6 +50,14 @@ export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
     try {
+      if (!stepData || typeof stepData !== "object") {
+        throw new Error("Invalid or missing 'stepData'");
+      }
+
+      if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
+        throw new Error("Invalid or missing 'productInfo' in stepData");
+      }
+
       const { kind, productCategory, productSupplier, title, productDescription, brand } = stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
@@ -103,6 +111,7 @@ export const inventoryService = {
       throw new Error(error.message || "Failed to create draft inventory");
     }
   },
+
 
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
