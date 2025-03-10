@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IInventory } from "@/contracts/inventory.contract";
+import { paymentPolicy } from "@/routes/payment-policy.route";
 
 export const mediaSchema = {
   id: { type: String },
@@ -44,12 +45,13 @@ export const prodPricingSchema = {
   conditionDescription: { type: String },
   pricingFormat: { type: String },
   vat: { type: Number },
-  paymentPolicy: {
-    type: Schema.Types.ObjectId,
-    ref: "PaymentPolicy",
-    default: null,
-    set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  },
+  // paymentPolicy: {
+  //   type: Schema.Types.ObjectId,
+  //   ref: "PaymentPolicy",
+  //   default: null,
+  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+  // },
+  paymentPolicy: { type: String },
 
   purchasePricePerUnit: { type: Number },
   costPricePerUnit: { type: Number },
@@ -60,8 +62,8 @@ export const prodPricingSchema = {
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
-  warrantyDuration: { type: String, required: true }, // Duration in days
-  warrantyCoverage: { type: String, required: true }, // Coverage description
+  warrantyDuration: { type: String }, // Duration in days
+  warrantyCoverage: { type: String }, // Coverage description
   warrantyDocument: {
     type: [mediaSchema],
     _id: false,
@@ -70,28 +72,12 @@ export const prodPricingSchema = {
 };
 export const prodDeliverySchema = {
   // prod delivery details
-  postagePolicy: {
-    type: String,
-  },
-  packageWeight: {
-    weightKg: {
-      type: String,
-    },
-    weightG: {
-      type: String,
-    },
-  },
-  packageDimensions: {
-    dimensionLength: {
-      type: String,
-    },
-    dimensionWidth: {
-      type: String,
-    },
-    dimensionHeight: {
-      type: String,
-    },
-  },
+  postagePolicy: { type: String },
+  packageWeightKg: { type: String },
+  packageeWeightG: { type: String },
+  packageDimensionLength: { type: String },
+  packageDimensionWidth: { type: String },
+  packageDimensionHeight: { type: String },
   irregularPackage: { type: Boolean },
 };
 
