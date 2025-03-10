@@ -50,12 +50,19 @@ export const prodPricingSchema = {
     default: null,
     set: (value: any) => (value === "" ? null : value), // Convert empty string to null
   },
+
+  purchasePricePerUnit: { type: Number },
+  costPricePerUnit: { type: Number },
+  retailPricePerUnit: { type: Number, default: 0 },
+  receivedBy: { type: String },
+  receivedDate: { type: Date },
+  purchaseDate: { type: Date },
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
   warrantyDuration: { type: Number, required: true }, // Duration in days
   warrantyCoverage: { type: String, required: true }, // Coverage description
-  warrantyDocument: { type: String }, // URL or file path
+  warrantyDocument: { type: [String] }, // URL or file path
 };
 export const prodDeliverySchema = {
   // prod delivery details

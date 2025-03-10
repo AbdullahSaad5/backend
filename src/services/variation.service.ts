@@ -1,4 +1,4 @@
-import { Product } from "@/models/product.model";
+import { Product } from "@/models/listing.model";
 import { Variation } from "@/models/variation.model";
 
 export const variationService = {
