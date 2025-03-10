@@ -1,5 +1,5 @@
 import { Schema, model, Types } from "mongoose";
-import { IProduct } from "@/contracts/product.contract"; // Ensure this path is correct
+import { IProduct } from "@/contracts/listing.contract"; // Ensure this path is correct
 import { IUser } from "@/contracts/user.contract"; // Ensure this path is correct
 
 // Schema for Cart Item
@@ -107,7 +107,7 @@ cartSchema.methods.calculateTotal = function () {
   let shippingCost = 0;
 
   // Loop through the cart items and add their totalPrice to the subtotal
-  this.items.forEach((item: { totalPrice: number; discount: number; }) => {
+  this.items.forEach((item: { totalPrice: number; discount: number }) => {
     subtotal += item.totalPrice; // Add each item's totalPrice to the subtotal
     discount += item.discount; // Add item discount
   });

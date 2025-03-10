@@ -3,8 +3,8 @@ import {
   IAmazonPlatformDetails,
   IEbayPlatformDetails,
   IWebsitePlatformDetails,
-  IProduct,
-} from "@/contracts/product.contract";
+  IListing,
+} from "@/contracts/listing.contract";
 import { invokeMap } from "lodash";
 
 export const mediaSchema = {
@@ -363,7 +363,7 @@ const productSchema = new Schema(
 );
 
 // Base Product Model
-const Product = model<IProduct>("Product", productSchema);
+const Product = model<IListing>("Product", productSchema);
 
 // discriminator for laptops
 Product.discriminator(

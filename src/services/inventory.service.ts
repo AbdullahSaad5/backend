@@ -183,12 +183,8 @@ export const inventoryService = {
   getFullInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier");
       // .lean();
 
       if (!inventory) throw new Error("Inventory not found");
