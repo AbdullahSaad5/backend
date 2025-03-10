@@ -396,7 +396,7 @@ export const inventoryService = {
       }
 
       // Fetch inventory with pagination
-      const inventory = await Inventory.find(query).populate("userType").skip(skip).limit(limitNumber);
+      const inventory = await Inventory.find(query).populate("userType").populate("productInfo.productCategory").populate("productInfo.productSupplier").skip(skip).limit(limitNumber);
 
       // Count total inventory
       const totalInventory = await Inventory.countDocuments(query);
