@@ -112,7 +112,6 @@ export const inventoryService = {
     }
   },
 
-
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
@@ -209,11 +208,11 @@ export const inventoryService = {
   //getting all template inventory name and their id
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
-      // Find inventory matching the condition
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .select("_id productInfo productCategory brand model srno kind");
+        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");

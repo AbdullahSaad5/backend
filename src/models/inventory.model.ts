@@ -343,7 +343,7 @@ const inventorySchema = new Schema(
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
     publishToWebsite: { type: Boolean },
-    Kind: { type: String },
+    kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],

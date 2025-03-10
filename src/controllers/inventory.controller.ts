@@ -192,14 +192,15 @@ export const inventoryController = {
         });
       }
 
-      let templateList = templates.map((template, index) => {
+      const templateList = templates.map((template, index) => {
         const inventoryId = template._id;
-        const kind = template.Kind || "UNKNOWN";
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
+        // ✅ Ensure correct access to prodTechInfo
+        const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
-        const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
 
-        switch (kind.toLowerCase()) {
+        switch (kind) {
           case "laptops":
             fields = [
               prodInfo.processor,
@@ -227,23 +228,20 @@ export const inventoryController = {
             break;
           default:
             fields = ["UNKNOWN"];
-            break;
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, inventoryId };
       });
 
-      // 🔹 Sort by the number at the end of templateName in descending order
+      // Sorting based on numerical value at the end of templateName
       templateList.sort((a, b) => {
-        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
@@ -274,8 +272,9 @@ export const inventoryController = {
 
       const draftList = drafts.map((draft, index) => {
         const inventoryId = draft._id;
-        const kind = draft?.Kind || "UNKNOWN";
-        const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
+        const kind = draft?.kind || "UNKNOWN";
+        // const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
+        const prodInfo = (draft as any).prodTechInfo || {};
 
         let fields: string[] = [];
 
@@ -290,7 +289,7 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "inventory_all_in_one_pc":
+          case "inventory_all_iPn_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "inventory_projectors":
