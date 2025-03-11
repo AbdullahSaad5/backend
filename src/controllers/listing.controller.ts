@@ -103,10 +103,10 @@ export const listingController = {
 
   getAllProduct: async (req: Request, res: Response) => {
     try {
-      const products = await listingService.getAllProducts();
+      const listings = await listingService.getAllListings();
       return res.status(StatusCodes.OK).json({
         success: true,
-        products,
+        listings,
       });
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -120,7 +120,7 @@ export const listingController = {
   getProductById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const listing = await listingService.getProductById(id);
+      const listing = await listingService.getListingById(id);
 
       if (!listing) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -184,7 +184,7 @@ export const listingController = {
   //Get All Template Listing Names
   getAllTemplateProducts: async (req: Request, res: Response) => {
     try {
-      const templates = await listingService.getProductsByCondition({
+      const templates = await listingService.getListingsByCondition({
         isTemplate: true,
       });
 
@@ -266,7 +266,7 @@ export const listingController = {
   //Get All Draft Listing Names
   getAllDraftProductNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await listingService.getProductsByCondition({
+      const drafts = await listingService.getListingsByCondition({
         status: "draft",
       });
 
@@ -437,7 +437,7 @@ export const listingController = {
         });
       }
 
-      const updatedProduct = await listingService.updateProduct(id, platform, data);
+      const updatedProduct = await listingService.updateListing(id, platform, data);
 
       if (!updatedProduct) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -463,7 +463,7 @@ export const listingController = {
   deleteProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await listingService.deleteProduct(id);
+      const result = await listingService.deleteListing(id);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Listing deleted successfully",
@@ -511,7 +511,7 @@ export const listingController = {
   },
   getProductStats: async (req: Request, res: Response) => {
     try {
-      const stats = await listingService.getProductStats();
+      const stats = await listingService.getListingStats();
       return res.status(StatusCodes.OK).json(stats);
     } catch (error) {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching products statistics" });
@@ -546,7 +546,7 @@ export const listingController = {
       };
 
       // Call the service to search and filter the products
-      const products = await listingService.searchAndFilterProducts(filters);
+      const products = await listingService.searchAndFilterListings(filters);
 
       // Return the results
       res.status(200).json({
@@ -582,7 +582,7 @@ export const listingController = {
       }
 
       // Perform bulk update
-      const result = await listingService.bulkUpdateProductTaxDiscount(listingIds, discountValue, vat);
+      const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountValue, vat);
 
       return res.status(200).json({
         message: "Listing VAT/tax and discount updated successfully",
@@ -594,7 +594,7 @@ export const listingController = {
   },
   upsertProductParts: async (req: Request, res: Response) => {
     try {
-      const listing = await listingService.upsertProductPartsService(req.params.id, req.body.selectedVariations);
+      const listing = await listingService.upsertListingPartsService(req.params.id, req.body.selectedVariations);
       if (!listing) return res.status(404).json({ message: "Listing not found" });
 
       res.status(200).json({ message: "Listing variations updated successfully", listing });
@@ -605,7 +605,7 @@ export const listingController = {
   // Get selected variations
   getSelectedProductParts: async (req: Request, res: Response) => {
     try {
-      const listing: any = await listingService.getSelectedProductPartsService(req.params.id);
+      const listing: any = await listingService.getSelectedListingPartsService(req.params.id);
       if (!listing) return res.status(404).json({ message: "Listing not found" });
 
       res.status(200).json({ selectedVariations: listing.selectedVariations });
