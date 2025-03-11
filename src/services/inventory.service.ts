@@ -58,7 +58,7 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, productCategory, productSupplier, title, productDescription, brand, inventoryImages } =
+      const { kind, productCategory, productSupplier, title, productDescription, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
@@ -82,6 +82,7 @@ export const inventoryService = {
         title: title || "",
         productDescription: productDescription || "",
         brand: brand || "",
+        inventoryCondition:inventoryCondition ||"",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
       };
 
