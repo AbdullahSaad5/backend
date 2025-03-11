@@ -347,6 +347,7 @@ const inventorySchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
+    inventoryImages: { type: [mediaSchema], _id: false },
   },
   options
 );
