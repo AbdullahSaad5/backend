@@ -5,7 +5,7 @@ export { Address } from "./user-address.model";
 export { SupplierCategory } from "./supplier-category.model";
 export { ProductCategory } from "./product-category.model";
 export { ProductBrand } from "./product-brand.model";
-export { Product } from "./listing.model";
+export { Listing } from "./listing.model";
 export { PaymentPolicy } from "./payment-policy.model";
 export { FulfillmentPolicy } from "./fulfillment-policy.model";
 export { ReturnPolicy } from "./return-policy.model";

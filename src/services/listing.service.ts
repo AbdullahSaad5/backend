@@ -1,11 +1,11 @@
-import { Product, User } from "@/models";
+import { Listing, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
-export const productService = {
-  // Create a new draft product
-  createDraftProduct: async (stepData: any) => {
+export const listingService = {
+  // Create a new draft listing
+  createDraftListing: async (stepData: any) => {
     try {
       const productCategory =
         stepData.productCategory && mongoose.isValidObjectId(stepData.productCategory)
@@ -22,7 +22,7 @@ export const productService = {
         throw new Error("Invalid or missing 'productSupplier'");
       }
 
-      const draftProduct: any = new Product({
+      const draftProduct: any = new Listing({
         platformDetails: {
           amazon: {
             productInfo: {
@@ -86,16 +86,16 @@ export const productService = {
       await draftProduct.save();
       return draftProduct;
     } catch (error) {
-      console.error("Error creating draft product:", error);
-      throw new Error("Failed to create draft product");
+      console.error("Error creating draft listing:", error);
+      throw new Error("Failed to create draft listing");
     }
   },
-  // Update an existing draft product when user move to next stepper
-  updateDraftProduct: async (productId: string, stepData: any) => {
+  // Update an existing draft listing when user move to next stepper
+  updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      const draftProduct: any = await Product.findById(productId);
+      const draftProduct: any = await Listing.findById(listingId);
       if (!draftProduct) {
-        throw new Error("Draft product not found");
+        throw new Error("Draft listing not found");
       }
 
       if (stepData.status !== undefined) {
@@ -261,14 +261,14 @@ export const productService = {
       await draftProduct.save({ validateBeforeSave: false });
       return draftProduct;
     } catch (error: any) {
-      console.error("❌ Error updating draft product:", error.message, error.stack);
-      throw new Error(`Failed to update draft product: ${error.message}`);
+      console.error("❌ Error updating draft listing:", error.message, error.stack);
+      throw new Error(`Failed to update draft listing: ${error.message}`);
     }
   },
 
-  getFullProductById: async (id: string) => {
+  getFullListingById: async (id: string) => {
     try {
-      const product = await Product.findById(id)
+      const listing = await Listing.findById(id)
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
         .populate("platformDetails.website.productInfo.productCategory")
@@ -277,17 +277,17 @@ export const productService = {
         .populate("platformDetails.website.productInfo.productSupplier");
       // .lean();
 
-      if (!product) throw new Error("Product not found");
-      return product;
+      if (!listing) throw new Error("Listing not found");
+      return listing;
     } catch (error) {
-      console.error(`Error fetching full product by ID: ${id}`, error);
-      throw new Error("Failed to fetch full product");
+      console.error(`Error fetching full listing by ID: ${id}`, error);
+      throw new Error("Failed to fetch full listing");
     }
   },
 
   getAllProducts: async () => {
     try {
-      return await Product.find()
+      return await Listing.find()
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
@@ -306,7 +306,7 @@ export const productService = {
   getProductsByCondition: async (condition: Record<string, any>) => {
     try {
       // Find products matching the condition
-      return await Product.find(condition)
+      return await Listing.find(condition)
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
@@ -321,7 +321,7 @@ export const productService = {
   },
   getProductById: async (id: string) => {
     try {
-      const product = await Product.findById(id)
+      const listing = await Listing.findById(id)
         .populate("platformDetails.website.productInfo.productCategory")
         .populate("platformDetails.amazon.productInfo.productCategory")
         .populate("platformDetails.ebay.productInfo.productCategory")
@@ -331,65 +331,65 @@ export const productService = {
         .populate("platformDetails.website.prodPricing.paymentPolicy")
         .populate("platformDetails.amazon.prodPricing.paymentPolicy")
         .populate("platformDetails.ebay.prodPricing.paymentPolicy");
-      if (!product) throw new Error("Product not found");
-      // if (product.platformDetails[platform]) {
-      //   return product.platformDetails[platform];
+      if (!listing) throw new Error("Listing not found");
+      // if (listing.platformDetails[platform]) {
+      //   return listing.platformDetails[platform];
       // }
       // throw new Error(`No details found for platform: ${platform}`);
-      return product;
+      return listing;
     } catch (error) {
-      // console.error(`Error fetching product by ID for platform ${platform}:`, error);
-      console.error(`Error fetching product`, error);
-      throw new Error("Failed to fetch product");
+      // console.error(`Error fetching listing by ID for platform ${platform}:`, error);
+      console.error(`Error fetching listing`, error);
+      throw new Error("Failed to fetch listing");
     }
   },
   updateProduct: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
     try {
       const updateQuery = { [`platformDetails.${platform}`]: data };
-      const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
+      const updatedProduct = await Listing.findByIdAndUpdate(id, updateQuery, {
         new: true,
       });
-      if (!updatedProduct) throw new Error("Product not found");
+      if (!updatedProduct) throw new Error("Listing not found");
       return updatedProduct.platformDetails[platform];
     } catch (error) {
-      console.error(`Error updating product for platform ${platform}:`, error);
-      throw new Error("Failed to update product");
+      console.error(`Error updating listing for platform ${platform}:`, error);
+      throw new Error("Failed to update listing");
     }
   },
   deleteProduct: (id: string) => {
-    const product = Product.findByIdAndDelete(id);
-    if (!product) {
+    const listing = Listing.findByIdAndDelete(id);
+    if (!listing) {
       throw new Error("Category not found");
     }
-    return product;
+    return listing;
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedProduct = await Product.findByIdAndUpdate(id, { isBlocked }, { new: true });
-      if (!updatedProduct) throw new Error("Product not found");
+      const updatedProduct = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      if (!updatedProduct) throw new Error("Listing not found");
       return updatedProduct;
     } catch (error) {
       console.error("Error toggling block status:", error);
       throw new Error("Failed to toggle block status");
     }
   },
-  // New API for fetching product stats (separate service logic)
+  // New API for fetching listing stats (separate service logic)
   getProductStats: async () => {
     try {
-      const totalProducts = await Product.countDocuments({});
-      const activeProducts = await Product.countDocuments({
+      const totalProducts = await Listing.countDocuments({});
+      const activeProducts = await Listing.countDocuments({
         isBlocked: false,
       });
-      const blockedProducts = await Product.countDocuments({
+      const blockedProducts = await Listing.countDocuments({
         isBlocked: true,
       });
-      const PublishedProducts = await Product.countDocuments({
+      const PublishedProducts = await Listing.countDocuments({
         status: "published",
       });
-      const DraftProducts = await Product.countDocuments({
+      const DraftProducts = await Listing.countDocuments({
         status: "draft",
       });
-      const TemplateProducts = await Product.countDocuments({
+      const TemplateProducts = await Listing.countDocuments({
         isTemplate: true,
       });
 
@@ -507,10 +507,10 @@ export const productService = {
       }
 
       // Fetch products with pagination
-      const products = await Product.find(query).populate("userType").skip(skip).limit(limitNumber);
+      const products = await Listing.find(query).populate("userType").skip(skip).limit(limitNumber);
 
       // Count total products
-      const totalProducts = await Product.countDocuments(query);
+      const totalProducts = await Listing.countDocuments(query);
 
       return {
         products,
@@ -544,8 +544,8 @@ export const productService = {
         return;
       }
 
-      // ✅ Fetch all existing product titles to prevent duplicates
-      const existingTitles = new Set((await Product.find({}, "title")).map((p: any) => p.title));
+      // ✅ Fetch all existing listing titles to prevent duplicates
+      const existingTitles = new Set((await Listing.find({}, "title")).map((p: any) => p.title));
 
       // ✅ Fetch all suppliers in one query to optimize validation
       const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
@@ -633,7 +633,7 @@ export const productService = {
       }
 
       // ✅ Perform Bulk Insert Operation
-      await Product.bulkWrite(bulkOperations);
+      await Listing.bulkWrite(bulkOperations);
       console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`);
 
       // ✅ Log skipped rows due to invalid suppliers
@@ -652,21 +652,21 @@ export const productService = {
   exportProducts: async (): Promise<string> => {
     try {
       // Fetch all products from the database
-      const products = await Product.find({});
+      const products = await Listing.find({});
 
       // Format the products data for CSV export
-      const formattedData = products.map((product: any) => ({
-        ProductID: product._id,
-        Title: product.title,
-        Description: product.description,
-        Price: product.price,
-        Category: product.category,
-        // ProductSupplier: product?.supplier?.name,
-        Stock: product.stock,
-        SupplierId: product.supplier?._id,
-        AmazonInfo: JSON.stringify(product.platformDetails.amazon.productInfo),
-        EbayInfo: JSON.stringify(product.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(product.platformDetails.website.productInfo),
+      const formattedData = products.map((listing: any) => ({
+        listingId: listing._id,
+        Title: listing.title,
+        Description: listing.description,
+        Price: listing.price,
+        Category: listing.category,
+        // ProductSupplier: listing?.supplier?.name,
+        Stock: listing.stock,
+        SupplierId: listing.supplier?._id,
+        AmazonInfo: JSON.stringify(listing.platformDetails.amazon.productInfo),
+        EbayInfo: JSON.stringify(listing.platformDetails.ebay.productInfo),
+        WebsiteInfo: JSON.stringify(listing.platformDetails.website.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -685,7 +685,7 @@ export const productService = {
       throw new Error("Failed to export products.");
     }
   },
-  bulkUpdateProductTaxDiscount: async (productIds: string[], discountValue: number, vat: number) => {
+  bulkUpdateProductTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -693,8 +693,8 @@ export const productService = {
       }
 
       // Perform bulk update with nested prodPricing field
-      const result = await Product.updateMany(
-        { _id: { $in: productIds } }, // Filter valid product IDs
+      const result = await Listing.updateMany(
+        { _id: { $in: listingIds } }, // Filter valid listing IDs
         {
           $set: {
             "platformDetails.amazon.prodPricing.discountValue": discountValue,
@@ -708,7 +708,7 @@ export const productService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error("No products were updated. Please verify product IDs and data.");
+        throw new Error("No products were updated. Please verify listing IDs and data.");
       }
 
       return result;
@@ -717,16 +717,16 @@ export const productService = {
     }
   },
 
-  upsertProductPartsService: async (productId: string, selectedVariations: any) => {
-    return await Product.findByIdAndUpdate(
-      productId,
+  upsertProductPartsService: async (listingId: string, selectedVariations: any) => {
+    return await Listing.findByIdAndUpdate(
+      listingId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
       { new: true, upsert: true } // `upsert: true` ensures creation if missing.
     );
   },
 
-  // Get selected variations for a product
-  getSelectedProductPartsService: async (productId: string) => {
-    return await Product.findById(productId).select("selectedVariations");
+  // Get selected variations for a listing
+  getSelectedProductPartsService: async (listingId: string) => {
+    return await Listing.findById(listingId).select("selectedVariations");
   },
 };
