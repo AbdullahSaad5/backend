@@ -20,19 +20,15 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  productCategory: {
+  inventoryId: {
     type: Schema.Types.ObjectId,
-    ref: "ProductCategory",
-    required: true,
-  },
-  productSupplier: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Inventory",
     required: true,
   },
   title: { type: String, required: true },
   productDescription: { type: String },
   brand: { type: String, required: true },
+  displayUnits: { type: Number, required: true },
 };
 
 const prodMediaSchema = {
