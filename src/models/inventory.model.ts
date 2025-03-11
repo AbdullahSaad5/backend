@@ -27,6 +27,7 @@ export const prodInfoSchema = {
   },
   title: { type: String, required: true },
   productDescription: { type: String },
+  inventoryImages: { type: [mediaSchema], _id: false },
   brand: { type: String, required: true },
 };
 
@@ -343,11 +344,9 @@ const inventorySchema = new Schema(
     publishToWebsite: { type: Boolean },
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
-    inventoryCondition: { type: String, enum: ["new", "used"], default: "new" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-    inventoryImages: { type: [mediaSchema], _id: false },
   },
   { ...options, collection: "inventory" }
 );
