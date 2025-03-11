@@ -58,7 +58,8 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, productCategory, productSupplier, title, productDescription, brand } = stepData.productInfo;
+      const { kind, productCategory, productSupplier, title, productDescription, brand, inventoryImages } =
+        stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
@@ -74,20 +75,23 @@ export const inventoryService = {
       if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
       if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
+      // ✅ Ensure inventoryImages is correctly mapped inside productInfo
+      const productInfo = {
+        productCategory: categoryId,
+        productSupplier: supplierId,
+        title: title || "",
+        productDescription: productDescription || "",
+        brand: brand || "",
+        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
+      };
+
       const draftInventoryData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        productInfo: {
-          productCategory: categoryId,
-          productSupplier: supplierId,
-          title: title || "",
-          productDescription: productDescription || "",
-          brand: brand || "",
-        },
+        productInfo, // ✅ Fixed: Now correctly storing inventoryImages inside productInfo
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
-        prodMedia: stepData.prodMedia || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
@@ -396,7 +400,12 @@ export const inventoryService = {
       }
 
       // Fetch inventory with pagination
-      const inventory = await Inventory.find(query).populate("userType").populate("productInfo.productCategory").populate("productInfo.productSupplier").skip(skip).limit(limitNumber);
+      const inventory = await Inventory.find(query)
+        .populate("userType")
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .skip(skip)
+        .limit(limitNumber);
 
       // Count total inventory
       const totalInventory = await Inventory.countDocuments(query);
