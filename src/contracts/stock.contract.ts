@@ -1,16 +1,19 @@
 import mongoose, { Document } from "mongoose";
 
 interface IStock extends Document {
-  productId: mongoose.Types.ObjectId;
+  inventoryId: mongoose.Types.ObjectId;
   // stockSupplier: mongoose.Types.ObjectId;
-  quantity: number;
+  totalUnits: number;
+  usableUnits: number;
   purchasePricePerUnit: number;
   costPricePerUnit: number;
-  retailPricePerUnit: number;
+  // retailPricePerUnit: number;
   tax: number;
   expiryDate?: Date;
   receivedDate: Date;
+  receivedBy: String;
   purchaseDate: Date;
+  markAsStock: Boolean;
 
   // stockThreshold: number;
   batchNumber: number;
