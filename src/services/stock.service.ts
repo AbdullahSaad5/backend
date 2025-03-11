@@ -1,13 +1,13 @@
 import { Stock } from "@/models/stock.model";
-import { Product } from "@/models";
+import { Inventory } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
 
 export const stockService = {
   // 📌 Add New Stock Purchase Entry
   async addStock(data: any) {
-    const productExists = await Product.findById(data.productId);
-    if (!productExists) {
-      throw new Error("Product not found. Please provide a valid productId.");
+    const inventoryExists = await Inventory.findById(data.inventoryId);
+    if (!inventoryExists) {
+      throw new Error("Inventory not found. Please provide a valid inventoryId.");
     }
 
     // Check for duplicate batch number
@@ -15,9 +15,7 @@ export const stockService = {
       batchNumber: data.batchNumber,
     });
     if (existingStock) {
-      throw new Error(
-        "Batch number already exists. Please provide a unique batch number."
-      );
+      throw new Error("Batch number already exists. Please provide a unique batch number.");
     }
 
     const stock = new Stock(data);
@@ -25,23 +23,20 @@ export const stockService = {
     return { message: "Stock purchase recorded successfully", stock };
   },
 
-  // 📌 Get All Stock Entries for a Product
-  async getStockByProduct(productId: string) {
-    return await Stock.find({ productId }).populate("productId");
+  // 📌 Get All Stock Entries for an Invenetory
+  async getStockByInventory(inventoryId: string) {
+    return await Stock.find({ inventoryId }).populate("inventoryId");
   },
 
   // 📌 Get Stock Summary (Total Quantity & Last Purchase)
-  async getStockSummary(productId: string) {
-    const stocks = await Stock.find({ productId });
+  async getStockSummary(inventoryId: string) {
+    const stocks = await Stock.find({ inventoryId });
 
     if (stocks.length === 0) {
       return { message: "No stock records found", totalQuantity: 0 };
     }
 
-    const totalQuantity = stocks.reduce(
-      (sum, stock) => sum + stock.quantity,
-      0
-    );
+    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.totalUnits, 0);
     const lastStockEntry = stocks[stocks.length - 1];
 
     return {
@@ -90,19 +85,19 @@ export const stockService = {
     );
   },
 
-  // 📌 Get Products That Have Stock Along With Their Stock Entries
-  async getProductsWithStock() {
-    return await Product.aggregate([
+  // 📌 Get Inventory That Have Stock Along With Their Stock Entries
+  async getInventoryWithStock() {
+    return await Inventory.aggregate([
       {
         $lookup: {
           from: "stocks", // The collection name in MongoDB (ensure it's correct)
           localField: "_id",
-          foreignField: "productId",
+          foreignField: "inventoryId",
           as: "stocks",
         },
       },
       {
-        $match: { stocks: { $ne: [] } }, // Ensure we only get products with stock
+        $match: { stocks: { $ne: [] } }, // Ensure we only get inventory with stock
       },
     ]);
   },
