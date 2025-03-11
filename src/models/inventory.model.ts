@@ -349,7 +349,7 @@ const inventorySchema = new Schema(
     stockThreshold: { type: Number, default: 10 },
     inventoryImages: { type: [mediaSchema], _id: false },
   },
-  options
+  { ...options, collection: "inventory" }
 );
 
 // Base Inventory Model
