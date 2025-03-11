@@ -26,7 +26,7 @@ const prodInfoSchema = {
     required: true,
   },
   title: { type: String, required: true },
-  productDescription: { type: String },
+  listingDescription: { type: String },
   brand: { type: String, required: true },
   displayUnits: { type: Number, required: true },
 };
@@ -101,8 +101,6 @@ const prodSeoSchema = {
 const laptopTechnicalSchema = {
   processor: { type: String, required: true },
   model: { type: String },
-  // productCondition: { type: String },
-  // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: String },
   features: { type: [String] },
@@ -336,8 +334,8 @@ const selectedVariationsSchema = new Schema({
   graphics: [{ type: String }],
   attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
 });
-// Main Product Schema
-const productSchema = new Schema(
+// Main Listing Schema
+const listingSchema = new Schema(
   {
     platformDetails: {
       amazon: {},
@@ -358,11 +356,11 @@ const productSchema = new Schema(
   options
 );
 
-// Base Product Model
-const Product = model<IListing>("Product", productSchema);
+// Base Listing Model
+const Listing = model<IListing>("Listing", listingSchema);
 
 // discriminator for laptops
-Product.discriminator(
+Listing.discriminator(
   "listing_laptops",
   new mongoose.Schema(
     {
@@ -398,7 +396,7 @@ Product.discriminator(
 );
 
 // discriminator for all in one pc
-Product.discriminator(
+Listing.discriminator(
   "listing_all_in_one_pc",
   new mongoose.Schema(
     {
@@ -434,7 +432,7 @@ Product.discriminator(
 );
 
 // discriminator for projectors
-Product.discriminator(
+Listing.discriminator(
   "listing_projectors",
   new mongoose.Schema(
     {
@@ -470,7 +468,7 @@ Product.discriminator(
 );
 
 // discriminator for Monitors
-Product.discriminator(
+Listing.discriminator(
   "listing_monitors",
   new mongoose.Schema(
     {
@@ -506,7 +504,7 @@ Product.discriminator(
 );
 
 // discriminator for Gaming PC
-Product.discriminator(
+Listing.discriminator(
   "listing_gaming_pc",
   new mongoose.Schema(
     {
@@ -542,7 +540,7 @@ Product.discriminator(
 );
 
 // discriminator for Network Equipments
-Product.discriminator(
+Listing.discriminator(
   "listing_network_equipments",
   new mongoose.Schema(
     {
@@ -577,5 +575,5 @@ Product.discriminator(
   )
 );
 
-// Export the base Product and its discriminators
-export { Product };
+// Export the base Listing and its discriminators
+export { Listing };
