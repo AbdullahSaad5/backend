@@ -285,7 +285,7 @@ export const listingService = {
     }
   },
 
-  getAllProducts: async () => {
+  getAllListings: async () => {
     try {
       return await Listing.find()
         .populate("platformDetails.website.productInfo.productCategory")
@@ -303,7 +303,7 @@ export const listingService = {
     }
   },
   //getting all template products name and their id
-  getProductsByCondition: async (condition: Record<string, any>) => {
+  getListingsByCondition: async (condition: Record<string, any>) => {
     try {
       // Find products matching the condition
       return await Listing.find(condition)
@@ -319,7 +319,7 @@ export const listingService = {
       throw new Error("Failed to fetch products by condition");
     }
   },
-  getProductById: async (id: string) => {
+  getListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
         .populate("platformDetails.website.productInfo.productCategory")
@@ -343,7 +343,7 @@ export const listingService = {
       throw new Error("Failed to fetch listing");
     }
   },
-  updateProduct: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
+  updateListing: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
     try {
       const updateQuery = { [`platformDetails.${platform}`]: data };
       const updatedProduct = await Listing.findByIdAndUpdate(id, updateQuery, {
@@ -356,7 +356,7 @@ export const listingService = {
       throw new Error("Failed to update listing");
     }
   },
-  deleteProduct: (id: string) => {
+  deleteListing: (id: string) => {
     const listing = Listing.findByIdAndDelete(id);
     if (!listing) {
       throw new Error("Category not found");
@@ -374,7 +374,7 @@ export const listingService = {
     }
   },
   // New API for fetching listing stats (separate service logic)
-  getProductStats: async () => {
+  getListingStats: async () => {
     try {
       const totalProducts = await Listing.countDocuments({});
       const activeProducts = await Listing.countDocuments({
@@ -406,7 +406,7 @@ export const listingService = {
       throw new Error("Error fetching products statistics");
     }
   },
-  searchAndFilterProducts: async (filters: any) => {
+  searchAndFilterListings: async (filters: any) => {
     try {
       const {
         searchQuery = "",
@@ -527,7 +527,7 @@ export const listingService = {
     }
   },
   //bulk import products as CSV
-  bulkImportProducts: async (filePath: string): Promise<void> => {
+  bulkImportListings: async (filePath: string): Promise<void> => {
     try {
       // ✅ Validate CSV data (supplier validation happens inside)
       const { validRows, invalidRows } = await validateCsvData(filePath);
@@ -649,7 +649,7 @@ export const listingService = {
   },
 
   //bulk Export products to CSV
-  exportProducts: async (): Promise<string> => {
+  exportListings: async (): Promise<string> => {
     try {
       // Fetch all products from the database
       const products = await Listing.find({});
@@ -685,7 +685,7 @@ export const listingService = {
       throw new Error("Failed to export products.");
     }
   },
-  bulkUpdateProductTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
+  bulkUpdateListingTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -717,7 +717,7 @@ export const listingService = {
     }
   },
 
-  upsertProductPartsService: async (listingId: string, selectedVariations: any) => {
+  upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
       listingId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -726,7 +726,7 @@ export const listingService = {
   },
 
   // Get selected variations for a listing
-  getSelectedProductPartsService: async (listingId: string) => {
+  getSelectedListingPartsService: async (listingId: string) => {
     return await Listing.findById(listingId).select("selectedVariations");
   },
 };
