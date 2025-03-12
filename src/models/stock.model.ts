@@ -21,7 +21,11 @@ const StockSchema = new Schema<IStock>(
     // retailPricePerUnit: { type: Number, min: 0 },
     batchNumber: { type: Number, unique: true, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
-    receivedBy: { type: String, required: true },
+    receivedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     purchaseDate: { type: Date, default: Date.now },
     markAsStock: { type: Boolean },
   },
