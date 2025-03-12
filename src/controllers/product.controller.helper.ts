@@ -20,7 +20,7 @@ export const handleBulkExport = async (req: Request, res: Response) => {
   try {
     const filePath = await listingService.exportListings();
 
-    // Send the file as a download to the client
+    // Send the file as  download to the client
     res.download(filePath, (err) => {
       if (err) {
         console.error("Error downloading file:", err);
