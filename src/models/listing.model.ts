@@ -3,8 +3,8 @@ import {
   IAmazonPlatformDetails,
   IEbayPlatformDetails,
   IWebsitePlatformDetails,
-  IProduct,
-} from "@/contracts/product.contract";
+  IListing,
+} from "@/contracts/listing.contract";
 import { invokeMap } from "lodash";
 
 export const mediaSchema = {
@@ -20,19 +20,15 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  productCategory: {
+  inventoryId: {
     type: Schema.Types.ObjectId,
-    ref: "ProductCategory",
-    required: true,
-  },
-  productSupplier: {
-    type: Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Inventory",
     required: true,
   },
   title: { type: String, required: true },
-  productDescription: { type: String },
+  listingDescription: { type: String },
   brand: { type: String, required: true },
+  displayUnits: { type: Number, required: true },
 };
 
 const prodMediaSchema = {
@@ -105,11 +101,9 @@ const prodSeoSchema = {
 const laptopTechnicalSchema = {
   processor: { type: String, required: true },
   model: { type: String },
-  // productCondition: { type: String },
-  // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
@@ -146,7 +140,7 @@ const allInOnePCTechnicalSchema = {
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
@@ -171,7 +165,7 @@ const allInOnePCTechnicalSchema = {
 const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -208,7 +202,7 @@ const projectorTechnicalSchema = {
 
 const monitorTechnicalSchema = {
   model: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   color: { type: String },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -251,7 +245,7 @@ const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   releaseYear: { type: String },
@@ -340,8 +334,8 @@ const selectedVariationsSchema = new Schema({
   graphics: [{ type: String }],
   attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
 });
-// Main Product Schema
-const productSchema = new Schema(
+// Main Listing Schema
+const listingSchema = new Schema(
   {
     platformDetails: {
       amazon: {},
@@ -362,12 +356,12 @@ const productSchema = new Schema(
   options
 );
 
-// Base Product Model
-const Product = model<IProduct>("Product", productSchema);
+// Base Listing Model
+const Listing = model<IListing>("Listing", listingSchema);
 
 // discriminator for laptops
-Product.discriminator(
-  "laptops",
+Listing.discriminator(
+  "listing_laptops",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -402,8 +396,8 @@ Product.discriminator(
 );
 
 // discriminator for all in one pc
-Product.discriminator(
-  "all in one pc",
+Listing.discriminator(
+  "listing_all_in_one_pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -438,8 +432,8 @@ Product.discriminator(
 );
 
 // discriminator for projectors
-Product.discriminator(
-  "projectors",
+Listing.discriminator(
+  "listing_projectors",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -474,8 +468,8 @@ Product.discriminator(
 );
 
 // discriminator for Monitors
-Product.discriminator(
-  "monitors",
+Listing.discriminator(
+  "listing_monitors",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -510,8 +504,8 @@ Product.discriminator(
 );
 
 // discriminator for Gaming PC
-Product.discriminator(
-  "gaming pc",
+Listing.discriminator(
+  "listing_gaming_pc",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -546,8 +540,8 @@ Product.discriminator(
 );
 
 // discriminator for Network Equipments
-Product.discriminator(
-  "network equipments",
+Listing.discriminator(
+  "listing_network_equipments",
   new mongoose.Schema(
     {
       platformDetails: {
@@ -581,5 +575,5 @@ Product.discriminator(
   )
 );
 
-// Export the base Product and its discriminators
-export { Product };
+// Export the base Listing and its discriminators
+export { Listing };

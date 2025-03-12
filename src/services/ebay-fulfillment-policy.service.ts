@@ -179,7 +179,7 @@ export const ebayFulfillmentPolicyService = {
       throw new Error("eBay API call failed");
     }
   },
-//to get rateTables
+  //to get rateTables
   async getRateTables(marketplaceId: string = "EBAY_GB") {
     try {
       const accessToken = await getStoredEbayAccessToken();
@@ -198,12 +198,22 @@ export const ebayFulfillmentPolicyService = {
       const data = await response.json();
 
       if (!data.rateTables || data.rateTables.length === 0) {
-        console.warn("⚠️ No rate tables found for", marketplaceId);
+        console.warn(`⚠️ No rate tables found for ${marketplaceId}`);
         return [];
       }
 
-      console.log("✅ Retrieved eBay rate tables:", data.rateTables);
-      return data.rateTables;
+      // ✅ Filter only UK (GB) rate tables
+      const gbRateTables = data.rateTables.filter(
+        (table: { countryCode: string }) => table.countryCode === "GB"
+      );
+
+      if (!gbRateTables.length) {
+        console.warn("⚠️ No UK rate tables found, returning empty list.");
+        return [];
+      }
+
+      console.log("✅ Retrieved UK eBay rate tables:", gbRateTables);
+      return gbRateTables;
     } catch (error) {
       console.error("❌ Error fetching eBay rate tables:", error);
       throw new Error("Failed to fetch eBay rate tables");

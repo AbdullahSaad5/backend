@@ -4,7 +4,7 @@ import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { Product, User } from "@/models";
+import { Listing, User } from "@/models";
 import { Request, Response } from "express";
 import Papa from "papaparse";
 import dotenv from "dotenv";
@@ -168,7 +168,7 @@ const processZipFile = async (zipFilePath: string) => {
 
           const results = await Promise.allSettled(uploads);
 
-          return results  
+          return results
             .filter((res) => res.status === "fulfilled")
             .map((res) => (res as PromiseFulfilledResult<string>).value);
         } catch (error) {
@@ -237,7 +237,7 @@ const bulkImportProducts = async (
 
     // ✅ Fetch all existing product titles to prevent duplicates
     const existingTitles = new Set(
-      (await Product.find({}, "title")).map((p: any) => p.title)
+      (await Listing.find({}, "title")).map((p: any) => p.title)
     );
 
     // ✅ Fetch all suppliers in one query to optimize validation
@@ -333,7 +333,7 @@ const bulkImportProducts = async (
     }
 
     // ✅ Perform Bulk Insert Operation
-    await Product.bulkWrite(bulkOperations);
+    await Listing.bulkWrite(bulkOperations);
     console.log(
       `✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`
     );

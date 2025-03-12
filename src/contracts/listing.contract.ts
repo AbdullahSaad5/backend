@@ -128,7 +128,7 @@ interface IEbayPlatformDetails {
   suggestedTags: string[];
 }
 
-// Platform-specific product details for Website
+// Platform-specific listing details for Website
 interface IWebsitePlatformDetails {
   title: string;
   brand: string;
@@ -190,7 +190,7 @@ interface IWebsitePlatformDetails {
   };
 }
 
-interface IPlatformProductInfo {
+interface IPlatformListingInfo {
   productCategory: Types.ObjectId;
   productSupplier: Types.ObjectId; // Populated with category details
   title: string;
@@ -201,8 +201,8 @@ interface IPlatformProductInfo {
   srno?: string;
 }
 
-// Full Product Interface
-interface IProduct {
+// Full Listing Interface
+interface IListing {
   isBlocked: boolean; // Common details for all platforms
   platformDetails: {
     amazon?: IAmazonPlatformDetails; // Amazon-specific details
@@ -210,17 +210,17 @@ interface IProduct {
     website?: IWebsitePlatformDetails;
     // Website-specific details
   };
-  status: "draft" | "published"; // Product status
+  status: "draft" | "published"; // Listing status
   isTemplate: boolean;
   kind?: string;
 }
 
 // Update payload for product
-export type IProductUpdatePayload = Partial<IProduct>;
+export type IProductUpdatePayload = Partial<IListing>;
 
 // Exports
 export {
-  IProduct,
+  IListing,
   ITechnicalSpecifications,
   IPricing,
   ICondition,
@@ -231,5 +231,5 @@ export {
   IAmazonPlatformDetails,
   IEbayPlatformDetails,
   IWebsitePlatformDetails,
-  IPlatformProductInfo,
+  IPlatformListingInfo,
 };

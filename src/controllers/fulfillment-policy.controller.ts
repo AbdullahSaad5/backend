@@ -124,7 +124,7 @@ export const fulfillmentPolicyController = {
       });
     }
   },
-  
+
   editPolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -143,13 +143,38 @@ export const fulfillmentPolicyController = {
       }
 
       const ebayPolicyId = storedPolicy.ebayPolicyId;
+      console.log(
+        "🔄 Fetching rate tables from eBay before updating policy..."
+      );
+
+      // ✅ Fetch rate tables from eBay
+      const rateTables = await ebayFulfillmentPolicyService.getRateTables();
+
+      if (!rateTables.length) {
+        console.warn(
+          "⚠️ No rate tables found, proceeding without rateTableId."
+        );
+      }
+
+      // ✅ Extract rateTableId if available (assuming the first rate table is relevant)
+      const rateTableId = rateTables.length
+        ? rateTables[0].rateTableId
+        : undefined;
+      console.log("📌 Using rateTableId:", rateTableId || "None");
+
+      // ✅ Update request body with rateTableId if found
+      const updatedRequestBody = {
+        ...req.body,
+        rateTableId: rateTableId || undefined, // Include only if available
+      };
+
       console.log("🔄 Syncing update with eBay for Policy ID:", ebayPolicyId);
 
       // ✅ Sync update with eBay API
       const ebayResponse =
         await ebayFulfillmentPolicyService.editFulfillmentPolicy(
           ebayPolicyId,
-          req.body
+          updatedRequestBody
         );
 
       if (!ebayResponse || ebayResponse.errors) {
@@ -171,6 +196,7 @@ export const fulfillmentPolicyController = {
       // ✅ Update policy in DB only if eBay update was successful
       const updatedPolicyData = {
         ...req.body,
+        rateTableId: rateTableId || undefined, // Store rateTableId in DB if available
         shippingOptions: req.body.shippingOptions.map((option: any) => ({
           ...option,
           shippingServices: option.shippingServices.map((service: any) => ({

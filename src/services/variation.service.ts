@@ -1,4 +1,4 @@
-import { Product } from "@/models/product.model";
+import { Listing } from "@/models/listing.model";
 import { Variation } from "@/models/variation.model";
 
 export const variationService = {
@@ -22,7 +22,7 @@ export const variationService = {
       }
 
       // Fetch distinct parts from the product schema
-      const parts = await Product.aggregate([
+      const parts = await Listing.aggregate([
         {
           $project: {
             cpu: `$${productKey}.processor`,

@@ -1,11 +1,11 @@
-import { ebayService, productService } from "@/services";
+import { ebayService, listingService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformProductData } from "@/utils/transformProductData.util";
 
-export const productController = {
-  createDraftProduct: async (req: Request, res: Response) => {
+export const listingController = {
+  createDraftListing: async (req: Request, res: Response) => {
     try {
       const { stepData } = req.body;
 
@@ -16,33 +16,33 @@ export const productController = {
         });
       }
 
-      // Save draft product in MongoDB
-      const draftProduct = await productService.createDraftProduct(stepData);
+      // Save draft listing in MongoDB
+      const draftListing = await listingService.createDraftListing(stepData);
 
       return res.status(StatusCodes.CREATED).json({
         success: true,
-        message: "Draft product created successfully",
-        data: { productId: draftProduct._id },
+        message: "Draft listing created successfully",
+        data: { ListingId: draftListing._id },
       });
     } catch (error: any) {
-      console.error("Error creating draft product:", error);
+      console.error("Error creating draft listing:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error creating draft product",
+        message: error.message || "Error creating draft listing",
       });
     }
   },
 
-  updateDraftProduct: async (req: Request, res: Response) => {
+  updateDraftListing: async (req: Request, res: Response) => {
     try {
-      const productId = req.params.id;
+      const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // Validate productId
-      if (!mongoose.isValidObjectId(productId)) {
+      // Validate listingId
+      if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid or missing 'productId'",
+          message: "Invalid or missing 'listingId'",
         });
       }
 
@@ -54,63 +54,59 @@ export const productController = {
         });
       }
 
-      // Update the draft product in MongoDB
-      const updatedProduct = await productService.updateDraftProduct(
-        productId,
-        stepData
-      );
+      // Update the draft listing in MongoDB
+      const updatedProduct = await listingService.updateDraftListing(listingId, stepData);
 
-      // Check if the product is marked for publishing
+      // Check if the listing is marked for publishing
       if (stepData.publishToEbay) {
-        // Sync product with eBay if it's marked for publishing
-        const ebayItemId =
-          await ebayService.syncProductWithEbay(updatedProduct);
+        // Sync listing with eBay if it's marked for publishing
+        const ebayItemId = await ebayService.syncProductWithEbay(updatedProduct);
 
-        // Update the product with the eBay Item ID
-        await productService.updateDraftProduct(updatedProduct._id, {
+        // Update the listing with the eBay Item ID
+        await listingService.updateDraftListing(updatedProduct._id, {
           ebayItemId,
         });
 
-        // Return success with the updated product
+        // Return success with the updated listing
         return res.status(StatusCodes.OK).json({
           success: true,
-          message: "Draft product updated and synced with eBay successfully",
+          message: "Draft listing updated and synced with eBay successfully",
           data: updatedProduct,
           ebayItemId, // Include eBay Item ID in the response
         });
       }
 
-      // If not marked for publishing, just return the updated product
+      // If not marked for publishing, just return the updated listing
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft product updated successfully",
+        message: "Draft listing updated successfully",
         data: updatedProduct,
       });
     } catch (error: any) {
-      console.error("Error updating draft product:", error);
+      console.error("Error updating draft listing:", error);
 
       // Check if the error is related to eBay synchronization
       if (error.message.includes("eBay")) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: `Error syncing product with eBay: ${error.message}`,
+          message: `Error syncing listing with eBay: ${error.message}`,
         });
       }
 
       // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error updating draft product",
+        message: error.message || "Error updating draft listing",
       });
     }
   },
 
   getAllProduct: async (req: Request, res: Response) => {
     try {
-      const products = await productService.getAllProducts();
+      const listings = await listingService.getAllListings();
       return res.status(StatusCodes.OK).json({
         success: true,
-        products,
+        listings,
       });
     } catch (error: any) {
       console.error("Error fetching products:", error);
@@ -124,33 +120,24 @@ export const productController = {
   getProductById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      // const platform = req.query.platform as "amazon" | "ebay" | "website";
+      const listing = await listingService.getListingById(id);
 
-      // if (!platform) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Platform query parameter is required",
-      //   });
-      // }
-
-      const product = await productService.getProductById(id);
-
-      if (!product) {
+      if (!listing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        product,
+        listing,
       });
     } catch (error: any) {
-      console.error("Error fetching product by ID:", error);
+      console.error("Error fetching listing by ID:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error fetching product",
+        message: error.message || "Error fetching listing",
       });
     }
   },
@@ -159,45 +146,45 @@ export const productController = {
     try {
       const { id } = req.params;
 
-      // Validate product ID
+      // Validate listing ID
       if (!mongoose.isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid product ID",
+          message: "Invalid listing ID",
         });
       }
 
-      // Fetch product from DB
-      const product = await productService.getFullProductById(id);
+      // Fetch listing from DB
+      const listing = await listingService.getFullListingById(id);
 
-      if (!product) {
+      if (!listing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
-      // Transform product data using utility
-      const transformedProduct = transformProductData(product);
+      // Transform listing data using utility
+      const transformedProduct = transformProductData(listing);
 
-      // Send transformed product as response
+      // Send transformed listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Product transformed successfully",
+        message: "Listing transformed successfully",
         data: transformedProduct,
       });
     } catch (error: any) {
-      console.error("Error transforming product:", error);
+      console.error("Error transforming listing:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error transforming product",
+        message: error.message || "Error transforming listing",
       });
     }
   },
-  //Get All Template Product Names
+  //Get All Template Listing Names
   getAllTemplateProducts: async (req: Request, res: Response) => {
     try {
-      const templates = await productService.getProductsByCondition({
+      const templates = await listingService.getListingsByCondition({
         isTemplate: true,
       });
 
@@ -209,12 +196,11 @@ export const productController = {
       }
 
       let templateList = templates.map((template, index) => {
-        const productId = template._id;
+        const listingId = template._id;
         const kind = template.kind || "UNKNOWN";
 
         let fields: string[] = [];
-        const prodInfo: any =
-          template.platformDetails.website?.prodTechInfo || {};
+        const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
 
         switch (kind.toLowerCase()) {
           case "laptops":
@@ -228,12 +214,7 @@ export const productController = {
             ];
             break;
           case "all in one pc":
-            fields = [
-              prodInfo.type,
-              prodInfo.memory,
-              prodInfo.processor,
-              prodInfo.operatingSystem,
-            ];
+            fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "projectors":
             fields = [prodInfo.type, prodInfo.model];
@@ -242,11 +223,7 @@ export const productController = {
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
           case "gaming pc":
-            fields = [
-              prodInfo.processor,
-              prodInfo.gpu,
-              prodInfo.operatingSystem,
-            ];
+            fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
@@ -262,7 +239,7 @@ export const productController = {
 
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { templateName, productId };
+        return { templateName, listingId };
       });
 
       // 🔹 Sort by the number at the end of templateName in descending order
@@ -286,10 +263,10 @@ export const productController = {
     }
   },
 
-  //Get All Draft Product Names
+  //Get All Draft Listing Names
   getAllDraftProductNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await productService.getProductsByCondition({
+      const drafts = await listingService.getListingsByCondition({
         status: "draft",
       });
 
@@ -301,7 +278,7 @@ export const productController = {
       }
 
       let draftList = drafts.map((draft, index) => {
-        const productId = draft._id;
+        const listingId = draft._id;
         const kind = draft.kind || "UNKNOWN";
 
         let fields: string[] = [];
@@ -319,12 +296,7 @@ export const productController = {
             ];
             break;
           case "all in one pc":
-            fields = [
-              prodInfo.type,
-              prodInfo.memory,
-              prodInfo.processor,
-              prodInfo.operatingSystem,
-            ];
+            fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "projectors":
             fields = [prodInfo.type, prodInfo.model];
@@ -333,11 +305,7 @@ export const productController = {
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
           case "gaming pc":
-            fields = [
-              prodInfo.processor,
-              prodInfo.gpu,
-              prodInfo.operatingSystem,
-            ];
+            fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
@@ -353,7 +321,7 @@ export const productController = {
 
         const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { draftName, productId };
+        return { draftName, listingId };
       });
 
       // 🔹 Sort by the number at the end of draftName in descending order
@@ -377,12 +345,12 @@ export const productController = {
     }
   },
 
-  //Selected transformed draft Product
+  //Selected transformed draft Listing
   transformAndSendDraftProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
-      // Validate product ID
+      // Validate listing ID
       if (!mongoose.isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -390,39 +358,39 @@ export const productController = {
         });
       }
 
-      // Fetch product from DB
-      const product = await productService.getFullProductById(id);
+      // Fetch listing from DB
+      const listing = await listingService.getFullListingById(id);
 
-      if (!product) {
+      if (!listing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
-      // Transform product data using utility
-      const transformedProductDraft = transformProductData(product);
+      // Transform listing data using utility
+      const transformedProductDraft = transformProductData(listing);
 
-      // Send transformed Draft product as response
+      // Send transformed Draft listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "draft transformed and Fetched successfully",
         data: transformedProductDraft,
       });
     } catch (error: any) {
-      console.error("Error transforming product Draft:", error);
+      console.error("Error transforming listing Draft:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error transforming product Draft",
+        message: error.message || "Error transforming listing Draft",
       });
     }
   },
-  //Selected transformed Template Product
+  //Selected transformed Template Listing
   transformAndSendTemplateProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
-      // Validate product ID
+      // Validate listing ID
       if (!mongoose.isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -430,30 +398,30 @@ export const productController = {
         });
       }
 
-      // Fetch product from DB
-      const product = await productService.getFullProductById(id);
+      // Fetch listing from DB
+      const listing = await listingService.getFullListingById(id);
 
-      if (!product) {
+      if (!listing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
-      // Transform product data using utility
-      const transformedProductTemplate = transformProductData(product);
+      // Transform listing data using utility
+      const transformedProductTemplate = transformProductData(listing);
 
-      // Send transformed product as response
+      // Send transformed listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "template transformed and Fetched successfully",
         data: transformedProductTemplate,
       });
     } catch (error: any) {
-      console.error("Error transforming product Template:", error);
+      console.error("Error transforming listing Template:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error transforming product Template",
+        message: error.message || "Error transforming listing Template",
       });
     }
   },
@@ -465,33 +433,29 @@ export const productController = {
       if (!platform || !data) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Platform and data are required to update the product",
+          message: "Platform and data are required to update the listing",
         });
       }
 
-      const updatedProduct = await productService.updateProduct(
-        id,
-        platform,
-        data
-      );
+      const updatedProduct = await listingService.updateListing(id, platform, data);
 
       if (!updatedProduct) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Product updated successfully",
+        message: "Listing updated successfully",
         data: updatedProduct,
       });
     } catch (error: any) {
-      console.error("Error updating product:", error);
+      console.error("Error updating listing:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error updating product",
+        message: error.message || "Error updating listing",
       });
     }
   },
@@ -499,17 +463,15 @@ export const productController = {
   deleteProduct: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const result = await productService.deleteProduct(id);
+      const result = await listingService.deleteListing(id);
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Product deleted successfully",
+        message: "Listing deleted successfully",
         deletedProduct: result,
       });
     } catch (error) {
-      console.error("Delete Product Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting product" });
+      console.error("Delete Listing Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting listing" });
     }
   },
 
@@ -525,18 +487,18 @@ export const productController = {
         });
       }
 
-      const updatedProduct = await productService.toggleBlock(id, isBlocked);
+      const updatedProduct = await listingService.toggleBlock(id, isBlocked);
 
       if (!updatedProduct) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Product not found",
+          message: "Listing not found",
         });
       }
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: `Product ${isBlocked ? "blocked" : "unblocked"} successfully`,
+        message: `Listing ${isBlocked ? "blocked" : "unblocked"} successfully`,
         data: updatedProduct,
       });
     } catch (error: any) {
@@ -549,12 +511,10 @@ export const productController = {
   },
   getProductStats: async (req: Request, res: Response) => {
     try {
-      const stats = await productService.getProductStats();
+      const stats = await listingService.getListingStats();
       return res.status(StatusCodes.OK).json(stats);
     } catch (error) {
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error fetching products statistics" });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching products statistics" });
     }
   },
   searchAndFilterProducts: async (req: Request, res: Response) => {
@@ -576,36 +536,17 @@ export const productController = {
       const filters = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
-        status:
-          status && ["draft", "published"].includes(status.toString())
-            ? status.toString()
-            : undefined, // Validate status
-        isBlocked:
-          isBlocked === "true"
-            ? true
-            : isBlocked === "false"
-              ? false
-              : undefined, // Convert only valid booleans
-        isTemplate:
-          isTemplate === "true"
-            ? true
-            : isTemplate === "false"
-              ? false
-              : undefined, // Convert only valid booleans
-        startDate:
-          startDate && !isNaN(Date.parse(startDate as string))
-            ? new Date(startDate as string)
-            : undefined,
-        endDate:
-          endDate && !isNaN(Date.parse(endDate as string))
-            ? new Date(endDate as string)
-            : undefined,
+        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
+        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
+        isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
+        startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
+        endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
         limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
       };
 
       // Call the service to search and filter the products
-      const products = await productService.searchAndFilterProducts(filters);
+      const products = await listingService.searchAndFilterListings(filters);
 
       // Return the results
       res.status(200).json({
@@ -623,58 +564,40 @@ export const productController = {
   },
   bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { productIds, discountValue, vat } = req.body;
+      const { listingIds, discountValue, vat } = req.body;
 
-      if (!Array.isArray(productIds) || productIds.length === 0) {
-        return res
-          .status(400)
-          .json({ message: "productIds array is required" });
+      if (!Array.isArray(listingIds) || listingIds.length === 0) {
+        return res.status(400).json({ message: "listingIds array is required" });
       }
 
       if (discountValue === undefined || vat === undefined) {
-        return res
-          .status(400)
-          .json({ message: "Both discount and VAT/tax are required" });
+        return res.status(400).json({ message: "Both discount and VAT/tax are required" });
       }
 
-      // Validate each productId format
-      for (const productId of productIds) {
-        if (!mongoose.Types.ObjectId.isValid(productId)) {
-          return res
-            .status(400)
-            .json({ message: `Invalid productId: ${productId}` });
+      // Validate each listingId format
+      for (const listingId of listingIds) {
+        if (!mongoose.Types.ObjectId.isValid(listingId)) {
+          return res.status(400).json({ message: `Invalid listingId: ${listingId}` });
         }
       }
 
       // Perform bulk update
-      const result = await productService.bulkUpdateProductTaxDiscount(
-        productIds,
-        discountValue,
-        vat
-      );
+      const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountValue, vat);
 
       return res.status(200).json({
-        message: "Product VAT/tax and discount updated successfully",
+        message: "Listing VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res
-        .status(500)
-        .json({ message: "Internal Server Error", error: error.message });
+      res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
   upsertProductParts: async (req: Request, res: Response) => {
     try {
-      const product = await productService.upsertProductPartsService(
-        req.params.id,
-        req.body.selectedVariations
-      );
-      if (!product)
-        return res.status(404).json({ message: "Product not found" });
+      const listing = await listingService.upsertListingPartsService(req.params.id, req.body.selectedVariations);
+      if (!listing) return res.status(404).json({ message: "Listing not found" });
 
-      res
-        .status(200)
-        .json({ message: "Product variations updated successfully", product });
+      res.status(200).json({ message: "Listing variations updated successfully", listing });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -682,13 +605,10 @@ export const productController = {
   // Get selected variations
   getSelectedProductParts: async (req: Request, res: Response) => {
     try {
-      const product: any = await productService.getSelectedProductPartsService(
-        req.params.id
-      );
-      if (!product)
-        return res.status(404).json({ message: "Product not found" });
+      const listing: any = await listingService.getSelectedListingPartsService(req.params.id);
+      if (!listing) return res.status(404).json({ message: "Listing not found" });
 
-      res.status(200).json({ selectedVariations: product.selectedVariations });
+      res.status(200).json({ selectedVariations: listing.selectedVariations });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
