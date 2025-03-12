@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { variationService } from "@/services/variation.service";
-import { Product } from "@/models/listing.model";
+import { Listing } from "@/models/listing.model";
 
 export const variationController = {
   // Get parts by platform
@@ -43,7 +43,7 @@ export const variationController = {
         const platformKey = `platformDetails.${platform}.prodTechInfo`;
 
         // Aggregate unique parts for the platform
-        const parts = await Product.aggregate([
+        const parts = await Listing.aggregate([
           {
             $project: {
               cpu: `$${platformKey}.processor`,
@@ -109,7 +109,7 @@ export const variationController = {
   getUnifiedParts: async (_req: Request, res: Response) => {
     try {
       // Aggregating parts across all platforms
-      const parts = await Product.aggregate([
+      const parts = await Listing.aggregate([
         {
           $project: {
             amazon: "$platformDetails.amazon.prodTechInfo",
