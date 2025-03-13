@@ -5,89 +5,80 @@ import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 export const listingService = {
   // Create a new draft listing
-  createDraftListing: async (stepData: any) => {
+  createDraftListingService: async (stepData: any) => {
     try {
-      const productCategory =
-        stepData.productCategory && mongoose.isValidObjectId(stepData.productCategory)
-          ? new mongoose.Types.ObjectId(stepData.productCategory)
-          : null;
-      const productSupplier =
-        stepData.productSupplier && mongoose.isValidObjectId(stepData.productSupplier)
-          ? new mongoose.Types.ObjectId(stepData.productSupplier)
-          : null;
-      if (!productCategory) {
-        throw new Error("Invalid or missing 'productCategory'");
-      }
-      if (!productSupplier) {
-        throw new Error("Invalid or missing 'productSupplier'");
+      if (!stepData || typeof stepData !== "object") {
+        throw new Error("Invalid or missing 'stepData'");
       }
 
-      const draftProduct: any = new Listing({
-        platformDetails: {
-          amazon: {
-            productInfo: {
-              productCategory: null,
-              productSupplier: null,
-              title: "",
-              productDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-          ebay: {
-            productInfo: {
-              productCategory: null,
-              productSupplier: null,
+      if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
+        throw new Error("Invalid or missing 'productInfo' in stepData");
+      }
 
-              title: "",
-              productDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-          website: {
-            productInfo: {
-              productCategory: null,
-              productSupplier: null,
-              title: "",
-              productDescription: "",
-              brand: "",
-              images: [],
-            },
-          },
-        },
+      const {
+        kind,
+        productCategory,
+        productSupplier,
+        title,
+        productDescription,
+        brand,
+        listingImages,
+        listingCondition,
+      } = stepData.productInfo;
+
+      if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
+        throw new Error("Invalid or missing 'kind' (listing type)");
+      }
+
+      const categoryId = mongoose.isValidObjectId(productCategory)
+        ? new mongoose.Types.ObjectId(productCategory)
+        : null;
+      const supplierId = mongoose.isValidObjectId(productSupplier)
+        ? new mongoose.Types.ObjectId(productSupplier)
+        : null;
+
+      if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
+      if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
+
+      // ✅ Ensure listingImages is correctly mapped inside productInfo
+      const productInfo = {
+        productCategory: categoryId,
+        productSupplier: supplierId,
+        title: title || "",
+        productDescription: productDescription || "",
+        brand: brand || "",
+        listingCondition: listingCondition || "",
+        lisitngImages: Array.isArray(listingImages) ? listingImages : [], // ✅ Ensure images are saved
+      };
+
+      const draftListingData: any = {
         status: "draft",
         isBlocked: false,
+        kind,
+        productInfo, // ✅ Fixed: Now correctly storing listingImages inside productInfo
+        prodPricing: stepData.prodPricing || {},
+        prodTechInfo: stepData.prodTechInfo || {},
+        prodDelivery: stepData.prodDelivery || {},
+        prodSeo: stepData.prodSeo || {},
+      };
+
+      Object.keys(draftListingData).forEach((key) => {
+        if (typeof draftListingData[key] === "object" && draftListingData[key]) {
+          Object.keys(draftListingData[key]).forEach((subKey) => {
+            if (draftListingData[key][subKey] === undefined) {
+              delete draftListingData[key][subKey];
+            }
+          });
+        }
       });
 
-      Object.entries(stepData).forEach(([key, value]: [string, any]) => {
-        const { value: fieldValue, isAmz, isEbay, isWeb } = value || {};
-        if (isAmz) draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
-        if (isEbay) draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
-        if (isWeb) draftProduct.platformDetails.website.productInfo[key] = fieldValue;
-      });
-      //  if(stepData.prodPricing.images){
-      // Object.entries(stepData).forEach(([key, value]: [string, any]) => {
-      //   const { value: fieldValue, amazon, ebay, website } = value || {};
-      //   if (amazon)
-      //     draftProduct.platformDetails.amazon.productInfo[key] = fieldValue;
-      //   if (ebay)
-      //     draftProduct.platformDetails.ebay.productInfo[key] = fieldValue;
-      //   if (website)
-      //     draftProduct.platformDetails.website.productInfo[key] = fieldValue;
-      // });
-      // }
-      ["amazon", "ebay", "website"].forEach((platform) => {
-        draftProduct.platformDetails[platform].productInfo.productCategory = productCategory;
-        draftProduct.platformDetails[platform].productInfo.productSupplier = productSupplier;
-        draftProduct.kind = stepData.kind;
-      });
+      const draftListing = new Listing.discriminators[kind](draftListingData);
+      await draftListing.save({ validateBeforeSave: false });
 
-      await draftProduct.save();
-      return draftProduct;
-    } catch (error) {
+      return draftListing;
+    } catch (error: any) {
       console.error("Error creating draft listing:", error);
-      throw new Error("Failed to create draft listing");
+      throw new Error(error.message || "Failed to create draft listing");
     }
   },
   // Update an existing draft listing when user move to next stepper
