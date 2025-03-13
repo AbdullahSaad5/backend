@@ -56,16 +56,18 @@ export const listingController = {
     }
   },
 
-  updateDraftListing: async (req: Request, res: Response) => {
+ updateDraftListingController: async (req: Request, res: Response) => {
     try {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // Validate listingId
+      console.log("Received request to update draft Listing:", { listingId, stepData });
+
+      // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid or missing 'listingId'",
+          message: "Invalid listing ID",
         });
       }
 
@@ -77,29 +79,16 @@ export const listingController = {
         });
       }
 
-      // Update the draft listing in MongoDB
+      // Update listing
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
 
-      // Check if the listing is marked for publishing
-      if (stepData.publishToEbay) {
-        // Sync listing with eBay if it's marked for publishing
-        const ebayItemId = await ebayService.syncListingWithEbay(updatedListing);
-
-        // Update the listing with the eBay Item ID
-        await listingService.updateDraftListing(updatedListing._id, {
-          ebayItemId,
-        });
-
-        // Return success with the updated listing
-        return res.status(StatusCodes.OK).json({
-          success: true,
-          message: "Draft listing updated and synced with eBay successfully",
-          data: updatedListing,
-          ebayItemId, // Include eBay Item ID in the response
+      if (!updatedListing) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found or could not be updated",
         });
       }
 
-      // If not marked for publishing, just return the updated listing
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft listing updated successfully",
@@ -108,15 +97,6 @@ export const listingController = {
     } catch (error: any) {
       console.error("Error updating draft listing:", error);
 
-      // Check if the error is related to eBay synchronization
-      if (error.message.includes("eBay")) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          message: `Error syncing listing with eBay: ${error.message}`,
-        });
-      }
-
-      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",

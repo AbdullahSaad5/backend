@@ -65,176 +65,67 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      const draftProduct: any = await Listing.findById(listingId);
-      if (!draftProduct) {
-        throw new Error("Draft listing not found");
+      console.log("Received update request:", { listingId, stepData });
+
+      // Validate listingId
+      if (!mongoose.isValidObjectId(listingId)) {
+        throw new Error("Invalid listing ID");
       }
 
+      // Find listing
+      const draftListing: any = await Listing.findById(listingId);
+      if (!draftListing) {
+        console.error("Draft Listing not found:", listingId);
+        throw new Error("Draft Listing not found");
+      }
+
+      console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
+
+      // Update Status & Template Check
       if (stepData.status !== undefined) {
-        draftProduct.status = stepData.status;
-        draftProduct.isTemplate = stepData.isTemplate;
-        await draftProduct.save({ validateBeforeSave: false });
-        return draftProduct;
+        draftListing.status = stepData.status;
+        draftListing.isTemplate = stepData.isTemplate || false;
       }
 
-      const step = stepData.step;
-
-      if (step === "prodDelivery") {
-        // console.log("🟡 Processing prodDelivery step separately...");
-
-        if (!draftProduct.platformDetails) {
-          draftProduct.platformDetails = { amazon: {}, ebay: {}, website: {} };
-        }
-
-        ["amazon", "ebay", "website"].forEach((platform) => {
-          if (!draftProduct.platformDetails[platform]) {
-            draftProduct.platformDetails[platform] = {};
-          }
-
-          if (!draftProduct.platformDetails[platform].prodDelivery) {
-            draftProduct.platformDetails[platform].prodDelivery = {};
-          }
-        });
-
-        Object.keys(stepData).forEach((key) => {
-          if (key === "step") return;
-
-          const entry = stepData[key];
-          const { isAmz, isEbay, isWeb, ...rest } = entry;
-
-          const updateField = (platform: string, shouldUpdate: boolean) => {
-            if (!shouldUpdate) return;
-            if (!draftProduct.platformDetails[platform].prodDelivery) {
-              draftProduct.platformDetails[platform].prodDelivery = {};
-            }
-
-            if (typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
-              // Handle nested objects (e.g., packageWeight, packageDimensions)
-              draftProduct.platformDetails[platform].prodDelivery[key] = {};
-              Object.keys(entry).forEach((subKey) => {
-                if (subKey.startsWith("is")) return; // Ignore flags
-                draftProduct.platformDetails[platform].prodDelivery[key][subKey] = entry[subKey].value;
-              });
-            } else {
-              // Handle direct key-value pairs (e.g., postagePolicy, irregularPackage)
-              draftProduct.platformDetails[platform].prodDelivery[key] = entry.value;
-            }
+      // Update Nested Sections Dynamically
+      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      sectionsToUpdate.forEach((section) => {
+        if (stepData[section]) {
+          console.log(`Updating ${section} with:`, stepData[section]);
+          draftListing[section] = {
+            ...(draftListing[section] || {}), // Preserve existing data
+            ...stepData[section], // Merge new data
           };
+          draftListing.markModified(section);
+        }
+      });
 
-          updateField("amazon", isAmz);
-          updateField("ebay", isEbay);
-          updateField("website", isWeb);
-        });
+      // Update Top-Level Fields
+      const topLevelFields = [
+        "publishToEbay",
+        "publishToAmazon",
+        "publishToWebsite",
+        "stockThreshold",
+        "isBlocked",
+        "Kind",
+      ];
+      topLevelFields.forEach((field) => {
+        if (stepData[field] !== undefined) {
+          draftListing[field] = stepData[field];
+        }
+      });
 
-        draftProduct.markModified("platformDetails.amazon.prodDelivery");
-        draftProduct.markModified("platformDetails.ebay.prodDelivery");
-        draftProduct.markModified("platformDetails.website.prodDelivery");
-      } else {
-        // Recursive function to update platform details
-        const processStepData = (
-          data: any,
-          platformDetails: any,
-          keyPrefix: string = "",
-          inheritedFlags: {
-            isAmz?: boolean;
-            isEbay?: boolean;
-            isWeb?: boolean;
-          } = {}
-        ) => {
-          Object.keys(data).forEach((key) => {
-            const currentKey = keyPrefix ? `${keyPrefix}.${key}` : key;
-            const entry = data[key];
+      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
-            // Inherit platform flags
-            const {
-              isAmz = inheritedFlags.isAmz,
-              isEbay = inheritedFlags.isEbay,
-              isWeb = inheritedFlags.isWeb,
-            } = entry || {};
-            if (entry && typeof entry === "object" && !Array.isArray(entry) && entry.value === undefined) {
-              // Recursive call for nested objects
-              processStepData(entry, platformDetails, currentKey, {
-                isAmz,
-                isEbay,
-                isWeb,
-              });
-            } else {
-              let value = entry?.value ?? entry;
-              const step = stepData.step;
-              // console.log(`🔹 Processing: ${currentKey} | Value:`, value);
+      // Save updated Listing
+      await draftListing.save({ validateBeforeSave: false });
 
-              if (step === "productInfo") {
-                if (isAmz) platformDetails.amazon.productInfo ||= {};
-                if (isEbay) platformDetails.ebay.productInfo ||= {};
-                if (isWeb) platformDetails.website.productInfo ||= {};
-                if (isAmz) platformDetails.amazon.productInfo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.productInfo[currentKey] = value;
-                if (isWeb) platformDetails.website.productInfo[currentKey] = value;
-                if (currentKey === "productSupplier") {
-                  platformDetails.amazon.productInfo.productSupplier = value;
-                  platformDetails.ebay.productInfo.productSupplier = value;
-                  platformDetails.website.productInfo.productSupplier = value;
-                }
-              } else if (step === "prodMedia") {
-                if (currentKey.startsWith("platformMedia.")) {
-                  const keyParts = currentKey.split(".").slice(1); // ["ebay", "images"]
-                  if (
-                    keyParts.length === 2 &&
-                    ["amazon", "ebay", "website"].includes(keyParts[0]) &&
-                    ["images", "videos"].includes(keyParts[1])
-                  ) {
-                    const [platform, mediaType] = keyParts;
+      console.log("Updated Listing after save:", JSON.stringify(draftListing, null, 2));
 
-                    // 1. Initialize platform if missing
-                    if (!platformDetails[platform]) {
-                      platformDetails[platform] = {}; // ← Fixes "Cannot read 'ebay'"
-                    }
-
-                    // 2. Initialize prodMedia structure
-                    if (!platformDetails[platform].prodMedia) {
-                      platformDetails[platform].prodMedia = {
-                        images: [],
-                        videos: [],
-                      };
-                    }
-
-                    // 3. Assign the media array
-                    platformDetails[platform].prodMedia[mediaType] = value;
-                  }
-                }
-              } else if (step === "prodTechInfo") {
-                if (isAmz) platformDetails.amazon.prodTechInfo ||= {};
-                if (isEbay) platformDetails.ebay.prodTechInfo ||= {};
-                if (isWeb) platformDetails.website.prodTechInfo ||= {};
-                if (isAmz) platformDetails.amazon.prodTechInfo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodTechInfo[currentKey] = value;
-                if (isWeb) platformDetails.website.prodTechInfo[currentKey] = value;
-              } else if (step === "prodPricing") {
-                if (isAmz) platformDetails.amazon.prodPricing ||= {};
-                if (isEbay) platformDetails.ebay.prodPricing ||= {};
-                if (isWeb) platformDetails.website.prodPricing ||= {};
-                if (isAmz) platformDetails.amazon.prodPricing[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodPricing[currentKey] = value;
-                if (isWeb) platformDetails.website.prodPricing[currentKey] = value;
-              } else {
-                if (isAmz) platformDetails.amazon.prodSeo ||= {};
-                if (isEbay) platformDetails.ebay.prodSeo ||= {};
-                if (isWeb) platformDetails.website.prodSeo ||= {};
-                if (isAmz) platformDetails.amazon.prodSeo[currentKey] = value;
-                if (isEbay) platformDetails.ebay.prodSeo[currentKey] = value;
-                if (isWeb) platformDetails.website.prodSeo[currentKey] = value;
-              }
-            }
-          });
-        };
-        processStepData(stepData, draftProduct.platformDetails);
-      }
-
-      await draftProduct.save({ validateBeforeSave: false });
-      return draftProduct;
+      return draftListing;
     } catch (error: any) {
-      console.error("❌ Error updating draft listing:", error.message, error.stack);
-      throw new Error(`Failed to update draft listing: ${error.message}`);
+      console.error("Error updating draft Listing:", error);
+      throw new Error(`Failed to update draft Listing: ${error.message}`);
     }
   },
 

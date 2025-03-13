@@ -54,7 +54,7 @@ export const listing = (router: Router) => {
   router.patch(
     "/:id",
     // listingValidation.updateListing,
-    listingController.updateDraftListing
+    listingController.updateDraftListingController
   );
 
   router.get("/", listingController.getAllListing);

@@ -20,12 +20,10 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-
   title: { type: String, required: true },
   listingDescription: { type: String },
   brand: { type: String, required: true },
   displayUnits: { type: Number, required: true },
-  
 };
 
 const prodMediaSchema = {
@@ -35,51 +33,40 @@ const prodMediaSchema = {
 
 const prodPricingSchema = {
   // prod pricing details
-  quantity: { type: String },
+  listingQuantity: { type: Number, required: true },
   discountType: { type: String, enum: ["fixed", "percentage"] },
   discountValue: { type: Number },
-  price: { type: String },
   condition: { type: String },
   conditionDescription: { type: String },
   pricingFormat: { type: String },
   vat: { type: Number },
-  paymentPolicy: {
-    type: Schema.Types.ObjectId,
-    ref: "PaymentPolicy",
-    default: null,
-    set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  },
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
-  warrantyDuration: { type: Number, required: true }, // Duration in days
-  warrantyCoverage: { type: String, required: true }, // Coverage description
-  warrantyDocument: { type: String }, // URL or file path
+
+  // paymentPolicy: {
+  //   type: Schema.Types.ObjectId,
+  //   ref: "PaymentPolicy",
+  //   default: null,
+  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+  // },
+  paymentPolicy: { type: String },
+  retailPricePerUnit: { type: Number, default: 0 },
+  warrantyDuration: { type: String }, // Duration in days
+  warrantyCoverage: { type: String }, // Coverage description
+  warrantyDocument: {
+    type: [mediaSchema],
+    _id: false,
+  },
 };
 const prodDeliverySchema = {
   // prod delivery details
-  postagePolicy: {
-    type: String,
-  },
-  packageWeight: {
-    weightKg: {
-      type: String,
-    },
-    weightG: {
-      type: String,
-    },
-  },
-  packageDimensions: {
-    dimensionLength: {
-      type: String,
-    },
-    dimensionWidth: {
-      type: String,
-    },
-    dimensionHeight: {
-      type: String,
-    },
-  },
+  postagePolicy: { type: String },
+  packageWeightKg: { type: String },
+  packageWeightG: { type: String },
+  packageDimensionLength: { type: String },
+  packageDimensionWidth: { type: String },
+  packageDimensionHeight: { type: String },
   irregularPackage: { type: Boolean },
 };
 
