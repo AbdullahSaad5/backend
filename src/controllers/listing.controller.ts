@@ -56,7 +56,7 @@ export const listingController = {
     }
   },
 
- updateDraftListingController: async (req: Request, res: Response) => {
+  updateDraftListingController: async (req: Request, res: Response) => {
     try {
       const listingId = req.params.id;
       const { stepData } = req.body;
@@ -106,7 +106,7 @@ export const listingController = {
 
   getAllListing: async (req: Request, res: Response) => {
     try {
-      const listings = await listingService.getAllListings();
+      const listings = await listingService.getAllListing();
       return res.status(StatusCodes.OK).json({
         success: true,
         listings,
@@ -185,9 +185,9 @@ export const listingController = {
     }
   },
   //Get All Template Listing Names
-  getAllTemplateListing: async (req: Request, res: Response) => {
+  getAllTemplateListingNames: async (req: Request, res: Response) => {
     try {
-      const templates = await listingService.getListingsByCondition({
+      const templates = await listingService.getListingByCondition({
         isTemplate: true,
       });
 
@@ -198,14 +198,15 @@ export const listingController = {
         });
       }
 
-      let templateList = templates.map((template, index) => {
-        const listingId = template._id;
-        const kind = template.kind || "UNKNOWN";
+      const templateList = templates.map((template, index) => {
+        const inventoryId = template._id;
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
+        // ✅ Ensure correct access to prodTechInfo
+        const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
-        const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
 
-        switch (kind.toLowerCase()) {
+        switch (kind) {
           case "laptops":
             fields = [
               prodInfo.processor,
@@ -233,23 +234,20 @@ export const listingController = {
             break;
           default:
             fields = ["UNKNOWN"];
-            break;
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { templateName, listingId };
+        return { templateName, inventoryId };
       });
 
-      // 🔹 Sort by the number at the end of templateName in descending order
+      // Sorting based on numerical value at the end of templateName
       templateList.sort((a, b) => {
-        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
@@ -269,26 +267,25 @@ export const listingController = {
   //Get All Draft Listing Names
   getAllDraftListingNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await listingService.getListingsByCondition({
-        status: "draft",
-      });
+      const drafts = await listingService.getListingByCondition({ status: "draft" });
 
-      if (!drafts.length) {
+      if (!drafts || drafts.length === 0) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "No draft listing found",
+          message: "No draft Listing found",
         });
       }
 
-      let draftList = drafts.map((draft, index) => {
+      const draftList = drafts.map((draft, index) => {
         const listingId = draft._id;
-        const kind = draft.kind || "UNKNOWN";
+        const kind = draft?.kind || "UNKNOWN";
+        // const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
+        const prodInfo = (draft as any).prodTechInfo || {};
 
         let fields: string[] = [];
-        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
         switch (kind.toLowerCase()) {
-          case "laptops":
+          case "listing_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -298,19 +295,19 @@ export const listingController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "listing_all_iPn_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "listing_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "listing_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "listing_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "listing_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -319,24 +316,21 @@ export const listingController = {
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { draftName, listingId };
       });
 
-      // 🔹 Sort by the number at the end of draftName in descending order
       draftList.sort((a, b) => {
         const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
         const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft listing names fetched successfully",
+        message: "Draft inventory names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -411,14 +405,11 @@ export const listingController = {
         });
       }
 
-      // Transform listing data using utility
-      const transformedListingTemplate = transformListingData(listing);
-
       // Send transformed listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "template transformed and Fetched successfully",
-        data: transformedListingTemplate,
+        data: listing,
       });
     } catch (error: any) {
       console.error("Error transforming listing Template:", error);
@@ -440,7 +431,7 @@ export const listingController = {
         });
       }
 
-      const updatedListing = await listingService.updateListing(id, platform, data);
+      const updatedListing = await listingService.updateListing(id, data);
 
       if (!updatedListing) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -459,6 +450,37 @@ export const listingController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating listing",
+      });
+    }
+  },
+  //get all listings by inventoryId
+
+  getListingsByInventoryId: async (req: Request, res: Response) => {
+    try {
+      const { inventoryId } = req.params;
+
+      // Validate inventoryId format
+      if (!mongoose.isValidObjectId(inventoryId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid inventoryId",
+        });
+      }
+
+      // Fetch listings and count
+      const { listings, total } = await listingService.getListingsByInventoryId(inventoryId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: total > 0 ? "Listings retrieved successfully" : "No listings found",
+        totalListings: total,
+        data: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching listings by inventoryId:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching listings",
       });
     }
   },
