@@ -17,3 +17,7 @@ export { Discount } from "./discount.model";
 export { Stock } from "./stock.model";
 export { Taxes } from "./taxes.model";
 export { Inventory } from "./inventory.model";
+export { Conversation } from "./conversation.model";
+export { Message } from "./message.model";
+
+

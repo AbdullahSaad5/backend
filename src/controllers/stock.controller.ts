@@ -135,6 +135,7 @@ export const stockController = {
 
       // Allowed fields for update
       const allowedFields = [
+        "inventoryId",
         "totalUnits",
         "usableUnits",
         "purchasePricePerUnit",
