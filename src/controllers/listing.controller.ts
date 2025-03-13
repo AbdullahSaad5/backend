@@ -81,7 +81,23 @@ export const listingController = {
 
       // Update listing
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
+      if (stepData.publishToEbay) {
+        // Sync product with eBay if it's marked for publishing
+        const ebayItemId = await ebayService.syncListingWithEbay(updatedListing);
 
+        // Update the product with the eBay Item ID
+        await listingService.updateDraftListing(updatedListing._id, {
+          ebayItemId,
+        });
+
+        // Return success with the updated product
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Draft product updated and synced with eBay successfully",
+          data: updatedListing,
+          ebayItemId, // Include eBay Item ID in the response
+        });
+      }
       if (!updatedListing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
