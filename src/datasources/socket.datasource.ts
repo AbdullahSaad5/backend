@@ -1,10 +1,9 @@
-import { user } from "./../routes/user.route";
 import { getAccessTokenFromHeaders } from "@/utils/headers.util";
 import { jwtVerify } from "@/utils/jwt.util";
-import { sendFCM } from "@/utils/send-fcm.util";
 import { Server as HttpServer } from "http";
-import mongoose, { Types } from "mongoose";
 import { Server, Socket } from "socket.io";
+import { conversationService, messageService } from "@/services";
+import mongoose, { Types } from "mongoose";
 
 interface User {
   id: string;
@@ -15,29 +14,9 @@ interface SocketWithUser extends Socket {
 }
 
 class SocketManager {
-  private connections: Map<string, string> = new Map();
+  private connections = new Map<string, string>();
   private io: Server | null = null;
-  private groupRooms: Map<string, Set<string>> = new Map();
-
-  getConnections(): Map<string, string> {
-    return this.connections;
-  }
-
-  setConnection(userId: string, socketId: string): void {
-    this.connections.set(userId, socketId);
-  }
-
-  removeConnection(userId: string): void {
-    this.connections.delete(userId);
-  }
-
-  getSocketId(userId: string): string | undefined {
-    return this.connections.get(userId);
-  }
-
-  getIo(): Server | null {
-    return this.io;
-  }
+  private groupRooms = new Map<string, Set<string>>();
 
   private initializeServer(server: HttpServer): void {
     this.io = new Server(server, {
@@ -46,100 +25,120 @@ class SocketManager {
   }
 
   private setupMiddleware(): void {
-    this.io!.use((socket: Socket, next) => {
-      const { accessToken } = getAccessTokenFromHeaders(socket.handshake.headers);
-      if (!accessToken) {
-        console.log("No access token");
-        return next(new Error("Authentication error"));
-      }
+    this.io!.use(async (socket: Socket, next) => {
+      try {
+        const { accessToken } = getAccessTokenFromHeaders(socket.handshake.headers);
+        if (!accessToken) return next(new Error("No access token"));
 
-      next();
+        const user = jwtVerify(accessToken);
+        (socket as SocketWithUser).user = { id: user.id.toString() };
+        next();
+      } catch (error) {
+        console.log("Authentication error:", error);
+        next(new Error("Authentication failed"));
+      }
     });
   }
 
-  private handleConnection(socket: Socket): void {
-    const socketWithUser = socket as SocketWithUser;
+  private handleConnection(socket: SocketWithUser): void {
+    console.log(`User connected: ${socket.user.id}`);
+    this.connections.set(socket.user.id, socket.id);
 
-    if (!socketWithUser.user) {
-      this.io!.to(socket.id).emit("error", "Authentication error");
-      socket.disconnect();
-      return;
-    }
-
-    this.io!.to(socket.id).emit("message", "Welcome to the chat");
-    this.setConnection(socketWithUser.user.id, socket.id);
-
-    this.setupMessageHandler(socketWithUser);
-    this.setupDisconnectHandler(socketWithUser);
-    this.setupGroupChatHandlers(socketWithUser);
-  }
-
-  private setupGroupChatHandlers(socket: SocketWithUser): void {
-    socket.on("joinGroup", async (conversationId: string) => {
-      if (!this.groupRooms.has(conversationId)) {
-        this.groupRooms.set(conversationId, new Set());
-      }
-      this.groupRooms.get(conversationId)!.add(socket.user.id);
-      socket.join(conversationId);
-      this.io!.to(conversationId).emit("userJoinedGroup", { userId: socket.user.id, groupId: conversationId });
-    });
-
-    socket.on("leaveGroup", async (conversationId: string) => {
-      const group = this.groupRooms.get(conversationId);
-      if (group) {
-        group.delete(socket.user.id);
-        if (group.size === 0) {
-          this.groupRooms.delete(conversationId);
+    // Personal messaging
+    socket.on("message", async (conversationId: string, message: string) => {
+      try {
+        const conversation = await conversationService.getConversationById(conversationId);
+        if (!conversation) {
+          return socket.emit("error", "Conversation not found");
         }
-      }
-      socket.leave(conversationId);
-      this.io!.to(conversationId).emit("userLeftGroup", { userId: socket.user.id, groupId: conversationId });
-    });
-  }
 
-  private setupMessageHandler(socket: SocketWithUser): void {
-    socket.on(
-      "message",
-      async (conversationId: string, message: string, files?: any[], lockChat: boolean = false) => {}
-    );
+        const senderId = new mongoose.Types.ObjectId(socket.user.id);
+        
+        // Verify participant
+        const isParticipant = conversation.participants.some(p => p.equals(senderId));
+        if (!isParticipant) {
+          return socket.emit("error", "Not authorized");
+        }
 
-    socket.on(
-      "groupMessage",
-      async (conversationId: string, message: string, files?: string[], lockChat: boolean = false) => {}
-    );
-  }
+        // Create message
+        const newMessage = await messageService.createMessage(
+          senderId,
+          message,
+          new mongoose.Types.ObjectId(conversationId)
+        );
 
-  private setupDisconnectHandler(socket: SocketWithUser): void {
-    socket.on("disconnect", () => {
-      this.removeConnection(socket.user.id);
-      // Remove user from each connected group
-      this.groupRooms.forEach((group, groupId) => {
-        if (group.has(socket.user.id)) {
-          group.delete(socket.user.id);
-          if (group.size === 0) {
-            this.groupRooms.delete(groupId);
+        // Add message to conversation
+        await conversationService.addMessageToConversation(
+          conversationId,
+          newMessage._id
+        );
+
+        // Find other participants
+        const receivers = conversation.participants
+          .filter(p => !p.equals(senderId))
+          .map(p => p.toString());
+
+        // Send to online participants
+        receivers.forEach(receiverId => {
+          if (this.connections.has(receiverId)) {
+            this.io!.to(this.connections.get(receiverId)!).emit("message", newMessage);
           }
-          this.io!.to(groupId).emit("userLeftGroup", { userId: socket.user.id, groupId });
+        });
+
+      } catch (error) {
+        console.log("Message error:", error);
+        socket.emit("error", "Failed to send message");
+      }
+    });
+
+    // Group messaging
+    socket.on("groupMessage", async (groupId: string, message: string) => {
+      try {
+        const group = await conversationService.getConversationById(groupId);
+        if (!group?.isGroup) {
+          return socket.emit("error", "Group not found");
         }
-      });
-      console.log("A user disconnected");
+
+        const senderId = new mongoose.Types.ObjectId(socket.user.id);
+        const newMessage = await messageService.createMessage(
+          senderId,
+          message,
+          new mongoose.Types.ObjectId(groupId)
+        );
+
+        await conversationService.addMessageToConversation(groupId, newMessage._id);
+
+        // Broadcast to group
+        this.io!.to(groupId).emit("groupMessage", newMessage);
+
+      } catch (error) {
+        console.log("Group message error:", error);
+        socket.emit("error", "Failed to send group message");
+      }
+    });
+
+    // Group management
+    socket.on("joinGroup", (groupId: string) => {
+      socket.join(groupId);
+      console.log(`User ${socket.user.id} joined group ${groupId}`);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`User disconnected: ${socket.user.id}`);
+      this.connections.delete(socket.user.id);
     });
   }
 
-  run = async (server: HttpServer): Promise<void> => {
+  public run(server: HttpServer): void {
     this.initializeServer(server);
     this.setupMiddleware();
-    this.io!.on("connection", this.handleConnection.bind(this));
-    console.log("Socket.io server is up and running");
+    
+    this.io!.on("connection", (socket: Socket) => {
+      this.handleConnection(socket as SocketWithUser);
+    });
 
-    if (process.env.NODE_ENV === "dev") {
-      const TIME_INTERVAL = 60 * 1000;
-      setInterval(() => {
-        console.log("Group rooms", this.groupRooms);
-        console.log("Connections", this.connections);
-      }, TIME_INTERVAL);
-    }
-  };
+    console.log("Socket server running");
+  }
 }
 
 export const socketManager = new SocketManager();

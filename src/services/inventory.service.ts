@@ -49,6 +49,7 @@ function pick(obj: any, keys: string[]) {
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
+    console.log("step dAtaa : " , stepData)
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
