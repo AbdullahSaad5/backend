@@ -4,11 +4,11 @@ import { Router } from "express";
 import {
   handleBulkImport,
   handleBulkExport,
-} from "@/controllers/product.controller.helper"; // Adjust import path as needed
+} from "@/controllers/listing.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
-export const product = (router: Router) => {
-  // TODO: listingValidation.addProduct
+export const listing = (router: Router) => {
+  // TODO: listingValidation.addListing
 
   // Create or update a draft listing
   router.post("/", listingController.createDraftListing);
@@ -19,7 +19,7 @@ export const product = (router: Router) => {
   //new route for search and filter and pagination
   router.get("/search", listingController.searchAndFilterListing);
 
-  // New route for fetching product stats/ Widgets
+  // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
   // Route for bulk import (POST request)
   router.post("/bulk-import", uploadMiddleware, handleBulkImport);
@@ -44,13 +44,13 @@ export const product = (router: Router) => {
     listingController.transformAndSendDraftListing
   );
 
-  // Fetch all template product  names
+  // Fetch all template listing  names
   router.get("/templates", listingController.getAllTemplateListing);
 
-  // Fetch all Draft product  names
+  // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
-  // Update a draft product by ID (subsequent steps)
+  // Update a draft listing by ID (subsequent steps)
   router.patch(
     "/:id",
     // listingValidation.updateListing,
@@ -83,6 +83,6 @@ export const product = (router: Router) => {
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);
 
-  // Get selected variations for a product
+  // Get selected variations for listing
   router.get("/:id/selected-parts", listingController.getSelectedListingParts);
 };

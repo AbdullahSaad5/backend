@@ -15,35 +15,26 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const {
-        kind,
-        productCategory,
-        productSupplier,
-        title,
-        productDescription,
-        brand,
-        listingImages,
-        listingCondition,
-      } = stepData.productInfo;
+      const { kind, inventoryId, title, productDescription, brand, listingImages, listingCondition } =
+        stepData.productInfo;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (listing type)");
       }
 
-      const categoryId = mongoose.isValidObjectId(productCategory)
-        ? new mongoose.Types.ObjectId(productCategory)
-        : null;
-      const supplierId = mongoose.isValidObjectId(productSupplier)
-        ? new mongoose.Types.ObjectId(productSupplier)
-        : null;
+      // const categoryId = mongoose.isValidObjectId(productCategory)
+      //   ? new mongoose.Types.ObjectId(productCategory)
+      //   : null;
+      // const supplierId = mongoose.isValidObjectId(productSupplier)
+      //   ? new mongoose.Types.ObjectId(productSupplier)
+      //   : null;
 
-      if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
-      if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
+      // if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
+      // if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
       // ✅ Ensure listingImages is correctly mapped inside productInfo
       const productInfo = {
-        productCategory: categoryId,
-        productSupplier: supplierId,
+      
         title: title || "",
         productDescription: productDescription || "",
         brand: brand || "",

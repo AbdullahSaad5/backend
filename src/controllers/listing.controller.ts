@@ -16,13 +16,24 @@ export const listingController = {
         });
       }
 
-      // Save draft listing in MongoDB
+      if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid or missing 'productInfo' in request payload",
+        });
+      }
+      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid or missing 'InventoryId' in request payload",
+        });
+      }
       const draftListing = await listingService.createDraftListingService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Draft listing created successfully",
-        data: { ListingId: draftListing._id },
+        data: { listingId: draftListing._id },
       });
     } catch (error: any) {
       console.error("Error creating draft listing:", error);

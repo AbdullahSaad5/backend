@@ -20,15 +20,12 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  inventoryId: {
-    type: Schema.Types.ObjectId,
-    ref: "Inventory",
-    required: true,
-  },
+
   title: { type: String, required: true },
   listingDescription: { type: String },
   brand: { type: String, required: true },
   displayUnits: { type: Number, required: true },
+  
 };
 
 const prodMediaSchema = {
@@ -337,6 +334,7 @@ const selectedVariationsSchema = new Schema({
 // Main Listing Schema
 const listingSchema = new Schema(
   {
+    inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
