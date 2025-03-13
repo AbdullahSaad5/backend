@@ -5,21 +5,27 @@ import { z, ZodSchema } from "zod";
 import { Types } from "mongoose";
 import { IBodyRequest } from "@/contracts/request.contract";
 import { REGEX } from "@/constants/regex";
-import { IProduct, IProductUpdatePayload } from "@/contracts/product.contract";
+import { IProduct, IProductUpdatePayload } from "@/contracts/listing.contract";
 
 // Custom Zod validation for MongoDB ObjectId
 const objectId = z.instanceof(Types.ObjectId).or(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"));
 
 // Platform-Specific Schema: Amazon
 const amazonSchema = z.object({
-  title: z.string({
-    message:"Title is required"
-  }).trim().min(3, "Title is required"),
-  brand: z.string({
-    message:"Brand is required"
-  }).trim().min(2, "Brand is required"),
+  title: z
+    .string({
+      message: "Title is required",
+    })
+    .trim()
+    .min(3, "Title is required"),
+  brand: z
+    .string({
+      message: "Brand is required",
+    })
+    .trim()
+    .min(2, "Brand is required"),
   category: objectId.refine((value) => value !== undefined && value !== null, {
-    message: "Category is required"
+    message: "Category is required",
   }),
   technicalSpecifications: z
     .object({
@@ -76,12 +82,10 @@ const ebaySchema = amazonSchema.extend({
   }),
 });
 
-
 // Platform-Specific Schema: Website
 const websiteSchema = amazonSchema.extend({
   fulfillmentMethod: z.enum(["Dropshipping", "In-House Fulfillment"]).optional(),
 });
-
 
 // vatPercentage: { type: Number, required: true, default: 0 }, // VAT Percentage
 //     salesTaxPercentage: { type: Number, required: true, default: 0 }, // Sales Tax Percentage
@@ -98,7 +102,6 @@ const productSchema = z.object({
     website: websiteSchema.optional(),
   }),
   status: z.enum(["draft", "published"]),
-
 });
 
 // Product Validation

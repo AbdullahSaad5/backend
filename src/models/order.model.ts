@@ -1,8 +1,7 @@
 import { Schema, model, Types } from "mongoose";
 import { IUser } from "@/contracts/user.contract"; // User model for customer reference
-import { IProduct } from "@/contracts/product.contract"; // Product model for ordered items
+import { IListing } from "@/contracts/listing.contract"; // Product model for ordered items
 import { IUserAddress } from "@/contracts/user-address.contracts"; // Address model for shipping/billing info
-
 
 // Order Schema Definition
 const orderSchema = new Schema(

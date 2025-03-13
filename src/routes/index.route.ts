@@ -10,7 +10,8 @@ import { supplier } from "./supplier.route";
 import { supplierCategory } from "./supplier-category.routes";
 import { productCategory } from "./product-category.route";
 import { productBrand } from "./product-brand.route";
-import { product } from "./product.route";
+import { product } from "./listing.route";
+import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
@@ -27,6 +28,7 @@ import { stock } from "./stock.route";
 import { customPolicy } from "./custom-policy.route";
 import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
+import { chat } from "./chat.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -48,6 +50,7 @@ const routes: {
   supplierCategory,
   stock,
   product,
+  inventory,
   productCategory,
   productBrand,
   customPolicy,
@@ -61,6 +64,7 @@ const routes: {
   discount,
   taxes,
   faqsPolicy,
+  chat,
   // discriminator,
 };
 

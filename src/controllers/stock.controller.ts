@@ -7,31 +7,31 @@ export const stockController = {
   addStock: async (req: Request, res: Response) => {
     try {
       const {
-        productId,
-        quantity,
+        inventoryId,
+        totalUnits,
+        usableUnits,
         purchasePricePerUnit,
         costPricePerUnit,
-        retailPricePerUnit,
+        // retailPricePerUnit,
         purchaseDate,
         receivedDate,
       } = req.body;
 
       if (
-        !productId ||
-        !quantity ||
+        !inventoryId ||
+        !totalUnits ||
+        !usableUnits ||
         !purchasePricePerUnit ||
         !costPricePerUnit ||
-        !retailPricePerUnit ||
+        // !retailPricePerUnit ||
         !purchaseDate ||
         !receivedDate
       ) {
-        return res
-          .status(400)
-          .json({ message: "All required stock fields must be provided" });
+        return res.status(400).json({ message: "All required stock fields must be provided" });
       }
 
-      if (!mongoose.Types.ObjectId.isValid(productId)) {
-        return res.status(400).json({ message: "Invalid Product ID format" });
+      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
+        return res.status(400).json({ message: "Invalid Inventory ID format" });
       }
 
       const result = await stockService.addStock(req.body);
@@ -40,17 +40,14 @@ export const stockController = {
       console.error("❌ Error in addStock:", error);
 
       if (error.name === "ValidationError") {
-        return res
-          .status(400)
-          .json({ message: "Validation Error", error: error.message });
+        return res.status(400).json({ message: "Validation Error", error: error.message });
       }
-      if (error.message.includes("Product not found")) {
+      if (error.message.includes("Inventory not found")) {
         return res.status(404).json({ message: error.message });
       }
       if (error.code === 11000) {
         return res.status(400).json({
-          message:
-            "Duplicate stock entry detected. Ensure productId is correct.",
+          message: "Duplicate stock entry detected. Ensure inventoryId is correct.",
           error: error.keyValue,
         });
       }
@@ -58,35 +55,31 @@ export const stockController = {
       res.status(500).json({ message: error.message, error: error.message });
     }
   },
-  // 📌 Get Products That Have Stock Along With Their Stock Entries
-  getProductsWithStock: async (req: Request, res: Response) => {
+  // 📌 Get inventory That Have Stock Along With Their Stock Entries
+  getInventoryWithStock: async (req: Request, res: Response) => {
     try {
-      const productsWithStocks = await stockService.getProductsWithStock();
-      if (productsWithStocks.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "No products with stock found" });
+      const inventoryWithStocks = await stockService.getInventoryWithStock();
+      if (inventoryWithStocks.length === 0) {
+        return res.status(404).json({ message: "No inventory with stock found" });
       }
-      res.status(200).json(productsWithStocks);
+      res.status(200).json(inventoryWithStocks);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
 
-  // 📌 Get All Stock Purchases for a Product
-  getStockByProduct: async (req: Request, res: Response) => {
+  // 📌 Get All Stock Purchases for a inventory
+  getStockByInventoryId: async (req: Request, res: Response) => {
     try {
-      const { productId } = req.params;
+      const { inventoryId } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(productId)) {
-        return res.status(400).json({ message: "Invalid Product ID format" });
+      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
+        return res.status(400).json({ message: "Invalid Inventory ID format" });
       }
 
-      const stocks = await stockService.getStockByProduct(productId);
+      const stocks = await stockService.getStockByInventory(inventoryId);
       if (stocks.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "No stock records found for this product" });
+        return res.status(404).json({ message: "No stock records found for this inventory" });
       }
 
       res.status(200).json(stocks);
@@ -98,13 +91,13 @@ export const stockController = {
   // 📌 Get Stock Summary
   getStockSummary: async (req: Request, res: Response) => {
     try {
-      const { productId } = req.params;
+      const { inventoryId } = req.params;
 
-      if (!mongoose.Types.ObjectId.isValid(productId)) {
-        return res.status(400).json({ message: "Invalid Product ID format" });
+      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
+        return res.status(400).json({ message: "Invald Inventory ID format" });
       }
 
-      const summary = await stockService.getStockSummary(productId);
+      const summary = await stockService.getStockSummary(inventoryId);
       res.status(200).json(summary);
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
@@ -142,18 +135,20 @@ export const stockController = {
 
       // Allowed fields for update
       const allowedFields = [
-        "quantity",
+        "inventoryId",
+        "totalUnits",
+        "usableUnits",
         "purchasePricePerUnit",
         "costPricePerUnit",
-        "retailPricePerUnit",
+        // "retailPricePerUnit",
         "receivedDate",
+        "receivedBy",
         "purchaseDate",
+        "markAsStock",
       ];
 
       // Check if any forbidden field is in the request
-      const invalidFields = Object.keys(updateData).filter(
-        (field) => !allowedFields.includes(field)
-      );
+      const invalidFields = Object.keys(updateData).filter((field) => !allowedFields.includes(field));
 
       if (invalidFields.length > 0) {
         return res.status(400).json({
@@ -174,7 +169,7 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-  getStockById: async (req: Request, res: Response) => {
+  getStockByStockId: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
 
@@ -197,40 +192,25 @@ export const stockController = {
   // 📌 Bulk Update Stock Costs
   bulkUpdateStockCost: async (req: Request, res: Response) => {
     try {
-      const {
-        stockIds,
-        costPricePerUnit,
-        purchasePricePerUnit,
-        retailPricePerUnit,
-      } = req.body;
+      const { stockIds, costPricePerUnit, purchasePricePerUnit, retailPricePerUnit } = req.body;
 
       if (!Array.isArray(stockIds) || stockIds.length === 0) {
         return res.status(400).json({ message: "stockIds array is required" });
       }
 
-      if (
-        costPricePerUnit === undefined ||
-        purchasePricePerUnit === undefined ||
-        retailPricePerUnit === undefined
-      ) {
-        return res
-          .status(400)
-          .json({ message: "All cost values are required" });
+      if (costPricePerUnit === undefined || purchasePricePerUnit === undefined || retailPricePerUnit === undefined) {
+        return res.status(400).json({ message: "All cost values are required" });
       }
 
       for (const stockId of stockIds) {
         if (!mongoose.Types.ObjectId.isValid(stockId)) {
-          return res
-            .status(400)
-            .json({ message: `Invalid stockId: ${stockId}` });
+          return res.status(400).json({ message: `Invalid stockId: ${stockId}` });
         }
       }
 
       const existingStocks = await stockService.getExistingStocks(stockIds);
       if (existingStocks.length !== stockIds.length) {
-        return res
-          .status(404)
-          .json({ message: "One or more stock records not found" });
+        return res.status(404).json({ message: "One or more stock records not found" });
       }
 
       const result = await stockService.bulkUpdateStockCost(
@@ -239,9 +219,7 @@ export const stockController = {
         purchasePricePerUnit,
         retailPricePerUnit
       );
-      return res
-        .status(200)
-        .json({ message: "Stock costs updated successfully", result });
+      return res.status(200).json({ message: "Stock costs updated successfully", result });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
     }

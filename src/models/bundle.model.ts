@@ -1,5 +1,5 @@
 import { Schema, model, Types } from "mongoose";
-import { IProduct } from "@/contracts/product.contract";
+import { IProduct } from "@/contracts/listing.contract";
 import { IProductCategory } from "@/contracts/product-category.contract";
 import { IProductBrand } from "@/contracts/product-brand.contract";
 
@@ -112,7 +112,6 @@ const bundleSchema = new Schema(
       type: Number,
       default: 5, // Level at which you want to be notified about low stock
     },
-
   },
   { timestamps: true } // Automatically manage createdAt and updatedAt fields
 );

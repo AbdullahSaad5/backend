@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { variationService } from "@/services/variation.service";
-import { Product } from "@/models/product.model";
+import { Listing } from "@/models/listing.model";
 
 export const variationController = {
   // Get parts by platform
@@ -43,7 +43,7 @@ export const variationController = {
         const platformKey = `platformDetails.${platform}.prodTechInfo`;
 
         // Aggregate unique parts for the platform
-        const parts = await Product.aggregate([
+        const parts = await Listing.aggregate([
           {
             $project: {
               cpu: `$${platformKey}.processor`,
@@ -109,7 +109,7 @@ export const variationController = {
   getUnifiedParts: async (_req: Request, res: Response) => {
     try {
       // Aggregating parts across all platforms
-      const parts = await Product.aggregate([
+      const parts = await Listing.aggregate([
         {
           $project: {
             amazon: "$platformDetails.amazon.prodTechInfo",
@@ -124,25 +124,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.processor" },
-                        "$amazon.processor",
-                        ["$amazon.processor"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.processor" }, "$amazon.processor", ["$amazon.processor"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.processor" },
-                        "$ebay.processor",
-                        ["$ebay.processor"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.processor" }, "$ebay.processor", ["$ebay.processor"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.processor" },
-                        "$website.processor",
-                        ["$website.processor"],
-                      ],
+                      $cond: [{ $isArray: "$website.processor" }, "$website.processor", ["$website.processor"]],
                     },
                   ],
                 },
@@ -157,25 +145,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.ramSize" },
-                        "$amazon.ramSize",
-                        ["$amazon.ramSize"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.ramSize" }, "$amazon.ramSize", ["$amazon.ramSize"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.ramSize" },
-                        "$ebay.ramSize",
-                        ["$ebay.ramSize"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.ramSize" }, "$ebay.ramSize", ["$ebay.ramSize"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.ramSize" },
-                        "$website.ramSize",
-                        ["$website.ramSize"],
-                      ],
+                      $cond: [{ $isArray: "$website.ramSize" }, "$website.ramSize", ["$website.ramSize"]],
                     },
                   ],
                 },
@@ -190,25 +166,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.storageType" },
-                        "$amazon.storageType",
-                        ["$amazon.storageType"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.storageType" }, "$amazon.storageType", ["$amazon.storageType"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.storageType" },
-                        "$ebay.storageType",
-                        ["$ebay.storageType"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.storageType" }, "$ebay.storageType", ["$ebay.storageType"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.storageType" },
-                        "$website.storageType",
-                        ["$website.storageType"],
-                      ],
+                      $cond: [{ $isArray: "$website.storageType" }, "$website.storageType", ["$website.storageType"]],
                     },
                   ],
                 },
@@ -223,25 +187,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.gpu" },
-                        "$amazon.gpu",
-                        ["$amazon.gpu"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.gpu" }, "$amazon.gpu", ["$amazon.gpu"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.gpu" },
-                        "$ebay.gpu",
-                        ["$ebay.gpu"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.gpu" }, "$ebay.gpu", ["$ebay.gpu"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.gpu" },
-                        "$website.gpu",
-                        ["$website.gpu"],
-                      ],
+                      $cond: [{ $isArray: "$website.gpu" }, "$website.gpu", ["$website.gpu"]],
                     },
                   ],
                 },
@@ -256,25 +208,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.height" },
-                        "$amazon.height",
-                        ["$amazon.height"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.height" }, "$amazon.height", ["$amazon.height"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.height" },
-                        "$ebay.height",
-                        ["$ebay.height"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.height" }, "$ebay.height", ["$ebay.height"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.height" },
-                        "$website.height",
-                        ["$website.height"],
-                      ],
+                      $cond: [{ $isArray: "$website.height" }, "$website.height", ["$website.height"]],
                     },
                   ],
                 },
@@ -289,25 +229,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.length" },
-                        "$amazon.length",
-                        ["$amazon.length"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.length" }, "$amazon.length", ["$amazon.length"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.length" },
-                        "$ebay.length",
-                        ["$ebay.length"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.length" }, "$ebay.length", ["$ebay.length"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.length" },
-                        "$website.length",
-                        ["$website.length"],
-                      ],
+                      $cond: [{ $isArray: "$website.length" }, "$website.length", ["$website.length"]],
                     },
                   ],
                 },
@@ -322,25 +250,13 @@ export const variationController = {
                 input: {
                   $concatArrays: [
                     {
-                      $cond: [
-                        { $isArray: "$amazon.width" },
-                        "$amazon.width",
-                        ["$amazon.width"],
-                      ],
+                      $cond: [{ $isArray: "$amazon.width" }, "$amazon.width", ["$amazon.width"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$ebay.width" },
-                        "$ebay.width",
-                        ["$ebay.width"],
-                      ],
+                      $cond: [{ $isArray: "$ebay.width" }, "$ebay.width", ["$ebay.width"]],
                     },
                     {
-                      $cond: [
-                        { $isArray: "$website.width" },
-                        "$website.width",
-                        ["$website.width"],
-                      ],
+                      $cond: [{ $isArray: "$website.width" }, "$website.width", ["$website.width"]],
                     },
                   ],
                 },
@@ -468,8 +384,7 @@ export const variationController = {
       if (!isAmz && !isEbay && !isWeb) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message:
-            "At least one platform (Amazon, Ebay, Website) must be selected.",
+          message: "At least one platform (Amazon, Ebay, Website) must be selected.",
         });
       }
 
@@ -506,8 +421,7 @@ export const variationController = {
       if (!["amazon", "ebay", "website"].includes(platform)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message:
-            "Invalid platform. It must be 'amazon', 'ebay', or 'website'.",
+          message: "Invalid platform. It must be 'amazon', 'ebay', or 'website'.",
         });
       }
 
@@ -516,10 +430,7 @@ export const variationController = {
       updateObject[`variationData.${platform}`] = updateData;
 
       // Update the variation in the database
-      const variation = await variationService.updateVariation(
-        variationId,
-        updateObject
-      );
+      const variation = await variationService.updateVariation(variationId, updateObject);
 
       // Check if the variation was found and updated
       if (!variation) {
@@ -555,8 +466,7 @@ export const variationController = {
         });
       }
 
-      const variations =
-        await variationService.getVariationsByProduct(productId);
+      const variations = await variationService.getVariationsByProduct(productId);
 
       res.status(StatusCodes.OK).json({
         success: true,
@@ -584,8 +494,7 @@ export const variationController = {
       }
 
       // Attempt to delete the variation from the database
-      const deletedVariation =
-        await variationService.deleteVariation(variationId);
+      const deletedVariation = await variationService.deleteVariation(variationId);
 
       // Check if the variation was found and deleted
       if (!deletedVariation) {

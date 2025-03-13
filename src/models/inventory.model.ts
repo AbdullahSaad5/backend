@@ -1,11 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
-import {
-  IAmazonPlatformDetails,
-  IEbayPlatformDetails,
-  IWebsitePlatformDetails,
-  IProduct,
-} from "@/contracts/product.contract";
-import { invokeMap } from "lodash";
+import { IInventory } from "@/contracts/inventory.contract";
+import { paymentPolicy } from "@/routes/payment-policy.route";
 
 export const mediaSchema = {
   id: { type: String },
@@ -19,7 +14,7 @@ export const mediaSchema = {
 };
 const options = { timestamps: true, discriminatorKey: "kind" };
 
-const prodInfoSchema = {
+export const prodInfoSchema = {
   productCategory: {
     type: Schema.Types.ObjectId,
     ref: "ProductCategory",
@@ -32,15 +27,18 @@ const prodInfoSchema = {
   },
   title: { type: String, required: true },
   productDescription: { type: String },
+
+  inventoryImages: { type: [mediaSchema], _id: false },
+  inventoryCondition: { type: String, enum: ["used", "new"] },
   brand: { type: String, required: true },
 };
 
-const prodMediaSchema = {
+export const prodMediaSchema = {
   images: { type: [mediaSchema], _id: false },
   videos: { type: [mediaSchema], _id: false },
 };
 
-const prodPricingSchema = {
+export const prodPricingSchema = {
   // prod pricing details
   quantity: { type: String },
   discountType: { type: String, enum: ["fixed", "percentage"] },
@@ -50,47 +48,43 @@ const prodPricingSchema = {
   conditionDescription: { type: String },
   pricingFormat: { type: String },
   vat: { type: Number },
-  paymentPolicy: {
-    type: Schema.Types.ObjectId,
-    ref: "PaymentPolicy",
-    default: null,
-    set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  },
+  // paymentPolicy: {
+  //   type: Schema.Types.ObjectId,
+  //   ref: "PaymentPolicy",
+  //   default: null,
+  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+  // },
+  paymentPolicy: { type: String },
+
+  purchasePricePerUnit: { type: Number },
+  costPricePerUnit: { type: Number },
+  retailPricePerUnit: { type: Number, default: 0 },
+  receivedBy: { type: String },
+  receivedDate: { type: Date },
+  purchaseDate: { type: Date },
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
-  warrantyDuration: { type: Number, required: true }, // Duration in days
-  warrantyCoverage: { type: String, required: true }, // Coverage description
-  warrantyDocument: { type: String }, // URL or file path
+  warrantyDuration: { type: String }, // Duration in days
+  warrantyCoverage: { type: String }, // Coverage description
+  warrantyDocument: {
+    type: [mediaSchema],
+    _id: false,
+  },
+  // URL or file path
 };
-const prodDeliverySchema = {
+export const prodDeliverySchema = {
   // prod delivery details
-  postagePolicy: {
-    type: String,
-  },
-  packageWeight: {
-    weightKg: {
-      type: String,
-    },
-    weightG: {
-      type: String,
-    },
-  },
-  packageDimensions: {
-    dimensionLength: {
-      type: String,
-    },
-    dimensionWidth: {
-      type: String,
-    },
-    dimensionHeight: {
-      type: String,
-    },
-  },
+  postagePolicy: { type: String },
+  packageWeightKg: { type: String },
+  packageeWeightG: { type: String },
+  packageDimensionLength: { type: String },
+  packageDimensionWidth: { type: String },
+  packageDimensionHeight: { type: String },
   irregularPackage: { type: Boolean },
 };
 
-const prodSeoSchema = {
+export const prodSeoSchema = {
   seoTags: {
     type: [String],
   },
@@ -102,18 +96,25 @@ const prodSeoSchema = {
   },
 };
 // mock
-const laptopTechnicalSchema = {
+export const laptopTechnicalSchema = {
   processor: { type: String, required: true },
   model: { type: String },
-  // productCondition: { type: String },
+  // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: String },
+  californiaProp65Warning: { type: String },
   type: { type: String },
-  releaseYear: { type: Number },
+  releaseYear: { type: String },
   hardDriveCapacity: { type: String },
   color: { type: String },
   maxResolution: { type: String },
@@ -129,7 +130,7 @@ const laptopTechnicalSchema = {
   width: { type: String },
 };
 
-const allInOnePCTechnicalSchema = {
+export const allInOnePCTechnicalSchema = {
   processor: { type: String },
   model: { type: String },
   memory: { type: String },
@@ -138,20 +139,21 @@ const allInOnePCTechnicalSchema = {
   unitQuantity: { type: String },
   mpn: { type: String },
   processorSpeed: { type: String },
-  ramSize: { type: String },
-  formFactor: { type: String },
-  motherboardModel: { type: String },
-  ean: { type: String, unique: true },
   series: { type: String },
+  ramSize: { type: String },
+  formFactor: { type: String }, 
+  motherboardModel: { type: String },
+  ean: { type: String, unique: true, sparse: true },
+  // series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
-  releaseYear: { type: Number },
-  productType: { type: String, default: "All In One PC" },
+  releaseYear: { type: String },
+  inventoryType: { type: String, default: "All In One PC" },
   hardDriveCapacity: { type: String },
   color: { type: String },
   // maxResolution: { type: String },
@@ -168,14 +170,15 @@ const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
-const projectorTechnicalSchema = {
+export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
-  mpn: { type: String },
+  mpn: { type: String }, //
   ean: { type: String },
   color: { type: String },
   numberOfLANPorts: { type: String },
@@ -206,9 +209,10 @@ const projectorTechnicalSchema = {
   yearManufactured: { type: String },
 };
 
-const monitorTechnicalSchema = {
+export const monitorTechnicalSchema = {
   model: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   color: { type: String },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -217,7 +221,7 @@ const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String, required: true },
+  ean: { type: String,  },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -234,7 +238,7 @@ const monitorTechnicalSchema = {
   width: { type: String },
 };
 
-const gamingPCTechnicalSchema = {
+export const gamingPCTechnicalSchema = {
   processor: { type: String },
   model: { type: String },
   maxRamCapacity: { type: String },
@@ -246,12 +250,13 @@ const gamingPCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String, required: true },
+  ean: { type: String,  },
   series: { type: String },
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: String },
-  features: { type: String },
+  features: { type: [String] },
+
   ssdCapacity: { type: String },
   gpu: { type: String },
   releaseYear: { type: String },
@@ -276,7 +281,7 @@ const gamingPCTechnicalSchema = {
   // ramMemoryTechnology: { type: String, required: true },
   // humanInterfaceInput: { type: String, required: true },
   // includedComponents: { type: String, required: true },
-  // specificUsesForProduct: { type: String, required: true },
+  // specificUsesForInventory: { type: String, required: true },
   // cacheMemoryInstalledSize: { type: String, required: true },
   // cacheMemoryInstalledSizeUnit: { type: String, required: true },
   // cpuModel: { type: String, required: true },
@@ -292,7 +297,7 @@ const gamingPCTechnicalSchema = {
   // hardDiskRotationalSpeedUnit: { type: String, required: true },
   // totalUsb2oPorts: { type: String, required: true },
   // totalUsb3oPorts: { type: String, required: true },
-  // productWarranty: { type: String, required: true },
+  // inventoryWarranty: { type: String, required: true },
   // gdprRisk: { type: String, required: true },
   // opticalStorageDevice: { type: String, required: true },
   // dangerousGoodsRegulation: { type: String, required: true },
@@ -300,7 +305,7 @@ const gamingPCTechnicalSchema = {
   // manufacturer: { type: String, required: true },
 };
 
-const networkEquipmentsTechnicalSchema = {
+export const networkEquipmentsTechnicalSchema = {
   model: { type: String },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
@@ -332,254 +337,120 @@ const networkEquipmentsTechnicalSchema = {
   width: { type: String },
 };
 
-// Define variation schema
-const selectedVariationsSchema = new Schema({
-  cpu: [{ type: String }], // Multiple CPU options
-  ram: [{ type: String }], // Multiple RAM options
-  storage: [{ type: String }], // Multiple storage options
-  graphics: [{ type: String }],
-  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
-});
-// Main Product Schema
-const productSchema = new Schema(
+// Main Inventory Schema
+const inventorySchema = new Schema(
   {
-    platformDetails: {
-      amazon: {},
-      ebay: {},
-      website: {},
-    },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
     publishToWebsite: { type: Boolean },
+    kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-
-    selectedVariations: selectedVariationsSchema,
   },
-  options
+  { ...options, collection: "inventory" }
 );
 
-// Base Product Model
-const Product = model<IProduct>("Product", productSchema);
+// Base Inventory Model
+const Inventory = model("Inventory", inventorySchema);
 
 // discriminator for laptops
-Product.discriminator(
-  "laptops",
+Inventory.discriminator(
+  "inventory_laptops",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: laptopTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
 // discriminator for all in one pc
-Product.discriminator(
-  "all in one pc",
+Inventory.discriminator(
+  "inventory_all_in_one_pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: allInOnePCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
 // discriminator for projectors
-Product.discriminator(
-  "projectors",
+Inventory.discriminator(
+  "inventory_projectors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: projectorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
 // discriminator for Monitors
-Product.discriminator(
-  "monitors",
+Inventory.discriminator(
+  "inventory_monitors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: monitorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
 // discriminator for Gaming PC
-Product.discriminator(
-  "gaming pc",
+Inventory.discriminator(
+  "inventory_gaming_pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: gamingPCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
 // discriminator for Network Equipments
-Product.discriminator(
-  "network equipments",
+Inventory.discriminator(
+  "inventory_network_equipments",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: networkEquipmentsTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
 );
 
-// Export the base Product and its discriminators
-export { Product };
+// Export the base Inventory and its discriminators
+export { Inventory };

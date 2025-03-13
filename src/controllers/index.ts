@@ -6,7 +6,8 @@ export { supplierController } from "./supplier.controller";
 export { supplierCategoryController } from "./supplier-category.controller";
 export { productCategoryController } from "./product-category.controller";
 export { productBrandController } from "./product-brand.controller";
-export { productController } from "./product.controller";
+export { listingController } from "./listing.controller";
+export { inventoryController } from "./inventory.controller";
 export { permissionsController } from "./permissions.controller";
 export { meController } from "./me.controller";
 export { bundleController } from "./bundle.controller";
@@ -23,3 +24,5 @@ export { stockController } from "./stock.controller";
 export { customPolicyController } from "./custom-policy.controller";
 export { fulfillmentPolicyController } from "./fulfillment-policy.controller";
 export { returnPolicyController } from "./return-policy.controller";
+export { chatController } from "./chat.controller";
+
