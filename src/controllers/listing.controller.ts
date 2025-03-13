@@ -105,14 +105,24 @@ export const listingController = {
         });
       }
 
+      // If not marked for publishing, just return the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft listing updated successfully",
+        message: "Draft Listing updated successfully",
         data: updatedListing,
       });
     } catch (error: any) {
-      console.error("Error updating draft listing:", error);
+      console.error("Error updating draft Listing:", error);
 
+      // Check if the error is related to eBay synchronization
+      if (error.message.includes("eBay")) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: `Error syncing Listing with eBay: ${error.message}`,
+        });
+      }
+
+      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
