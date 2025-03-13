@@ -34,7 +34,7 @@ export const listingService = {
         status: "draft",
         isBlocked: false,
         kind,
-        inventoryId, // ✅ Ensure inventoryId is correctly passed
+        inventoryId, // ✅ Ensure listingId is correctly passed
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
@@ -148,57 +148,37 @@ export const listingService = {
     }
   },
 
-  getAllListings: async () => {
+  getAllListing: async () => {
     try {
       return await Listing.find()
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .populate("platformDetails.website.prodPricing.paymentPolicy")
-        .populate("platformDetails.amazon.prodPricing.paymentPolicy")
-        .populate("platformDetails.ebay.prodPricing.paymentPolicy");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("prodPricing.paymentPolicy");
     } catch (error) {
-      console.error("Error fetching all products:", error);
-      throw new Error("Failed to fetch products");
+      console.error("Error fetching all listing:", error);
+      throw new Error("Failed to fetch listing");
     }
   },
   //getting all template products name and their id
-  getListingsByCondition: async (condition: Record<string, any>) => {
+  getListingByCondition: async (condition: Record<string, any>) => {
     try {
-      // Find products matching the condition
       return await Listing.find(condition)
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .select("_id platformDetails website.productInfo productCategory brand model srno kind");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
-      console.error("Error fetching products by condition:", error);
-      throw new Error("Failed to fetch products by condition");
+      console.error("Error fetching listing by condition:", error);
+      throw new Error("Failed to fetch listing by condition");
     }
   },
   getListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier")
-        .populate("platformDetails.website.prodPricing.paymentPolicy")
-        .populate("platformDetails.amazon.prodPricing.paymentPolicy")
-        .populate("platformDetails.ebay.prodPricing.paymentPolicy");
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("prodPricing.paymentPolicy");
       if (!listing) throw new Error("Listing not found");
-      // if (listing.platformDetails[platform]) {
-      //   return listing.platformDetails[platform];
-      // }
-      // throw new Error(`No details found for platform: ${platform}`);
       return listing;
     } catch (error) {
       // console.error(`Error fetching listing by ID for platform ${platform}:`, error);
@@ -206,16 +186,28 @@ export const listingService = {
       throw new Error("Failed to fetch listing");
     }
   },
-  updateListing: async (id: string, platform: "amazon" | "ebay" | "website", data: any) => {
+
+  getListingsByInventoryId: async (inventoryId: string) => {
     try {
-      const updateQuery = { [`platformDetails.${platform}`]: data };
-      const updatedProduct = await Listing.findByIdAndUpdate(id, updateQuery, {
+      const listings = await Listing.find({ inventoryId }).lean();
+      const total = await Listing.countDocuments({ inventoryId });
+
+      return { listings, total };
+    } catch (error) {
+      console.error("Error retrieving listings:", error);
+      throw new Error("Failed to fetch listings");
+    }
+  },
+  updateListing: async (id: string, data: any) => {
+    try {
+      const updateQuery = { [`platformDetails.`]: data };
+      const updatedListing = await Listing.findByIdAndUpdate(id, updateQuery, {
         new: true,
       });
-      if (!updatedProduct) throw new Error("Listing not found");
-      return updatedProduct.platformDetails[platform];
+      if (!updatedListing) throw new Error("Listing not found");
+      return updatedListing;
     } catch (error) {
-      console.error(`Error updating listing for platform ${platform}:`, error);
+      console.error(`Error updating listing`, error);
       throw new Error("Failed to update listing");
     }
   },
@@ -228,9 +220,9 @@ export const listingService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedProduct = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
-      if (!updatedProduct) throw new Error("Listing not found");
-      return updatedProduct;
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      if (!updatedListing) throw new Error("Listing not found");
+      return updatedListing;
     } catch (error) {
       console.error("Error toggling block status:", error);
       throw new Error("Failed to toggle block status");
@@ -239,34 +231,34 @@ export const listingService = {
   // New API for fetching listing stats (separate service logic)
   getListingStats: async () => {
     try {
-      const totalProducts = await Listing.countDocuments({});
-      const activeProducts = await Listing.countDocuments({
+      const totalListing = await Listing.countDocuments({});
+      const activeListing = await Listing.countDocuments({
         isBlocked: false,
       });
-      const blockedProducts = await Listing.countDocuments({
+      const blockedListing = await Listing.countDocuments({
         isBlocked: true,
       });
-      const PublishedProducts = await Listing.countDocuments({
+      const PublishedListing = await Listing.countDocuments({
         status: "published",
       });
-      const DraftProducts = await Listing.countDocuments({
+      const DraftListing = await Listing.countDocuments({
         status: "draft",
       });
-      const TemplateProducts = await Listing.countDocuments({
+      const TemplateListing = await Listing.countDocuments({
         isTemplate: true,
       });
 
       return {
-        totalProducts,
-        activeProducts,
-        blockedProducts,
-        PublishedProducts,
-        DraftProducts,
-        TemplateProducts,
+        totalListing,
+        activeListing,
+        blockedListing,
+        PublishedListing,
+        DraftListing,
+        TemplateListing,
       };
     } catch (error) {
-      console.error("Error fetching Products stats:", error);
-      throw new Error("Error fetching products statistics");
+      console.error("Error fetching Listing stats:", error);
+      throw new Error("Error fetching listing statistics");
     }
   },
   searchAndFilterListings: async (filters: any) => {
@@ -294,55 +286,55 @@ export const listingService = {
       if (searchQuery) {
         query.$or = [
           {
-            "platformDetails.amazon.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.amazon.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.productInfo.title": {
+            "productInfo.title": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.productInfo.brand": {
+            "productInfo.brand": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.amazon.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.ebay.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
           },
           {
-            "platformDetails.website.prodPricing.condition": {
+            "prodPricing.condition": {
               $regex: searchQuery,
               $options: "i",
             },
@@ -369,18 +361,23 @@ export const listingService = {
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
-      // Fetch products with pagination
-      const products = await Listing.find(query).populate("userType").skip(skip).limit(limitNumber);
+      // Fetch listing with pagination
+      const listing = await Listing.find(query)
+        .populate("userType")
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .skip(skip)
+        .limit(limitNumber);
 
-      // Count total products
-      const totalProducts = await Listing.countDocuments(query);
+      // Count total listing
+      const totalListing = await Listing.countDocuments(query);
 
       return {
-        products,
+        listing,
         pagination: {
-          totalProducts,
+          totalListing,
           currentPage: pageNumber,
-          totalPages: Math.ceil(totalProducts / limitNumber),
+          totalPages: Math.ceil(totalListing / limitNumber),
           perPage: limitNumber,
         },
       };
@@ -390,7 +387,7 @@ export const listingService = {
     }
   },
   //bulk import products as CSV
-  bulkImportListings: async (filePath: string): Promise<void> => {
+  bulkImportListing: async (filePath: string): Promise<void> => {
     try {
       // ✅ Validate CSV data (supplier validation happens inside)
       const { validRows, invalidRows } = await validateCsvData(filePath);
@@ -403,7 +400,7 @@ export const listingService = {
       }
 
       if (validRows.length === 0) {
-        console.log("❌ No valid products to import.");
+        console.log("❌ No valid listing to import.");
         return;
       }
 
@@ -432,11 +429,11 @@ export const listingService = {
       });
 
       if (filteredRows.length === 0) {
-        console.log("❌ No valid products to insert after supplier validation.");
+        console.log("❌ No valid listing to insert after supplier validation.");
         return;
       }
 
-      // ✅ Bulk insert new products (avoiding duplicates)
+      // ✅ Bulk insert new listing (avoiding duplicates)
       const bulkOperations = filteredRows
         .filter(({ data }) => !existingTitles.has(data.title))
         .map(({ data }) => ({
@@ -444,7 +441,7 @@ export const listingService = {
             document: {
               title: data.title,
               brand: data.brand,
-              productDescription: data.productDescription,
+              listingDescription: data.listingDescription,
               productCategory: new mongoose.Types.ObjectId(data.productCategory),
               productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
@@ -463,7 +460,7 @@ export const listingService = {
                   productInfo: {
                     brand: data.brand,
                     title: data.title,
-                    productDescription: data.productDescription,
+                    listingDescription: data.listingDescription,
                     productCategory: new mongoose.Types.ObjectId(data.productCategory),
                     productSupplier: supplierMap.get(data.productSupplierKey),
                   },
@@ -491,17 +488,17 @@ export const listingService = {
         }));
 
       if (bulkOperations.length === 0) {
-        console.log("✅ No new products to insert.");
+        console.log("✅ No new listing to insert.");
         return;
       }
 
       // ✅ Perform Bulk Insert Operation
       await Listing.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`);
+      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new listing.`);
 
       // ✅ Log skipped rows due to invalid suppliers
       if (invalidRows.length > 0) {
-        console.log("❌ Some products were skipped due to invalid suppliers:");
+        console.log("❌ Some listing were skipped due to invalid suppliers:");
         invalidRows.forEach(({ row, errors }) => {
           console.log(`Row ${row}: ${errors.join(", ")}`);
         });
@@ -511,15 +508,15 @@ export const listingService = {
     }
   },
 
-  //bulk Export products to CSV
-  exportListings: async (): Promise<string> => {
+  //bulk Export listing to CSV
+  exportListing: async (): Promise<string> => {
     try {
-      // Fetch all products from the database
-      const products = await Listing.find({});
+      // Fetch all listing from the database
+      const listing = await Listing.find({});
 
-      // Format the products data for CSV export
-      const formattedData = products.map((listing: any) => ({
-        listingId: listing._id,
+      // Format the listing data for CSV export
+      const formattedData = listing.map((listing: any) => ({
+        ListingID: listing._id,
         Title: listing.title,
         Description: listing.description,
         Price: listing.price,
@@ -536,7 +533,7 @@ export const listingService = {
       const csv = Papa.unparse(formattedData);
 
       // Generate a unique file path for the export
-      const filePath = `exports/products_${Date.now()}.csv`;
+      const filePath = `exports/listing_${Date.now()}.csv`;
 
       // Write the CSV data to a file
       fs.writeFileSync(filePath, csv);
@@ -545,7 +542,7 @@ export const listingService = {
       return filePath;
     } catch (error) {
       console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export products.");
+      throw new Error("Failed to export listing.");
     }
   },
   bulkUpdateListingTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
@@ -560,18 +557,14 @@ export const listingService = {
         { _id: { $in: listingIds } }, // Filter valid listing IDs
         {
           $set: {
-            "platformDetails.amazon.prodPricing.discountValue": discountValue,
-            "platformDetails.ebay.prodPricing.discountValue": discountValue,
-            "platformDetails.website.prodPricing.discountValue": discountValue,
-            "platformDetails.amazon.prodPricing.vat": vat,
-            "platformDetails.ebay.prodPricing.vat": vat,
-            "platformDetails.website.prodPricing.vat": vat,
+            "prodPricing.discountValue": discountValue,
+            "prodPricing.vat": vat,
           },
         }
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error("No products were updated. Please verify listing IDs and data.");
+        throw new Error("No listing were updated. Please verify listing IDs and data.");
       }
 
       return result;
@@ -587,7 +580,6 @@ export const listingService = {
       { new: true, upsert: true } // `upsert: true` ensures creation if missing.
     );
   },
-
   // Get selected variations for a listing
   getSelectedListingPartsService: async (listingId: string) => {
     return await Listing.findById(listingId).select("selectedVariations");

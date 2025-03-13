@@ -26,6 +26,8 @@ export const listing = (router: Router) => {
 
   // Route for bulk export (GET request)
   router.get("/bulk-export", handleBulkExport);
+//get all the listings by inventoryId
+router.get("/inventory/:inventoryId", listingController.getListingsByInventoryId);
 
   router.get(
     "/transform/:id",
@@ -34,7 +36,7 @@ export const listing = (router: Router) => {
   );
   // Fetch transformed template listing by ID
   router.get(
-    "/templates/:id",
+    "/template/:id",
     listingValidation.validateId,
     listingController.transformAndSendTemplateListing
   );
@@ -45,7 +47,7 @@ export const listing = (router: Router) => {
   );
 
   // Fetch all template listing  names
-  router.get("/templates", listingController.getAllTemplateListing);
+  router.get("/templates", listingController.getAllTemplateListingNames);
 
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
