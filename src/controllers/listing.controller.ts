@@ -199,7 +199,7 @@ export const listingController = {
       }
 
       const templateList = templates.map((template, index) => {
-        const inventoryId = template._id;
+        const listingId = template._id;
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
         // ✅ Ensure correct access to prodTechInfo
@@ -240,7 +240,7 @@ export const listingController = {
         const srno = (index + 1).toString().padStart(2, "0");
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
-        return { templateName, inventoryId };
+        return { templateName, listingId };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -330,7 +330,7 @@ export const listingController = {
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft inventory names fetched successfully",
+        message: "Draft Listing names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -454,7 +454,6 @@ export const listingController = {
     }
   },
   //get all listings by inventoryId
-
   getListingsByInventoryId: async (req: Request, res: Response) => {
     try {
       const { inventoryId } = req.params;
