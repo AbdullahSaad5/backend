@@ -15,44 +15,34 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, inventoryId, title, productDescription, brand, listingImages, listingCondition } =
-        stepData.productInfo;
+      const { kind, title, listingDescription, brand } = stepData.productInfo;
+      const { inventoryId } = stepData; // ✅ Extract inventoryId from stepData, not productInfo
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (listing type)");
       }
 
-      // const categoryId = mongoose.isValidObjectId(productCategory)
-      //   ? new mongoose.Types.ObjectId(productCategory)
-      //   : null;
-      // const supplierId = mongoose.isValidObjectId(productSupplier)
-      //   ? new mongoose.Types.ObjectId(productSupplier)
-      //   : null;
-
-      // if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
-      // if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
-
-      // ✅ Ensure listingImages is correctly mapped inside productInfo
+      // Construct productInfo correctly
       const productInfo = {
-      
         title: title || "",
-        productDescription: productDescription || "",
+        listingDescription: listingDescription || "", // ✅ Fixed field name
         brand: brand || "",
-        listingCondition: listingCondition || "",
-        lisitngImages: Array.isArray(listingImages) ? listingImages : [], // ✅ Ensure images are saved
       };
 
+      // Prepare draft listing data
       const draftListingData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        productInfo, // ✅ Fixed: Now correctly storing listingImages inside productInfo
+        inventoryId, // ✅ Ensure inventoryId is correctly passed
+        productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
 
+      // Remove undefined values
       Object.keys(draftListingData).forEach((key) => {
         if (typeof draftListingData[key] === "object" && draftListingData[key]) {
           Object.keys(draftListingData[key]).forEach((subKey) => {

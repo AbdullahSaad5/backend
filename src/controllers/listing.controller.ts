@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
+import { Inventory } from "@/models";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -22,12 +23,23 @@ export const listingController = {
           message: "Invalid or missing 'productInfo' in request payload",
         });
       }
+
       if (!mongoose.isValidObjectId(stepData.inventoryId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid or missing 'InventoryId' in request payload",
+          message: "Invalid or missing 'inventoryId' in request payload",
         });
       }
+
+      // Ensure inventoryId exists in database
+      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
+      if (!inventoryExists) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Inventory ID does not exist",
+        });
+      }
+
       const draftListing = await listingService.createDraftListingService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
