@@ -337,11 +337,6 @@ const selectedVariationsSchema = new Schema({
 // Main Listing Schema
 const listingSchema = new Schema(
   {
-    platformDetails: {
-      amazon: {},
-      ebay: {},
-      website: {},
-    },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
@@ -350,7 +345,6 @@ const listingSchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-
     selectedVariations: selectedVariationsSchema,
   },
   options
@@ -364,32 +358,12 @@ Listing.discriminator(
   "listing_laptops",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: laptopTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: laptopTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -400,32 +374,12 @@ Listing.discriminator(
   "listing_all_in_one_pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: allInOnePCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: allInOnePCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -436,32 +390,12 @@ Listing.discriminator(
   "listing_projectors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: projectorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: projectorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -472,32 +406,12 @@ Listing.discriminator(
   "listing_monitors",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: monitorTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: monitorTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -508,32 +422,12 @@ Listing.discriminator(
   "listing_gaming_pc",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: gamingPCTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: gamingPCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
@@ -544,32 +438,12 @@ Listing.discriminator(
   "listing_network_equipments",
   new mongoose.Schema(
     {
-      platformDetails: {
-        amazon: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        ebay: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-        website: {
-          prodTechInfo: networkEquipmentsTechnicalSchema,
-          prodPricing: prodPricingSchema,
-          prodDelivery: prodDeliverySchema,
-          prodSeo: prodSeoSchema,
-          productInfo: prodInfoSchema,
-          prodMedia: prodMediaSchema,
-        },
-      },
+      prodTechInfo: networkEquipmentsTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
     },
     options
   )
