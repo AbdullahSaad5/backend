@@ -9,10 +9,6 @@ import {
   laptopTechnicalSchema,
   monitorTechnicalSchema,
   networkEquipmentsTechnicalSchema,
-  prodDeliverySchema,
-  prodMediaSchema,
-  prodPricingSchema,
-  prodSeoSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 
