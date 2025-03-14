@@ -56,39 +56,67 @@ const options: EbayAuthOptions = {
   prompt: "consent",
 };
 
+
+
 export const getStoredEbayAccessToken = async () => {
   try {
     const filePath = path.resolve(__dirname, "ebay_tokens.json");
-    console.log("filepath", filePath);
+    console.log("📂 Checking token file at:", filePath);
 
-    // Check if file exists before reading
+    // ✅ Check if file exists
     if (!fs.existsSync(filePath)) {
       console.error("❌ Token file not found.");
       return null;
     }
 
-    const credentialsText = fs.readFileSync(filePath, "utf-8");
-    const credentials = JSON.parse(credentialsText);
+    let credentialsText;
+    try {
+      credentialsText = fs.readFileSync(filePath, "utf-8");
+    } catch (readError) {
+      console.error("❌ Error reading token file:", readError);
+      return null;
+    }
+
+    let credentials;
+    try {
+      credentials = JSON.parse(credentialsText);
+    } catch (jsonError) {
+      console.error("❌ Error parsing token JSON:", jsonError);
+      return null;
+    }
 
     if (!credentials || !credentials.access_token || !credentials.generated_at || !credentials.expires_in) {
-      console.error("❌ Invalid token data.");
+      console.error("❌ Invalid token data in file.");
       return null;
     }
 
     const { access_token, generated_at, expires_in } = credentials;
-    console.log("access_token", access_token);
+
+    // 🔥 Fix: Ensure generated_at is a valid number
+    if (isNaN(generated_at) || isNaN(expires_in)) {
+      console.error("❌ Invalid 'generated_at' or 'expires_in' value.");
+      return null;
+    }
+
     const currentTime = Date.now();
-    if (currentTime - generated_at > expires_in * 1000) {
+    const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
+
+    console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
+    console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
+
+    if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
       return null;
     }
 
+    console.log("✅ Access token is valid.");
     return access_token;
   } catch (error) {
-    console.error("❌ Error reading token:", error);
+    console.error("❌ Unexpected error reading token:", error);
     return null;
   }
 };
+
 
 export const getNormalAccessToken = async () => {
   // Get the new access token using the refresh token
