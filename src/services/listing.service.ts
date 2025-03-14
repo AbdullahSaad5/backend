@@ -132,12 +132,10 @@ export const listingService = {
   getFullListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
-        .populate("platformDetails.amazon.productInfo.productCategory")
-        .populate("platformDetails.ebay.productInfo.productCategory")
-        .populate("platformDetails.website.productInfo.productCategory")
-        .populate("platformDetails.amazon.productInfo.productSupplier")
-        .populate("platformDetails.ebay.productInfo.productSupplier")
-        .populate("platformDetails.website.productInfo.productSupplier");
+
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+
       // .lean();
 
       if (!listing) throw new Error("Listing not found");
