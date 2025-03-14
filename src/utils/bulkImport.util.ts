@@ -40,7 +40,7 @@ const validateCsvData = async (csvFilePath: string) => {
   const requiredColumns = [
     "brand",
     "title",
-    "productDescription",
+    "description",
     "productSupplierKey",
     "productCategory",
     "price",
@@ -276,7 +276,7 @@ const bulkImportProducts = async (
           document: {
             title: data.title,
             brand: data.brand,
-            productDescription: data.productDescription,
+            description: data.description,
             productCategory: new mongoose.Types.ObjectId(data.productCategory),
             productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
             price: parseFloat(data.price),
@@ -296,7 +296,7 @@ const bulkImportProducts = async (
                   productInfo: {
                     brand: data.brand,
                     title: data.title,
-                    productDescription: data.productDescription,
+                    description: data.description,
                     productCategory: new mongoose.Types.ObjectId(
                       data.productCategory
                     ),

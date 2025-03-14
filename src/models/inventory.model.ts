@@ -26,7 +26,7 @@ export const prodInfoSchema = {
     required: true,
   },
   title: { type: String, required: true },
-  productDescription: { type: String },
+  description: { type: String },
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },

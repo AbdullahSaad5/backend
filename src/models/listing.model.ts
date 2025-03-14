@@ -24,7 +24,7 @@ const options = { timestamps: true, discriminatorKey: "kind" };
 const prodInfoSchema = {
   title: { type: String, required: true },
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
-  listingDescription: { type: String },
+  description: { type: String },
   brand: { type: String, required: true },
   displayUnits: { type: Number, required: true },
 };

@@ -49,7 +49,7 @@ export function transformListingData(data: any) {
     productInfo: [
       "brand",
       "title",
-      "listingDescription",
+      "description",
       "listingCategory",
       "listingSupplier",
       "kind",

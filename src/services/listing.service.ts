@@ -15,7 +15,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, listingDescription, brand, productCategory } = stepData.productInfo;
+      const { kind, title, description, brand, productCategory } = stepData.productInfo;
       const { inventoryId } = stepData; // ✅ Extract inventoryId from stepData, not productInfo
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
@@ -26,7 +26,7 @@ export const listingService = {
       const productInfo = {
         kind: kind || "",
         title: title || "",
-        listingDescription: listingDescription || "", // ✅ Fixed field name
+        description: description || "", // ✅ Fixed field name
         brand: brand || "",
         productCategory: productCategory || "",
       };
@@ -441,7 +441,7 @@ export const listingService = {
             document: {
               title: data.title,
               brand: data.brand,
-              listingDescription: data.listingDescription,
+              description: data.description,
               productCategory: new mongoose.Types.ObjectId(data.productCategory),
               productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
               price: parseFloat(data.price),
@@ -460,7 +460,7 @@ export const listingService = {
                   productInfo: {
                     brand: data.brand,
                     title: data.title,
-                    listingDescription: data.listingDescription,
+                    description: data.description,
                     productCategory: new mongoose.Types.ObjectId(data.productCategory),
                     productSupplier: supplierMap.get(data.productSupplierKey),
                   },

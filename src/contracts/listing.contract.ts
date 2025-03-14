@@ -67,7 +67,7 @@ interface IAmazonPlatformDetails {
   productCategory: Types.ObjectId;
   productSupplier: Types.ObjectId;
   images: string[];
-  productDescription: string;
+  description: string;
 
   quantity: string;
   price: string;
@@ -101,7 +101,7 @@ interface IEbayPlatformDetails {
   productCategory: Types.ObjectId;
   productSupplier: Types.ObjectId;
   images: string[];
-  productDescription: string;
+  description: string;
 
   quantity: string;
   price: string;
@@ -136,7 +136,7 @@ interface IWebsitePlatformDetails {
   produuctSupplier: Types.ObjectId;
 
   images: string[];
-  productDescription: string;
+  description: string;
 
   quantity: string;
   price: string;
@@ -195,7 +195,7 @@ interface IPlatformListingInfo {
   productSupplier: Types.ObjectId; // Populated with category details
   title: string;
   brand: string;
-  productDescription: string;
+  description: string;
   images: string[];
   model?: string;
   srno?: string;
