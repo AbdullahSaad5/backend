@@ -65,7 +65,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      console.log("Received update request:", { listingId, stepData });
+      // console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -79,7 +79,7 @@ export const listingService = {
         throw new Error("Draft Listing not found");
       }
 
-      console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
+      // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
@@ -91,7 +91,7 @@ export const listingService = {
       const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
+          // console.log(`Updating ${section} with:`, stepData[section]);
           draftListing[section] = {
             ...(draftListing[section] || {}), // Preserve existing data
             ...stepData[section], // Merge new data
@@ -115,12 +115,12 @@ export const listingService = {
         }
       });
 
-      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
 
-      console.log("Updated Listing after save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Updated Listing after save:", JSON.stringify(draftListing, null, 2));
 
       return draftListing;
     } catch (error: any) {

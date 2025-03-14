@@ -61,7 +61,7 @@ export const listingController = {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      console.log("Received request to update draft Listing:", { listingId, stepData });
+      // console.log("Received request to update draft Listing:", { listingId, stepData });
 
       // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
