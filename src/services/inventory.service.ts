@@ -194,8 +194,8 @@ export const inventoryService = {
 
   getInventoriesWithStock: async () => {
     try {
-      // ✅ Step 1: Get unique inventory IDs from Stock collection
-      const stockInventories = await Stock.distinct("inventoryId");
+      // ✅ Step 1: Get unique inventory IDs from Stock where `markAsStock` is true
+      const stockInventories = await Stock.distinct("inventoryId", { markAsStock: true });
 
       if (!stockInventories.length) {
         return [];
@@ -210,6 +210,7 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventories with stock");
     }
   },
+
   getFullInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
