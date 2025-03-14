@@ -15,7 +15,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, listingDescription, brand } = stepData.productInfo;
+      const { kind, title, listingDescription, brand, productCategory } = stepData.productInfo;
       const { inventoryId } = stepData; // ✅ Extract inventoryId from stepData, not productInfo
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
@@ -24,9 +24,11 @@ export const listingService = {
 
       // Construct productInfo correctly
       const productInfo = {
+        kind: kind || "",
         title: title || "",
         listingDescription: listingDescription || "", // ✅ Fixed field name
         brand: brand || "",
+        productCategory: productCategory || "",
       };
 
       // Prepare draft listing data
@@ -134,7 +136,7 @@ export const listingService = {
       const listing = await Listing.findById(id)
 
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        .populate("productInfo.productSupplier");
 
       // .lean();
 
