@@ -56,43 +56,67 @@ const options: EbayAuthOptions = {
   prompt: "consent",
 };
 
+
+
 export const getStoredEbayAccessToken = async () => {
   try {
     const filePath = path.resolve(__dirname, "ebay_tokens.json");
+    // console.log("📂 Checking token file at:", filePath);
 
-
-    // Check if file exists before reading
+    // ✅ Check if file exists
     if (!fs.existsSync(filePath)) {
       console.error("❌ Token file not found.");
       return null;
     }
 
-    const credentialsText = fs.readFileSync(filePath, "utf-8");
-    const credentials = JSON.parse(credentialsText);
+    let credentialsText;
+    try {
+      credentialsText = fs.readFileSync(filePath, "utf-8");
+    } catch (readError) {
+      console.error("❌ Error reading token file:", readError);
+      return null;
+    }
 
-    if (
-      !credentials ||
-      !credentials.access_token ||
-      !credentials.generated_at ||
-      !credentials.expires_in
-    ) {
-      console.error("❌ Invalid token data.");
+    let credentials;
+    try {
+      credentials = JSON.parse(credentialsText);
+    } catch (jsonError) {
+      console.error("❌ Error parsing token JSON:", jsonError);
+      return null;
+    }
+
+    if (!credentials || !credentials.access_token || !credentials.generated_at || !credentials.expires_in) {
+      console.error("❌ Invalid token data in file.");
       return null;
     }
 
     const { access_token, generated_at, expires_in } = credentials;
+
+    // 🔥 Fix: Ensure generated_at is a valid number
+    if (isNaN(generated_at) || isNaN(expires_in)) {
+      console.error("❌ Invalid 'generated_at' or 'expires_in' value.");
+      return null;
+    }
+
     const currentTime = Date.now();
-    if (currentTime - generated_at > expires_in * 1000) {
+    const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
+
+    // console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
+    // console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
+
+    if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
       return null;
     }
 
+    console.log("✅ Access token is valid.");
     return access_token;
   } catch (error) {
-    console.error("❌ Error reading token:", error);
+    console.error("❌ Unexpected error reading token:", error);
     return null;
   }
 };
+
 
 export const getNormalAccessToken = async () => {
   // Get the new access token using the refresh token
@@ -144,11 +168,7 @@ export const refreshEbayAccessToken = async () => {
   }
 
   // Get the new access token using the refresh token
-  const token = await ebayAuthToken.getAccessToken(
-    "PRODUCTION",
-    refreshToken,
-    scopes
-  );
+  const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
   if (!token) {
     console.log("Failed to get new access token");
     return null;
@@ -173,24 +193,14 @@ export const refreshEbayAccessToken = async () => {
 };
 
 export const getEbayAuthURL = () => {
-  return ebayAuthToken.generateUserAuthorizationUrl(
-    "PRODUCTION",
-    scopes,
-    options
-  );
+  return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
 };
 
 export const exchangeCodeForAccessToken = async (code: string) => {
-  const token = await ebayAuthToken.exchangeCodeForAccessToken(
-    "PRODUCTION",
-    code
-  );
+  const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
   const parsedToken: EbayToken = JSON.parse(token);
 
   // Store in a file
-  fs.writeFileSync(
-    "ebay_tokens.json",
-    JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
-  );
+  fs.writeFileSync("ebay_tokens.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
   return parsedToken;
 };

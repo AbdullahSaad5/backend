@@ -105,6 +105,34 @@ export const inventoryController = {
     }
   },
 
+
+  getInventoriesWithStock : async (req: Request, res: Response) => {
+    try {
+      const inventories = await inventoryService.getInventoriesWithStock();
+
+      if (!inventories.length) {
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "No inventories found with stock",
+          data: [],
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Inventories with stock retrieved successfully",
+        total: inventories.length,
+        data: inventories,
+      });
+    } catch (error: any) {
+      console.error("❌ Error fetching inventories with stock:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching inventories with stock",
+      });
+    }
+  },
+
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

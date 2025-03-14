@@ -1,7 +1,7 @@
 import { inventoryController } from "@/controllers";
 import { inventoryValidation } from "@/validations";
 import { Router } from "express";
-import { handleBulkImport, handleBulkExport } from "@/controllers/product.controller.helper"; // Adjust import path as needed
+import { handleBulkImport, handleBulkExport } from "@/controllers/listing.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const inventory = (router: Router) => {
@@ -18,7 +18,7 @@ export const inventory = (router: Router) => {
   router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxDiscount);
   //new route for search and filter and pagination
   router.get("/search", inventoryController.searchAndFilterInventory);
-
+  router.get("/with-stock", inventoryController.getInventoriesWithStock);
   // New route for fetching inventory stats/ Widgets
   router.get("/stats", inventoryController.getInventoryStats);
   // Route for bulk import (POST request)

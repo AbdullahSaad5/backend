@@ -5,7 +5,7 @@ import { z, ZodSchema } from "zod";
 import { Types } from "mongoose";
 import { IBodyRequest } from "@/contracts/request.contract";
 import { REGEX } from "@/constants/regex";
-import { IProduct, IProductUpdatePayload } from "@/contracts/listing.contract";
+import { IListing, IListingUpdatePayload } from "@/contracts/listing.contract";
 
 // Custom Zod validation for MongoDB ObjectId
 const objectId = z.instanceof(Types.ObjectId).or(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"));
@@ -92,8 +92,8 @@ const websiteSchema = amazonSchema.extend({
 //     applyTaxAtCheckout: { type: Boolean, default: false }, // Apply Tax at checkout flag
 //     taxConfirmation: { type: Boolean, default: false }, // Tax confirmation flag
 
-// Product Schema
-const productSchema = z.object({
+// Listing Schema
+const listingSchema = z.object({
   images: z.array(z.string().url("Invalid URL format")).min(1, "At least one image is required"),
   isBlocked: z.boolean().optional(),
   platformDetails: z.object({
@@ -104,11 +104,11 @@ const productSchema = z.object({
   status: z.enum(["draft", "published"]),
 });
 
-// Product Validation
-export const productValidation = {
-  addProduct: async (req: IBodyRequest<IProduct>, res: Response, next: NextFunction) => {
+// Listing Validation
+export const listingValidation = {
+  addListing: async (req: IBodyRequest<IListing>, res: Response, next: NextFunction) => {
     try {
-      const validatedData = productSchema.parse(req.body);
+      const validatedData = listingSchema.parse(req.body);
       Object.assign(req.body, validatedData);
       next();
     } catch (error: any) {
@@ -129,10 +129,10 @@ export const productValidation = {
     }
   },
 
-  // Update Product (Support for partial updates)
-  updateProduct: async (req: IBodyRequest<IProductUpdatePayload>, res: Response, next: NextFunction) => {
+  // Update Listing (Support for partial updates)
+  updateListing: async (req: IBodyRequest<IListingUpdatePayload>, res: Response, next: NextFunction) => {
     try {
-      const validatedData = productSchema.parse(req.body); // Allow partial updates
+      const validatedData = listingSchema.parse(req.body); // Allow partial updates
       Object.assign(req.body, validatedData);
       next();
     } catch (error: any) {

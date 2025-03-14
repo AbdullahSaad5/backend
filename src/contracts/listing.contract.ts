@@ -39,7 +39,7 @@ interface IPricing {
   auctionStartingPrice?: number; // Specific to eBay
 }
 
-// Product condition details
+// Listing condition details
 interface ICondition {
   status: string; // e.g., "New", "Used"
   details?: string; // Additional details for non-new condition
@@ -54,13 +54,13 @@ interface IShipping {
   weightUnit?: string; // Specific to Website
 }
 
-// Keywords for SEO or product metadata
+// Keywords for SEO or listing metadata
 interface IKeywords {
   relevantKeywords?: string[]; // Array of relevant keywords
   suggestedKeywords?: string[]; // Array of suggested keywords
 }
 
-// Platform-specific product details for Amazon
+// Platform-specific listing details for Amazon
 interface IAmazonPlatformDetails {
   title: string;
   brand: string;
@@ -94,7 +94,7 @@ interface IAmazonPlatformDetails {
   suggestedTags: string[];
 }
 
-// Platform-specific product details for eBay
+// Platform-specific listing details for eBay
 interface IEbayPlatformDetails {
   title: string;
   brand: string;
@@ -133,7 +133,7 @@ interface IWebsitePlatformDetails {
   title: string;
   brand: string;
   productCategory: Types.ObjectId;
-  productSupplier: Types.ObjectId;
+  produuctSupplier: Types.ObjectId;
 
   images: string[];
   productDescription: string;
@@ -215,8 +215,8 @@ interface IListing {
   kind?: string;
 }
 
-// Update payload for product
-export type IProductUpdatePayload = Partial<IListing>;
+// Update payload for listing
+export type IListingUpdatePayload = Partial<IListing>;
 
 // Exports
 export {

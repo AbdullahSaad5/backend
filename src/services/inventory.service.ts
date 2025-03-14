@@ -1,4 +1,4 @@
-import { Inventory, User } from "@/models";
+import { Inventory, Stock, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -59,8 +59,16 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, productCategory, productSupplier, title, productDescription, brand, inventoryImages, inventoryCondition } =
-        stepData.productInfo;
+      const {
+        kind,
+        productCategory,
+        productSupplier,
+        title,
+        productDescription,
+        brand,
+        inventoryImages,
+        inventoryCondition,
+      } = stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
@@ -83,7 +91,7 @@ export const inventoryService = {
         title: title || "",
         productDescription: productDescription || "",
         brand: brand || "",
-        inventoryCondition:inventoryCondition ||"",
+        inventoryCondition: inventoryCondition || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
       };
 
@@ -182,6 +190,25 @@ export const inventoryService = {
     } catch (error: any) {
       console.error("Error updating draft inventory:", error);
       throw new Error(`Failed to update draft inventory: ${error.message}`);
+    }
+  },
+
+  getInventoriesWithStock: async () => {
+    try {
+      // ✅ Step 1: Get unique inventory IDs from Stock where `markAsStock` is true
+      const stockInventories = await Stock.distinct("inventoryId", { markAsStock: true });
+
+      if (!stockInventories.length) {
+        return [];
+      }
+
+      // ✅ Step 2: Find Inventories that match the stock inventory IDs
+      const inventories = await Inventory.find({ _id: { $in: stockInventories } }).lean();
+
+      return inventories;
+    } catch (error) {
+      console.error("❌ Error retrieving inventories with stock:", error);
+      throw new Error("Failed to fetch inventories with stock");
     }
   },
 
