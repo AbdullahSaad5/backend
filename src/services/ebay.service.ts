@@ -159,6 +159,7 @@ export const ebayService = {
   async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
+      console.log("token in sync", token)
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }

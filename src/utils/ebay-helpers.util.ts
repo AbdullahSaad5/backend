@@ -59,7 +59,7 @@ const options: EbayAuthOptions = {
 export const getStoredEbayAccessToken = async () => {
   try {
     const filePath = path.resolve(__dirname, "ebay_tokens.json");
-
+    console.log("filepath", filePath);
 
     // Check if file exists before reading
     if (!fs.existsSync(filePath)) {
@@ -70,17 +70,13 @@ export const getStoredEbayAccessToken = async () => {
     const credentialsText = fs.readFileSync(filePath, "utf-8");
     const credentials = JSON.parse(credentialsText);
 
-    if (
-      !credentials ||
-      !credentials.access_token ||
-      !credentials.generated_at ||
-      !credentials.expires_in
-    ) {
+    if (!credentials || !credentials.access_token || !credentials.generated_at || !credentials.expires_in) {
       console.error("❌ Invalid token data.");
       return null;
     }
 
     const { access_token, generated_at, expires_in } = credentials;
+    console.log("access_token", access_token);
     const currentTime = Date.now();
     if (currentTime - generated_at > expires_in * 1000) {
       console.error("❌ Token expired.");
@@ -144,11 +140,7 @@ export const refreshEbayAccessToken = async () => {
   }
 
   // Get the new access token using the refresh token
-  const token = await ebayAuthToken.getAccessToken(
-    "PRODUCTION",
-    refreshToken,
-    scopes
-  );
+  const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
   if (!token) {
     console.log("Failed to get new access token");
     return null;
@@ -173,24 +165,14 @@ export const refreshEbayAccessToken = async () => {
 };
 
 export const getEbayAuthURL = () => {
-  return ebayAuthToken.generateUserAuthorizationUrl(
-    "PRODUCTION",
-    scopes,
-    options
-  );
+  return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
 };
 
 export const exchangeCodeForAccessToken = async (code: string) => {
-  const token = await ebayAuthToken.exchangeCodeForAccessToken(
-    "PRODUCTION",
-    code
-  );
+  const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
   const parsedToken: EbayToken = JSON.parse(token);
 
   // Store in a file
-  fs.writeFileSync(
-    "ebay_tokens.json",
-    JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
-  );
+  fs.writeFileSync("ebay_tokens.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
   return parsedToken;
 };
