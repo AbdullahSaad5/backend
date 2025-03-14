@@ -322,6 +322,7 @@ const selectedVariationsSchema = new Schema({
 const listingSchema = new Schema(
   {
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
+    ebayItemId: { type: String },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
