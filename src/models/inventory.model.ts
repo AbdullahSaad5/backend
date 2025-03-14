@@ -77,7 +77,7 @@ export const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: { type: String },
   packageWeightKg: { type: String },
-  packageeWeightG: { type: String },
+  packageWeightG: { type: String },
   packageDimensionLength: { type: String },
   packageDimensionWidth: { type: String },
   packageDimensionHeight: { type: String },

@@ -1,4 +1,4 @@
-export function transformProductData(data: any) {
+export function transformListingData(data: any) {
   const result: any = {
     stepData: {
       productInfo: {},
@@ -49,9 +49,9 @@ export function transformProductData(data: any) {
     productInfo: [
       "brand",
       "title",
-      "productDescription",
-      "productCategory",
-      "productSupplier",
+      "listingDescription",
+      "listingCategory",
+      "listingSupplier",
       "kind",
     ],
     prodTechInfo: [

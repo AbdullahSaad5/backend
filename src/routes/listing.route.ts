@@ -1,88 +1,90 @@
 import { listingController } from "@/controllers";
-import { productValidation } from "@/validations";
+import { listingValidation } from "@/validations";
 import { Router } from "express";
 import {
   handleBulkImport,
   handleBulkExport,
-} from "@/controllers/product.controller.helper"; // Adjust import path as needed
+} from "@/controllers/listing.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
-export const product = (router: Router) => {
-  // TODO: productValidation.addProduct
+export const listing = (router: Router) => {
+  // TODO: listingValidation.addListing
 
-  // Create or update a draft product
+  // Create or update a draft listing
   router.post("/", listingController.createDraftListing);
   router.patch(
     "/bulk-update-vat-and-discount",
-    listingController.bulkUpdateProductTaxDiscount
+    listingController.bulkUpdateListingTaxDiscount
   );
   //new route for search and filter and pagination
-  router.get("/search", listingController.searchAndFilterProducts);
+  router.get("/search", listingController.searchAndFilterListing);
 
-  // New route for fetching product stats/ Widgets
-  router.get("/stats", listingController.getProductStats);
+  // New route for fetching listing stats/ Widgets
+  router.get("/stats", listingController.getListingStats);
   // Route for bulk import (POST request)
   router.post("/bulk-import", uploadMiddleware, handleBulkImport);
 
   // Route for bulk export (GET request)
   router.get("/bulk-export", handleBulkExport);
+//get all the listings by inventoryId
+router.get("/inventory/:inventoryId", listingController.getListingsByInventoryId);
 
   router.get(
     "/transform/:id",
-    productValidation.validateId,
-    listingController.transformAndSendProduct
+    listingValidation.validateId,
+    listingController.transformAndSendListing
   );
-  // Fetch transformed template product by ID
+  // Fetch transformed template listing by ID
   router.get(
-    "/templates/:id",
-    productValidation.validateId,
-    listingController.transformAndSendTemplateProduct
+    "/template/:id",
+    listingValidation.validateId,
+    listingController.transformAndSendTemplateListing
   );
   router.get(
     "/drafts/:id",
-    productValidation.validateId,
-    listingController.transformAndSendDraftProduct
+    listingValidation.validateId,
+    listingController.transformAndSendDraftListing
   );
 
-  // Fetch all template product  names
-  router.get("/templates", listingController.getAllTemplateProducts);
+  // Fetch all template listing  names
+  router.get("/templates", listingController.getAllTemplateListingNames);
 
-  // Fetch all Draft product  names
-  router.get("/drafts", listingController.getAllDraftProductNames);
+  // Fetch all Draft listing  names
+  router.get("/drafts", listingController.getAllDraftListingNames);
 
-  // Update a draft product by ID (subsequent steps)
+  // Update a draft listing by ID (subsequent steps)
   router.patch(
     "/:id",
-    // productValidation.updateProduct,
-    listingController.updateDraftListing
+    // listingValidation.updateListing,
+    listingController.updateDraftListingController
   );
 
-  router.get("/", listingController.getAllProduct);
+  router.get("/", listingController.getAllListing);
 
   router.get(
     "/:id",
-    productValidation.validateId,
-    listingController.getProductById
+    listingValidation.validateId,
+    listingController.getListingById
   );
 
   router.delete(
     "/:id",
-    productValidation.validateId,
-    listingController.deleteProduct
+    listingValidation.validateId,
+    listingController.deleteListing
   );
 
   router.patch(
     "/:id",
-    productValidation.updateProduct,
-    listingController.updateProductById
+    listingValidation.updateListing,
+    listingController.updateListingById
   );
 
   // route for toggle block status
   router.patch("/block/:id", listingController.toggleBlock);
 
   // Upsert (Create or Update) selected variations
-  router.post("/:id/selected-parts", listingController.upsertProductParts);
+  router.post("/:id/selected-parts", listingController.upsertListingParts);
 
-  // Get selected variations for a product
-  router.get("/:id/selected-parts", listingController.getSelectedProductParts);
+  // Get selected variations for listing
+  router.get("/:id/selected-parts", listingController.getSelectedListingParts);
 };
