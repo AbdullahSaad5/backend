@@ -61,7 +61,7 @@ const options: EbayAuthOptions = {
 export const getStoredEbayAccessToken = async () => {
   try {
     const filePath = path.resolve(__dirname, "ebay_tokens.json");
-    console.log("📂 Checking token file at:", filePath);
+    // console.log("📂 Checking token file at:", filePath);
 
     // ✅ Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -101,8 +101,8 @@ export const getStoredEbayAccessToken = async () => {
     const currentTime = Date.now();
     const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
 
-    console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
-    console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
+    // console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
+    // console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
 
     if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
