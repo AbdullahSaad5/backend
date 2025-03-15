@@ -202,7 +202,7 @@ export const projectorTechnicalSchema = {
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
-  compatibleOperatingSystems: { type: String },
+  compatibleOperatingSystem: { type: String },
   californiaProp65Warning: { type: String },
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
