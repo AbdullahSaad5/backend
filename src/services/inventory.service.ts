@@ -9,10 +9,6 @@ import {
   laptopTechnicalSchema,
   monitorTechnicalSchema,
   networkEquipmentsTechnicalSchema,
-  prodDeliverySchema,
-  prodMediaSchema,
-  prodPricingSchema,
-  prodSeoSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 
@@ -64,7 +60,7 @@ export const inventoryService = {
         productCategory,
         productSupplier,
         title,
-        productDescription,
+        description,
         brand,
         inventoryImages,
         inventoryCondition,
@@ -89,7 +85,7 @@ export const inventoryService = {
         productCategory: categoryId,
         productSupplier: supplierId,
         title: title || "",
-        productDescription: productDescription || "",
+        description: description || "",
         brand: brand || "",
         inventoryCondition: inventoryCondition || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved

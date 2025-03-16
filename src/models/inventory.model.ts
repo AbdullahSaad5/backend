@@ -26,75 +26,75 @@ export const prodInfoSchema = {
     required: true,
   },
   title: { type: String, required: true },
-  productDescription: { type: String },
+  description: { type: String },
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },
   brand: { type: String, required: true },
 };
 
-export const prodMediaSchema = {
-  images: { type: [mediaSchema], _id: false },
-  videos: { type: [mediaSchema], _id: false },
-};
+// export const prodMediaSchema = {
+//   images: { type: [mediaSchema], _id: false },
+//   videos: { type: [mediaSchema], _id: false },
+// };
 
-export const prodPricingSchema = {
-  // prod pricing details
-  quantity: { type: String },
-  discountType: { type: String, enum: ["fixed", "percentage"] },
-  discountValue: { type: Number },
-  price: { type: String },
-  condition: { type: String },
-  conditionDescription: { type: String },
-  pricingFormat: { type: String },
-  vat: { type: Number },
-  // paymentPolicy: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "PaymentPolicy",
-  //   default: null,
-  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  // },
-  paymentPolicy: { type: String },
+// export const prodPricingSchema = {
+//   // prod pricing details
+//   quantity: { type: String },
+//   discountType: { type: String, enum: ["fixed", "percentage"] },
+//   discountValue: { type: Number },
+//   price: { type: String },
+//   condition: { type: String },
+//   conditionDescription: { type: String },
+//   pricingFormat: { type: String },
+//   vat: { type: Number },
+//   // paymentPolicy: {
+//   //   type: Schema.Types.ObjectId,
+//   //   ref: "PaymentPolicy",
+//   //   default: null,
+//   //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+//   // },
+//   paymentPolicy: { type: String },
 
-  purchasePricePerUnit: { type: Number },
-  costPricePerUnit: { type: Number },
-  retailPricePerUnit: { type: Number, default: 0 },
-  receivedBy: { type: String },
-  receivedDate: { type: Date },
-  purchaseDate: { type: Date },
-  buy2andSave: { type: String },
-  buy3andSave: { type: String },
-  buy4andSave: { type: String },
-  warrantyDuration: { type: String }, // Duration in days
-  warrantyCoverage: { type: String }, // Coverage description
-  warrantyDocument: {
-    type: [mediaSchema],
-    _id: false,
-  },
-  // URL or file path
-};
-export const prodDeliverySchema = {
-  // prod delivery details
-  postagePolicy: { type: String },
-  packageWeightKg: { type: String },
-  packageWeightG: { type: String },
-  packageDimensionLength: { type: String },
-  packageDimensionWidth: { type: String },
-  packageDimensionHeight: { type: String },
-  irregularPackage: { type: Boolean },
-};
+//   purchasePricePerUnit: { type: Number },
+//   costPricePerUnit: { type: Number },
+//   retailPricePerUnit: { type: Number, default: 0 },
+//   receivedBy: { type: String },
+//   receivedDate: { type: Date },
+//   purchaseDate: { type: Date },
+//   buy2andSave: { type: String },
+//   buy3andSave: { type: String },
+//   buy4andSave: { type: String },
+//   warrantyDuration: { type: String }, // Duration in days
+//   warrantyCoverage: { type: String }, // Coverage description
+//   warrantyDocument: {
+//     type: [mediaSchema],
+//     _id: false,
+//   },
+//   // URL or file path
+// };
+// export const prodDeliverySchema = {
+//   // prod delivery details
+//   postagePolicy: { type: String },
+//   packageWeightKg: { type: String },
+//   packageWeightG: { type: String },
+//   packageDimensionLength: { type: String },
+//   packageDimensionWidth: { type: String },
+//   packageDimensionHeight: { type: String },
+//   irregularPackage: { type: Boolean },
+// };
 
-export const prodSeoSchema = {
-  seoTags: {
-    type: [String],
-  },
-  relevantTags: {
-    type: [String],
-  },
-  suggestedTags: {
-    type: [String],
-  },
-};
+// export const prodSeoSchema = {
+//   seoTags: {
+//     type: [String],
+//   },
+//   relevantTags: {
+//     type: [String],
+//   },
+//   suggestedTags: {
+//     type: [String],
+//   },
+// };
 // mock
 export const laptopTechnicalSchema = {
   processor: { type: String, required: true },
@@ -202,7 +202,7 @@ export const projectorTechnicalSchema = {
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
-  compatibleOperatingSystems: { type: String },
+  compatibleOperatingSystem: { type: String },
   californiaProp65Warning: { type: String },
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
@@ -362,11 +362,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: laptopTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -378,11 +378,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: allInOnePCTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -394,11 +394,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: projectorTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -410,11 +410,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: monitorTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -426,11 +426,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: gamingPCTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -442,11 +442,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: networkEquipmentsTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )

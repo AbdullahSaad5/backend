@@ -38,7 +38,7 @@ export function transformInventoryData(data: any) {
 
   // Define the field groups (excluding prodMedia)
   const fieldGroups = {
-    productInfo: ["brand", "title", "productDescription", "productCategory", "productSupplier", "kind"],
+    productInfo: ["brand", "title", "description", "productCategory", "productSupplier", "kind"],
     prodTechInfo: [
       "processor",
       "model",
