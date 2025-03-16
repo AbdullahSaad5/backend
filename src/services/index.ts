@@ -18,6 +18,8 @@ export { stockService } from "./stock.service";
 export { ebayService } from "./ebay.service";
 export { stockThresholdService } from "./stockThreshold.service";
 export { inventoryService } from "./inventory.service";
+export { messageService } from "./message.service";
+export { conversationService } from "./conversation.service";
 
 export { ebayCustomPolicyService } from "./ebay-custom-policy.service";
 export { ebayPaymentPolicyService } from "./ebay-payment-policy.service";

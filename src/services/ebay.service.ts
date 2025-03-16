@@ -186,8 +186,8 @@ export const ebayService = {
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
           },
-          description: ebayData.productInfo?.productDescription
-            ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
+          description: ebayData.productInfo?.description
+            ? ebayData.productInfo.description.replace(/[\[\]]/g, "")
             : "No description available.",
           upc: ebayData.prodTechInfo?.upc
             ? [ebayData.prodTechInfo.upc]
