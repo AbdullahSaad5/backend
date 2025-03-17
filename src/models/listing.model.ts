@@ -54,7 +54,7 @@ const prodPricingSchema = {
   //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
   // },
   paymentPolicy: { type: String },
-  retailPricePerUnit: { type: Number, default: 0 },
+  retailPrice: { type: Number, default: 0 },
   warrantyDuration: { type: String }, // Duration in days
   warrantyCoverage: { type: String }, // Coverage description
   warrantyDocument: {
@@ -122,7 +122,7 @@ const allInOnePCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String, },
+  ean: { type: String },
   series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
@@ -198,7 +198,7 @@ const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String, },
+  ean: { type: String },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -227,7 +227,7 @@ const gamingPCTechnicalSchema = {
   ramSize: { type: String },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String, },
+  ean: { type: String },
   series: { type: String },
   operatingSystem: { type: String },
   customBundle: { type: String },
