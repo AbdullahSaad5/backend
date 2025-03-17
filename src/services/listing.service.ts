@@ -16,33 +16,36 @@ export const listingService = {
       }
 
       const { kind, title, description, brand, productCategory } = stepData.productInfo;
-      const { inventoryId } = stepData; // ✅ Extract inventoryId from stepData, not productInfo
+      const { inventoryId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (listing type)");
       }
 
-      // Construct productInfo correctly
       const productInfo = {
-        kind: kind || "",
+        kind,
         title: title || "",
-        description: description || "", // ✅ Fixed field name
+        description: description || "",
         brand: brand || "",
         productCategory: productCategory || "",
       };
 
-      // Prepare draft listing data
       const draftListingData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        inventoryId, // ✅ Ensure listingId is correctly passed
+        inventoryId,
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      // ✅ Remove fields if they are null or undefined
+      if (draftListingData.prodTechInfo?.ean == null) {
+        delete draftListingData.prodTechInfo.ean;
+      }
 
       // Remove undefined values
       Object.keys(draftListingData).forEach((key) => {
