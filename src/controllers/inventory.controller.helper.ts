@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { listingService } from "@/services"; // Adjust import path as needed
+import { inventoryService } from "@/services"; // Adjust import path as needed
 import { processZipFile } from "@/utils/bulkImport.util";
 import * as fs from "fs";
 
@@ -17,7 +17,7 @@ export const handleBulkImport = async (req: Request, res: Response) => {
 };
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
-    const filePath = await listingService.exportListing();
+    const filePath = await inventoryService.exportInventory();
 
     // Send the file as  download to the client
     res.download(filePath, (err) => {
