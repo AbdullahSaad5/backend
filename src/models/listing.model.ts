@@ -54,7 +54,7 @@ const prodPricingSchema = {
   //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
   // },
   paymentPolicy: { type: String },
-  retailPricePerUnit: { type: Number, default: 0 },
+  retailPrice: { type: Number, default: 0 },
   warrantyDuration: { type: String }, // Duration in days
   warrantyCoverage: { type: String }, // Coverage description
   warrantyDocument: {
