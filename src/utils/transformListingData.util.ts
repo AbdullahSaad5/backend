@@ -82,7 +82,7 @@ export function transformListingData(data: any) {
       "processorSpeed",
       "ramSize",
       "formFactor",
-      "ean",
+      // "ean",
       "productType",
       "manufacturerWarranty",
       "regionOfManufacture",

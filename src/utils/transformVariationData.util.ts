@@ -81,7 +81,7 @@ export function transformVariationData(data: any) {
       "processorSpeed",
       "ramSize",
       "formFactor",
-      "ean",
+      // "ean",
       "variationType",
       "manufacturerWarranty",
       "regionOfManufacture",
@@ -121,7 +121,7 @@ export function transformVariationData(data: any) {
       "supportedWirelessProtocol",
     ],
     prodPricing: [
-      
+
       "quantity",
       "price",
       "condition",
