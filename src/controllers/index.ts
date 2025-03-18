@@ -5,6 +5,7 @@ export { authController } from "./user-auth.controller";
 export { supplierController } from "./supplier.controller";
 export { supplierCategoryController } from "./supplier-category.controller";
 export { productCategoryController } from "./product-category.controller";
+export { partCategoryController } from "./part-category.controller";
 export { productBrandController } from "./product-brand.controller";
 export { listingController } from "./listing.controller";
 export { inventoryController } from "./inventory.controller";

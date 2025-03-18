@@ -587,9 +587,9 @@ export const inventoryService = {
         // ProductSupplier: inventory?.supplier?.name,
         Stock: inventory.stock,
         SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.platformDetails.amazon.productInfo),
-        EbayInfo: JSON.stringify(inventory.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.platformDetails.website.productInfo),
+        AmazonInfo: JSON.stringify(inventory.productInfo),
+        EbayInfo: JSON.stringify(inventory.productInfo),
+        WebsiteInfo: JSON.stringify(inventory.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
