@@ -326,7 +326,7 @@ export const inventoryService = {
         status, // Extract status from filters
         startDate,
         endDate,
-
+        isPart,
         page = 1, // Default to page 1 if not provided
         limit = 10, // Default to 10 records per page
       } = filters;
@@ -374,6 +374,9 @@ export const inventoryService = {
 
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
+      }
+      if (isPart !== undefined) {
+        query.isPart = isPart;
       }
       if (kind === "part") {
         query.kind = kind;
