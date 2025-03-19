@@ -8,6 +8,7 @@ import { auth } from "./user-auth.route";
 import { userCategory } from "./user-category.route";
 import { supplier } from "./supplier.route";
 import { supplierCategory } from "./supplier-category.routes";
+import { partCategory } from "./part-category.route";
 import { productCategory } from "./product-category.route";
 import { productBrand } from "./product-brand.route";
 import { listing } from "./listing.route";
@@ -52,6 +53,7 @@ const routes: {
   listing,
   inventory,
   productCategory,
+  partCategory,
   productBrand,
   customPolicy,
   returnPolicy,

@@ -4,12 +4,15 @@ import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 export const listingService = {
+  
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
       }
+
+      console.log("step Data : " , stepData)
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -37,6 +40,7 @@ export const listingService = {
         inventoryId,
         productInfo,
         prodPricing: stepData.prodPricing || {},
+        prodMedia: stepData.prodMedia || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},

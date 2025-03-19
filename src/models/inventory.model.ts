@@ -169,7 +169,45 @@ export const allInOnePCTechnicalSchema = {
   // Uncomment if weight is required
   // weight: { type: String },
 };
-
+export const partsTechnicalSchema = {
+  processor: { type: String },
+  model: { type: String },
+  memory: { type: String },
+  maxRamCapacity: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: String },
+  formFactor: { type: String },
+  motherboardModel: { type: String },
+  ean: { type: String },
+  // series: { type: String },
+  operatingSystem: { type: String },
+  operatingSystemEdition: { type: String },
+  storageType: { type: String },
+  features: { type: [String] },
+  ssdCapacity: { type: String },
+  gpu: { type: String },
+  type: { type: String },
+  releaseYear: { type: String },
+  inventoryType: { type: String, default: "part" },
+  hardDriveCapacity: { type: String },
+  color: { type: String },
+  // maxResolution: { type: String },
+  mostSuitableFor: { type: String },
+  screenSize: { type: String },
+  graphicsProcessingType: { type: String },
+  connectivity: { type: String },
+  manufacturerWarranty: { type: String },
+  regionOfManufacture: { type: String },
+  height: { type: String },
+  length: { type: String },
+  width: { type: String },
+  // Uncomment if weight is required
+  // weight: { type: String },
+};
 export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
@@ -347,6 +385,7 @@ const inventorySchema = new Schema(
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
+    isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
@@ -410,6 +449,22 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: monitorTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
+
+// discriminator for Monitors
+Inventory.discriminator(
+  "part",
+  new mongoose.Schema(
+    {
+      prodTechInfo: partsTechnicalSchema,
       // prodPricing: prodPricingSchema,
       // prodDelivery: prodDeliverySchema,
       // prodSeo: prodSeoSchema,
