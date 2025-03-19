@@ -12,7 +12,7 @@ export interface IProductCategory extends Document {
 
 export type ProductCategoryModel = Model<IProductCategory>;
 
-export type ProductCategoryCreatePayload = Pick<IProductCategory, "name" | "description" | "image" | "isBlocked" | "tags">;
+export type ProductCategoryCreatePayload = Pick<IProductCategory, "name" | "description" | "image" | "isBlocked" | "tags"|"isPart" >;
 
 export type ProductCategoryUpdatePayload = Partial<ProductCategoryCreatePayload>
 
