@@ -668,19 +668,32 @@ export const inventoryController = {
       }
 
       // Generate all possible variations
-      const variations = await inventoryService.generateCombinations(multiSelectAttributes);
+      const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+
+      // Add a unique ID to each variation
+      const variationsWithId = rawVariations.map((variation: any) => ({
+        _id: new mongoose.Types.ObjectId(), // Unique ID for each variation
+        ...variation,
+      }));
 
       // Save variations in a single document
       const savedVariation = await Variation.findOneAndUpdate(
         { inventoryId: inventoryItem._id }, // Find by inventory ID
         {
           inventoryId: inventoryItem._id,
-          variations: variations,
+          variations: variationsWithId, // Store variations with unique _id
         },
         { upsert: true, new: true } // Create if not exists, return updated doc
       );
 
-      res.status(201).json({ message: "Variations generated and stored", variations: savedVariation });
+      res.status(201).json({
+        message: "Variations generated and stored",
+        _id: savedVariation._id,
+        inventoryId: savedVariation.inventoryId,
+        createdAt: savedVariation.createdAt,
+        updatedAt: savedVariation.updatedAt,
+        variations: savedVariation.variations,
+      });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });

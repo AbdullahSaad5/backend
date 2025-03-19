@@ -11,14 +11,16 @@ const VariationSchema: Schema = new Schema(
     },
     variations: [
       {
+        _id: {
+          type: mongoose.Schema.Types.ObjectId,
+          auto: true, // Auto-generate unique ID for each variation
+        },
         type: Map, // Allows dynamic key-value attributes
         of: Schema.Types.Mixed, // Accepts any type (string, number, etc.)
       },
     ],
-  }
-  // {
-  //   timestamps: true, // Adds createdAt and updatedAt fields
-  // }
+  },
+  { timestamps: true } // Adds createdAt and updatedAt fields
 );
 
 export const Variation = model<IVariation>("Variation", VariationSchema);
