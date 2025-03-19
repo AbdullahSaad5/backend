@@ -169,6 +169,10 @@ export const inventoryService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "stocks",
+        "stockThreshold",
+        "isTemplate",
+        "status",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
@@ -622,5 +626,19 @@ export const inventoryService = {
   // Get selected variations for a inventory
   getSelectedInventoryPartsService: async (inventoryId: string) => {
     return await Inventory.findById(inventoryId).select("selectedVariations");
+  },
+  // Function to generate all possible combinations of multi-select attributes
+  generateCombinations: async (attributes: Record<string, any>) => {
+    const keys = Object.keys(attributes);
+    const values = Object.values(attributes);
+
+    const cartesianProduct = (arrays: any[][]) => {
+      return arrays.reduce(
+        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
+        [{}]
+      );
+    };
+
+    return cartesianProduct(values);
   },
 };

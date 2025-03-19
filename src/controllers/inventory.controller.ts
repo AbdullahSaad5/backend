@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
+import { Inventory, Stock, Variation } from "@/models";
 
 export const inventoryController = {
   // Controller - inventoryController.js
@@ -633,6 +634,56 @@ export const inventoryController = {
       res.status(200).json({ selectedVariations: inventory.selectedVariations });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  },
+  generateAndStoreVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: "Missing inventory ID in URL" });
+      }
+
+      // Validate ObjectId
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      // Fetch inventory item
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Extract multi-select attributes
+      const attributes = inventoryItem.prodTechInfo;
+      const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
+        if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
+          acc[key] = attributes[key];
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(multiSelectAttributes).length === 0) {
+        return res.status(400).json({ message: "No multi-select attributes found for variations" });
+      }
+
+      // Generate all possible variations
+      const variations = await inventoryService.generateCombinations(multiSelectAttributes);
+
+      // Save variations in a single document
+      const savedVariation = await Variation.findOneAndUpdate(
+        { inventoryId: inventoryItem._id }, // Find by inventory ID
+        {
+          inventoryId: inventoryItem._id,
+          variations: variations,
+        },
+        { upsert: true, new: true } // Create if not exists, return updated doc
+      );
+
+      res.status(201).json({ message: "Variations generated and stored", variations: savedVariation });
+    } catch (error) {
+      console.error("❌ Error generating variations:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 };
