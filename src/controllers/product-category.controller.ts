@@ -5,9 +5,9 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const productCategoryController = {
   addCategory: async (req: Request, res: Response) => {
     try {
-      const { name, description, image, tags , isBlocked } = req.body;
+      const { name, description, image, tags , isBlocked ,isPart} = req.body;
       //   console.log(name, description, image);
-      const newProductCategory = await productCategoryService.createCategory(name, description, image, tags , isBlocked);
+      const newProductCategory = await productCategoryService.createCategory(name, description, image, tags , isBlocked, isPart);
       res
         .status(StatusCodes.CREATED)
         .json({ success: true, message: "Product category created successfully", data: newProductCategory });
