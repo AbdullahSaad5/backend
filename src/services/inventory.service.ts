@@ -169,6 +169,10 @@ export const inventoryService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "stocks",
+        "stockThreshold",
+        "isTemplate",
+        "status",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
