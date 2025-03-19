@@ -46,7 +46,7 @@ function pick(obj: any, keys: string[]) {
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
-    console.log("step dAtaa : " , stepData)
+    console.log("stepData:", stepData);
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
@@ -56,16 +56,11 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const {
-        kind,
-        productCategory,
-        productSupplier,
-        title,
-        description,
-        brand,
-        inventoryImages,
-        inventoryCondition,
-      } = stepData.productInfo;
+      // ✅ Extract `isPart` from stepData (NOT from productInfo)
+      const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
+
+      const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
+        stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
@@ -89,19 +84,22 @@ export const inventoryService = {
         description: description || "",
         brand: brand || "",
         inventoryCondition: inventoryCondition || "",
-        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
+        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
       const draftInventoryData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        productInfo, // ✅ Fixed: Now correctly storing inventoryImages inside productInfo
+        isPart, // ✅ Now correctly storing `isPart`
+        productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
         if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
@@ -112,6 +110,8 @@ export const inventoryService = {
           });
         }
       });
+
+      console.log("Final draftInventoryData before saving:", draftInventoryData);
 
       const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
       await draftInventory.save({ validateBeforeSave: false });
@@ -331,9 +331,11 @@ export const inventoryService = {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        kind,
         status, // Extract status from filters
         startDate,
         endDate,
+        isPart,
         page = 1, // Default to page 1 if not provided
         limit = 10, // Default to 10 records per page
       } = filters;
@@ -361,42 +363,7 @@ export const inventoryService = {
               $options: "i",
             },
           },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+
           {
             "prodPricing.condition": {
               $regex: searchQuery,
@@ -413,8 +380,15 @@ export const inventoryService = {
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
+
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
+      }
+      if (isPart !== undefined) {
+        query.isPart = isPart;
+      }
+      if (kind === "part") {
+        query.kind = kind;
       }
 
       // Date range filter for createdAt
