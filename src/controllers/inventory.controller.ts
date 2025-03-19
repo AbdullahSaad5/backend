@@ -545,6 +545,7 @@ export const inventoryController = {
         status, // Extract status properly
         isBlocked,
         isTemplate,
+        kind,
         startDate,
         endDate,
         page = "1",
@@ -558,6 +559,7 @@ export const inventoryController = {
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
         isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
+        kind: kind && ["part"].includes(kind.toString()) ? kind.toString() : undefined,
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer

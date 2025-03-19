@@ -45,7 +45,7 @@ function pick(obj: any, keys: string[]) {
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
-    console.log("step dAtaa : " , stepData)
+    console.log("step dAtaa : ", stepData);
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
@@ -55,16 +55,8 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const {
-        kind,
-        productCategory,
-        productSupplier,
-        title,
-        description,
-        brand,
-        inventoryImages,
-        inventoryCondition,
-      } = stepData.productInfo;
+      const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
+        stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
@@ -330,9 +322,11 @@ export const inventoryService = {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        kind,
         status, // Extract status from filters
         startDate,
         endDate,
+
         page = 1, // Default to page 1 if not provided
         limit = 10, // Default to 10 records per page
       } = filters;
@@ -360,42 +354,7 @@ export const inventoryService = {
               $options: "i",
             },
           },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+
           {
             "prodPricing.condition": {
               $regex: searchQuery,
@@ -412,8 +371,12 @@ export const inventoryService = {
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
+
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
+      }
+      if (kind === "part") {
+        query.kind = kind;
       }
 
       // Date range filter for createdAt
