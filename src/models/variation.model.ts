@@ -17,6 +17,11 @@ const VariationSchema: Schema = new Schema(
         },
         type: Map, // Allows dynamic key-value attributes
         of: Schema.Types.Mixed, // Accepts any type (string, number, etc.)
+        purchasePrice: { type: Number, default: 0 }, // New field for purchase price
+        costPrice: { type: Number, default: 0 }, // New field for cost price
+        totalUnits: { type: Number, default: 0 }, // New field for total units
+        usableUnits: { type: Number, default: 0 }, // New field for usable units
+        isSelected: { type: Boolean, default: false }, // Field to track selection status
       },
     ],
   },
