@@ -7,6 +7,7 @@ export interface IProductCategory extends Document {
   image?: string[];
   tags?: string[];
   isBlocked?: boolean;
+  isPart?:boolean;
 }
 
 export type ProductCategoryModel = Model<IProductCategory>;
