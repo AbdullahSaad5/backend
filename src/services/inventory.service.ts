@@ -627,4 +627,18 @@ export const inventoryService = {
   getSelectedInventoryPartsService: async (inventoryId: string) => {
     return await Inventory.findById(inventoryId).select("selectedVariations");
   },
+  // Function to generate all possible combinations of multi-select attributes
+  generateCombinations: async (attributes: Record<string, any>) => {
+    const keys = Object.keys(attributes);
+    const values = Object.values(attributes);
+
+    const cartesianProduct = (arrays: any[][]) => {
+      return arrays.reduce(
+        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
+        [{}]
+      );
+    };
+
+    return cartesianProduct(values);
+  },
 };
