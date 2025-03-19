@@ -42,6 +42,7 @@ function pick(obj: any, keys: string[]) {
     return acc;
   }, {});
 }
+
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {

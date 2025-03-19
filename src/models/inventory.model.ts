@@ -461,7 +461,7 @@ Inventory.discriminator(
 
 // discriminator for Monitors
 Inventory.discriminator(
-  "parts",
+  "part",
   new mongoose.Schema(
     {
       prodTechInfo: partsTechnicalSchema,
