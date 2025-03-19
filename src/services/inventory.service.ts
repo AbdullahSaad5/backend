@@ -45,7 +45,7 @@ function pick(obj: any, keys: string[]) {
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
-    console.log("step dAtaa : ", stepData);
+    console.log("stepData:", stepData);
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
@@ -54,6 +54,9 @@ export const inventoryService = {
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
+
+      // ✅ Extract `isPart` from stepData (NOT from productInfo)
+      const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
 
       const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
@@ -80,19 +83,22 @@ export const inventoryService = {
         description: description || "",
         brand: brand || "",
         inventoryCondition: inventoryCondition || "",
-        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
+        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
       const draftInventoryData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        productInfo, // ✅ Fixed: Now correctly storing inventoryImages inside productInfo
+        isPart, // ✅ Now correctly storing `isPart`
+        productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
         if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
@@ -103,6 +109,8 @@ export const inventoryService = {
           });
         }
       });
+
+      console.log("Final draftInventoryData before saving:", draftInventoryData);
 
       const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
       await draftInventory.save({ validateBeforeSave: false });
