@@ -2,9 +2,15 @@ import { ProductCategoryUpdatePayload } from "@/contracts/product-category.contr
 import { ProductCategory } from "@/models";
 
 export const productCategoryService = {
-
-  createCategory: (name: String, description: string, image: string, tags: string[] , isBlocked:boolean) => {
-    const newProductCategory = new ProductCategory({ name, description, image , tags , isBlocked});
+  createCategory: (
+    name: String,
+    description: string,
+    image: string,
+    tags: string[],
+    isBlocked: boolean,
+    isPart: boolean
+  ) => {
+    const newProductCategory = new ProductCategory({ name, description, image, tags, isBlocked, isPart });
     return newProductCategory.save();
   },
 
@@ -35,6 +41,4 @@ export const productCategoryService = {
     }
     return updatedCategory;
   },
-
 };
-
