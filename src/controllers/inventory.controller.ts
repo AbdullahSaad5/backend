@@ -654,8 +654,17 @@ export const inventoryController = {
 
       let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
 
+      // If variations are already listed, return them instead of an error
       if (existingVariationDoc && existingVariationDoc.availableForListing) {
-        return res.status(400).json({ message: "Variations cannot be updated as they are listed." });
+        return res.status(200).json({
+          message: "Variations are already listed. Returning existing data.",
+          _id: existingVariationDoc._id,
+          inventoryId: existingVariationDoc.inventoryId,
+          createdAt: existingVariationDoc.createdAt,
+          updatedAt: existingVariationDoc.updatedAt,
+          variations: existingVariationDoc.variations,
+          availableForListing: existingVariationDoc.availableForListing,
+        });
       }
 
       const attributes = inventoryItem.prodTechInfo;
@@ -674,11 +683,11 @@ export const inventoryController = {
 
       const variationsWithId = rawVariations.map((variation: any) => ({
         ...variation,
-        purchasePrice: 0, // Default value
-        costPrice: 0, // Default value
-        totalUnits: 0, // Default value
-        usableUnits: 0, // Default value
-        isSelected: false, // Default value
+        purchasePrice: 0,
+        costPrice: 0,
+        totalUnits: 0,
+        usableUnits: 0,
+        isSelected: false,
       }));
 
       const savedVariation: any = await Variation.findOneAndUpdate(
@@ -686,7 +695,7 @@ export const inventoryController = {
         {
           inventoryId: inventoryItem._id,
           variations: variationsWithId,
-          availableForListing: false, // Ensure the field is stored in DB
+          availableForListing: false,
         },
         { upsert: true, new: true }
       );
