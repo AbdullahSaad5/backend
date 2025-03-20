@@ -1,30 +1,45 @@
 import { Stock } from "@/models/stock.model";
-import { Inventory } from "@/models";
+import { Inventory, Variation } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
 
 export const stockService = {
   // 📌 Add New Stock Purchase Entry
-  async addStock(data: any) {
+  addStock: async (data: any) => {
     const inventoryExists = await Inventory.findById(data.inventoryId);
     if (!inventoryExists) {
       throw new Error("Inventory not found. Please provide a valid inventoryId.");
     }
 
-    // Check for duplicate batch number
-    const existingStock = await Stock.findOne({
-      batchNumber: data.batchNumber,
-    });
-    if (existingStock) {
-      throw new Error("Batch number already exists. Please provide a unique batch number.");
+    // Ensure variations exist
+    if (!data.variations || !Array.isArray(data.variations) || data.variations.length === 0) {
+      throw new Error("At least one variation must be provided.");
     }
 
-    const stock = new Stock(data);
+    // Transform variations to match Stock model structure
+    const selectedVariations = data.variations.map((variation: any) => ({
+      variationId: variation.variationId,
+      costPricePerUnit: variation.costPricePerUnit,
+      purchasePricePerUnit: variation.purchasePricePerUnit,
+      totalUnits: variation.totalUnits,
+      usableUnits: variation.usableUnits,
+    }));
+
+    // Create stock entry
+    const stock = new Stock({
+      inventoryId: data.inventoryId,
+      selectedVariations, // ✅ Store variations in selectedVariations
+      receivedDate: data.receivedDate,
+      receivedBy: data.receivedBy,
+      purchaseDate: data.purchaseDate,
+      markAsStock: data.markAsStock,
+    });
+
     await stock.save();
-    return { message: "Stock purchase recorded successfully", stock };
+    return { message: "Stock saved successfully", stock };
   },
 
   // 📌 Get All Stock Entries for an Invenetory
-  async getStockByInventory(inventoryId: string) {
+  getStockByInventory: async (inventoryId: string) => {
     return await Stock.find({ inventoryId }).populate("inventoryId");
   },
 

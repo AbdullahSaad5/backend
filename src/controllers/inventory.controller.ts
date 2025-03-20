@@ -702,8 +702,8 @@ export const inventoryController = {
 
   updateVariations: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const { variations, availableForListing } = req.body;
+      const { id } = req.params; // Inventory ID
+      const { variations } = req.body; // Array of variations to update
 
       if (!id || !variations || !Array.isArray(variations)) {
         return res.status(400).json({ message: "Missing required data" });
@@ -713,20 +713,22 @@ export const inventoryController = {
         return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      const updatedVariationDoc: any = await Variation.findOneAndUpdate(
-        { inventoryId: id },
-        { $set: { variations, availableForListing } },
-        { new: true }
-      );
+      const bulkOps = variations.map((variation: any) => ({
+        updateOne: {
+          filter: { _id: variation.variationId, inventoryId: id }, // Ensure the variation belongs to this inventory
+          update: { $set: { ...variation } }, // Update the variation data
+        },
+      }));
 
-      if (!updatedVariationDoc) {
-        return res.status(404).json({ message: "Variations not found for the given inventory ID" });
+      const bulkWriteResult = await Variation.bulkWrite(bulkOps);
+
+      if (bulkWriteResult.modifiedCount === 0) {
+        return res.status(404).json({ message: "No variations were updated" });
       }
 
       res.status(200).json({
         message: "Variations updated successfully",
-        variations: updatedVariationDoc.variations,
-        availableForListing: updatedVariationDoc.availableForListing,
+        modifiedCount: bulkWriteResult.modifiedCount,
       });
     } catch (error) {
       console.error("❌ Error updating variations:", error);

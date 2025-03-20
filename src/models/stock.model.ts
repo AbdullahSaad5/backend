@@ -12,6 +12,7 @@ const StockSchema = new Schema<IStock>(
     // ✅ Store only selected variations
     selectedVariations: [
       {
+        _id: false,
         variationId: {
           type: Schema.Types.ObjectId,
           ref: "Variation",

@@ -8,32 +8,46 @@ export const stockController = {
     try {
       const {
         inventoryId,
-        totalUnits,
-        usableUnits,
-        purchasePricePerUnit,
-        costPricePerUnit,
-        // retailPricePerUnit,
-        purchaseDate,
+        variations, // Validate variations array
         receivedDate,
+        receivedBy,
+        purchaseDate,
+        markAsStock,
       } = req.body;
 
-      if (
-        !inventoryId ||
-        !totalUnits ||
-        !usableUnits ||
-        !purchasePricePerUnit ||
-        !costPricePerUnit ||
-        // !retailPricePerUnit ||
-        !purchaseDate ||
-        !receivedDate
-      ) {
-        return res.status(400).json({ message: "All required stock fields must be provided" });
+      // Validate required fields
+      if (!inventoryId || !variations || !Array.isArray(variations) || variations.length === 0) {
+        return res.status(400).json({ message: "Inventory ID and at least one variation are required." });
       }
 
       if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
         return res.status(400).json({ message: "Invalid Inventory ID format" });
       }
 
+      if (!receivedDate || !receivedBy || !purchaseDate) {
+        return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
+      }
+
+      // Validate each variation
+      for (const variation of variations) {
+        if (
+          !variation.variationId ||
+          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
+          variation.costPricePerUnit === undefined ||
+          variation.purchasePricePerUnit === undefined ||
+          variation.totalUnits === undefined ||
+          variation.usableUnits === undefined
+        ) {
+          return res
+            .status(400)
+            .json({
+              message:
+                "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+            });
+        }
+      }
+
+      // Call service function to add stock
       const result = await stockService.addStock(req.body);
       res.status(201).json(result);
     } catch (error: any) {
@@ -52,9 +66,10 @@ export const stockController = {
         });
       }
 
-      res.status(500).json({ message: error.message, error: error.message });
+      res.status(500).json({ message: error.message });
     }
   },
+
   // 📌 Get inventory That Have Stock Along With Their Stock Entries
   getInventoryWithStock: async (req: Request, res: Response) => {
     try {
