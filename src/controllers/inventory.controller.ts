@@ -665,55 +665,32 @@ export const inventoryController = {
       }
 
       const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
-      let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
 
-      let existingVariationsMap = new Map();
-      if (existingVariationDoc) {
-        existingVariationDoc.variations.forEach((variation: any) => {
-          const key = JSON.stringify({ ...variation, _id: undefined });
-          existingVariationsMap.set(key, variation);
-        });
-      }
+      const variationsWithId = rawVariations.map((variation: any) => ({
+        ...variation,
+        purchasePrice: 0, // Default value
+        costPrice: 0, // Default value
+        totalUnits: 0, // Default value
+        usableUnits: 0, // Default value
+        isSelected: false, // Default value
+      }));
 
-      const variationsWithId = rawVariations.map((variation: any) => {
-        const key = JSON.stringify(variation);
-        const existingVariation = existingVariationsMap.get(key);
-
-        return existingVariation
-          ? existingVariation
-          : {
-              _id: new mongoose.Types.ObjectId(),
-              ...variation,
-              purchasePrice: 0,
-              costPrice: 0,
-              totalUnits: 0,
-              usableUnits: 0,
-              isSelected: false,
-            };
-      });
-
-      if (existingVariationDoc) {
-        variationsWithId.forEach((variation) => {
-          if (!existingVariationDoc.variations.some((v: any) => JSON.stringify(v) === JSON.stringify(variation))) {
-            existingVariationDoc.variations.push(variation);
-          }
-        });
-        await existingVariationDoc.save();
-      } else {
-        existingVariationDoc = new Variation({
+      const savedVariation = await Variation.findOneAndUpdate(
+        { inventoryId: inventoryItem._id },
+        {
           inventoryId: inventoryItem._id,
           variations: variationsWithId,
-        });
-        await existingVariationDoc.save();
-      }
+        },
+        { upsert: true, new: true }
+      );
 
       res.status(201).json({
         message: "Variations generated and stored",
-        _id: existingVariationDoc._id,
-        inventoryId: existingVariationDoc.inventoryId,
-        createdAt: existingVariationDoc.createdAt,
-        updatedAt: existingVariationDoc.updatedAt,
-        variations: existingVariationDoc.variations,
+        _id: savedVariation._id,
+        inventoryId: savedVariation.inventoryId,
+        createdAt: savedVariation.createdAt,
+        updatedAt: savedVariation.updatedAt,
+        variations: savedVariation.variations,
       });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
