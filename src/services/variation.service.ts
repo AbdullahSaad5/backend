@@ -58,9 +58,6 @@ export const variationService = {
           ],
         };
       }
-
-      console.log("🔍 Running Query:", JSON.stringify(query, null, 2));
-
       // ✅ Fetch variations
       const variations = await Variation.find(query).skip(skip).limit(limitNumber);
 
