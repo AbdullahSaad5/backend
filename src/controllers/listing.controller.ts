@@ -2,7 +2,8 @@ import { ebayService, listingService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
-import { transformProductData } from "@/utils/transformProductData.util";
+import { transformListingData } from "@/utils/transformListingData.util";
+import { Inventory } from "@/models";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -16,13 +17,35 @@ export const listingController = {
         });
       }
 
-      // Save draft listing in MongoDB
-      const draftListing = await listingService.createDraftListing(stepData);
+      if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid or missing 'productInfo' in request payload",
+        });
+      }
+
+      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid or missing 'inventoryId' in request payload",
+        });
+      }
+
+      // Ensure inventoryId exists in database
+      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
+      if (!inventoryExists) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Inventory ID does not exist",
+        });
+      }
+
+      const draftListing = await listingService.createDraftListingService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Draft listing created successfully",
-        data: { ListingId: draftListing._id },
+        data: { listingId: draftListing._id },
       });
     } catch (error: any) {
       console.error("Error creating draft listing:", error);
@@ -33,16 +56,18 @@ export const listingController = {
     }
   },
 
-  updateDraftListing: async (req: Request, res: Response) => {
+  updateDraftListingController: async (req: Request, res: Response) => {
     try {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // Validate listingId
+      // console.log("Received request to update draft Listing:", { listingId, stepData });
+
+      // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Invalid or missing 'listingId'",
+          message: "Invalid listing ID",
         });
       }
 
@@ -54,42 +79,46 @@ export const listingController = {
         });
       }
 
-      // Update the draft listing in MongoDB
-      const updatedProduct = await listingService.updateDraftListing(listingId, stepData);
-
-      // Check if the listing is marked for publishing
+      // Update listing
+      const updatedListing = await listingService.updateDraftListing(listingId, stepData);
       if (stepData.publishToEbay) {
-        // Sync listing with eBay if it's marked for publishing
-        const ebayItemId = await ebayService.syncProductWithEbay(updatedProduct);
+        // Sync product with eBay if it's marked for publishing
+        const ebayItemId = await ebayService.syncListingWithEbay(updatedListing);
 
-        // Update the listing with the eBay Item ID
-        await listingService.updateDraftListing(updatedProduct._id, {
+        // Update the product with the eBay Item ID
+        await listingService.updateDraftListing(updatedListing._id, {
           ebayItemId,
         });
 
-        // Return success with the updated listing
+        // Return success with the updated product
         return res.status(StatusCodes.OK).json({
           success: true,
-          message: "Draft listing updated and synced with eBay successfully",
-          data: updatedProduct,
+          message: "Draft product updated and synced with eBay successfully",
+          data: updatedListing,
           ebayItemId, // Include eBay Item ID in the response
         });
       }
+      if (!updatedListing) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found or could not be updated",
+        });
+      }
 
-      // If not marked for publishing, just return the updated listing
+      // If not marked for publishing, just return the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft listing updated successfully",
-        data: updatedProduct,
+        message: "Draft Listing updated successfully",
+        data: updatedListing,
       });
     } catch (error: any) {
-      console.error("Error updating draft listing:", error);
+      console.error("Error updating draft Listing:", error);
 
       // Check if the error is related to eBay synchronization
       if (error.message.includes("eBay")) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: `Error syncing listing with eBay: ${error.message}`,
+          message: `Error syncing Listing with eBay: ${error.message}`,
         });
       }
 
@@ -101,23 +130,23 @@ export const listingController = {
     }
   },
 
-  getAllProduct: async (req: Request, res: Response) => {
+  getAllListing: async (req: Request, res: Response) => {
     try {
-      const listings = await listingService.getAllListings();
+      const listings = await listingService.getAllListing();
       return res.status(StatusCodes.OK).json({
         success: true,
         listings,
       });
     } catch (error: any) {
-      console.error("Error fetching products:", error);
+      console.error("Error fetching listing:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Error fetching products",
+        message: error.message || "Error fetching listing",
       });
     }
   },
 
-  getProductById: async (req: Request, res: Response) => {
+  getListingById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const listing = await listingService.getListingById(id);
@@ -142,7 +171,7 @@ export const listingController = {
     }
   },
 
-  transformAndSendProduct: async (req: Request, res: Response) => {
+  transformAndSendListing: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -165,13 +194,13 @@ export const listingController = {
       }
 
       // Transform listing data using utility
-      const transformedProduct = transformProductData(listing);
+      const transformedListing = transformListingData(listing);
 
       // Send transformed listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Listing transformed successfully",
-        data: transformedProduct,
+        data: transformedListing,
       });
     } catch (error: any) {
       console.error("Error transforming listing:", error);
@@ -182,9 +211,9 @@ export const listingController = {
     }
   },
   //Get All Template Listing Names
-  getAllTemplateProducts: async (req: Request, res: Response) => {
+  getAllTemplateListingNames: async (req: Request, res: Response) => {
     try {
-      const templates = await listingService.getListingsByCondition({
+      const templates = await listingService.getListingByCondition({
         isTemplate: true,
       });
 
@@ -195,14 +224,15 @@ export const listingController = {
         });
       }
 
-      let templateList = templates.map((template, index) => {
+      const templateList = templates.map((template, index) => {
         const listingId = template._id;
-        const kind = template.kind || "UNKNOWN";
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
+        // ✅ Ensure correct access to prodTechInfo
+        const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
-        const prodInfo: any = template.platformDetails.website?.prodTechInfo || {};
 
-        switch (kind.toLowerCase()) {
+        switch (kind) {
           case "laptops":
             fields = [
               prodInfo.processor,
@@ -230,23 +260,20 @@ export const listingController = {
             break;
           default:
             fields = ["UNKNOWN"];
-            break;
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, listingId };
       });
 
-      // 🔹 Sort by the number at the end of templateName in descending order
+      // Sorting based on numerical value at the end of templateName
       templateList.sort((a, b) => {
-        const numA = parseInt(a.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        const numB = parseInt(b.templateName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
@@ -264,28 +291,27 @@ export const listingController = {
   },
 
   //Get All Draft Listing Names
-  getAllDraftProductNames: async (req: Request, res: Response) => {
+  getAllDraftListingNames: async (req: Request, res: Response) => {
     try {
-      const drafts = await listingService.getListingsByCondition({
-        status: "draft",
-      });
+      const drafts = await listingService.getListingByCondition({ status: "draft" });
 
-      if (!drafts.length) {
+      if (!drafts || drafts.length === 0) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "No draft products found",
+          message: "No draft Listing found",
         });
       }
 
-      let draftList = drafts.map((draft, index) => {
+      const draftList = drafts.map((draft, index) => {
         const listingId = draft._id;
-        const kind = draft.kind || "UNKNOWN";
+        const kind = draft?.kind || "UNKNOWN";
+        // const prodInfo = draft?.prodTechInfo || {}; // Ensure we reference the correct object
+        const prodInfo = (draft as any).prodTechInfo || {};
 
         let fields: string[] = [];
-        const prodInfo: any = draft.platformDetails.website?.prodTechInfo || {};
 
         switch (kind.toLowerCase()) {
-          case "laptops":
+          case "listing_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -295,19 +321,19 @@ export const listingController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "listing_all_iPn_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "listing_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "listing_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "listing_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "listing_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -316,24 +342,21 @@ export const listingController = {
         }
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-
         const srno = (index + 1).toString().padStart(2, "0");
-
         const draftName = `DRAFT-${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { draftName, listingId };
       });
 
-      // 🔹 Sort by the number at the end of draftName in descending order
       draftList.sort((a, b) => {
         const numA = parseInt(a.draftName.match(/(\d+)$/)?.[0] || "0", 10);
         const numB = parseInt(b.draftName.match(/(\d+)$/)?.[0] || "0", 10);
-        return numB - numA; // Descending order
+        return numB - numA;
       });
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft products names fetched successfully",
+        message: "Draft Listing names fetched successfully",
         data: draftList,
       });
     } catch (error: any) {
@@ -346,7 +369,7 @@ export const listingController = {
   },
 
   //Selected transformed draft Listing
-  transformAndSendDraftProduct: async (req: Request, res: Response) => {
+  transformAndSendDraftListing: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -369,13 +392,13 @@ export const listingController = {
       }
 
       // Transform listing data using utility
-      const transformedProductDraft = transformProductData(listing);
+      const transformedListingDraft = transformListingData(listing);
 
       // Send transformed Draft listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "draft transformed and Fetched successfully",
-        data: transformedProductDraft,
+        data: transformedListingDraft,
       });
     } catch (error: any) {
       console.error("Error transforming listing Draft:", error);
@@ -386,7 +409,7 @@ export const listingController = {
     }
   },
   //Selected transformed Template Listing
-  transformAndSendTemplateProduct: async (req: Request, res: Response) => {
+  transformAndSendTemplateListing: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -408,14 +431,11 @@ export const listingController = {
         });
       }
 
-      // Transform listing data using utility
-      const transformedProductTemplate = transformProductData(listing);
-
       // Send transformed listing as response
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "template transformed and Fetched successfully",
-        data: transformedProductTemplate,
+        data: listing,
       });
     } catch (error: any) {
       console.error("Error transforming listing Template:", error);
@@ -425,7 +445,7 @@ export const listingController = {
       });
     }
   },
-  updateProductById: async (req: Request, res: Response) => {
+  updateListingById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { platform, data } = req.body;
@@ -437,9 +457,9 @@ export const listingController = {
         });
       }
 
-      const updatedProduct = await listingService.updateListing(id, platform, data);
+      const updatedListing = await listingService.updateListing(id, data);
 
-      if (!updatedProduct) {
+      if (!updatedListing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Listing not found",
@@ -449,7 +469,7 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Listing updated successfully",
-        data: updatedProduct,
+        data: updatedListing,
       });
     } catch (error: any) {
       console.error("Error updating listing:", error);
@@ -459,15 +479,45 @@ export const listingController = {
       });
     }
   },
+  //get all listings by inventoryId
+  getListingsByInventoryId: async (req: Request, res: Response) => {
+    try {
+      const { inventoryId } = req.params;
 
-  deleteProduct: async (req: Request, res: Response) => {
+      // Validate inventoryId format
+      if (!mongoose.isValidObjectId(inventoryId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid inventoryId",
+        });
+      }
+
+      // Fetch listings and count
+      const { listings, total } = await listingService.getListingsByInventoryId(inventoryId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: total > 0 ? "Listings retrieved successfully" : "No listings found",
+        totalListings: total,
+        data: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching listings by inventoryId:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching listings",
+      });
+    }
+  },
+
+  deleteListing: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const result = await listingService.deleteListing(id);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Listing deleted successfully",
-        deletedProduct: result,
+        deletedListing: result,
       });
     } catch (error) {
       console.error("Delete Listing Error:", error);
@@ -487,9 +537,9 @@ export const listingController = {
         });
       }
 
-      const updatedProduct = await listingService.toggleBlock(id, isBlocked);
+      const updatedListing = await listingService.toggleBlock(id, isBlocked);
 
-      if (!updatedProduct) {
+      if (!updatedListing) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Listing not found",
@@ -499,7 +549,7 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: `Listing ${isBlocked ? "blocked" : "unblocked"} successfully`,
-        data: updatedProduct,
+        data: updatedListing,
       });
     } catch (error: any) {
       console.error("Error toggling block status:", error);
@@ -509,15 +559,15 @@ export const listingController = {
       });
     }
   },
-  getProductStats: async (req: Request, res: Response) => {
+  getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();
       return res.status(StatusCodes.OK).json(stats);
     } catch (error) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching products statistics" });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching listing statistics" });
     }
   },
-  searchAndFilterProducts: async (req: Request, res: Response) => {
+  searchAndFilterListing: async (req: Request, res: Response) => {
     try {
       // Extract filters from query params
       const {
@@ -545,24 +595,24 @@ export const listingController = {
         limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
       };
 
-      // Call the service to search and filter the products
-      const products = await listingService.searchAndFilterListings(filters);
+      // Call the service to search and filter the listing
+      const listing = await listingService.searchAndFilterListings(filters);
 
       // Return the results
       res.status(200).json({
         success: true,
         message: "Search and filter completed successfully",
-        data: products,
+        data: listing,
       });
     } catch (error) {
       console.error("Error in search and filter:", error);
       res.status(500).json({
         success: false,
-        message: "Error in search and filter products",
+        message: "Error in search and filter listing",
       });
     }
   },
-  bulkUpdateProductTaxDiscount: async (req: Request, res: Response) => {
+  bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
       const { listingIds, discountValue, vat } = req.body;
 
@@ -592,7 +642,7 @@ export const listingController = {
       res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
-  upsertProductParts: async (req: Request, res: Response) => {
+  upsertListingParts: async (req: Request, res: Response) => {
     try {
       const listing = await listingService.upsertListingPartsService(req.params.id, req.body.selectedVariations);
       if (!listing) return res.status(404).json({ message: "Listing not found" });
@@ -603,7 +653,7 @@ export const listingController = {
     }
   },
   // Get selected variations
-  getSelectedProductParts: async (req: Request, res: Response) => {
+  getSelectedListingParts: async (req: Request, res: Response) => {
     try {
       const listing: any = await listingService.getSelectedListingPartsService(req.params.id);
       if (!listing) return res.status(404).json({ message: "Listing not found" });

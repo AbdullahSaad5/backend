@@ -5,6 +5,7 @@ import { messageService } from "@/services";
 export const chatController = {
   getConversations: async (req: Request, res: Response) => {
     try {
+        console.log("req ki id : " , req.body.user.id)
       const conversations = await conversationService.getConversationsForUser(req.body.user.id);
       res.json(conversations);
     } catch (error) {

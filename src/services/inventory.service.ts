@@ -1,4 +1,4 @@
-import { Inventory, User } from "@/models";
+import { Inventory, Stock, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -9,10 +9,6 @@ import {
   laptopTechnicalSchema,
   monitorTechnicalSchema,
   networkEquipmentsTechnicalSchema,
-  prodDeliverySchema,
-  prodMediaSchema,
-  prodPricingSchema,
-  prodSeoSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 
@@ -46,10 +42,11 @@ function pick(obj: any, keys: string[]) {
     return acc;
   }, {});
 }
+
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
-    console.log("step dAtaa : " , stepData)
+    console.log("stepData:", stepData);
     try {
       if (!stepData || typeof stepData !== "object") {
         throw new Error("Invalid or missing 'stepData'");
@@ -59,7 +56,10 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, productCategory, productSupplier, title, productDescription, brand, inventoryImages, inventoryCondition } =
+      // ✅ Extract `isPart` from stepData (NOT from productInfo)
+      const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
+
+      const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
@@ -81,22 +81,25 @@ export const inventoryService = {
         productCategory: categoryId,
         productSupplier: supplierId,
         title: title || "",
-        productDescription: productDescription || "",
+        description: description || "",
         brand: brand || "",
-        inventoryCondition:inventoryCondition ||"",
-        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [], // ✅ Ensure images are saved
+        inventoryCondition: inventoryCondition || "",
+        inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
       const draftInventoryData: any = {
         status: "draft",
         isBlocked: false,
         kind,
-        productInfo, // ✅ Fixed: Now correctly storing inventoryImages inside productInfo
+        isPart, // ✅ Now correctly storing `isPart`
+        productInfo,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
         if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
@@ -107,6 +110,8 @@ export const inventoryService = {
           });
         }
       });
+
+      console.log("Final draftInventoryData before saving:", draftInventoryData);
 
       const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
       await draftInventory.save({ validateBeforeSave: false });
@@ -164,6 +169,10 @@ export const inventoryService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "stocks",
+        "stockThreshold",
+        "isTemplate",
+        "status",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
@@ -182,6 +191,25 @@ export const inventoryService = {
     } catch (error: any) {
       console.error("Error updating draft inventory:", error);
       throw new Error(`Failed to update draft inventory: ${error.message}`);
+    }
+  },
+
+  getInventoriesWithStock: async () => {
+    try {
+      // ✅ Step 1: Get unique inventory IDs from Stock where `markAsStock` is true
+      const stockInventories = await Stock.distinct("inventoryId", { markAsStock: true });
+
+      if (!stockInventories.length) {
+        return [];
+      }
+
+      // ✅ Step 2: Find Inventories that match the stock inventory IDs
+      const inventories = await Inventory.find({ _id: { $in: stockInventories } }).lean();
+
+      return inventories;
+    } catch (error) {
+      console.error("❌ Error retrieving inventories with stock:", error);
+      throw new Error("Failed to fetch inventories with stock");
     }
   },
 
@@ -307,9 +335,11 @@ export const inventoryService = {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        kind,
         status, // Extract status from filters
         startDate,
         endDate,
+        isPart,
         page = 1, // Default to page 1 if not provided
         limit = 10, // Default to 10 records per page
       } = filters;
@@ -337,42 +367,7 @@ export const inventoryService = {
               $options: "i",
             },
           },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+
           {
             "prodPricing.condition": {
               $regex: searchQuery,
@@ -389,8 +384,15 @@ export const inventoryService = {
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
+
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
+      }
+      if (isPart !== undefined) {
+        query.isPart = isPart;
+      }
+      if (kind === "part") {
+        query.kind = kind;
       }
 
       // Date range filter for createdAt
@@ -564,9 +566,9 @@ export const inventoryService = {
         // ProductSupplier: inventory?.supplier?.name,
         Stock: inventory.stock,
         SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.platformDetails.amazon.productInfo),
-        EbayInfo: JSON.stringify(inventory.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.platformDetails.website.productInfo),
+        AmazonInfo: JSON.stringify(inventory.productInfo),
+        EbayInfo: JSON.stringify(inventory.productInfo),
+        WebsiteInfo: JSON.stringify(inventory.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -624,5 +626,19 @@ export const inventoryService = {
   // Get selected variations for a inventory
   getSelectedInventoryPartsService: async (inventoryId: string) => {
     return await Inventory.findById(inventoryId).select("selectedVariations");
+  },
+  // Function to generate all possible combinations of multi-select attributes
+  generateCombinations: async (attributes: Record<string, any>) => {
+    const keys = Object.keys(attributes);
+    const values = Object.values(attributes);
+
+    const cartesianProduct = (arrays: any[][]) => {
+      return arrays.reduce(
+        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
+        [{}]
+      );
+    };
+
+    return cartesianProduct(values);
   },
 };

@@ -1,4 +1,3 @@
-import { Inventory } from "@/models";
 export { User } from "./user.model";
 export { UserCategory } from "./user-category.model";
 export { Address } from "./user-address.model";

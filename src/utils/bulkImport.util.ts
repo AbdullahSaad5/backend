@@ -40,7 +40,7 @@ const validateCsvData = async (csvFilePath: string) => {
   const requiredColumns = [
     "brand",
     "title",
-    "productDescription",
+    "description",
     "productSupplierKey",
     "productCategory",
     "price",
@@ -196,7 +196,7 @@ const processZipFile = async (zipFilePath: string) => {
     }
 
     console.log("🚀 Starting bulk import...");
-    await bulkImportProducts(validRows);
+    await bulkImportInventory(validRows);
     console.log(`✅ Bulk import completed.`);
   } catch (error) {
     console.error("❌ Error processing ZIP file:", error);
@@ -217,7 +217,7 @@ const processZipFile = async (zipFilePath: string) => {
 };
 
 export { validateCsvData, processZipFile };
-const bulkImportProducts = async (
+const bulkImportInventory = async (
   validRows: { row: number; data: any }[]
 ): Promise<void> => {
   try {
@@ -231,7 +231,7 @@ const bulkImportProducts = async (
     }
 
     if (validRows.length === 0) {
-      console.log("❌ No valid products to import.");
+      console.log("❌ No valid Inventory to import.");
       return;
     }
 
@@ -264,11 +264,11 @@ const bulkImportProducts = async (
     });
 
     if (filteredRows.length === 0) {
-      console.log("❌ No valid products to insert after supplier validation.");
+      console.log("❌ No valid Inventory to insert after supplier validation.");
       return;
     }
 
-    // ✅ Bulk insert new products (avoiding duplicates)
+    // ✅ Bulk insert new Inventory (avoiding duplicates)
     const bulkOperations = filteredRows
       .filter(({ data }) => !existingTitles.has(data.title))
       .map(({ data }) => ({
@@ -276,7 +276,7 @@ const bulkImportProducts = async (
           document: {
             title: data.title,
             brand: data.brand,
-            productDescription: data.productDescription,
+            description: data.description,
             productCategory: new mongoose.Types.ObjectId(data.productCategory),
             productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
             price: parseFloat(data.price),
@@ -296,7 +296,7 @@ const bulkImportProducts = async (
                   productInfo: {
                     brand: data.brand,
                     title: data.title,
-                    productDescription: data.productDescription,
+                    description: data.description,
                     productCategory: new mongoose.Types.ObjectId(
                       data.productCategory
                     ),
@@ -328,14 +328,14 @@ const bulkImportProducts = async (
       }));
 
     if (bulkOperations.length === 0) {
-      console.log("✅ No new products to insert.");
+      console.log("✅ No new Inventory to insert.");
       return;
     }
 
     // ✅ Perform Bulk Insert Operation
     await Listing.bulkWrite(bulkOperations);
     console.log(
-      `✅ Bulk import completed. Successfully added ${bulkOperations.length} new products.`
+      `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
     );
 
     // ✅ Log skipped rows due to invalid suppliers

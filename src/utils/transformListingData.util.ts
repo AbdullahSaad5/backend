@@ -1,4 +1,4 @@
-export function transformProductData(data: any) {
+export function transformListingData(data: any) {
   const result: any = {
     stepData: {
       productInfo: {},
@@ -49,9 +49,9 @@ export function transformProductData(data: any) {
     productInfo: [
       "brand",
       "title",
-      "productDescription",
-      "productCategory",
-      "productSupplier",
+      "description",
+      "listingCategory",
+      "listingSupplier",
       "kind",
     ],
     prodTechInfo: [
@@ -82,7 +82,7 @@ export function transformProductData(data: any) {
       "processorSpeed",
       "ramSize",
       "formFactor",
-      "ean",
+      // "ean",
       "productType",
       "manufacturerWarranty",
       "regionOfManufacture",

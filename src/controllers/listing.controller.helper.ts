@@ -11,14 +11,13 @@ export const handleBulkImport = async (req: Request, res: Response) => {
     // fs.unlinkSync(zipFilePath);
     res.status(200).json({ message: "File processing started" });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     res.status(500).json({ error: errorMessage });
   }
 };
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
-    const filePath = await listingService.exportListings();
+    const filePath = await listingService.exportListing();
 
     // Send the file as  download to the client
     res.download(filePath, (err) => {

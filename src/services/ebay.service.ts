@@ -156,26 +156,27 @@ export const ebayService = {
     }
   },
 
-  async syncProductWithEbay(product: any): Promise<string> {
+  async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
+      // console.log("token in sync", token)
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
 
-      const ebayData = product.platformDetails?.ebay;
+      const ebayData = listing;
       if (!ebayData) {
-        throw new Error("Missing eBay product details");
+        throw new Error("Missing eBay listing details");
       }
 
-      // Use product._id as the SKU (or replace with the correct ID field)
-      const sku = product._id?.toString();
+      // Use listing._id as the SKU (or replace with the correct ID field)
+      const sku = listing._id?.toString();
 
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
       console.log("ebayUrl", ebayUrl);
 
       const requestBody = {
-        product: {
+        listing: {
           title: ebayData.productInfo?.title ?? "All In One PC",
           aspects: {
             Feature: ebayData.prodTechInfo?.features
@@ -185,8 +186,8 @@ export const ebayService = {
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
           },
-          description: ebayData.productInfo?.productDescription
-            ? ebayData.productInfo.productDescription.replace(/[\[\]]/g, "")
+          description: ebayData.productInfo?.description
+            ? ebayData.productInfo.description.replace(/[\[\]]/g, "")
             : "No description available.",
           upc: ebayData.prodTechInfo?.upc
             ? [ebayData.prodTechInfo.upc]

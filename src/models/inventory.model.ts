@@ -26,97 +26,97 @@ export const prodInfoSchema = {
     required: true,
   },
   title: { type: String, required: true },
-  productDescription: { type: String },
+  description: { type: String },
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },
   brand: { type: String, required: true },
 };
 
-export const prodMediaSchema = {
-  images: { type: [mediaSchema], _id: false },
-  videos: { type: [mediaSchema], _id: false },
-};
+// export const prodMediaSchema = {
+//   images: { type: [mediaSchema], _id: false },
+//   videos: { type: [mediaSchema], _id: false },
+// };
 
-export const prodPricingSchema = {
-  // prod pricing details
-  quantity: { type: String },
-  discountType: { type: String, enum: ["fixed", "percentage"] },
-  discountValue: { type: Number },
-  price: { type: String },
-  condition: { type: String },
-  conditionDescription: { type: String },
-  pricingFormat: { type: String },
-  vat: { type: Number },
-  // paymentPolicy: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "PaymentPolicy",
-  //   default: null,
-  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  // },
-  paymentPolicy: { type: String },
+// export const prodPricingSchema = {
+//   // prod pricing details
+//   quantity: { type: String },
+//   discountType: { type: String, enum: ["fixed", "percentage"] },
+//   discountValue: { type: Number },
+//   price: { type: String },
+//   condition: { type: String },
+//   conditionDescription: { type: String },
+//   pricingFormat: { type: String },
+//   vat: { type: Number },
+//   // paymentPolicy: {
+//   //   type: Schema.Types.ObjectId,
+//   //   ref: "PaymentPolicy",
+//   //   default: null,
+//   //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
+//   // },
+//   paymentPolicy: { type: String },
 
-  purchasePricePerUnit: { type: Number },
-  costPricePerUnit: { type: Number },
-  retailPricePerUnit: { type: Number, default: 0 },
-  receivedBy: { type: String },
-  receivedDate: { type: Date },
-  purchaseDate: { type: Date },
-  buy2andSave: { type: String },
-  buy3andSave: { type: String },
-  buy4andSave: { type: String },
-  warrantyDuration: { type: String }, // Duration in days
-  warrantyCoverage: { type: String }, // Coverage description
-  warrantyDocument: {
-    type: [mediaSchema],
-    _id: false,
-  },
-  // URL or file path
-};
-export const prodDeliverySchema = {
-  // prod delivery details
-  postagePolicy: { type: String },
-  packageWeightKg: { type: String },
-  packageeWeightG: { type: String },
-  packageDimensionLength: { type: String },
-  packageDimensionWidth: { type: String },
-  packageDimensionHeight: { type: String },
-  irregularPackage: { type: Boolean },
-};
+//   purchasePricePerUnit: { type: Number },
+//   costPricePerUnit: { type: Number },
+//   retailPricePerUnit: { type: Number, default: 0 },
+//   receivedBy: { type: String },
+//   receivedDate: { type: Date },
+//   purchaseDate: { type: Date },
+//   buy2andSave: { type: String },
+//   buy3andSave: { type: String },
+//   buy4andSave: { type: String },
+//   warrantyDuration: { type: String }, // Duration in days
+//   warrantyCoverage: { type: String }, // Coverage description
+//   warrantyDocument: {
+//     type: [mediaSchema],
+//     _id: false,
+//   },
+//   // URL or file path
+// };
+// export const prodDeliverySchema = {
+//   // prod delivery details
+//   postagePolicy: { type: String },
+//   packageWeightKg: { type: String },
+//   packageWeightG: { type: String },
+//   packageDimensionLength: { type: String },
+//   packageDimensionWidth: { type: String },
+//   packageDimensionHeight: { type: String },
+//   irregularPackage: { type: Boolean },
+// };
 
-export const prodSeoSchema = {
-  seoTags: {
-    type: [String],
-  },
-  relevantTags: {
-    type: [String],
-  },
-  suggestedTags: {
-    type: [String],
-  },
-};
+// export const prodSeoSchema = {
+//   seoTags: {
+//     type: [String],
+//   },
+//   relevantTags: {
+//     type: [String],
+//   },
+//   suggestedTags: {
+//     type: [String],
+//   },
+// };
 // mock
 export const laptopTechnicalSchema = {
-  processor: { type: String, required: true },
+  processor: { type: [String], required: true },
   model: { type: String },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
-  storageType: { type: String },
-  features: { type: [String] },
-  ssdCapacity: { type: String },
+  storageType: { type: [String] },
+  features: { type:String },
+  ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String },
   processorSpeed: { type: String },
   series: { type: String },
-  ramSize: { type: String },
+  ramSize: { type: [String] },
   californiaProp65Warning: { type: String },
   type: { type: String },
   releaseYear: { type: String },
-  hardDriveCapacity: { type: String },
-  color: { type: String },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
   maxResolution: { type: String },
   mostSuitableFor: { type: String },
   screenSize: { type: String, required: true },
@@ -131,6 +131,45 @@ export const laptopTechnicalSchema = {
 };
 
 export const allInOnePCTechnicalSchema = {
+  processor: { type: [String] },
+  model: { type: String },
+  memory: { type: [String] },
+  maxRamCapacity: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: [String] },
+  formFactor: { type: String },
+  motherboardModel: { type: String },
+  ean: { type: String },
+  // series: { type: String },
+  operatingSystem: { type: [String] },
+  operatingSystemEdition: { type: String },
+  storageType: { type: [String] },
+  features: { type: String },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
+  type: { type: String },
+  releaseYear: { type: String },
+  inventoryType: { type: String, default: "All In One PC" },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
+  // maxResolution: { type: String },
+  mostSuitableFor: { type: String },
+  screenSize: { type: String },
+  graphicsProcessingType: { type: String },
+  connectivity: { type: String },
+  manufacturerWarranty: { type: String },
+  regionOfManufacture: { type: String },
+  height: { type: String },
+  length: { type: String },
+  width: { type: String },
+  // Uncomment if weight is required
+  // weight: { type: String },
+};
+export const partsTechnicalSchema = {
   processor: { type: String },
   model: { type: String },
   memory: { type: String },
@@ -141,19 +180,19 @@ export const allInOnePCTechnicalSchema = {
   processorSpeed: { type: String },
   series: { type: String },
   ramSize: { type: String },
-  formFactor: { type: String }, 
+  formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String, unique: true, sparse: true },
+  ean: { type: String },
   // series: { type: String },
   operatingSystem: { type: String },
   operatingSystemEdition: { type: String },
   storageType: { type: String },
-  features: { type: [String] },
+  features: { type: String },
   ssdCapacity: { type: String },
   gpu: { type: String },
   type: { type: String },
   releaseYear: { type: String },
-  inventoryType: { type: String, default: "All In One PC" },
+  inventoryType: { type: String, default: "part" },
   hardDriveCapacity: { type: String },
   color: { type: String },
   // maxResolution: { type: String },
@@ -169,18 +208,16 @@ export const allInOnePCTechnicalSchema = {
   // Uncomment if weight is required
   // weight: { type: String },
 };
-
 export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
-  features: { type: [String] },
-
+  features: { type: String },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String }, //
   ean: { type: String },
-  color: { type: String },
+  color: { type: [String] },
   numberOfLANPorts: { type: String },
   maximumWirelessData: { type: String },
   maximumLANDataRate: { type: String },
@@ -202,7 +239,7 @@ export const projectorTechnicalSchema = {
   aspectRatio: { type: String },
   maxResolution: { type: String },
   contrastRatio: { type: String },
-  compatibleOperatingSystems: { type: String },
+  compatibleOperatingSystem: { type: String },
   californiaProp65Warning: { type: String },
   compatibleFormat: { type: String },
   lensMagnification: { type: String },
@@ -211,9 +248,9 @@ export const projectorTechnicalSchema = {
 
 export const monitorTechnicalSchema = {
   model: { type: String },
-  features: { type: [String] },
+  features: { type: String },
 
-  color: { type: String },
+  color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
   mostSuitableFor: { type: String },
@@ -221,7 +258,7 @@ export const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String,  },
+  ean: { type: String },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -239,31 +276,31 @@ export const monitorTechnicalSchema = {
 };
 
 export const gamingPCTechnicalSchema = {
-  processor: { type: String },
+  processor: { type: [String] },
   model: { type: String },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String },
   type: { type: String },
-  processorSpeed: { type: String },
-  ramSize: { type: String },
+  processorSpeed: { type: [String] },
+  ramSize: { type: [String] },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String,  },
+  ean: { type: String },
   series: { type: String },
   operatingSystem: { type: String },
   customBundle: { type: String },
-  storageType: { type: String },
-  features: { type: [String] },
+  storageType: { type: [String] },
+  features: { type: String },
 
-  ssdCapacity: { type: String },
-  gpu: { type: String },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
   releaseYear: { type: String },
-  hardDriveCapacity: { type: String },
-  color: { type: String },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
   mostSuitableFor: { type: String },
-  screenSize: { type: String },
+  screenSize: { type: [String] },
   graphicsProcessingType: { type: String },
   connectivity: { type: String },
   manufacturerWarranty: { type: String },
@@ -313,8 +350,8 @@ export const networkEquipmentsTechnicalSchema = {
   productLine: { type: String },
   mpn: { type: String },
   type: { type: String },
-  ramSize: { type: String },
-  formFactor: { type: String },
+  ramSize: { type: [String] },
+  formFactor: { type: [String] },
   ean: { type: String },
   manufacturerWarranty: { type: String },
   regionOfManufacture: { type: String },
@@ -323,12 +360,12 @@ export const networkEquipmentsTechnicalSchema = {
   networkManagementType: { type: String },
   networkType: { type: String },
   processorManufacturer: { type: String },
-  numberOfProcessors: { type: String },
+  numberOfProcessors: { type: [String] },
   numberOfVANPorts: { type: String },
   processorType: { type: String },
   raidLevel: { type: String },
   memoryType: { type: String },
-  processorSpeed: { type: String },
+  processorSpeed: { type: [String] },
   deviceConnectivity: { type: String },
   connectorType: { type: String },
   supportedWirelessProtocol: { type: String },
@@ -347,6 +384,7 @@ const inventorySchema = new Schema(
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
+    isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
@@ -362,11 +400,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: laptopTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -378,11 +416,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: allInOnePCTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -394,11 +432,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: projectorTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -410,11 +448,27 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: monitorTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
+
+// discriminator for Monitors
+Inventory.discriminator(
+  "part",
+  new mongoose.Schema(
+    {
+      prodTechInfo: partsTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -426,11 +480,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: gamingPCTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )
@@ -442,11 +496,11 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: networkEquipmentsTechnicalSchema,
-      prodPricing: prodPricingSchema,
-      prodDelivery: prodDeliverySchema,
-      prodSeo: prodSeoSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
       productInfo: prodInfoSchema,
-      prodMedia: prodMediaSchema,
+      // prodMedia: prodMediaSchema,
     },
     options
   )

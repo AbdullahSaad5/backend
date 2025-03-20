@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
+import { Inventory, Stock, Variation } from "@/models";
 
 export const inventoryController = {
   // Controller - inventoryController.js
@@ -101,6 +102,33 @@ export const inventoryController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error fetching inventory",
+      });
+    }
+  },
+
+  getInventoriesWithStock: async (req: Request, res: Response) => {
+    try {
+      const inventories = await inventoryService.getInventoriesWithStock();
+
+      if (!inventories.length) {
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          message: "No inventories found with stock",
+          data: [],
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Inventories with stock retrieved successfully",
+        total: inventories.length,
+        data: inventories,
+      });
+    } catch (error: any) {
+      console.error("❌ Error fetching inventories with stock:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching inventories with stock",
       });
     }
   },
@@ -517,6 +545,8 @@ export const inventoryController = {
         status, // Extract status properly
         isBlocked,
         isTemplate,
+        kind,
+        isPart,
         startDate,
         endDate,
         page = "1",
@@ -530,6 +560,8 @@ export const inventoryController = {
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
         isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
+        isPart: isPart === "true" ? true : isPart === "false" ? false : undefined, // Convert only valid booleans
+        kind: kind && ["part"].includes(kind.toString()) ? kind.toString() : undefined,
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
@@ -602,6 +634,117 @@ export const inventoryController = {
       res.status(200).json({ selectedVariations: inventory.selectedVariations });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  },
+  generateAndStoreVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: "Missing inventory ID in URL" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
+
+      // If variations are already listed, return them instead of an error
+      if (existingVariationDoc && existingVariationDoc.availableForListing) {
+        return res.status(200).json({
+          message: "Variations are already listed. Returning existing data.",
+          _id: existingVariationDoc._id,
+          inventoryId: existingVariationDoc.inventoryId,
+          createdAt: existingVariationDoc.createdAt,
+          updatedAt: existingVariationDoc.updatedAt,
+          variations: existingVariationDoc.variations,
+          availableForListing: existingVariationDoc.availableForListing,
+        });
+      }
+
+      const attributes = inventoryItem.prodTechInfo;
+      const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
+        if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
+          acc[key] = attributes[key];
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(multiSelectAttributes).length === 0) {
+        return res.status(400).json({ message: "No multi-select attributes found for variations" });
+      }
+
+      const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+
+      const variationsWithId = rawVariations.map((variation: any) => ({
+        ...variation,
+        purchasePrice: 0,
+        costPrice: 0,
+        totalUnits: 0,
+        usableUnits: 0,
+        isSelected: false,
+      }));
+
+      const savedVariation: any = await Variation.findOneAndUpdate(
+        { inventoryId: inventoryItem._id },
+        {
+          inventoryId: inventoryItem._id,
+          variations: variationsWithId,
+          availableForListing: false,
+        },
+        { upsert: true, new: true }
+      );
+
+      res.status(201).json({
+        message: "Variations generated and stored",
+        _id: savedVariation._id,
+        inventoryId: savedVariation.inventoryId,
+        createdAt: savedVariation.createdAt,
+        updatedAt: savedVariation.updatedAt,
+        variations: savedVariation.variations,
+        availableForListing: savedVariation.availableForListing,
+      });
+    } catch (error) {
+      console.error("❌ Error generating variations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+  updateVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { variations, availableForListing } = req.body;
+
+      if (!id || !variations || !Array.isArray(variations)) {
+        return res.status(400).json({ message: "Missing required data" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      const updatedVariationDoc: any = await Variation.findOneAndUpdate(
+        { inventoryId: id },
+        { $set: { variations, availableForListing } },
+        { new: true }
+      );
+
+      if (!updatedVariationDoc) {
+        return res.status(404).json({ message: "Variations not found for the given inventory ID" });
+      }
+
+      res.status(200).json({
+        message: "Variations updated successfully",
+        variations: updatedVariationDoc.variations,
+        availableForListing: updatedVariationDoc.availableForListing,
+      });
+    } catch (error) {
+      console.error("❌ Error updating variations:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 };

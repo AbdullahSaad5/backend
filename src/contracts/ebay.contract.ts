@@ -141,7 +141,7 @@ export type EbayControllerCreateOfferRequest = {
   sku: string;
   marketplaceId: string;
   priceFormat: string;
-  listingDescription: string;
+  description: string;
   availableQuantity: number;
   quantityLimitPerBuyer: number;
   price: {
@@ -165,7 +165,7 @@ export type EbayControllerCreateOfferRequest = {
 export type EbayControllerUpdateOfferRequest = {
   availableQuantity: number;
   categoryId: string;
-  listingDescription: string;
+  description: string;
   price: {
     value: number;
     currency: string;
