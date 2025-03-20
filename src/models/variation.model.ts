@@ -9,6 +9,7 @@ const VariationSchema: Schema = new Schema(
       ref: "Inventory",
       required: true,
     },
+    availableForListing: { type: Boolean, default: false },
     variations: [
       {
         _id: {

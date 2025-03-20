@@ -652,6 +652,12 @@ export const inventoryController = {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
+      let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
+
+      if (existingVariationDoc && existingVariationDoc.availableForListing) {
+        return res.status(400).json({ message: "Variations cannot be updated as they are listed." });
+      }
+
       const attributes = inventoryItem.prodTechInfo;
       const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
         if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
@@ -675,11 +681,12 @@ export const inventoryController = {
         isSelected: false, // Default value
       }));
 
-      const savedVariation = await Variation.findOneAndUpdate(
+      const savedVariation: any = await Variation.findOneAndUpdate(
         { inventoryId: inventoryItem._id },
         {
           inventoryId: inventoryItem._id,
           variations: variationsWithId,
+          availableForListing: false, // Ensure the field is stored in DB
         },
         { upsert: true, new: true }
       );
@@ -691,6 +698,7 @@ export const inventoryController = {
         createdAt: savedVariation.createdAt,
         updatedAt: savedVariation.updatedAt,
         variations: savedVariation.variations,
+        availableForListing: savedVariation.availableForListing,
       });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
@@ -700,7 +708,7 @@ export const inventoryController = {
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { variations } = req.body;
+      const { variations, availableForListing } = req.body;
 
       if (!id || !variations || !Array.isArray(variations)) {
         return res.status(400).json({ message: "Missing required data" });
@@ -710,9 +718,9 @@ export const inventoryController = {
         return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      const updatedVariationDoc = await Variation.findOneAndUpdate(
+      const updatedVariationDoc: any = await Variation.findOneAndUpdate(
         { inventoryId: id },
-        { $set: { variations } },
+        { $set: { variations, availableForListing } },
         { new: true }
       );
 
@@ -720,7 +728,11 @@ export const inventoryController = {
         return res.status(404).json({ message: "Variations not found for the given inventory ID" });
       }
 
-      res.status(200).json({ message: "Variations updated successfully", variations: updatedVariationDoc.variations });
+      res.status(200).json({
+        message: "Variations updated successfully",
+        variations: updatedVariationDoc.variations,
+        availableForListing: updatedVariationDoc.availableForListing,
+      });
     } catch (error) {
       console.error("❌ Error updating variations:", error);
       res.status(500).json({ message: "Internal server error" });
