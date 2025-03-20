@@ -683,10 +683,6 @@ export const inventoryController = {
 
       const variationsWithId = rawVariations.map((variation: any) => ({
         ...variation,
-        purchasePrice: 0,
-        costPrice: 0,
-        totalUnits: 0,
-        usableUnits: 0,
         isSelected: false,
       }));
 
