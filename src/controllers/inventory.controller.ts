@@ -720,4 +720,48 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  updateVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { variations } = req.body;
+
+      if (!id || !variations || !Array.isArray(variations)) {
+        return res.status(400).json({ message: "Missing required data" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      let existingVariationDoc = await Variation.findOne({ inventoryId: id });
+      if (!existingVariationDoc) {
+        return res.status(404).json({ message: "Variations not found for the given inventory ID" });
+      }
+
+      variations.forEach((updatedVariation) => {
+        if (!updatedVariation._id) {
+          console.warn("Skipping variation update due to missing _id:", updatedVariation);
+          return;
+        }
+
+        const index = existingVariationDoc.variations.findIndex(
+          (v) => v._id && v._id.toString() === updatedVariation._id
+        );
+
+        if (index !== -1) {
+          existingVariationDoc.variations[index] = {
+            ...existingVariationDoc.variations[index],
+            ...updatedVariation,
+          };
+        }
+      });
+
+      await existingVariationDoc.save();
+
+      res.status(200).json({ message: "Variations updated successfully", variations: existingVariationDoc.variations });
+    } catch (error) {
+      console.error("❌ Error updating variations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
 };
