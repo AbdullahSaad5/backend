@@ -710,32 +710,17 @@ export const inventoryController = {
         return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      let existingVariationDoc = await Variation.findOne({ inventoryId: id });
-      if (!existingVariationDoc) {
+      const updatedVariationDoc = await Variation.findOneAndUpdate(
+        { inventoryId: id },
+        { $set: { variations } },
+        { new: true }
+      );
+
+      if (!updatedVariationDoc) {
         return res.status(404).json({ message: "Variations not found for the given inventory ID" });
       }
 
-      variations.forEach((updatedVariation) => {
-        if (!updatedVariation._id) {
-          console.warn("Skipping variation update due to missing _id:", updatedVariation);
-          return;
-        }
-
-        const index = existingVariationDoc.variations.findIndex(
-          (v) => v._id && v._id.toString() === updatedVariation._id
-        );
-
-        if (index !== -1) {
-          existingVariationDoc.variations[index] = {
-            ...existingVariationDoc.variations[index],
-            ...updatedVariation,
-          };
-        }
-      });
-
-      await existingVariationDoc.save();
-
-      res.status(200).json({ message: "Variations updated successfully", variations: existingVariationDoc.variations });
+      res.status(200).json({ message: "Variations updated successfully", variations: updatedVariationDoc.variations });
     } catch (error) {
       console.error("❌ Error updating variations:", error);
       res.status(500).json({ message: "Internal server error" });
