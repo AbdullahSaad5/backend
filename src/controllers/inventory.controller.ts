@@ -643,18 +643,15 @@ export const inventoryController = {
         return res.status(400).json({ message: "Missing inventory ID in URL" });
       }
 
-      // Validate ObjectId
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      // Fetch inventory item
       const inventoryItem: any = await Inventory.findById(id);
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Extract multi-select attributes
       const attributes = inventoryItem.prodTechInfo;
       const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
         if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
@@ -667,37 +664,56 @@ export const inventoryController = {
         return res.status(400).json({ message: "No multi-select attributes found for variations" });
       }
 
-      // Generate all possible variations
       const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+      let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
 
-      // Add a unique ID and additional stock fields to each variation
-      const variationsWithId = rawVariations.map((variation: any) => ({
-        _id: new mongoose.Types.ObjectId(), // Unique ID for each variation
-        ...variation,
-        purchasePrice: 0, // Default value
-        costPrice: 0, // Default value
-        totalUnits: 0, // Default value
-        usableUnits: 0, // Default value
-        isSelected: false, // Default value
-      }));
+      let existingVariationsMap = new Map();
+      if (existingVariationDoc) {
+        existingVariationDoc.variations.forEach((variation: any) => {
+          const key = JSON.stringify({ ...variation, _id: undefined });
+          existingVariationsMap.set(key, variation);
+        });
+      }
 
-      // Save variations in a single document
-      const savedVariation = await Variation.findOneAndUpdate(
-        { inventoryId: inventoryItem._id }, // Find by inventory ID
-        {
+      const variationsWithId = rawVariations.map((variation: any) => {
+        const key = JSON.stringify(variation);
+        const existingVariation = existingVariationsMap.get(key);
+
+        return existingVariation
+          ? existingVariation
+          : {
+              _id: new mongoose.Types.ObjectId(),
+              ...variation,
+              purchasePrice: 0,
+              costPrice: 0,
+              totalUnits: 0,
+              usableUnits: 0,
+              isSelected: false,
+            };
+      });
+
+      if (existingVariationDoc) {
+        variationsWithId.forEach((variation) => {
+          if (!existingVariationDoc.variations.some((v: any) => JSON.stringify(v) === JSON.stringify(variation))) {
+            existingVariationDoc.variations.push(variation);
+          }
+        });
+        await existingVariationDoc.save();
+      } else {
+        existingVariationDoc = new Variation({
           inventoryId: inventoryItem._id,
-          variations: variationsWithId, // Store variations with unique _id and stock fields
-        },
-        { upsert: true, new: true } // Create if not exists, return updated doc
-      );
+          variations: variationsWithId,
+        });
+        await existingVariationDoc.save();
+      }
 
       res.status(201).json({
         message: "Variations generated and stored",
-        _id: savedVariation._id,
-        inventoryId: savedVariation.inventoryId,
-        createdAt: savedVariation.createdAt,
-        updatedAt: savedVariation.updatedAt,
-        variations: savedVariation.variations,
+        _id: existingVariationDoc._id,
+        inventoryId: existingVariationDoc.inventoryId,
+        createdAt: existingVariationDoc.createdAt,
+        updatedAt: existingVariationDoc.updatedAt,
+        variations: existingVariationDoc.variations,
       });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
