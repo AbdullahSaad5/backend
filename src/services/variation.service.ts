@@ -16,19 +16,17 @@ export const variationService = {
 
     return variations;
   },
-
   searchAndFilterVariations: async (filters: any) => {
     try {
-      const { searchQuery = "", inventoryId, isSelected, startDate, endDate, page = 1, limit = 10 } = filters;
+      const { searchQuery, inventoryId, isSelected, page = 1, limit = 10 } = filters;
 
       const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
-      // Build the query dynamically
       const query: any = {};
 
-      // ✅ Validate and add inventoryId only if it's a valid ObjectId
+      // ✅ Validate inventoryId (if provided)
       if (inventoryId && mongoose.Types.ObjectId.isValid(inventoryId)) {
         query.inventoryId = new mongoose.Types.ObjectId(inventoryId);
       }
@@ -37,22 +35,36 @@ export const variationService = {
         query.isSelected = isSelected === "true";
       }
 
+      // ✅ Dynamically search inside `attributes` (for any key)
       if (searchQuery) {
-        query.$or = [
-          { "attributes.Color": { $regex: searchQuery, $options: "i" } },
-          { "attributes.Size": { $regex: searchQuery, $options: "i" } },
-        ];
+        query.$expr = {
+          $gt: [
+            {
+              $size: {
+                $filter: {
+                  input: { $objectToArray: "$attributes" }, // Convert Map to Array
+                  as: "attr",
+                  cond: {
+                    $regexMatch: {
+                      input: { $toString: "$$attr.v" }, // Convert values to string
+                      regex: searchQuery,
+                      options: "i", // Case insensitive
+                    },
+                  },
+                },
+              },
+            },
+            0,
+          ],
+        };
       }
 
-      if (startDate || endDate) {
-        const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
-        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
-      }
+      console.log("🔍 Running Query:", JSON.stringify(query, null, 2));
 
+      // ✅ Fetch variations
       const variations = await Variation.find(query).skip(skip).limit(limitNumber);
 
+      // ✅ Count total variations
       const totalVariations = await Variation.countDocuments(query);
 
       return {
