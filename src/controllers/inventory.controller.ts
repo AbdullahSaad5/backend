@@ -670,10 +670,15 @@ export const inventoryController = {
       // Generate all possible variations
       const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
 
-      // Add a unique ID to each variation
+      // Add a unique ID and additional stock fields to each variation
       const variationsWithId = rawVariations.map((variation: any) => ({
         _id: new mongoose.Types.ObjectId(), // Unique ID for each variation
         ...variation,
+        purchasePrice: 0, // Default value
+        costPrice: 0, // Default value
+        totalUnits: 0, // Default value
+        usableUnits: 0, // Default value
+        isSelected: false, // Default value
       }));
 
       // Save variations in a single document
@@ -681,7 +686,7 @@ export const inventoryController = {
         { inventoryId: inventoryItem._id }, // Find by inventory ID
         {
           inventoryId: inventoryItem._id,
-          variations: variationsWithId, // Store variations with unique _id
+          variations: variationsWithId, // Store variations with unique _id and stock fields
         },
         { upsert: true, new: true } // Create if not exists, return updated doc
       );
