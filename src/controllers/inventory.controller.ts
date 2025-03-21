@@ -652,21 +652,17 @@ export const inventoryController = {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      let existingVariationDoc: any = await Variation.findOne({ inventoryId: inventoryItem._id });
+      // Check if variations exist and are listed
+      const existingVariations = await Variation.find({ inventoryId: inventoryItem._id });
 
-      // If variations are already listed, return them instead of an error
-      if (existingVariationDoc && existingVariationDoc.availableForListing) {
+      if (existingVariations.length > 0) {
         return res.status(200).json({
           message: "Variations are already listed. Returning existing data.",
-          _id: existingVariationDoc._id,
-          inventoryId: existingVariationDoc.inventoryId,
-          createdAt: existingVariationDoc.createdAt,
-          updatedAt: existingVariationDoc.updatedAt,
-          variations: existingVariationDoc.variations,
-          availableForListing: existingVariationDoc.availableForListing,
+          variations: existingVariations,
         });
       }
 
+      // Extract multi-select attributes
       const attributes = inventoryItem.prodTechInfo;
       const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
         if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
@@ -679,45 +675,35 @@ export const inventoryController = {
         return res.status(400).json({ message: "No multi-select attributes found for variations" });
       }
 
+      // Generate all possible variations
       const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
 
-      const variationsWithId = rawVariations.map((variation: any) => ({
-        ...variation,
-        purchasePrice: 0,
-        costPrice: 0,
-        totalUnits: 0,
-        usableUnits: 0,
+      // Delete existing variations before adding new ones (if required)
+      await Variation.deleteMany({ inventoryId: inventoryItem._id });
+
+      // Create and insert new variations
+      const newVariations = rawVariations.map((variation: any) => ({
+        inventoryId: inventoryItem._id,
+        attributes: variation,
         isSelected: false,
       }));
 
-      const savedVariation: any = await Variation.findOneAndUpdate(
-        { inventoryId: inventoryItem._id },
-        {
-          inventoryId: inventoryItem._id,
-          variations: variationsWithId,
-          availableForListing: false,
-        },
-        { upsert: true, new: true }
-      );
+      const savedVariations = await Variation.insertMany(newVariations);
 
       res.status(201).json({
         message: "Variations generated and stored",
-        _id: savedVariation._id,
-        inventoryId: savedVariation.inventoryId,
-        createdAt: savedVariation.createdAt,
-        updatedAt: savedVariation.updatedAt,
-        variations: savedVariation.variations,
-        availableForListing: savedVariation.availableForListing,
+        variations: savedVariations,
       });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   updateVariations: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const { variations, availableForListing } = req.body;
+      const { id } = req.params; // Inventory ID
+      const { variations } = req.body; // Array of variations to update
 
       if (!id || !variations || !Array.isArray(variations)) {
         return res.status(400).json({ message: "Missing required data" });
@@ -727,20 +713,28 @@ export const inventoryController = {
         return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      const updatedVariationDoc: any = await Variation.findOneAndUpdate(
-        { inventoryId: id },
-        { $set: { variations, availableForListing } },
-        { new: true }
-      );
+      const bulkOps = variations.map((variation: any) => ({
+        updateOne: {
+          filter: { _id: variation.variationId, inventoryId: id }, // Ensure variation belongs to this inventory
+          update: { $set: { ...variation } }, // Update variation details
+        },
+      }));
 
-      if (!updatedVariationDoc) {
-        return res.status(404).json({ message: "Variations not found for the given inventory ID" });
+      const bulkWriteResult = await Variation.bulkWrite(bulkOps);
+
+      if (bulkWriteResult.modifiedCount === 0) {
+        return res.status(404).json({ message: "No variations were updated" });
       }
+
+      // Fetch updated documents
+      const updatedVariations = await Variation.find({
+        _id: { $in: variations.map((v: any) => v.variationId) },
+      });
 
       res.status(200).json({
         message: "Variations updated successfully",
-        variations: updatedVariationDoc.variations,
-        availableForListing: updatedVariationDoc.availableForListing,
+        modifiedCount: bulkWriteResult.modifiedCount,
+        variations: updatedVariations,
       });
     } catch (error) {
       console.error("❌ Error updating variations:", error);
