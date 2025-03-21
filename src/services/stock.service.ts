@@ -39,8 +39,16 @@ export const stockService = {
   },
 
   // 📌 Get All Stock Entries for an Invenetory
-  getStockByInventory: async (inventoryId: string) => {
-    return await Stock.find({ inventoryId }).populate("inventoryId");
+  getStockByInventoryId: async (inventoryId: string) => {
+    try {
+      // Fetch stock records by inventoryId and where markAsStock is true
+      return await Stock.find({
+        inventoryId,
+        markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
+      }).populate("inventoryId");
+    } catch (error: any) {
+      throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
+    }
   },
 
   // 📌 Get Stock Summary (Total Quantity & Last Purchase)
@@ -51,8 +59,8 @@ export const stockService = {
       return { message: "No stock records found", totalQuantity: 0 };
     }
 
-    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.totalUnits, 0);
-    const lastStockEntry = stocks[stocks.length - 1];
+    const totalQuantity = stocks.reduce((sum, stock: any) => sum + stock.totalUnits, 0);
+    const lastStockEntry: any = stocks[stocks.length - 1];
 
     return {
       message: "Stock summary retrieved",
