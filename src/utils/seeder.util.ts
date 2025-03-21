@@ -1,10 +1,11 @@
 import { ProductCategory, User, UserCategory } from "@/models";
 import mongoose from "mongoose";
 
+// Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
   // 1. Seed User Category (Super Admin Role)
   const userCategoryData = {
-    _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Ensure this is unique for your use
+    _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
     role: "super admin",
     description: "This category is just for super admin usage.",
     permissions: [
@@ -52,12 +53,22 @@ const seedData = async () => {
   let userCategory = await UserCategory.findOne({ role: userCategoryData.role });
 
   if (!userCategory) {
-    // Create the user category (role)
+    // If not found, create the user category (role)
     userCategory = new UserCategory(userCategoryData);
     await userCategory.save();
     console.log("Super Admin User Category created.");
   } else {
-    console.log("Super Admin User Category already exists.");
+    // If found, check for changes, if any, overwrite the data
+    if (
+      userCategory.description !== userCategoryData.description ||
+      !userCategory.permissions.every((permission, index) => permission === userCategoryData.permissions[index])
+    ) {
+      userCategory.set(userCategoryData);
+      await userCategory.save();
+      console.log("Super Admin User Category updated.");
+    } else {
+      console.log("Super Admin User Category already exists and matches.");
+    }
   }
 
   // 2. Seed SuperAdmin User
@@ -86,12 +97,24 @@ const seedData = async () => {
   let superAdmin = await User.findOne({ email: superAdminData.email });
 
   if (!superAdmin) {
-    // Create SuperAdmin user
+    // Create SuperAdmin user if it doesn't exist
     superAdmin = new User(superAdminData);
     await superAdmin.save();
     console.log("SuperAdmin user created.");
   } else {
-    console.log("SuperAdmin user already exists.");
+    // Compare existing data and update if needed
+    if (
+      superAdmin.firstName !== superAdminData.firstName ||
+      superAdmin.lastName !== superAdminData.lastName ||
+      superAdmin.phoneNumber !== superAdminData.phoneNumber ||
+      superAdmin.dob !== superAdminData.dob
+    ) {
+      superAdmin.set(superAdminData);
+      await superAdmin.save();
+      console.log("SuperAdmin user updated.");
+    } else {
+      console.log("SuperAdmin user already exists and matches.");
+    }
   }
 
   // 3. Seed Product Categories
@@ -169,20 +192,30 @@ const seedData = async () => {
   ];
 
   for (const category of productCategoryData) {
-    let productCategory = await ProductCategory.findOne({ name: category.name });
+    let productCategory: any = await ProductCategory.findOne({ name: category.name });
 
     if (!productCategory) {
-      // Create the Product Category
+      // Create new product category if it doesn't exist
       productCategory = new ProductCategory(category);
       await productCategory.save();
       console.log(`Product Category '${category.name}' created.`);
     } else {
-      console.log(`Product Category '${category.name}' already exists.`);
+      // Compare and update the product category if needed
+      if (
+        productCategory.description !== category.description ||
+        productCategory.isBlocked !== category.isBlocked ||
+        !productCategory.tags.every((tag: any, index: any) => tag === category.tags[index])
+      ) {
+        productCategory.set(category);
+        await productCategory.save();
+        console.log(`Product Category '${category.name}' updated.`);
+      } else {
+        console.log(`Product Category '${category.name}' already exists and matches.`);
+      }
     }
   }
 
   console.log("Seeder completed.");
 };
-
 // Export the seeder function for use in other files
 export default seedData;
