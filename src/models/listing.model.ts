@@ -85,16 +85,26 @@ const prodSeoSchema = {
   },
 };
 // mock
-const laptopTechnicalSchema = {
+
+export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
   model: { type: String },
+  // inventoryCondition: { type: String },
+  // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
   features: { type: String },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: [String] },
+  californiaProp65Warning: { type: String },
   type: { type: String },
-  releaseYear: { type: Number },
+  releaseYear: { type: String },
   hardDriveCapacity: { type: [String] },
   color: { type: [String] },
   maxResolution: { type: String },
@@ -108,7 +118,6 @@ const laptopTechnicalSchema = {
   length: { type: String },
   weight: { type: String },
   width: { type: String },
-  ramSize: { type: [String] },
 };
 
 const allInOnePCTechnicalSchema = {
