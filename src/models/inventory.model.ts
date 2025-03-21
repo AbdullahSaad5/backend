@@ -99,7 +99,6 @@ export const prodInfoSchema = {
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
   model: { type: String },
-  isVariation: { type: Boolean, default: false },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
@@ -132,7 +131,6 @@ export const laptopTechnicalSchema = {
 };
 
 export const allInOnePCTechnicalSchema = {
-  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   memory: { type: [String] },
@@ -173,7 +171,6 @@ export const allInOnePCTechnicalSchema = {
 };
 
 export const partsTechnicalSchema = {
-  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   memory: { type: [String] },
@@ -214,7 +211,6 @@ export const partsTechnicalSchema = {
 };
 
 export const projectorTechnicalSchema = {
-  isVariation: { type: Boolean, default: false },
   model: { type: String },
   type: { type: String },
   features: { type: String },
@@ -255,7 +251,6 @@ export const projectorTechnicalSchema = {
 export const monitorTechnicalSchema = {
   model: { type: String },
   features: { type: String },
-  isVariation: { type: Boolean, default: false },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -282,7 +277,6 @@ export const monitorTechnicalSchema = {
 };
 
 export const gamingPCTechnicalSchema = {
-  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   maxRamCapacity: { type: String },
@@ -350,7 +344,6 @@ export const gamingPCTechnicalSchema = {
 };
 
 export const networkEquipmentsTechnicalSchema = {
-  isVariation: { type: Boolean, default: false },
   model: { type: String },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
@@ -391,6 +384,7 @@ const inventorySchema = new Schema(
     publishToWebsite: { type: Boolean },
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
+    isVariation: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
