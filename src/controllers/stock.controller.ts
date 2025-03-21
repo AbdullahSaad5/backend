@@ -81,22 +81,32 @@ export const stockController = {
     }
   },
 
-  // 📌 Get All Stock Purchases for a inventory
+  // 📌 Get All Stock Purchases for a inventory(only those stocks who are markAsStock=true)
   getStockByInventoryId: async (req: Request, res: Response) => {
     try {
       const { inventoryId } = req.params;
 
+      // Validate inventoryId format
       if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
         return res.status(400).json({ message: "Invalid Inventory ID format" });
       }
 
-      const stocks = await stockService.getStockByInventory(inventoryId);
+      // Fetch stock records where markAsStock is true for the given inventoryId
+      const stocks = await stockService.getStockByInventoryId(inventoryId);
+
       if (stocks.length === 0) {
-        return res.status(404).json({ message: "No stock records found for this inventory" });
+        return res
+          .status(404)
+          .json({ message: "No stock records found for this inventory with markAsStock set to true" });
       }
 
-      res.status(200).json(stocks);
+      // Return the stock records found
+      res.status(200).json({
+        message: "Stock records retrieved successfully",
+        stocks,
+      });
     } catch (error) {
+      console.error("❌ Error fetching stock records:", error);
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },

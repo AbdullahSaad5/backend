@@ -99,11 +99,12 @@ export const prodInfoSchema = {
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
   model: { type: String },
+  isVariation: { type: Boolean, default: false },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type:String },
+  features: { type: String },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -131,6 +132,7 @@ export const laptopTechnicalSchema = {
 };
 
 export const allInOnePCTechnicalSchema = {
+  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   memory: { type: [String] },
@@ -171,6 +173,7 @@ export const allInOnePCTechnicalSchema = {
 };
 
 export const partsTechnicalSchema = {
+  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   memory: { type: [String] },
@@ -211,6 +214,7 @@ export const partsTechnicalSchema = {
 };
 
 export const projectorTechnicalSchema = {
+  isVariation: { type: Boolean, default: false },
   model: { type: String },
   type: { type: String },
   features: { type: String },
@@ -251,7 +255,7 @@ export const projectorTechnicalSchema = {
 export const monitorTechnicalSchema = {
   model: { type: String },
   features: { type: String },
-
+  isVariation: { type: Boolean, default: false },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -278,6 +282,7 @@ export const monitorTechnicalSchema = {
 };
 
 export const gamingPCTechnicalSchema = {
+  isVariation: { type: Boolean, default: false },
   processor: { type: [String] },
   model: { type: String },
   maxRamCapacity: { type: String },
@@ -345,6 +350,7 @@ export const gamingPCTechnicalSchema = {
 };
 
 export const networkEquipmentsTechnicalSchema = {
+  isVariation: { type: Boolean, default: false },
   model: { type: String },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
