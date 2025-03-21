@@ -205,6 +205,7 @@ const seedData = async () => {
       if (
         productCategory.description !== category.description ||
         productCategory.isBlocked !== category.isBlocked ||
+        productCategory.isPart !== category.isPart ||
         !productCategory.tags.every((tag: any, index: any) => tag === category.tags[index])
       ) {
         productCategory.set(category);
