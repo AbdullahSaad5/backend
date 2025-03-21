@@ -6,6 +6,7 @@ import { mongoose } from "./datasources";
 import { authMiddleware, corsMiddleware } from "./middlewares";
 import { router } from "./routes/index.route";
 import { socketManager } from "./datasources/socket.datasource";
+import seedData from "./utils/seeder.util";
 
 // import { Producttt } from "./models/discriminator.model";
 // import Stripe from "stripe";
@@ -20,6 +21,15 @@ const app: Express = express();
 
 // Connect to MongoDB
 mongoose.run();
+
+seedData()
+  .then(() => {
+    console.log("Database seeded successfully.");
+  })
+  .catch((error) => {
+    console.error("Error seeding database:", error);
+  });
+
 app.options("*", corsMiddleware);
 
 // This route is specifically handled before the express.json() middleware to allow raw JSON requests
@@ -45,9 +55,7 @@ app.get("/", (req, res) => {
   res.send("Welcome to Bavit Backend");
 });
 
-
-
-// // this was just for product create testing 
+// // this was just for product create testing
 // app.post("/", async (req, res) => {
 //   await Producttt.create({
 //     name: "PC",
