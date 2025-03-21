@@ -715,8 +715,8 @@ export const inventoryController = {
 
       const bulkOps = variations.map((variation: any) => ({
         updateOne: {
-          filter: { _id: variation.variationId, inventoryId: id }, // Ensure the variation belongs to this inventory
-          update: { $set: { ...variation } }, // Update the variation data
+          filter: { _id: variation.variationId, inventoryId: id }, // Ensure variation belongs to this inventory
+          update: { $set: { ...variation } }, // Update variation details
         },
       }));
 
@@ -726,9 +726,15 @@ export const inventoryController = {
         return res.status(404).json({ message: "No variations were updated" });
       }
 
+      // Fetch updated documents
+      const updatedVariations = await Variation.find({
+        _id: { $in: variations.map((v: any) => v.variationId) },
+      });
+
       res.status(200).json({
         message: "Variations updated successfully",
         modifiedCount: bulkWriteResult.modifiedCount,
+        variations: updatedVariations,
       });
     } catch (error) {
       console.error("❌ Error updating variations:", error);
