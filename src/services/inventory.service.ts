@@ -93,6 +93,8 @@ export const inventoryService = {
         kind,
         isPart, // ✅ Now correctly storing `isPart`
         productInfo,
+        // isTemplate,
+        // isVariation,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
@@ -172,6 +174,7 @@ export const inventoryService = {
         "stocks",
         "stockThreshold",
         "isTemplate",
+        "isVariation",
         "status",
       ];
       topLevelFields.forEach((field) => {
@@ -549,7 +552,6 @@ export const inventoryService = {
       console.error("❌ Bulk import failed:", error);
     }
   },
-
   //bulk Export inventory to CSV
   exportInventory: async (): Promise<string> => {
     try {
