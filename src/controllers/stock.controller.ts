@@ -81,7 +81,7 @@ export const stockController = {
     }
   },
 
-  // 📌 Get All Stock Purchases for a inventory
+  // 📌 Get All Stock Purchases for a inventory(only those stocks who are markAsStock=true)
   getStockByInventoryId: async (req: Request, res: Response) => {
     try {
       const { inventoryId } = req.params;
