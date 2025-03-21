@@ -169,32 +169,33 @@ export const allInOnePCTechnicalSchema = {
   // Uncomment if weight is required
   // weight: { type: String },
 };
+
 export const partsTechnicalSchema = {
-  processor: { type: String },
+  processor: { type: [String] },
   model: { type: String },
-  memory: { type: String },
+  memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String },
   processorSpeed: { type: String },
   series: { type: String },
-  ramSize: { type: String },
+  ramSize: { type: [String] },
   formFactor: { type: String },
   motherboardModel: { type: String },
   ean: { type: String },
   // series: { type: String },
-  operatingSystem: { type: String },
+  operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
-  storageType: { type: String },
+  storageType: { type: [String] },
   features: { type: String },
-  ssdCapacity: { type: String },
-  gpu: { type: String },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
   type: { type: String },
   releaseYear: { type: String },
-  inventoryType: { type: String, default: "part" },
-  hardDriveCapacity: { type: String },
-  color: { type: String },
+  inventoryType: { type: String, default: "All In One PC" },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
   // maxResolution: { type: String },
   mostSuitableFor: { type: String },
   screenSize: { type: String },
@@ -208,6 +209,7 @@ export const partsTechnicalSchema = {
   // Uncomment if weight is required
   // weight: { type: String },
 };
+
 export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
