@@ -193,7 +193,7 @@ const seedData = async () => {
   ];
 
   for (const category of productCategoryData) {
-    let productCategory: any = await ProductCategory.findOne({ name: category.name });
+    let productCategory: any = await ProductCategory.findOne({ _id: category._id }); // Check by _id instead of name
 
     if (!productCategory) {
       // Create new product category if it doesn't exist
