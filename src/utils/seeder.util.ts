@@ -97,32 +97,74 @@ const seedData = async () => {
   // 3. Seed Product Categories
   const productCategoryData = [
     {
+      _id: "675ae44f9dfbe212be595dcc",
       name: "all in one pc",
       description:
-        "This Category deals in All In One PC This Category is designed for users who want an all-in-one system.",
+        "This Category deals in All In One PC This Category dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff123ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
       image:
         "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(3).jpg?alt=media&token=74c4d1eb-b45c-46ff-985e-e900edd56e43",
-      tags: ["pc", "system", "all in one"],
+      tags: ["pc", "system ", "all in one"],
       isBlocked: false,
-      isPart: false,
     },
     {
-      name: "laptop",
-      description: "Laptops for various users: gaming, business, and personal use.",
+      _id: "6776f21067212ef8bc84ca77",
+      name: "laptops",
+      description:
+        "This category relates to laptops. This laptop combines performance and portability, featuring a powerful processor and ample storage for seamless multitasking. Its sleek design and lightweight build make it easy to carry, while the high-resolution display ",
       image:
-        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Flaptop.jpg?alt=media&token=74c4d1eb-b45c-46ff-985e-e900edd56e43",
-      tags: ["laptop", "electronics", "mobile"],
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2F712gCL7ikLL._AC_UF894%2C1000_QL80_.jpg?alt=media&token=dabf9e58-e695-4a0b-b800-ed6449ea120f",
+      tags: ["laptops", "pc", "electronics", "laptops12"],
       isBlocked: false,
-      isPart: true,
     },
     {
+      _id: "6776f2a167212ef8bc84ca80",
+      name: "projectors",
+      description:
+        "This category delas in projectors are very cute and pretty nice seems goodddddddddddddddddddddddddddd",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2F4f4ac4f635a2c38f2ea52df054533afe01d96809_2_626x500.jpeg?alt=media&token=bfe90b80-54ff-4494-9c88-9debb38d8ed7",
+      tags: ["projectors", "screens", "electronics"],
+      isBlocked: false,
+    },
+    {
+      _id: "677becb7562d361aa73817cb",
+      name: "monitors",
+      description:
+        "This Category relates with Monitors asdasd asdasdasd asdasdasdsa dasdasdasdasd asdasdasd asdasdad asdadsasd123",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(7).jpg?alt=media&token=6d700cc9-2267-4940-83fe-c3b847275986",
+      tags: ["monitors", "pcs", "screens"],
+      isBlocked: false,
+    },
+    {
+      _id: "677bed9c562d361aa73817cf",
       name: "gaming pc",
-      description: "High-performance gaming PCs for serious gamers.",
+      description:
+        "This Catgeory  relates to Gaming PC  tttttttttttttttttttttttttttttttttttttttttttttttttttt hhhhhhhhhhhhhhhhhhhhhhhhh",
       image:
-        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fgamingpc.jpg?alt=media&token=74c4d1eb-b45c-46ff-985e-e900edd56e43",
-      tags: ["gaming", "pc", "high performance"],
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(8).jpg?alt=media&token=76f92f00-0231-4364-a658-b66ab98e9384",
+      tags: ["games", "gaminng", "pcs"],
       isBlocked: false,
-      isPart: true,
+    },
+    {
+      _id: "677bedf5562d361aa73817d2",
+      name: "network equipments",
+      description:
+        "this not a product this not a product this not a product this not a product this not a product this not a product ",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(9).jpg?alt=media&token=e90a6162-09e0-48ad-82f7-93ba31fbda01",
+      tags: ["bike", "computer"],
+      isBlocked: false,
+    },
+    {
+      _id: "67da34cd1460c643b327a16e",
+      name: "parrt part",
+      description:
+        "asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  ",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fgaming-desktop-pc.jpg?alt=media&token=92e51bec-8f13-4009-8587-5d816ba53034",
+      tags: ["asd"],
+      isBlocked: false,
     },
   ];
 
