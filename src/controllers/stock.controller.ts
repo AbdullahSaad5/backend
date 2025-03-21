@@ -38,12 +38,10 @@ export const stockController = {
           variation.totalUnits === undefined ||
           variation.usableUnits === undefined
         ) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
-            });
+          return res.status(400).json({
+            message:
+              "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+          });
         }
       }
 
@@ -141,49 +139,70 @@ export const stockController = {
   updateStock: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
-      const updateData = req.body;
+      const { variations, receivedDate, receivedBy, purchaseDate, markAsStock } = req.body;
 
       // Validate stockId
       if (!mongoose.Types.ObjectId.isValid(stockId)) {
         return res.status(400).json({ message: "Invalid Stock ID format" });
       }
 
-      // Allowed fields for update
-      const allowedFields = [
-        "inventoryId",
-        "totalUnits",
-        "usableUnits",
-        "purchasePricePerUnit",
-        "costPricePerUnit",
-        // "retailPricePerUnit",
-        "receivedDate",
-        "receivedBy",
-        "purchaseDate",
-        "markAsStock",
-      ];
-
-      // Check if any forbidden field is in the request
-      const invalidFields = Object.keys(updateData).filter((field) => !allowedFields.includes(field));
-
-      if (invalidFields.length > 0) {
-        return res.status(400).json({
-          message: `Invalid fields in request: ${invalidFields.join(", ")}`,
-        });
+      // Validate required fields
+      if (!variations || !Array.isArray(variations) || variations.length === 0) {
+        return res.status(400).json({ message: "At least one variation is required." });
       }
 
-      const stock = await stockService.updateStock(stockId, updateData);
-      if (!stock) {
+      if (!receivedDate || !receivedBy || !purchaseDate) {
+        return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
+      }
+
+      // Validate each variation
+      for (const variation of variations) {
+        if (
+          !variation.variationId ||
+          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
+          variation.costPricePerUnit === undefined ||
+          variation.purchasePricePerUnit === undefined ||
+          variation.totalUnits === undefined ||
+          variation.usableUnits === undefined
+        ) {
+          return res.status(400).json({
+            message:
+              "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+          });
+        }
+      }
+
+      // Call stock service to update stock
+      const updatedStock = await stockService.updateStock(stockId, req.body);
+
+      if (!updatedStock) {
         return res.status(404).json({ message: "Stock record not found" });
       }
 
       res.status(200).json({
         message: "Stock record updated successfully",
-        stock,
+        stock: updatedStock,
       });
-    } catch (error) {
+    } catch (error: any) {
+      console.error("❌ Error in updateStock:", error);
+
+      if (error.name === "ValidationError") {
+        return res.status(400).json({ message: "Validation Error", error: error.message });
+      }
+      if (error.message.includes("Stock record not found")) {
+        return res.status(404).json({ message: error.message });
+      }
+      if (error.code === 11000) {
+        return res.status(400).json({
+          message: "Duplicate stock entry detected. Ensure stockId is correct.",
+          error: error.keyValue,
+        });
+      }
+
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+
   getStockByStockId: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
