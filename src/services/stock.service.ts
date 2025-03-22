@@ -45,7 +45,8 @@ export const stockService = {
       return await Stock.find({
         inventoryId,
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
-      }).populate("inventoryId");
+      }).populate("inventoryId")
+      .populate("selectedVariations.variationId");
     } catch (error: any) {
       throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
     }
