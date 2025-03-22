@@ -4,7 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Stock, Variation } from "@/models";
-
+import { redis } from "@/datasources";
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -636,63 +636,60 @@ export const inventoryController = {
       res.status(400).json({ error: error.message });
     }
   },
+
+  // Function to handle caching and pagination of variations
   generateAndStoreVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      if (!id) {
-        return res.status(400).json({ message: "Missing inventory ID in URL" });
-      }
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid inventory ID format" });
-      }
+      // Check if the combinations are already cached in Redis
+      const cachedVariations = await redis.get(cacheKey);
+      let allVariations;
 
-      const inventoryItem: any = await Inventory.findById(id);
-      if (!inventoryItem) {
-        return res.status(404).json({ message: "Inventory item not found" });
-      }
-
-      // Check if variations exist and are listed
-      const existingVariations = await Variation.find({ inventoryId: inventoryItem._id });
-
-      if (existingVariations.length > 0) {
-        return res.status(200).json({
-          message: "Variations are already listed. Returning existing data.",
-          variations: existingVariations,
-        });
-      }
-
-      // Extract multi-select attributes
-      const attributes = inventoryItem.prodTechInfo;
-      const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
-        if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
-          acc[key] = attributes[key];
+      if (cachedVariations) {
+        // If combinations are cached, parse them
+        allVariations = JSON.parse(cachedVariations);
+        console.log("Cache hit: Returning variations from cache.");
+      } else {
+        // If not cached, generate combinations dynamically
+        const inventoryItem: any = await Inventory.findById(id);
+        if (!inventoryItem) {
+          return res.status(404).json({ message: "Inventory item not found" });
         }
-        return acc;
-      }, {});
 
-      if (Object.keys(multiSelectAttributes).length === 0) {
-        return res.status(400).json({ message: "No multi-select attributes found for variations" });
+        // Extract multi-select attributes
+        const attributes = inventoryItem.prodTechInfo;
+        const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
+          if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
+            acc[key] = attributes[key];
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(multiSelectAttributes).length === 0) {
+          return res.status(400).json({ message: "No multi-select attributes found for variations" });
+        }
+
+        // Generate combinations dynamically
+        allVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+
+        // Cache all generated variations in Redis with a TTL (1 hour)
+        await redis.setex(cacheKey, 3600, JSON.stringify(allVariations)); // Cache for 1 hour
+        console.log("Cache miss: Generated and cached all variations.");
       }
 
-      // Generate all possible variations
-      const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+      // Apply pagination: Slice variations to return based on page and limit
+      const paginatedVariations = allVariations.slice((page - 1) * limit, page * limit);
 
-      // Delete existing variations before adding new ones (if required)
-      await Variation.deleteMany({ inventoryId: inventoryItem._id });
-
-      // Create and insert new variations
-      const newVariations = rawVariations.map((variation: any) => ({
-        inventoryId: inventoryItem._id,
-        attributes: variation,
-        isSelected: false,
-      }));
-
-      const savedVariations = await Variation.insertMany(newVariations);
-
-      res.status(201).json({
-        message: "Variations generated and stored",
-        variations: savedVariations,
+      // Return paginated variations
+      return res.status(200).json({
+        message: "Variations fetched",
+        variations: paginatedVariations,
+        currentPage: page,
+        totalPages: Math.ceil(allVariations.length / limit),
       });
     } catch (error) {
       console.error("❌ Error generating variations:", error);
@@ -700,6 +697,40 @@ export const inventoryController = {
     }
   },
 
+  // Store Selected Variations (POST Request)
+  storeSelectedVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { selectedVariations } = req.body;
+
+      if (!selectedVariations || selectedVariations.length === 0) {
+        return res.status(400).json({ message: "No variations selected" });
+      }
+
+      // Retrieve the inventory item
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Insert selected variations into the database
+      const variationsToStore = selectedVariations.map((variation: any) => ({
+        inventoryId: inventoryItem._id,
+        attributes: variation,
+        isSelected: true, // Mark as selected
+      }));
+
+      const storedVariations = await Variation.insertMany(variationsToStore);
+
+      res.status(201).json({
+        message: "Selected variations saved",
+        variations: storedVariations,
+      });
+    } catch (error) {
+      console.error("❌ Error saving selected variations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
