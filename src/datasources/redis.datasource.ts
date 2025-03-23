@@ -1,7 +1,14 @@
 import Redis from "ioredis";
 
 // Initialize Redis client
-export const redis = new Redis();
+export const redis = new Redis({
+  host: process.env.REDIS_HOST, // Replace with your Redis Cloud host
+  port: process.env.REDIS_PORT ? parseInt(process.env.REDIS_PORT, 10) : undefined, // Replace with your Redis Cloud port
+  username: process.env.REDIS_USERNAME, // Replace with your Redis Cloud username
+  password: process.env.REDIS_PASSWORD, // Replace with your Redis Cloud password
+  // tls: {},
+  db: 0, // Enables SSL/TLS for secure connection);
+});
 //   {
 //   host: "localhost", // Replace with your Redis container's host
 //   port: 6379, // Default Redis port
