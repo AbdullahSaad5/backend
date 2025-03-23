@@ -1,6 +1,5 @@
 import { Schema, model, Types } from "mongoose";
-import { IProduct } from "@/contracts/listing.contract"; // Ensure this path is correct
-import { IUser } from "@/contracts/user.contract"; // Ensure this path is correct
+
 
 // Schema for Cart Item
 const cartItemSchema = new Schema(
