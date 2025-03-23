@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Stock, Variation } from "@/models";
 import { redis } from "@/datasources";
+import { setCacheWithTTL } from "@/datasources/redis.datasource";
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -642,25 +643,39 @@ export const inventoryController = {
     try {
       const { id } = req.params;
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const searchQueries = req.query.search; // Search can be a string or an array
       const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
-      // Check if the combinations are already cached in Redis
+      // **Handle search queries properly**
+      const searchFilters: Record<string, string> = {};
+
+      if (searchQueries) {
+        const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
+
+        searchArray.forEach((filter: any) => {
+          const [key, value] = filter.split(":");
+          if (key && value) {
+            searchFilters[key] = value.toLowerCase(); // Store search filters as lowercase for case-insensitive matching
+          }
+        });
+      }
+
+      // **Check cache first**
       const cachedVariations = await redis.get(cacheKey);
       let allVariations;
 
       if (cachedVariations) {
-        // If combinations are cached, parse them
         allVariations = JSON.parse(cachedVariations);
         console.log("Cache hit: Returning variations from cache.");
       } else {
-        // If not cached, generate combinations dynamically
+        // **Fetch from MongoDB if not cached**
         const inventoryItem: any = await Inventory.findById(id);
         if (!inventoryItem) {
           return res.status(404).json({ message: "Inventory item not found" });
         }
 
-        // Extract multi-select attributes
+        // **Extract multi-select attributes**
         const attributes = inventoryItem.prodTechInfo;
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
           if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
@@ -673,18 +688,27 @@ export const inventoryController = {
           return res.status(400).json({ message: "No multi-select attributes found for variations" });
         }
 
-        // Generate combinations dynamically
+        // **Generate variations dynamically**
         allVariations = await inventoryService.generateCombinations(multiSelectAttributes);
 
-        // Cache all generated variations in Redis with a TTL (1 hour)
-        await redis.setex(cacheKey, 3600, JSON.stringify(allVariations)); // Cache for 1 hour
+        // **Cache generated variations in Redis (TTL: 1 hour)**
+        await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
         console.log("Cache miss: Generated and cached all variations.");
       }
 
-      // Apply pagination: Slice variations to return based on page and limit
+      // **Apply dynamic search filters**
+      if (Object.keys(searchFilters).length > 0) {
+        allVariations = allVariations.filter((variation: any) => {
+          return Object.keys(searchFilters).every((key) => {
+            return variation[key] && variation[key].toString().toLowerCase() === searchFilters[key];
+          });
+        });
+      }
+
+      // **Apply pagination**
       const paginatedVariations = allVariations.slice((page - 1) * limit, page * limit);
 
-      // Return paginated variations
+      // **Return response**
       return res.status(200).json({
         message: "Variations fetched",
         variations: paginatedVariations,
