@@ -4,7 +4,8 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Stock, Variation } from "@/models";
-
+import { redis } from "@/datasources";
+import { setCacheWithTTL } from "@/datasources/redis.datasource";
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -636,70 +637,130 @@ export const inventoryController = {
       res.status(400).json({ error: error.message });
     }
   },
+
+  // Function to handle caching and pagination of variations
   generateAndStoreVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      if (!id) {
-        return res.status(400).json({ message: "Missing inventory ID in URL" });
-      }
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const searchQueries = req.query.search; // Search can be a string or an array
+      const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: "Invalid inventory ID format" });
-      }
+      // **Handle search queries properly**
+      const searchFilters: Record<string, string> = {};
 
-      const inventoryItem: any = await Inventory.findById(id);
-      if (!inventoryItem) {
-        return res.status(404).json({ message: "Inventory item not found" });
-      }
+      if (searchQueries) {
+        const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
 
-      // Check if variations exist and are listed
-      const existingVariations = await Variation.find({ inventoryId: inventoryItem._id });
-
-      if (existingVariations.length > 0) {
-        return res.status(200).json({
-          message: "Variations are already listed. Returning existing data.",
-          variations: existingVariations,
+        searchArray.forEach((filter: any) => {
+          const [key, value] = filter.split(":");
+          if (key && value) {
+            searchFilters[key] = value.toLowerCase(); // Store search filters as lowercase for case-insensitive matching
+          }
         });
       }
 
-      // Extract multi-select attributes
-      const attributes = inventoryItem.prodTechInfo;
-      const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
-        if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
-          acc[key] = attributes[key];
-        }
-        return acc;
-      }, {});
+      // **Check cache first**
+      const cachedVariations = await redis.get(cacheKey);
+      let allVariations;
 
-      if (Object.keys(multiSelectAttributes).length === 0) {
-        return res.status(400).json({ message: "No multi-select attributes found for variations" });
+      if (cachedVariations) {
+        allVariations = JSON.parse(cachedVariations);
+        console.log("Cache hit: Returning variations from cache.");
+      } else {
+        // **Fetch from MongoDB if not cached**
+        const inventoryItem: any = await Inventory.findById(id);
+        if (!inventoryItem) {
+          return res.status(404).json({ message: "Inventory item not found" });
+        }
+
+        // **Extract multi-select attributes**
+        const attributes = inventoryItem.prodTechInfo;
+        const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
+          if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
+            acc[key] = attributes[key];
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(multiSelectAttributes).length === 0) {
+          return res.status(400).json({ message: "No multi-select attributes found for variations" });
+        }
+
+        // **Generate variations dynamically**
+        allVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+
+        // **Cache generated variations in Redis (TTL: 1 hour)**
+        await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
+        console.log("Cache miss: Generated and cached all variations.");
       }
 
-      // Generate all possible variations
-      const rawVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+      // **Apply dynamic search filters**
+      if (Object.keys(searchFilters).length > 0) {
+        allVariations = allVariations.filter((variation: any) => {
+          return Object.keys(searchFilters).every((key) => {
+            return variation[key] && variation[key].toString().toLowerCase() === searchFilters[key];
+          });
+        });
+      }
 
-      // Delete existing variations before adding new ones (if required)
-      await Variation.deleteMany({ inventoryId: inventoryItem._id });
+      // **Get total combinations count (before pagination)**
+      const totalCombinations = allVariations.length;
 
-      // Create and insert new variations
-      const newVariations = rawVariations.map((variation: any) => ({
-        inventoryId: inventoryItem._id,
-        attributes: variation,
-        isSelected: false,
-      }));
+      // **Apply pagination**
+      const paginatedVariations = allVariations.slice((page - 1) * limit, page * limit);
 
-      const savedVariations = await Variation.insertMany(newVariations);
-
-      res.status(201).json({
-        message: "Variations generated and stored",
-        variations: savedVariations,
+      // **Return response**
+      return res.status(200).json({
+        message: "Variations fetched",
+        totalCombinations, // 🔥 Total combinations (before pagination)
+        variations: paginatedVariations,
+        currentPage: page,
+        totalPages: Math.ceil(totalCombinations / limit),
       });
+
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
 
+
+  // Store Selected Variations (POST Request)
+  storeSelectedVariations: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { selectedVariations } = req.body;
+
+      if (!selectedVariations || selectedVariations.length === 0) {
+        return res.status(400).json({ message: "No variations selected" });
+      }
+
+      // Retrieve the inventory item
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Insert selected variations into the database
+      const variationsToStore = selectedVariations.map((variation: any) => ({
+        inventoryId: inventoryItem._id,
+        attributes: variation,
+        isSelected: true, // Mark as selected
+      }));
+
+      const storedVariations = await Variation.insertMany(variationsToStore);
+
+      res.status(201).json({
+        message: "Selected variations saved",
+        variations: storedVariations,
+      });
+    } catch (error) {
+      console.error("❌ Error saving selected variations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
