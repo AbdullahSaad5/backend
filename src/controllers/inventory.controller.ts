@@ -719,48 +719,58 @@ export const inventoryController = {
         currentPage: page,
         totalPages: Math.ceil(totalCombinations / limit),
       });
-
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
 
-
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const { selectedVariations } = req.body;
+      const { inventoryId, variations } = req.body; // Extract inventoryId and variations from request payload
 
-      if (!selectedVariations || selectedVariations.length === 0) {
+      if (!inventoryId) {
+        return res.status(400).json({ message: "Missing inventory ID in request" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      if (!variations || variations.length === 0) {
         return res.status(400).json({ message: "No variations selected" });
       }
 
-      // Retrieve the inventory item
-      const inventoryItem: any = await Inventory.findById(id);
+      // Validate if inventory exists
+      const inventoryItem = await Inventory.findById(inventoryId);
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Insert selected variations into the database
-      const variationsToStore = selectedVariations.map((variation: any) => ({
-        inventoryId: inventoryItem._id,
+      // Add inventoryId to each variation
+      const variationsToStore = variations.map((variation: any) => ({
+        inventoryId, // Attach inventoryId
         attributes: variation,
         isSelected: true, // Mark as selected
       }));
 
+      // Insert selected variations into the database
       const storedVariations = await Variation.insertMany(variationsToStore);
 
+      // Extract and return only the inserted variation IDs
+      const variationIds = storedVariations.map((variation) => variation._id);
+
       res.status(201).json({
-        message: "Selected variations saved",
-        variations: storedVariations,
+        message: "Selected variations saved successfully",
+        variationIds,
       });
     } catch (error) {
       console.error("❌ Error saving selected variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
