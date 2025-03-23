@@ -705,21 +705,27 @@ export const inventoryController = {
         });
       }
 
+      // **Get total combinations count (before pagination)**
+      const totalCombinations = allVariations.length;
+
       // **Apply pagination**
       const paginatedVariations = allVariations.slice((page - 1) * limit, page * limit);
 
       // **Return response**
       return res.status(200).json({
         message: "Variations fetched",
+        totalCombinations, // 🔥 Total combinations (before pagination)
         variations: paginatedVariations,
         currentPage: page,
-        totalPages: Math.ceil(allVariations.length / limit),
+        totalPages: Math.ceil(totalCombinations / limit),
       });
+
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
 
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
