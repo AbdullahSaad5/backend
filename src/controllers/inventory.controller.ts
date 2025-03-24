@@ -42,7 +42,6 @@ export const inventoryController = {
       });
     }
   },
-
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
@@ -90,7 +89,6 @@ export const inventoryController = {
       });
     }
   },
-
   getAllInventory: async (req: Request, res: Response) => {
     try {
       const inventory = await inventoryService.getAllInventory();
@@ -106,7 +104,6 @@ export const inventoryController = {
       });
     }
   },
-
   getInventoriesWithStock: async (req: Request, res: Response) => {
     try {
       const inventories = await inventoryService.getInventoriesWithStock();
@@ -133,7 +130,6 @@ export const inventoryController = {
       });
     }
   },
-
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -167,7 +163,6 @@ export const inventoryController = {
       });
     }
   },
-
   transformAndSendInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -286,7 +281,6 @@ export const inventoryController = {
       });
     }
   },
-
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -364,7 +358,6 @@ export const inventoryController = {
       });
     }
   },
-
   //Selected transformed draft Inventory
   transformAndSendDraftInventory: async (req: Request, res: Response) => {
     try {
@@ -479,7 +472,6 @@ export const inventoryController = {
       });
     }
   },
-
   deleteInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -494,7 +486,6 @@ export const inventoryController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting inventory" });
     }
   },
-
   toggleBlock: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -637,7 +628,6 @@ export const inventoryController = {
       res.status(400).json({ error: error.message });
     }
   },
-
   // Function to handle caching and pagination of variations
   generateAndStoreVariations: async (req: Request, res: Response) => {
     try {
@@ -724,7 +714,6 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
@@ -770,7 +759,6 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
