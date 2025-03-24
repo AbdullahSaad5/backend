@@ -731,30 +731,34 @@ export const inventoryController = {
         return res.status(400).json({ message: "No variations selected" });
       }
 
-      // Validate if inventory exists
+      // ✅ Check if inventory exists and if `isVariation` is true
       const inventoryItem = await Inventory.findById(inventoryId);
+
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Prepare variations for insertion, preserving tempId
+      if (!inventoryItem.isVariation) {
+        return res.status(400).json({ message: "Variations are not allowed for this inventory item." });
+      }
+
+      // ✅ Proceed with storing variations if isVariation is true
       const variationsToStore = variations.map((variation: any) => {
-        const { tempId, ...attributes } = variation; // Extract tempId, store remaining fields as attributes
+        const { tempId, ...attributes } = variation;
         return {
-          tempId, // Keep tempId for reference
+          tempId,
           inventoryId,
           attributes,
           isSelected: true,
         };
       });
 
-      // Insert into the database
       const storedVariations = await Variation.insertMany(variationsToStore);
 
-      // Map response to include tempId and generated ID
+      // ✅ Include tempId in response
       const responseVariations = storedVariations.map((variation, index) => ({
-        tempId: variations[index].tempId, // Retrieve from original payload
-        id: variation._id, // MongoDB generated ID
+        tempId: variations[index].tempId,
+        id: variation._id,
       }));
 
       res.status(201).json({
