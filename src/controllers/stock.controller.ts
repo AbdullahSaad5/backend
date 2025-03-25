@@ -193,73 +193,137 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-  updateStock: async (req: Request, res: Response) => {
+  // updateStock: async (req: Request, res: Response) => {
+  //   try {
+  //     const { stockId } = req.params;
+  //     const { variations, receivedDate, receivedBy, purchaseDate, markAsStock } = req.body;
+
+  //     // Validate stockId
+  //     if (!mongoose.Types.ObjectId.isValid(stockId)) {
+  //       return res.status(400).json({ message: "Invalid Stock ID format" });
+  //     }
+
+  //     // Validate required fields
+  //     if (!variations || !Array.isArray(variations) || variations.length === 0) {
+  //       return res.status(400).json({ message: "At least one variation is required." });
+  //     }
+
+  //     if (!receivedDate || !receivedBy || !purchaseDate) {
+  //       return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
+  //     }
+
+  //     // Validate each variation
+  //     for (const variation of variations) {
+  //       if (
+  //         !variation.variationId ||
+  //         !mongoose.Types.ObjectId.isValid(variation.variationId) ||
+  //         variation.costPricePerUnit === undefined ||
+  //         variation.purchasePricePerUnit === undefined ||
+  //         variation.totalUnits === undefined ||
+  //         variation.usableUnits === undefined
+  //       ) {
+  //         return res.status(400).json({
+  //           message:
+  //             "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+  //         });
+  //       }
+  //     }
+
+  //     // Call stock service to update stock
+  //     const updatedStock = await stockService.updateStock(stockId, req.body);
+
+  //     if (!updatedStock) {
+  //       return res.status(404).json({ message: "Stock record not found" });
+  //     }
+
+  //     res.status(200).json({
+  //       message: "Stock record updated successfully",
+  //       stock: updatedStock,
+  //     });
+  //   } catch (error: any) {
+  //     console.error("❌ Error in updateStock:", error);
+
+  //     if (error.name === "ValidationError") {
+  //       return res.status(400).json({ message: "Validation Error", error: error.message });
+  //     }
+  //     if (error.message.includes("Stock record not found")) {
+  //       return res.status(404).json({ message: error.message });
+  //     }
+  //     if (error.code === 11000) {
+  //       return res.status(400).json({
+  //         message: "Duplicate stock entry detected. Ensure stockId is correct.",
+  //         error: error.keyValue,
+  //       });
+  //     }
+
+  //     res.status(500).json({ message: "Internal Server Error", error });
+  //   }
+  // },
+  viewStock: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
-      const { variations, receivedDate, receivedBy, purchaseDate, markAsStock } = req.body;
+      const stock = await Stock.findById(stockId).populate("inventoryId selectedVariations.variationId receivedBy");
 
-      // Validate stockId
-      if (!mongoose.Types.ObjectId.isValid(stockId)) {
-        return res.status(400).json({ message: "Invalid Stock ID format" });
+      if (!stock) {
+        return res.status(404).json({ message: "Stock not found" });
       }
 
-      // Validate required fields
-      if (!variations || !Array.isArray(variations) || variations.length === 0) {
-        return res.status(400).json({ message: "At least one variation is required." });
-      }
+      const inventory = await Inventory.findById(stock.inventoryId);
+      const isVariation = inventory?.isVariation || false;
 
-      if (!receivedDate || !receivedBy || !purchaseDate) {
-        return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
-      }
-
-      // Validate each variation
-      for (const variation of variations) {
-        if (
-          !variation.variationId ||
-          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
-          variation.costPricePerUnit === undefined ||
-          variation.purchasePricePerUnit === undefined ||
-          variation.totalUnits === undefined ||
-          variation.usableUnits === undefined
-        ) {
-          return res.status(400).json({
-            message:
-              "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
-          });
-        }
-      }
-
-      // Call stock service to update stock
-      const updatedStock = await stockService.updateStock(stockId, req.body);
-
-      if (!updatedStock) {
-        return res.status(404).json({ message: "Stock record not found" });
-      }
-
-      res.status(200).json({
-        message: "Stock record updated successfully",
-        stock: updatedStock,
-      });
+      res.status(200).json({ stock, isVariation });
     } catch (error: any) {
-      console.error("❌ Error in updateStock:", error);
-
-      if (error.name === "ValidationError") {
-        return res.status(400).json({ message: "Validation Error", error: error.message });
-      }
-      if (error.message.includes("Stock record not found")) {
-        return res.status(404).json({ message: error.message });
-      }
-      if (error.code === 11000) {
-        return res.status(400).json({
-          message: "Duplicate stock entry detected. Ensure stockId is correct.",
-          error: error.keyValue,
-        });
-      }
-
-      res.status(500).json({ message: "Internal Server Error", error });
+      console.error("❌ Error in viewStock:", error);
+      res.status(500).json({ message: "Internal Server Error" });
     }
   },
 
+  // ✅ Edit Stock
+  updateStock: async (req: Request, res: Response) => {
+    try {
+      const { stockId } = req.params;
+      const stock = await Stock.findById(stockId);
+
+      if (!stock) {
+        return res.status(404).json({ message: "Stock not found" });
+      }
+
+      const inventory = await Inventory.findById(stock.inventoryId);
+      const isVariation = inventory?.isVariation || false;
+
+      if (isVariation) {
+        if (!req.body.selectedVariations || !Array.isArray(req.body.selectedVariations)) {
+          return res.status(400).json({ message: "Selected variations are required for variation-based stock." });
+        }
+        stock.selectedVariations = req.body.selectedVariations;
+      } else {
+        const { totalUnits, usableUnits, costPricePerUnit, purchasePricePerUnit } = req.body;
+        if (
+          totalUnits === undefined ||
+          usableUnits === undefined ||
+          costPricePerUnit === undefined ||
+          purchasePricePerUnit === undefined
+        ) {
+          return res.status(400).json({ message: "All stock details are required for non-variation stock." });
+        }
+        stock.totalUnits = totalUnits;
+        stock.usableUnits = usableUnits;
+        stock.costPricePerUnit = costPricePerUnit;
+        stock.purchasePricePerUnit = purchasePricePerUnit;
+      }
+
+      stock.receivedDate = req.body.receivedDate || stock.receivedDate;
+      stock.receivedBy = req.body.receivedBy || stock.receivedBy;
+      stock.purchaseDate = req.body.purchaseDate || stock.purchaseDate;
+      stock.markAsStock = req.body.markAsStock || stock.markAsStock;
+
+      await stock.save();
+      res.status(200).json({ message: "Stock updated successfully", stock });
+    } catch (error: any) {
+      console.error("❌ Error in editStock:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  },
   getStockByStockId: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;

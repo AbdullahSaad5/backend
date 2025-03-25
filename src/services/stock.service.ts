@@ -116,38 +116,49 @@ export const stockService = {
     return await Inventory.aggregate([
       {
         $lookup: {
-          from: "stocks", // Ensure this matches the actual collection name
+          from: "stocks",
           localField: "_id",
           foreignField: "inventoryId",
           as: "stocks",
         },
       },
       {
-        $unwind: "$stocks", // Unwind to handle individual stock documents
+        $match: { "stocks.0": { $exists: true } }, // ✅ Ensures only inventories with stock are included
+      },
+      {
+        $unwind: "$stocks",
       },
       {
         $lookup: {
-          from: "users", // Ensure this matches the actual users collection
+          from: "users",
           localField: "stocks.receivedBy",
           foreignField: "_id",
-          as: "stocks.receivedBy", // Populates `receivedBy` field
+          as: "stocks.receivedBy",
         },
       },
       {
         $unwind: {
           path: "$stocks.receivedBy",
-          preserveNullAndEmptyArrays: true, // Keeps null if no user found
+          preserveNullAndEmptyArrays: true,
         },
       },
       {
-        $match: { "stocks.receivedBy": { $ne: null } }, // Ensure `receivedBy` is populated
+        $addFields: {
+          "stocks.isVariation": {
+            $gt: [{ $size: { $ifNull: ["$stocks.selectedVariations", []] } }, 0],
+          },
+        },
       },
       {
         $group: {
           _id: "$_id",
-          kind: { $first: "$kind" },
-          productInfo: { $first: "$productInfo" },
-          stocks: { $push: "$stocks" }, // Re-group stocks after unwind
+          inventory: { $first: "$$ROOT" },
+          stocks: { $push: "$stocks" },
+        },
+      },
+      {
+        $project: {
+          "inventory.stocks": 0, // ✅ Remove duplicate stocks field inside inventory object
         },
       },
     ]);
