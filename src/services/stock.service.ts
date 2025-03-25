@@ -46,7 +46,8 @@ export const stockService = {
         inventoryId,
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
       }).populate("inventoryId")
-      .populate("selectedVariations.variationId");
+      .populate("selectedVariations.variationId")
+      .populate("receivedBy");
     } catch (error: any) {
       throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
     }
