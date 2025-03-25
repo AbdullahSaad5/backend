@@ -95,7 +95,7 @@ export const prodInfoSchema = {
 //     type: [String],
 //   },
 // };
-// mock
+
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
   model: { type: String },
@@ -103,7 +103,7 @@ export const laptopTechnicalSchema = {
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type:String },
+  features: { type: String },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -251,7 +251,6 @@ export const projectorTechnicalSchema = {
 export const monitorTechnicalSchema = {
   model: { type: String },
   features: { type: String },
-
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -385,6 +384,7 @@ const inventorySchema = new Schema(
     publishToWebsite: { type: Boolean },
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
+    isVariation: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
