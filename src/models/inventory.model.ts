@@ -95,7 +95,7 @@ export const prodInfoSchema = {
 //     type: [String],
 //   },
 // };
-// mock
+
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
   model: { type: String },
