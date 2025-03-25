@@ -1,70 +1,90 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { stockService } from "@/services/stock.service";
+import { Inventory, Stock, Variation } from "@/models";
 
 export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
     try {
-      const {
-        inventoryId,
-        variations, // Validate variations array
-        receivedDate,
-        receivedBy,
-        purchaseDate,
-        markAsStock,
-      } = req.body;
+      const { inventoryId, variations, receivedDate, receivedBy, purchaseDate, markAsStock } = req.body;
 
-      // Validate required fields
-      if (!inventoryId || !variations || !Array.isArray(variations) || variations.length === 0) {
-        return res.status(400).json({ message: "Inventory ID and at least one variation are required." });
+      if (!inventoryId) {
+        return res.status(400).json({ message: "Missing inventory ID in request" });
       }
 
       if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
-        return res.status(400).json({ message: "Invalid Inventory ID format" });
+        return res.status(400).json({ message: "Invalid inventory ID format" });
       }
 
-      if (!receivedDate || !receivedBy || !purchaseDate) {
-        return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
+      // ✅ Check if inventory exists
+      const inventoryItem = await Inventory.findById(inventoryId);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Validate each variation
-      for (const variation of variations) {
-        if (
-          !variation.variationId ||
-          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
-          variation.costPricePerUnit === undefined ||
-          variation.purchasePricePerUnit === undefined ||
-          variation.totalUnits === undefined ||
-          variation.usableUnits === undefined
-        ) {
-          return res.status(400).json({
-            message:
-              "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
-          });
+      // ✅ If inventory has variations (isVariation: true), variationId must be provided
+      if (inventoryItem.isVariation) {
+        if (!variations || variations.length === 0) {
+          return res.status(400).json({ message: "Variations required for this inventory" });
         }
-      }
 
-      // Call service function to add stock
-      const result = await stockService.addStock(req.body);
-      res.status(201).json(result);
-    } catch (error: any) {
-      console.error("❌ Error in addStock:", error);
+        // ✅ Validate variation IDs
+        const variationIds = variations.map((v: any) => v.variationId);
+        const validVariations = await Variation.find({ _id: { $in: variationIds }, inventoryId });
 
-      if (error.name === "ValidationError") {
-        return res.status(400).json({ message: "Validation Error", error: error.message });
-      }
-      if (error.message.includes("Inventory not found")) {
-        return res.status(404).json({ message: error.message });
-      }
-      if (error.code === 11000) {
-        return res.status(400).json({
-          message: "Duplicate stock entry detected. Ensure inventoryId is correct.",
-          error: error.keyValue,
+        if (validVariations.length !== variations.length) {
+          return res.status(400).json({ message: "Invalid variation ID(s) provided" });
+        }
+
+        // ✅ Store stock for variations
+        const stockEntries = variations.map((variation: any) => ({
+          inventoryId,
+          variationId: variation.variationId,
+          costPricePerUnit: variation.costPricePerUnit,
+          purchasePricePerUnit: variation.purchasePricePerUnit,
+          totalUnits: variation.totalUnits,
+          usableUnits: variation.usableUnits,
+          receivedDate,
+          receivedBy,
+          purchaseDate,
+          markAsStock,
+        }));
+
+        const storedStock = await Stock.insertMany(stockEntries);
+
+        return res.status(201).json({
+          message: "Stock added successfully",
+          stock: storedStock,
+        });
+      } else {
+        // ✅ If inventory has NO variations, add stock directly
+        if (variations && variations.length > 0) {
+          return res.status(400).json({ message: "Variations are not allowed for this inventory" });
+        }
+
+        const stockEntry = new Stock({
+          inventoryId,
+          costPricePerUnit: req.body.costPricePerUnit,
+          purchasePricePerUnit: req.body.purchasePricePerUnit,
+          totalUnits: req.body.totalUnits,
+          usableUnits: req.body.usableUnits,
+          receivedDate,
+          receivedBy,
+          purchaseDate,
+          markAsStock,
+        });
+
+        await stockEntry.save();
+
+        return res.status(201).json({
+          message: "Stock added successfully",
+          stock: stockEntry,
         });
       }
-
-      res.status(500).json({ message: error.message });
+    } catch (error) {
+      console.error("❌ Error adding stock:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 
