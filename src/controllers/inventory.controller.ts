@@ -42,7 +42,6 @@ export const inventoryController = {
       });
     }
   },
-
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
@@ -90,7 +89,6 @@ export const inventoryController = {
       });
     }
   },
-
   getAllInventory: async (req: Request, res: Response) => {
     try {
       const inventory = await inventoryService.getAllInventory();
@@ -106,7 +104,6 @@ export const inventoryController = {
       });
     }
   },
-
   getInventoriesWithStock: async (req: Request, res: Response) => {
     try {
       const inventories = await inventoryService.getInventoriesWithStock();
@@ -133,7 +130,6 @@ export const inventoryController = {
       });
     }
   },
-
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -167,7 +163,6 @@ export const inventoryController = {
       });
     }
   },
-
   transformAndSendInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -286,7 +281,6 @@ export const inventoryController = {
       });
     }
   },
-
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -364,7 +358,6 @@ export const inventoryController = {
       });
     }
   },
-
   //Selected transformed draft Inventory
   transformAndSendDraftInventory: async (req: Request, res: Response) => {
     try {
@@ -479,7 +472,6 @@ export const inventoryController = {
       });
     }
   },
-
   deleteInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -494,7 +486,6 @@ export const inventoryController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting inventory" });
     }
   },
-
   toggleBlock: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -637,7 +628,6 @@ export const inventoryController = {
       res.status(400).json({ error: error.message });
     }
   },
-
   // Function to handle caching and pagination of variations
   generateAndStoreVariations: async (req: Request, res: Response) => {
     try {
@@ -647,9 +637,19 @@ export const inventoryController = {
       const searchQueries = req.query.search; // Search can be a string or an array
       const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
+      // **Fetch inventory item first**
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // **Check if variations should be created**
+      if (!inventoryItem.isVariation) {
+        return res.status(400).json({ message: "Variations are not enabled for this inventory item" });
+      }
+
       // **Handle search queries properly**
       const searchFilters: Record<string, string> = {};
-
       if (searchQueries) {
         const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
 
@@ -669,12 +669,6 @@ export const inventoryController = {
         allVariations = JSON.parse(cachedVariations);
         console.log("Cache hit: Returning variations from cache.");
       } else {
-        // **Fetch from MongoDB if not cached**
-        const inventoryItem: any = await Inventory.findById(id);
-        if (!inventoryItem) {
-          return res.status(404).json({ message: "Inventory item not found" });
-        }
-
         // **Extract multi-select attributes**
         const attributes = inventoryItem.prodTechInfo;
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
@@ -719,48 +713,69 @@ export const inventoryController = {
         currentPage: page,
         totalPages: Math.ceil(totalCombinations / limit),
       });
-
     } catch (error) {
       console.error("❌ Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
 
-
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const { selectedVariations } = req.body;
+      const { inventoryId, variations } = req.body;
 
-      if (!selectedVariations || selectedVariations.length === 0) {
+      if (!inventoryId) {
+        return res.status(400).json({ message: "Missing inventory ID in request" });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
+        return res.status(400).json({ message: "Invalid inventory ID format" });
+      }
+
+      if (!variations || variations.length === 0) {
         return res.status(400).json({ message: "No variations selected" });
       }
 
-      // Retrieve the inventory item
-      const inventoryItem: any = await Inventory.findById(id);
+      // ✅ Check if inventory exists and if `isVariation` is true
+      const inventoryItem = await Inventory.findById(inventoryId);
+
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Insert selected variations into the database
-      const variationsToStore = selectedVariations.map((variation: any) => ({
-        inventoryId: inventoryItem._id,
-        attributes: variation,
-        isSelected: true, // Mark as selected
-      }));
+      if (!inventoryItem.isVariation) {
+        return res.status(400).json({ message: "Variations are not allowed for this inventory item." });
+      }
+
+      // ✅ Proceed with storing variations if isVariation is true
+      const variationsToStore = variations.map((variation: any) => {
+        const { tempId, ...attributes } = variation;
+        return {
+          tempId,
+          inventoryId,
+          attributes,
+          isSelected: true,
+        };
+      });
 
       const storedVariations = await Variation.insertMany(variationsToStore);
 
+      // ✅ Include tempId in response
+      const responseVariations = storedVariations.map((variation, index) => ({
+        tempId: variations[index].tempId,
+        id: variation._id,
+      }));
+
       res.status(201).json({
-        message: "Selected variations saved",
-        variations: storedVariations,
+        message: "Selected variations saved successfully",
+        variations: responseVariations,
       });
     } catch (error) {
       console.error("❌ Error saving selected variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID

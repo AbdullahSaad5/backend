@@ -45,8 +45,10 @@ export const stockService = {
       return await Stock.find({
         inventoryId,
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
-      }).populate("inventoryId")
-      .populate("selectedVariations.variationId");
+      })
+        .populate("inventoryId")
+        .populate("selectedVariations.variationId")
+        .populate("receivedBy");
     } catch (error: any) {
       throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
     }
@@ -114,14 +116,39 @@ export const stockService = {
     return await Inventory.aggregate([
       {
         $lookup: {
-          from: "stocks", // The collection name in MongoDB (ensure it's correct)
+          from: "stocks", // Ensure this matches the actual collection name
           localField: "_id",
           foreignField: "inventoryId",
           as: "stocks",
         },
       },
       {
-        $match: { stocks: { $ne: [] } }, // Ensure we only get inventory with stock
+        $unwind: "$stocks", // Unwind to handle individual stock documents
+      },
+      {
+        $lookup: {
+          from: "users", // Ensure this matches the actual users collection
+          localField: "stocks.receivedBy",
+          foreignField: "_id",
+          as: "stocks.receivedBy", // Populates `receivedBy` field
+        },
+      },
+      {
+        $unwind: {
+          path: "$stocks.receivedBy",
+          preserveNullAndEmptyArrays: true, // Keeps null if no user found
+        },
+      },
+      {
+        $match: { "stocks.receivedBy": { $ne: null } }, // Ensure `receivedBy` is populated
+      },
+      {
+        $group: {
+          _id: "$_id",
+          kind: { $first: "$kind" },
+          productInfo: { $first: "$productInfo" },
+          stocks: { $push: "$stocks" }, // Re-group stocks after unwind
+        },
       },
     ]);
   },

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { stockService } from "@/services/stock.service";
+import { Inventory, Stock, Variation } from "@/models";
 
 export const stockController = {
   // 📌 Add New Stock Purchase
