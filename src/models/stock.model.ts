@@ -9,14 +9,16 @@ const StockSchema = new Schema<IStock>(
       required: true,
     },
 
-    // ✅ Store only selected variations
+    // ✅ Store only selected variations (if inventory supports variations)
     selectedVariations: [
       {
         _id: false,
         variationId: {
           type: Schema.Types.ObjectId,
           ref: "Variation",
-          required: true,
+          required: function () {
+            return this.isVariation; // Required only if variations exist
+          },
         },
         costPricePerUnit: { type: Number, required: true, min: 0 },
         purchasePricePerUnit: { type: Number, required: true, min: 0 },
@@ -24,6 +26,36 @@ const StockSchema = new Schema<IStock>(
         usableUnits: { type: Number, required: true, min: 0 },
       },
     ],
+
+    // ✅ Direct stock tracking if inventory has no variations
+    costPricePerUnit: {
+      type: Number,
+      required: function () {
+        return !this.isVariation; // Required only if no variations exist
+      },
+      min: 0,
+    },
+    purchasePricePerUnit: {
+      type: Number,
+      required: function () {
+        return !this.isVariation;
+      },
+      min: 0,
+    },
+    totalUnits: {
+      type: Number,
+      required: function () {
+        return !this.isVariation;
+      },
+      min: 0,
+    },
+    usableUnits: {
+      type: Number,
+      required: function () {
+        return !this.isVariation;
+      },
+      min: 0,
+    },
 
     batchNumber: { type: Number, unique: true, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
@@ -34,6 +66,9 @@ const StockSchema = new Schema<IStock>(
     },
     purchaseDate: { type: Date, default: Date.now },
     markAsStock: { type: Boolean },
+
+    // ✅ Dynamic flag to determine if inventory has variations
+    isVariation: { type: Boolean, required: true },
   },
   { timestamps: true }
 );
