@@ -637,9 +637,19 @@ export const inventoryController = {
       const searchQueries = req.query.search; // Search can be a string or an array
       const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
+      // **Fetch inventory item first**
+      const inventoryItem: any = await Inventory.findById(id);
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // **Check if variations should be created**
+      if (!inventoryItem.isVariation) {
+        return res.status(400).json({ message: "Variations are not enabled for this inventory item" });
+      }
+
       // **Handle search queries properly**
       const searchFilters: Record<string, string> = {};
-
       if (searchQueries) {
         const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
 
@@ -659,12 +669,6 @@ export const inventoryController = {
         allVariations = JSON.parse(cachedVariations);
         console.log("Cache hit: Returning variations from cache.");
       } else {
-        // **Fetch from MongoDB if not cached**
-        const inventoryItem: any = await Inventory.findById(id);
-        if (!inventoryItem) {
-          return res.status(404).json({ message: "Inventory item not found" });
-        }
-
         // **Extract multi-select attributes**
         const attributes = inventoryItem.prodTechInfo;
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
@@ -714,6 +718,7 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
