@@ -187,6 +187,7 @@ export const stockService = {
           stocks: { $push: "$stocks" }, // ✅ Keeping stocks properly grouped
         },
       },
+      { $replaceRoot: { newRoot: { $mergeObjects: ["$inventory", { stocks: "$stocks" }] } } },
     ]);
   },
 };
