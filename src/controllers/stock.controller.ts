@@ -9,46 +9,92 @@ export const stockController = {
     try {
       const {
         inventoryId,
-        variations, // Validate variations array
+        variations, // Only required if isVariation is true
+        totalUnits,
+        usableUnits,
+        costPricePerUnit,
+        purchasePricePerUnit,
         receivedDate,
         receivedBy,
         purchaseDate,
         markAsStock,
       } = req.body;
 
-      // Validate required fields
-      if (!inventoryId || !variations || !Array.isArray(variations) || variations.length === 0) {
-        return res.status(400).json({ message: "Inventory ID and at least one variation are required." });
+      // Validate inventory existence and fetch `isVariation`
+      const inventoryExists = await Inventory.findById(inventoryId);
+      if (!inventoryExists) {
+        return res.status(404).json({ message: "Inventory not found. Please provide a valid inventoryId." });
       }
 
-      if (!mongoose.Types.ObjectId.isValid(inventoryId)) {
-        return res.status(400).json({ message: "Invalid Inventory ID format" });
-      }
+      // ✅ Check if Inventory has variations enabled
+      const { isVariation } = inventoryExists;
 
-      if (!receivedDate || !receivedBy || !purchaseDate) {
-        return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
-      }
+      if (isVariation) {
+        // ✅ Ensure variations exist
+        if (!variations || !Array.isArray(variations) || variations.length === 0) {
+          return res.status(400).json({ message: "At least one variation must be provided." });
+        }
 
-      // Validate each variation
-      for (const variation of variations) {
+        // Validate each variation
+        for (const variation of variations) {
+          if (
+            !variation.variationId ||
+            !mongoose.Types.ObjectId.isValid(variation.variationId) ||
+            variation.costPricePerUnit === undefined ||
+            variation.purchasePricePerUnit === undefined ||
+            variation.totalUnits === undefined ||
+            variation.usableUnits === undefined
+          ) {
+            return res.status(400).json({
+              message:
+                "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+            });
+          }
+        }
+      } else {
+        // ✅ Ensure direct stock details are provided
         if (
-          !variation.variationId ||
-          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
-          variation.costPricePerUnit === undefined ||
-          variation.purchasePricePerUnit === undefined ||
-          variation.totalUnits === undefined ||
-          variation.usableUnits === undefined
+          totalUnits === undefined ||
+          usableUnits === undefined ||
+          costPricePerUnit === undefined ||
+          purchasePricePerUnit === undefined
         ) {
           return res.status(400).json({
             message:
-              "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+              "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, and purchasePricePerUnit are required.",
           });
         }
       }
 
-      // Call service function to add stock
-      const result = await stockService.addStock(req.body);
-      res.status(201).json(result);
+      // ✅ Prepare stock entry based on `isVariation`
+      const stockData: any = {
+        inventoryId,
+        receivedDate,
+        receivedBy,
+        purchaseDate,
+        markAsStock,
+      };
+
+      if (isVariation) {
+        stockData.selectedVariations = variations.map((variation: any) => ({
+          variationId: variation.variationId,
+          costPricePerUnit: variation.costPricePerUnit,
+          purchasePricePerUnit: variation.purchasePricePerUnit,
+          totalUnits: variation.totalUnits,
+          usableUnits: variation.usableUnits,
+        }));
+      } else {
+        stockData.totalUnits = totalUnits;
+        stockData.usableUnits = usableUnits;
+        stockData.costPricePerUnit = costPricePerUnit;
+        stockData.purchasePricePerUnit = purchasePricePerUnit;
+      }
+
+      // ✅ Save stock entry
+      const stock = new Stock(stockData);
+      await stock.save();
+
+      res.status(201).json({ message: "Stock saved successfully", stock });
     } catch (error: any) {
       console.error("❌ Error in addStock:", error);
 
