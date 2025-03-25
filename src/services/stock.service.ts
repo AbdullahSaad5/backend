@@ -122,10 +122,9 @@ export const stockService = {
           as: "stocks",
         },
       },
+      { $unwind: "$stocks" },
 
-      { $unwind: { path: "$stocks", preserveNullAndEmptyArrays: true } },
-
-      // ✅ Populate `receivedBy` (excluding password)
+      // ✅ Lookup and populate `receivedBy` (excluding password)
       {
         $lookup: {
           from: "users",
@@ -137,10 +136,10 @@ export const stockService = {
       },
       { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
 
-      // ✅ Populate `selectedVariations.variationId`
+      // ✅ Lookup and populate `variationId` inside `selectedVariations`
       {
         $lookup: {
-          from: "variations",
+          from: "variations", // Make sure this is the correct collection name
           localField: "stocks.selectedVariations.variationId",
           foreignField: "_id",
           as: "variationDetails",
@@ -174,22 +173,15 @@ export const stockService = {
       // ✅ Remove unnecessary fields
       { $unset: "variationDetails" },
 
-      // ✅ Structure final output properly
+      // ✅ Ensure `receivedBy` is populated and filter only valid stocks
+      { $match: { "stocks.receivedBy": { $ne: null } } },
+
+      // ✅ Regroup stocks after unwind
       {
-        $project: {
-          _id: 1,
-          isBlocked: 1,
-          kind: 1,
-          status: 1,
-          isVariation: 1,
-          isTemplate: 1,
-          isPart: 1,
-          stockThreshold: 1,
-          prodTechInfo: 1,
-          productInfo: 1,
-          createdAt: 1,
-          updatedAt: 1,
-          stocks: 1, // Stocks array remains at the top level
+        $group: {
+          _id: "$_id",
+          inventory: { $first: "$$ROOT" }, // Keep full inventory details
+          stocks: { $push: "$stocks" },
         },
       },
     ]);
