@@ -139,7 +139,7 @@ export const stockService = {
       // ✅ Lookup and populate `variationId` inside `selectedVariations`
       {
         $lookup: {
-          from: "variations", // Make sure this is the correct collection name
+          from: "variations", // Ensure this is the correct collection name
           localField: "stocks.selectedVariations.variationId",
           foreignField: "_id",
           as: "variationDetails",
@@ -154,16 +154,17 @@ export const stockService = {
               input: "$stocks.selectedVariations",
               as: "variation",
               in: {
-                variationId: {
+                variationId: "$$variation.variationId",
+                costPricePerUnit: "$$variation.costPricePerUnit",
+                purchasePricePerUnit: "$$variation.purchasePricePerUnit",
+                totalUnits: "$$variation.totalUnits",
+                usableUnits: "$$variation.usableUnits",
+                variationDetails: {
                   $arrayElemAt: [
                     "$variationDetails",
                     { $indexOfArray: ["$variationDetails._id", "$$variation.variationId"] },
                   ],
                 },
-                costPricePerUnit: "$$variation.costPricePerUnit",
-                purchasePricePerUnit: "$$variation.purchasePricePerUnit",
-                totalUnits: "$$variation.totalUnits",
-                usableUnits: "$$variation.usableUnits",
               },
             },
           },
@@ -176,12 +177,13 @@ export const stockService = {
       // ✅ Ensure `receivedBy` is populated and filter only valid stocks
       { $match: { "stocks.receivedBy": { $ne: null } } },
 
-      // ✅ Regroup stocks after unwind
+      // ✅ Regroup stocks after unwind and move `isVariation` & `status` outside `inventory`
       {
         $group: {
           _id: "$_id",
-          inventory: { $first: "$$ROOT" }, // Keep full inventory details
-          stocks: { $push: "$stocks" },
+          isVariation: { $first: "$isVariation" }, // ✅ Extracting `isVariation`
+          status: { $first: "$status" }, // ✅ Extracting `status`
+          stocks: { $push: "$stocks" }, // ✅ Keeping stocks properly grouped
         },
       },
     ]);
