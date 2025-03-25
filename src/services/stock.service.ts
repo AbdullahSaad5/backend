@@ -134,7 +134,13 @@ export const stockService = {
         },
       },
       {
-        $match: { "stocks.receivedBy": { $ne: [] } }, // Ensures receivedBy is populated
+        $unwind: {
+          path: "$stocks.receivedBy",
+          preserveNullAndEmptyArrays: true, // Keeps null if no user found
+        },
+      },
+      {
+        $match: { "stocks.receivedBy": { $ne: null } }, // Ensure `receivedBy` is populated
       },
       {
         $group: {
