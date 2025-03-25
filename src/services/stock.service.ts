@@ -122,43 +122,66 @@ export const stockService = {
           as: "stocks",
         },
       },
-      {
-        $match: { "stocks.0": { $exists: true } }, // ✅ Ensures only inventories with stock are included
-      },
-      {
-        $unwind: "$stocks",
-      },
+      { $unwind: "$stocks" },
+
+      // ✅ Lookup and populate `receivedBy` (excluding password)
       {
         $lookup: {
           from: "users",
           localField: "stocks.receivedBy",
           foreignField: "_id",
           as: "stocks.receivedBy",
+          pipeline: [{ $project: { password: 0 } }],
         },
       },
+      { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
+
+      // ✅ Lookup and populate `variationId` inside `selectedVariations`
       {
-        $unwind: {
-          path: "$stocks.receivedBy",
-          preserveNullAndEmptyArrays: true,
+        $lookup: {
+          from: "variations", // Make sure this is the correct collection name
+          localField: "stocks.selectedVariations.variationId",
+          foreignField: "_id",
+          as: "variationDetails",
         },
       },
+
+      // ✅ Merge populated variations back into `selectedVariations`
       {
         $addFields: {
-          "stocks.isVariation": {
-            $gt: [{ $size: { $ifNull: ["$stocks.selectedVariations", []] } }, 0],
+          "stocks.selectedVariations": {
+            $map: {
+              input: "$stocks.selectedVariations",
+              as: "variation",
+              in: {
+                variationId: {
+                  $arrayElemAt: [
+                    "$variationDetails",
+                    { $indexOfArray: ["$variationDetails._id", "$$variation.variationId"] },
+                  ],
+                },
+                costPricePerUnit: "$$variation.costPricePerUnit",
+                purchasePricePerUnit: "$$variation.purchasePricePerUnit",
+                totalUnits: "$$variation.totalUnits",
+                usableUnits: "$$variation.usableUnits",
+              },
+            },
           },
         },
       },
+
+      // ✅ Remove unnecessary fields
+      { $unset: "variationDetails" },
+
+      // ✅ Ensure `receivedBy` is populated and filter only valid stocks
+      { $match: { "stocks.receivedBy": { $ne: null } } },
+
+      // ✅ Regroup stocks after unwind
       {
         $group: {
           _id: "$_id",
-          inventory: { $first: "$$ROOT" },
+          inventory: { $first: "$$ROOT" }, // Keep full inventory details
           stocks: { $push: "$stocks" },
-        },
-      },
-      {
-        $project: {
-          "inventory.stocks": 0, // ✅ Remove duplicate stocks field inside inventory object
         },
       },
     ]);
