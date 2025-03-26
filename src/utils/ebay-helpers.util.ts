@@ -174,13 +174,23 @@ export const refreshEbayAccessToken = async () => {
 
     // Get the new access token using the refresh token
     const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+
     if (!token) {
       console.log("❌ Failed to get new access token");
       return null;
     }
 
-    // Parse the new token and update the ebay_tokens.json file
-    const parsedToken: EbayToken = JSON.parse(token);
+    // Log the token response for debugging
+    const parsedToken = JSON.parse(token);
+
+    // If there's an error in the response, log it
+    if (parsedToken.error) {
+      console.error(`❌ Error from eBay API: ${parsedToken.error}`);
+      console.error(`❌ Error description: ${parsedToken.error_description}`);
+      return null;
+    }
+
+    // If the token refresh was successful, write the updated token to the file
     fs.writeFileSync(
       filePath,
       JSON.stringify(
