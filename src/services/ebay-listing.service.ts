@@ -60,7 +60,7 @@ const getEbayErrorMessage = function (errors: any[]): string {
       return `eBay error occurred: ${error.message || "Unknown error"}`;
   }
 };
-export const ebayService = {
+export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
       const credentials = await getNormalAccessToken();

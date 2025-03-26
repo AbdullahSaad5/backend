@@ -84,8 +84,9 @@ export const stockService = {
       runValidators: true, // Ensure validations are applied
     });
   },
+  //get stock by stockId
   async getStockById(stockId: string) {
-    return await Stock.findById(stockId);
+    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy");
   },
   // 📌 Get Existing Stock Records
   async getExistingStocks(stockIds: string[]) {
