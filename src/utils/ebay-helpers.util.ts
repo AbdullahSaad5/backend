@@ -56,12 +56,9 @@ const options: EbayAuthOptions = {
   prompt: "consent",
 };
 
-
-
 export const getStoredEbayAccessToken = async () => {
   try {
     const filePath = path.resolve(__dirname, "ebay_tokens.json");
-    // console.log("📂 Checking token file at:", filePath);
 
     // ✅ Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -101,12 +98,15 @@ export const getStoredEbayAccessToken = async () => {
     const currentTime = Date.now();
     const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
 
-    // console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
-    // console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
-
     if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
-      return null;
+      // Refresh the token when expired
+      const newToken = await refreshEbayAccessToken(); // Call your function to refresh token
+      if (newToken) {
+        console.log("✅ Token refreshed.");
+        return newToken; // Return the new token after refreshing
+      }
+      return null; // If refreshing fails, return null
     }
 
     console.log("✅ Access token is valid.");
@@ -116,7 +116,6 @@ export const getStoredEbayAccessToken = async () => {
     return null;
   }
 };
-
 
 export const getNormalAccessToken = async () => {
   // Get the new access token using the refresh token
@@ -134,62 +133,72 @@ export const getNormalAccessToken = async () => {
 };
 
 export const refreshEbayAccessToken = async () => {
-  // Read the ebay_tokens.json file and parse the content
-  const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
-  const credentials = JSON.parse(credentialsText);
+  const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
-  // Check if the credentials are present
-  if (!credentials) {
+  // Check if the file exists before proceeding
+  if (!fs.existsSync(filePath)) {
+    console.error("❌ Token file not found.");
     return null;
   }
 
-  // Extract the refresh token from the credentials
-  const refreshToken = credentials.refresh_token;
-  if (!refreshToken) {
-    console.log("No refresh token found");
+  try {
+    // Read the ebay_tokens.json file and parse the content
+    const credentialsText = fs.readFileSync(filePath, "utf-8");
+    const credentials = JSON.parse(credentialsText);
+
+    // Check if the credentials are present
+    if (!credentials) {
+      console.log("❌ No credentials found.");
+      return null;
+    }
+
+    const refreshToken = credentials.refresh_token;
+    if (!refreshToken) {
+      console.log("❌ No refresh token found");
+      return null;
+    }
+
+    const refreshTokenExpiresAt = credentials.refresh_token_expires_in;
+    const generatedAt = credentials.generated_at;
+    if (!refreshTokenExpiresAt) {
+      console.log("❌ No refresh token expiry time found");
+      return null;
+    }
+
+    // Check if the refresh token has expired
+    const currentTime = Date.now();
+    if (currentTime - generatedAt > refreshTokenExpiresAt * 1000) {
+      console.log("❌ Refresh token has expired");
+      return null;
+    }
+
+    // Get the new access token using the refresh token
+    const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+    if (!token) {
+      console.log("❌ Failed to get new access token");
+      return null;
+    }
+
+    // Parse the new token and update the ebay_tokens.json file
+    const parsedToken: EbayToken = JSON.parse(token);
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(
+        {
+          ...credentials,
+          ...parsedToken,
+          generated_at: Date.now(),
+        },
+        null,
+        2
+      )
+    );
+
+    return parsedToken;
+  } catch (error) {
+    console.error("❌ Error in refreshing token:", error);
     return null;
   }
-
-  // Extract the refresh token expiry time from the credentials
-  const refreshTokenExpiresAt = credentials.refresh_token_expires_in;
-  const generatedAt = credentials.generated_at;
-  if (!refreshTokenExpiresAt) {
-    console.log("No refresh token expiry time found");
-    return null;
-  }
-
-  // Check if the refresh token has expired
-  const currentTime = Date.now();
-  console.log("Current time: ", currentTime);
-  console.log("Refresh token expiry time: ", refreshTokenExpiresAt);
-  if (currentTime - generatedAt > refreshTokenExpiresAt * 1000) {
-    console.log("Refresh token has expired");
-    return null;
-  }
-
-  // Get the new access token using the refresh token
-  const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
-  if (!token) {
-    console.log("Failed to get new access token");
-    return null;
-  }
-
-  // Parse the new token and update the ebay_tokens.json file
-  const parsedToken: EbayToken = JSON.parse(token);
-  fs.writeFileSync(
-    "ebay_tokens.json",
-    JSON.stringify(
-      {
-        ...credentials,
-        ...parsedToken,
-        generated_at: Date.now(),
-      },
-      null,
-      2
-    )
-  );
-
-  return parsedToken;
 };
 
 export const getEbayAuthURL = () => {
