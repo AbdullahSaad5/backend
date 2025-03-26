@@ -86,7 +86,7 @@ export const stockService = {
   },
   //get stock by stockId
   async getStockById(stockId: string) {
-    return await Stock.findById(stockId).populate("selectedVariations.variationId");
+    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy");
   },
   // 📌 Get Existing Stock Records
   async getExistingStocks(stockIds: string[]) {

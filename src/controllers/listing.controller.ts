@@ -1,4 +1,4 @@
-import { ebayService, listingService } from "@/services";
+import { ebayListingService, listingService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -83,7 +83,7 @@ export const listingController = {
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
       if (stepData.publishToEbay) {
         // Sync product with eBay if it's marked for publishing
-        const ebayItemId = await ebayService.syncListingWithEbay(updatedListing);
+        const ebayItemId = await ebayListingService.syncListingWithEbay(updatedListing);
 
         // Update the product with the eBay Item ID
         await listingService.updateDraftListing(updatedListing._id, {
@@ -233,7 +233,7 @@ export const listingController = {
         let fields: string[] = [];
 
         switch (kind) {
-          case "laptops":
+          case "isting_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -243,19 +243,19 @@ export const listingController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "listing_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "listing_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "listing_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "listing_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "listing_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -264,7 +264,7 @@ export const listingController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `TEMP-${kind}-${fieldString}-${srno}`.toUpperCase();
 
         return { templateName, listingId };
       });
