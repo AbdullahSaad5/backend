@@ -58,17 +58,17 @@ const options: EbayAuthOptions = {
 
 export const getStoredEbayAccessToken = async () => {
   try {
-    const filePath = path.resolve(__dirname, "ebay_tokens.json");
+    // const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
-    // ✅ Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.error("❌ Token file not found.");
-      return null;
-    }
+    // // ✅ Check if file exists
+    // if (!fs.existsSync(filePath)) {
+    //   console.error("❌ Token file not found.");
+    //   return null;
+    // }
 
     let credentialsText;
     try {
-      credentialsText = fs.readFileSync(filePath, "utf-8");
+      credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
     } catch (readError) {
       console.error("❌ Error reading token file:", readError);
       return null;
@@ -134,7 +134,6 @@ export const getNormalAccessToken = async () => {
 
 // Add required scopes for your use case
 export const refreshEbayAccessToken = async () => {
-
   // Read the ebay_tokens.json file and parse the content
   const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
   const credentials = JSON.parse(credentialsText);
