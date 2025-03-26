@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 export const listingService = {
-  
+
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
     try {
@@ -38,6 +38,7 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        selectedStockId: stepData.selectedStockId || "",
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
@@ -117,6 +118,7 @@ export const listingService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "selectedStockId",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
