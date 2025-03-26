@@ -3,6 +3,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 import path from "path";
 
+
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -132,10 +133,11 @@ export const getNormalAccessToken = async () => {
   return parsedToken;
 };
 
+// Add required scopes for your use case
 export const refreshEbayAccessToken = async () => {
   const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
-  // Check if the file exists before proceeding
+  // Check if the file exists
   if (!fs.existsSync(filePath)) {
     console.error("❌ Token file not found.");
     return null;
@@ -146,70 +148,56 @@ export const refreshEbayAccessToken = async () => {
     const credentialsText = fs.readFileSync(filePath, "utf-8");
     const credentials = JSON.parse(credentialsText);
 
-    // Check if the credentials are present
-    if (!credentials) {
-      console.log("❌ No credentials found.");
+    // Check if the credentials are present and valid
+    if (!credentials || !credentials.refresh_token) {
+      console.error("❌ Invalid credentials or missing refresh token.");
       return null;
     }
 
     const refreshToken = credentials.refresh_token;
-    if (!refreshToken) {
-      console.log("❌ No refresh token found");
-      return null;
-    }
-
     const refreshTokenExpiresAt = credentials.refresh_token_expires_in;
     const generatedAt = credentials.generated_at;
-    if (!refreshTokenExpiresAt) {
-      console.log("❌ No refresh token expiry time found");
-      return null;
-    }
 
-    // Check if the refresh token has expired
+    // Check if the refresh token has expired (based on the generated timestamp and expiry duration)
     const currentTime = Date.now();
     if (currentTime - generatedAt > refreshTokenExpiresAt * 1000) {
-      console.log("❌ Refresh token has expired");
+      console.log("❌ Refresh token has expired.");
       return null;
     }
 
     // Get the new access token using the refresh token
-    const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+    const token:any = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
 
-    if (!token) {
-      console.log("❌ Failed to get new access token");
+    if (!token || token.error) {
+      console.error("❌ Failed to get new access token. Error:", token?.error_description || token?.error);
       return null;
     }
 
-    // Log the token response for debugging
+    // Parse the new token
     const parsedToken = JSON.parse(token);
 
-    // If there's an error in the response, log it
-    if (parsedToken.error) {
-      console.error(`❌ Error from eBay API: ${parsedToken.error}`);
-      console.error(`❌ Error description: ${parsedToken.error_description}`);
-      return null;
-    }
+    // Update the token file with the new access token details
+    const updatedCredentials = {
+      ...credentials, // Retain existing fields (if any)
+      access_token: parsedToken.access_token,
+      expires_in: parsedToken.expires_in,
+      refresh_token: parsedToken.refresh_token,
+      refresh_token_expires_in: parsedToken.refresh_token_expires_in,
+      generated_at: Date.now(), // Update the timestamp to the current time
+    };
 
-    // If the token refresh was successful, write the updated token to the file
-    fs.writeFileSync(
-      filePath,
-      JSON.stringify(
-        {
-          ...credentials,
-          ...parsedToken,
-          generated_at: Date.now(),
-        },
-        null,
-        2
-      )
-    );
+    // Write the updated credentials back to the file
+    fs.writeFileSync(filePath, JSON.stringify(updatedCredentials, null, 2));
 
+    console.log("✅ Token refreshed successfully.");
     return parsedToken;
+
   } catch (error) {
-    console.error("❌ Error in refreshing token:", error);
+    console.error("❌ Error refreshing eBay access token:", error);
     return null;
   }
 };
+
 
 export const getEbayAuthURL = () => {
   return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
