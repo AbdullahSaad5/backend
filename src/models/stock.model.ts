@@ -1,7 +1,11 @@
 import { IStock } from "@/contracts/stock.contract";
-import mongoose, { Schema } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const StockSchema = new Schema<IStock>(
+interface IStockModel extends IStock, Document {
+  isVariation: boolean;
+}
+
+const StockSchema = new Schema<IStockModel>(
   {
     inventoryId: {
       type: Schema.Types.ObjectId,
@@ -9,14 +13,16 @@ const StockSchema = new Schema<IStock>(
       required: true,
     },
 
-    // ✅ Store only selected variations
+    // ✅ Store only selected variations if isVariation: true
     selectedVariations: [
       {
         _id: false,
         variationId: {
           type: Schema.Types.ObjectId,
           ref: "Variation",
-          required: true,
+          required: function () {
+            return (this as IStockModel).isVariation;
+          },
         },
         costPricePerUnit: { type: Number, required: true, min: 0 },
         purchasePricePerUnit: { type: Number, required: true, min: 0 },
@@ -24,6 +30,36 @@ const StockSchema = new Schema<IStock>(
         usableUnits: { type: Number, required: true, min: 0 },
       },
     ],
+
+    // ✅ Direct stock fields if isVariation: false
+    totalUnits: {
+      type: Number,
+      required: function () {
+        return !(this as IStockModel).isVariation;
+      },
+      min: 0,
+    },
+    usableUnits: {
+      type: Number,
+      required: function () {
+        return !(this as IStockModel).isVariation;
+      },
+      min: 0,
+    },
+    costPricePerUnit: {
+      type: Number,
+      required: function () {
+        return !(this as IStockModel).isVariation;
+      },
+      min: 0,
+    },
+    purchasePricePerUnit: {
+      type: Number,
+      required: function () {
+        return !(this as IStockModel).isVariation;
+      },
+      min: 0,
+    },
 
     batchNumber: { type: Number, unique: true, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
@@ -38,8 +74,14 @@ const StockSchema = new Schema<IStock>(
   { timestamps: true }
 );
 
+// ✅ Virtual property to check if Inventory has variations
+StockSchema.virtual("isVariation").get(async function () {
+  const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
+  return inventory ? inventory.isVariation : false;
+});
+
 // ✅ Pre-save hook to generate batch number automatically
-StockSchema.pre<IStock>("save", async function (next) {
+StockSchema.pre<IStockModel>("save", async function (next) {
   if (!this.batchNumber) {
     try {
       const lastStock = await mongoose.model("Stock").findOne().sort({ batchNumber: -1 }).exec();
@@ -51,4 +93,4 @@ StockSchema.pre<IStock>("save", async function (next) {
   next();
 });
 
-export const Stock = mongoose.model<IStock>("Stock", StockSchema);
+export const Stock = mongoose.model<IStockModel>("Stock", StockSchema);
