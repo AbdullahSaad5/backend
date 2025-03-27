@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 export const listingService = {
-  
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
     try {
@@ -12,7 +11,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data : " , stepData)
+      console.log("step Data : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -38,6 +37,7 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        selectedStockId: stepData.selectedStockId || "",
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
@@ -117,6 +117,7 @@ export const listingService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "selectedStockId",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
@@ -179,9 +180,18 @@ export const listingService = {
       throw new Error("Failed to fetch listing by condition");
     }
   },
+
   getListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
+        .populate("selectedStockId")
+        .populate({
+          path: "selectedStockId",
+          populate: {
+            path: "selectedVariations.variationId",
+            model: "Variation", // Ensure this matches your Variation model name
+          },
+        })
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
@@ -373,6 +383,7 @@ export const listingService = {
         .populate("userType")
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
+        .populate("selectedStockId")
         .skip(skip)
         .limit(limitNumber);
 

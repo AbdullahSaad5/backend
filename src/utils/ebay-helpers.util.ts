@@ -56,22 +56,19 @@ const options: EbayAuthOptions = {
   prompt: "consent",
 };
 
-
-
 export const getStoredEbayAccessToken = async () => {
   try {
-    const filePath = path.resolve(__dirname, "ebay_tokens.json");
-    // console.log("📂 Checking token file at:", filePath);
+    // const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
-    // ✅ Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.error("❌ Token file not found.");
-      return null;
-    }
+    // // ✅ Check if file exists
+    // if (!fs.existsSync(filePath)) {
+    //   console.error("❌ Token file not found.");
+    //   return null;
+    // }
 
     let credentialsText;
     try {
-      credentialsText = fs.readFileSync(filePath, "utf-8");
+      credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
     } catch (readError) {
       console.error("❌ Error reading token file:", readError);
       return null;
@@ -101,12 +98,15 @@ export const getStoredEbayAccessToken = async () => {
     const currentTime = Date.now();
     const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
 
-    // console.log("🕒 Token generated at:", new Date(generated_at).toISOString());
-    // console.log("⏳ Token expires at:", new Date(expiresAt).toISOString());
-
     if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
-      return null;
+      // Refresh the token when expired
+      const newToken = await refreshEbayAccessToken(); // Call your function to refresh token
+      if (newToken) {
+        console.log("✅ Token refreshed.");
+        return newToken; // Return the new token after refreshing
+      }
+      return null; // If refreshing fails, return null
     }
 
     console.log("✅ Access token is valid.");
@@ -116,7 +116,6 @@ export const getStoredEbayAccessToken = async () => {
     return null;
   }
 };
-
 
 export const getNormalAccessToken = async () => {
   // Get the new access token using the refresh token
@@ -133,6 +132,7 @@ export const getNormalAccessToken = async () => {
   return parsedToken;
 };
 
+// Add required scopes for your use case
 export const refreshEbayAccessToken = async () => {
   // Read the ebay_tokens.json file and parse the content
   const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");

@@ -19,11 +19,8 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
-import {
-  IBodyRequest,
-  ICombinedRequest,
-  IParamsRequest,
-} from "@/contracts/request.contract";
+import { IBodyRequest, ICombinedRequest, IParamsRequest } from "@/contracts/request.contract";
+import { format } from "path";
 // import { Ebay } from "@/models"; // Import the  ebay model
 const getEbayErrorMessage = function (errors: any[]): string {
   if (!errors || errors.length === 0) {
@@ -159,7 +156,6 @@ export const ebayListingService = {
   async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
-      // console.log("token in sync", token)
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -171,17 +167,13 @@ export const ebayListingService = {
 
       // Use listing._id as the SKU (or replace with the correct ID field)
       const sku = listing._id?.toString();
-
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
-      console.log("ebayUrl", ebayUrl);
-
+      const baseURL = "https://api.ebay.com";
       const requestBody = {
-        listing: {
-          title: ebayData.productInfo?.title ?? "All In One PC",
+        product: {
+          title: ebayData.productInfo?.title ?? "A TEST product",
           aspects: {
-            Feature: ebayData.prodTechInfo?.features
-              ? [ebayData.prodTechInfo.features]
-              : ["bluetooth"],
+            Feature: ebayData.prodTechInfo?.features ? [ebayData.prodTechInfo.features] : ["bluetooth"],
             ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
@@ -189,11 +181,8 @@ export const ebayListingService = {
           description: ebayData.productInfo?.description
             ? ebayData.productInfo.description.replace(/[\[\]]/g, "")
             : "No description available.",
-          upc: ebayData.prodTechInfo?.upc
-            ? [ebayData.prodTechInfo.upc]
-            : ["888462079522"],
-          imageUrls:
-            ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
+          upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : ["888462079522"],
+          imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
         condition: "NEW",
         packageWeightAndSize: {
@@ -210,7 +199,7 @@ export const ebayListingService = {
         },
         availability: {
           shipToLocationAvailability: {
-            quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
+            quantity: parseInt(ebayData.prodPricing?.listingQuantity) || 10,
           },
         },
         fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
@@ -229,11 +218,9 @@ export const ebayListingService = {
         },
       };
 
-      console.log(
-        "Final eBay Request Body:",
-        JSON.stringify(requestBody, null, 2)
-      );
+      console.log("Request Body for Inventory Creation:", JSON.stringify(requestBody, null, 2));
 
+      // Step 1: Create Inventory on eBay
       const response = await fetch(ebayUrl, {
         method: "PUT",
         headers: {
@@ -247,7 +234,6 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-
       if (!responseText) {
         // If empty response is received, return success status
         return JSON.stringify({
@@ -257,31 +243,97 @@ export const ebayListingService = {
         });
       }
 
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (error) {
-        // Handle invalid JSON error
-        throw new Error(`Invalid JSON response from eBay: ${responseText}`);
-      }
+      // let responseData;
+      // try {
+      //   responseData = JSON.parse(responseText);
+      // } catch (error) {
+      //   // Handle invalid JSON error
+      //   throw new Error(`Invalid JSON response from eBay: ${responseText}`);
+      // }
 
-      console.log("eBay API Response:", responseData);
+      console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
-      if (!response.ok) {
-        // Handle eBay-specific error codes from the response
-        const errorMessage = getEbayErrorMessage(responseData.errors);
-        throw new Error(errorMessage);
+      // Determine the retail price
+      const retailPrice =
+        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0;
+
+      // Step 2: If the listing status is 'published', create the offer
+      if (listing.status === "published" && ebayData.publishToEbay) {
+        const offerBody = {
+          sku: listing._id,
+
+          tax: {
+            vatPercentage: 20,
+            applyTax: true,
+            thirdPartyTaxCategory: "Electronics",
+          },
+          format: "FIXED_PRICE",
+          marketplaceId: "EBAY_US",
+          merchantLocationKey: "location1",
+          listingDescription: ebayData.productInfo?.description || "No description available.",
+          availableQuantity: ebayData.prodPricing?.listingQuantity || 10,
+          quantityLimitPerBuyer: 5,
+          pricingSummary: {
+            price: {
+              value: retailPrice,
+              currency: "USD",
+            },
+          },
+          quantity: ebayData.prodPricing?.listingQuantity || 10,
+          condition: ebayData.prodPricing?.condition || "NEW",
+          shippingOptions: [
+            {
+              shippingCost: { value: "0.00", currency: "USD" },
+              shippingServiceCode: "USPSPriorityMail",
+              shipToLocations: [{ countryCode: "US" }],
+              packageType: "USPSPriorityMailFlatRateBox",
+            },
+          ],
+          categoryId: 177,
+          listingPolicies: {
+            fulfillmentPolicyId: "247178000010",
+            paymentPolicyId: "247178015010",
+            returnPolicyId: "247178019010",
+          },
+        };
+
+        console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
+
+        const offerResponse = await fetch(`${baseURL}/sell/inventory/v1/offer`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US",
+            "Accept-Language": "en-US",
+          },
+          body: JSON.stringify(offerBody),
+        });
+
+        const offerResponseText = await offerResponse.text();
+        console.log("Response Text from Offer Creation:", offerResponseText);
+
+        if (!offerResponseText) {
+          // If empty response is received, return success status
+          return JSON.stringify({
+            status: 201,
+            statusText: "Created",
+            message: "Offer created successfully on eBay",
+          });
+        }
+
+        console.log("Offer Created Successfully:", offerResponseText);
       }
 
       return JSON.stringify({
         status: response.status,
         statusText: response.statusText,
-        message: "Item created successfully on eBay",
+        message: "Item created and offer created successfully on eBay",
       });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
 
-      // If the error is related to eBay API, return a detailed error message
       return JSON.stringify({
         status: 500,
         message: error.message || "Error syncing with eBay API",
