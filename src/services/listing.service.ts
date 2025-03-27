@@ -180,9 +180,18 @@ export const listingService = {
       throw new Error("Failed to fetch listing by condition");
     }
   },
+
   getListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
+        .populate("selectedStockId")
+        .populate({
+          path: "selectedStockId",
+          populate: {
+            path: "selectedVariations.variationId",
+            model: "Variation", // Ensure this matches your Variation model name
+          },
+        })
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
