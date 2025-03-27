@@ -19,11 +19,7 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
-import {
-  IBodyRequest,
-  ICombinedRequest,
-  IParamsRequest,
-} from "@/contracts/request.contract";
+import { IBodyRequest, ICombinedRequest, IParamsRequest } from "@/contracts/request.contract";
 // import { Ebay } from "@/models"; // Import the  ebay model
 const getEbayErrorMessage = function (errors: any[]): string {
   if (!errors || errors.length === 0) {
@@ -159,7 +155,7 @@ export const ebayListingService = {
   async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
-      console.log("token in sync", token)
+      // console.log("token in sync", token)
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -176,12 +172,10 @@ export const ebayListingService = {
       console.log("ebayUrl", ebayUrl);
 
       const requestBody = {
-        listing: {
-          title: ebayData.productInfo?.title ?? "All In One PC",
+        product: {
+          title: ebayData.productInfo?.title ?? "A TEST product",
           aspects: {
-            Feature: ebayData.prodTechInfo?.features
-              ? [ebayData.prodTechInfo.features]
-              : ["bluetooth"],
+            Feature: ebayData.prodTechInfo?.features ? [ebayData.prodTechInfo.features] : ["bluetooth"],
             ...(ebayData.prodTechInfo?.cpu && ebayData.prodTechInfo.cpu.trim()
               ? { CPU: [ebayData.prodTechInfo.cpu] }
               : {}),
@@ -189,11 +183,8 @@ export const ebayListingService = {
           description: ebayData.productInfo?.description
             ? ebayData.productInfo.description.replace(/[\[\]]/g, "")
             : "No description available.",
-          upc: ebayData.prodTechInfo?.upc
-            ? [ebayData.prodTechInfo.upc]
-            : ["888462079522"],
-          imageUrls:
-            ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
+          upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : ["888462079522"],
+          imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
         condition: "NEW",
         packageWeightAndSize: {
@@ -229,10 +220,7 @@ export const ebayListingService = {
         },
       };
 
-      console.log(
-        "Final eBay Request Body:",
-        JSON.stringify(requestBody, null, 2)
-      );
+      console.log("Final eBay Request Body:", JSON.stringify(requestBody, null, 2));
 
       const response = await fetch(ebayUrl, {
         method: "PUT",
