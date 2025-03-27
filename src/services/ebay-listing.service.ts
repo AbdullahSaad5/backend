@@ -152,10 +152,9 @@ export const ebayListingService = {
     }
   },
 
-  async syncListingWithEbay(listing: any): Promise<string> {
+  syncListingWithEbay: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredEbayAccessToken();
-      // console.log("token in sync", token)
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -167,9 +166,7 @@ export const ebayListingService = {
 
       // Use listing._id as the SKU (or replace with the correct ID field)
       const sku = listing._id?.toString();
-
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
-      console.log("ebayUrl", ebayUrl);
 
       const requestBody = {
         product: {
@@ -201,7 +198,7 @@ export const ebayListingService = {
         },
         availability: {
           shipToLocationAvailability: {
-            quantity: parseInt(ebayData.prodPricing?.quantity) || 10,
+            quantity: parseInt(ebayData.prodPricing?.listingQuantity) || 10,
           },
         },
         fulfillmentTime: { value: 1, unit: "BUSINESS_DAY" },
@@ -222,6 +219,7 @@ export const ebayListingService = {
 
       console.log("Final eBay Request Body:", JSON.stringify(requestBody, null, 2));
 
+      // Step 1: Create Inventory on eBay
       const response = await fetch(ebayUrl, {
         method: "PUT",
         headers: {
@@ -235,7 +233,6 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-
       if (!responseText) {
         // If empty response is received, return success status
         return JSON.stringify({
@@ -260,16 +257,71 @@ export const ebayListingService = {
         const errorMessage = getEbayErrorMessage(responseData.errors);
         throw new Error(errorMessage);
       }
+      const retailPrice =
+        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0;
+
+      // Step 2: If the listing status is 'published', create the offer
+      if (listing.status === "published" && ebayData.publishToEbay) {
+        const offerUrl = `https://api.ebay.com/sell/offer/v1/offer/${sku}`;
+        const offerBody = {
+          sku: listing._id,
+          price: {
+            value: retailPrice,
+            currency: "USD",
+          },
+          tax: {
+            vatPercentage: 20,
+            applyTax: true,
+            thirdPartyTaxCategory: "Electronics",
+          },
+          marketplaceId: "EBAY_US",
+          merchantLocationKey: "location1",
+          quantity: ebayData.prodPricing?.listingQuantity || 10,
+          condition: ebayData.prodPricing?.condition || "NEW_OTHER",
+          shippingOptions: [
+            {
+              shippingCost: { value: "0.00", currency: "USD" },
+              shippingServiceCode: "USPSPriorityMail",
+              shipToLocations: [{ countryCode: "US" }],
+              packageType: "USPSPriorityMailFlatRateBox",
+            },
+          ],
+          categoryId: 177,
+          listingPolicies: {
+            fulfillmentPolicyId: "247178000010",
+            paymentPolicyId: "247178015010",
+            returnPolicyId: "247178019010",
+          },
+        };
+
+        const offerResponse = await fetch(offerUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US",
+            "Accept-Language": "en-US",
+          },
+          body: JSON.stringify(offerBody),
+        });
+
+        const offerResponseText = await offerResponse.text();
+        if (!offerResponse.ok) {
+          throw new Error(`Failed to create offer: ${offerResponseText}`);
+        }
+
+        console.log("Offer Created Successfully:", offerResponseText);
+      }
 
       return JSON.stringify({
         status: response.status,
         statusText: response.statusText,
-        message: "Item created successfully on eBay",
+        message: "Item created and offer created successfully on eBay",
       });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
 
-      // If the error is related to eBay API, return a detailed error message
       return JSON.stringify({
         status: 500,
         message: error.message || "Error syncing with eBay API",
