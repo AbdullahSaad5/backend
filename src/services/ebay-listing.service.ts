@@ -261,7 +261,10 @@ export const ebayListingService = {
       if (listing.status === "published") {
         const offerBody = {
           sku: listing._id,
-
+          Brand: ebayData.productInfo?.brand || "Unbranded",
+          Processor: ebayData.prodTechInfo?.processor || "Core I9",
+          RAM: ebayData.prodTechInfo?.ramSize || "16 GB",
+          Storage: ebayData.prodTechInfo?.storageType || "SSD",
           tax: {
             vatPercentage: 20,
             applyTax: true,
@@ -296,7 +299,6 @@ export const ebayListingService = {
             returnPolicyId: "247178019010",
           },
         };
-
 
         console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
 
