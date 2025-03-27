@@ -12,6 +12,8 @@ import {
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 
+// space 
+
 // Define a type for the tech schemas
 type TechSchemas = {
   laptops: typeof laptopTechnicalSchema;

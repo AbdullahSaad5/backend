@@ -60,12 +60,20 @@ const prodPricingSchema = {
       variationId: {
         type: Schema.Types.ObjectId,
         ref: "Variation",
-        required: true,
+        required: function (): boolean {
+          return (this as any).isVariation;
+        },
       },
       retailPrice: { type: Number, required: true, default: 0 },
     },
   ],
-
+  retailPrice: {
+    type: Number,
+    required: function () {
+      return !(this as any).isVariation;
+    },
+    min: 0,
+  },
   warrantyDuration: { type: String }, // Duration in days
   warrantyCoverage: { type: String }, // Coverage description
   warrantyDocument: {
@@ -360,6 +368,28 @@ const listingSchema = new Schema(
   },
   options
 );
+
+// ✅ Virtual property to check if Inventory has variations
+listingSchema.virtual("isVariation").get(async function () {
+  const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
+  return inventory ? inventory.isVariation : false;
+});
+// listingSchema.pre('save', async function (next) {
+//   const inventory = await mongoose.model('Inventory').findById(this.inventoryId);
+//   if (inventory && inventory.isVariation) {
+//     // Set variationId and retailPrice as required when isVariation is true
+//     this.selectedVariations.forEach(variation => {
+//       variation.variationId = variation.variationId || null;  // ensure no empty variationId
+//       variation.retailPrice = variation.retailPrice || 0;  // set default value if necessary
+//     });
+//   } else {
+//     // if not a variation, ensure retailPrice is set correctly
+//     if (!this.retailPrice) {
+//       return next(new Error('retailPrice is required if no variations'));
+//     }
+//   }
+//   next();
+// });
 
 // Base Listing Model
 const Listing = model<IListing>("Listing", listingSchema);
