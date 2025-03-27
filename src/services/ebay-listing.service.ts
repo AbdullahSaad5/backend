@@ -181,7 +181,7 @@ export const ebayListingService = {
           description: ebayData.productInfo?.description
             ? ebayData.productInfo.description.replace(/[\[\]]/g, "")
             : "No description available.",
-          upc: ebayData.prodTechInfo?.upc ? [ebayData.prodTechInfo.upc] : ["888462079522"],
+          upc: ebayData.prodTechInfo?.upc,
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
         },
         condition: "NEW",
