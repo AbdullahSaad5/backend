@@ -11,7 +11,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data : ", stepData);
+      // console.log("step Data : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -37,6 +37,9 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        publishToEbay: stepData.publishToEbay || false,
+        publishToAmazon: stepData.publishToAmazon || false,
+        publishToWebsite: stepData.publishToWebsite || false,
         selectedStockId: stepData.selectedStockId || "",
         productInfo,
         prodPricing: stepData.prodPricing || {},
