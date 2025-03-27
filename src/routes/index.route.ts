@@ -30,6 +30,7 @@ import { customPolicy } from "./custom-policy.route";
 import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
+import {ebay} from "./ebay.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -52,8 +53,8 @@ const routes: {
   stock,
   listing,
   inventory,
+  ebay,
   productCategory,
-
   productBrand,
   customPolicy,
   returnPolicy,

@@ -2,6 +2,7 @@ import EbayAuthToken from "ebay-oauth-nodejs-client";
 import fs from "fs";
 import dotenv from "dotenv";
 import path from "path";
+import { ref } from "@firebase/storage";
 
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
@@ -145,6 +146,7 @@ export const refreshEbayAccessToken = async () => {
 
   // Extract the refresh token from the credentials
   const refreshToken = credentials.refresh_token;
+  console.log("refreshToken", refreshToken);
   if (!refreshToken) {
     console.log("No refresh token found");
     return null;
