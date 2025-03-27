@@ -152,7 +152,7 @@ export const ebayListingService = {
     }
   },
 
-  syncListingWithEbay: async (listing: any): Promise<string> => {
+  async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
       if (!token) {
@@ -217,7 +217,7 @@ export const ebayListingService = {
         },
       };
 
-      console.log("Final eBay Request Body:", JSON.stringify(requestBody, null, 2));
+      console.log("Request Body for Inventory Creation:", JSON.stringify(requestBody, null, 2));
 
       // Step 1: Create Inventory on eBay
       const response = await fetch(ebayUrl, {
@@ -250,13 +250,9 @@ export const ebayListingService = {
         throw new Error(`Invalid JSON response from eBay: ${responseText}`);
       }
 
-      console.log("eBay API Response:", responseData);
+      console.log("eBay Inventory Creation Response:", responseData);
 
-      if (!response.ok) {
-        // Handle eBay-specific error codes from the response
-        const errorMessage = getEbayErrorMessage(responseData.errors);
-        throw new Error(errorMessage);
-      }
+      // Determine the retail price
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0;
 
@@ -294,6 +290,8 @@ export const ebayListingService = {
           },
         };
 
+        console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
+
         const offerResponse = await fetch(offerUrl, {
           method: "POST",
           headers: {
@@ -307,8 +305,13 @@ export const ebayListingService = {
         });
 
         const offerResponseText = await offerResponse.text();
+        console.log("Response Text from Offer Creation:", offerResponseText);
+
         if (!offerResponse.ok) {
-          throw new Error(`Failed to create offer: ${offerResponseText}`);
+          const errorDetails = await offerResponse.json().catch(() => ({ message: "No JSON response body" }));
+          throw new Error(
+            `Failed to create offer: ${offerResponse.status} ${offerResponse.statusText} - ${JSON.stringify(errorDetails)}`
+          );
         }
 
         console.log("Offer Created Successfully:", offerResponseText);
