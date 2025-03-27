@@ -15,10 +15,7 @@ export const ebay = (router: Router) => {
   router.get("/auth/initial", ebayListingService.getApplicationAuthToken);
   router.get("/auth/ebay", ebayListingService.getUserAuthorizationUrl);
   router.get("/auth/ebay/callback", ebayListingService.handleAuthorizationCallback);
-  router.get(
-    "/auth/ebay/callback/declined",
-    ebayListingService.handleFallbackCallback
-  );
+  router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
