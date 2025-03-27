@@ -20,6 +20,7 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { IBodyRequest, ICombinedRequest, IParamsRequest } from "@/contracts/request.contract";
+import { format } from "path";
 // import { Ebay } from "@/models"; // Import the  ebay model
 const getEbayErrorMessage = function (errors: any[]): string {
   if (!errors || errors.length === 0) {
@@ -167,7 +168,7 @@ export const ebayListingService = {
       // Use listing._id as the SKU (or replace with the correct ID field)
       const sku = listing._id?.toString();
       const ebayUrl = `https://api.ebay.com/sell/inventory/v1/inventory_item/${sku}`;
-
+      const baseURL = "https://api.ebay.com";
       const requestBody = {
         product: {
           title: ebayData.productInfo?.title ?? "A TEST product",
@@ -242,15 +243,15 @@ export const ebayListingService = {
         });
       }
 
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (error) {
-        // Handle invalid JSON error
-        throw new Error(`Invalid JSON response from eBay: ${responseText}`);
-      }
+      // let responseData;
+      // try {
+      //   responseData = JSON.parse(responseText);
+      // } catch (error) {
+      //   // Handle invalid JSON error
+      //   throw new Error(`Invalid JSON response from eBay: ${responseText}`);
+      // }
 
-      console.log("eBay Inventory Creation Response:", responseData);
+      console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
       // Determine the retail price
       const retailPrice =
@@ -258,22 +259,28 @@ export const ebayListingService = {
 
       // Step 2: If the listing status is 'published', create the offer
       if (listing.status === "published" && ebayData.publishToEbay) {
-        const offerUrl = `https://api.ebay.com/sell/offer/v1/offer/${sku}`;
         const offerBody = {
           sku: listing._id,
-          price: {
-            value: retailPrice,
-            currency: "USD",
-          },
+
           tax: {
             vatPercentage: 20,
             applyTax: true,
             thirdPartyTaxCategory: "Electronics",
           },
+          format: "FIXED_PRICE",
           marketplaceId: "EBAY_US",
           merchantLocationKey: "location1",
+          listingDescription: ebayData.productInfo?.description || "No description available.",
+          availableQuantity: ebayData.prodPricing?.listingQuantity || 10,
+          quantityLimitPerBuyer: 5,
+          pricingSummary: {
+            price: {
+              value: retailPrice,
+              currency: "USD",
+            },
+          },
           quantity: ebayData.prodPricing?.listingQuantity || 10,
-          condition: ebayData.prodPricing?.condition || "NEW_OTHER",
+          condition: ebayData.prodPricing?.condition || "NEW",
           shippingOptions: [
             {
               shippingCost: { value: "0.00", currency: "USD" },
@@ -292,7 +299,7 @@ export const ebayListingService = {
 
         console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
 
-        const offerResponse = await fetch(offerUrl, {
+        const offerResponse = await fetch(`${baseURL}/sell/inventory/v1/offer`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -307,11 +314,13 @@ export const ebayListingService = {
         const offerResponseText = await offerResponse.text();
         console.log("Response Text from Offer Creation:", offerResponseText);
 
-        if (!offerResponse.ok) {
-          const errorDetails = await offerResponse.json().catch(() => ({ message: "No JSON response body" }));
-          throw new Error(
-            `Failed to create offer: ${offerResponse.status} ${offerResponse.statusText} - ${JSON.stringify(errorDetails)}`
-          );
+        if (!offerResponseText) {
+          // If empty response is received, return success status
+          return JSON.stringify({
+            status: 201,
+            statusText: "Created",
+            message: "Offer created successfully on eBay",
+          });
         }
 
         console.log("Offer Created Successfully:", offerResponseText);
