@@ -234,14 +234,14 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-      if (!responseText) {
-        // If empty response is received, return success status
-        return JSON.stringify({
-          status: 201,
-          statusText: "Created",
-          message: "Item created successfully on eBay",
-        });
-      }
+      // if (!responseText) {
+      //   // If empty response is received, return success status
+      //   return JSON.stringify({
+      //     status: 201,
+      //     statusText: "Created",
+      //     message: "Item created successfully on eBay",
+      //   });
+      // }
 
       // let responseData;
       // try {
@@ -258,7 +258,7 @@ export const ebayListingService = {
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0;
 
       // Step 2: If the listing status is 'published', create the offer
-      if (listing.status === "published" && ebayData.publishToEbay) {
+      if (listing.status === "published") {
         const offerBody = {
           sku: listing._id,
 
@@ -296,6 +296,7 @@ export const ebayListingService = {
             returnPolicyId: "247178019010",
           },
         };
+
 
         console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
 
