@@ -170,14 +170,19 @@ export const listingService = {
       throw new Error("Failed to fetch listing");
     }
   },
+
   //getting all template products name and their id
   getListingByCondition: async (condition: Record<string, any>) => {
     try {
-      return await Listing.find(condition)
+      const templateListing = await Listing.find(condition)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
+      
+        console.log("templateListing in service : " , templateListing)
+      
+        return templateListing;
     } catch (error) {
       console.error("Error fetching listing by condition:", error);
       throw new Error("Failed to fetch listing by condition");
