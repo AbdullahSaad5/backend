@@ -309,6 +309,31 @@ export const ebayListingService = {
 
       // Step 2: If the listing status is 'published', create the offer
       if (listing.status === "published") {
+        // Define categoryId based on listing.kind
+        let categoryId;
+
+        switch (listing.kind) {
+          case "listing_laptops":
+            categoryId = 177;
+            break;
+          case "listing_all_in_one_pc":
+            categoryId = 178;
+            break;
+          case "listing_projectors":
+            categoryId = 179;
+            break;
+          case "listing_monitors":
+            categoryId = 180;
+            break;
+          case "listing_gaming_pc":
+            categoryId = 181;
+            break;
+          case "listing_network_equipments":
+            categoryId = 182;
+            break;
+          default:
+            categoryId = 177;
+        }
         const offerBody = {
           sku: listing._id,
           brand: ebayData.productInfo?.brand || "Unbranded",
@@ -316,7 +341,7 @@ export const ebayListingService = {
           ram: ebayData.prodTechInfo?.ramSize || "16 GB",
           storage: ebayData.prodTechInfo?.storageType || "SSD",
           FormFactor: ebayData.prodTechInfo?.formFactor || "Unknown",
-          gpu: ebayData?.prodTechInfo?.gpu || "Unknown",
+          gpu: ebayData?.prodTechInfo?.gpu || "Nvidia RTX 3060",
           screenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
           resolution: ebayData?.prodTechInfo?.resolution || "Unknown",
           lumens: ebayData?.prodTechInfo?.lumens || "Unknown",
@@ -371,8 +396,7 @@ export const ebayListingService = {
             },
           ],
 
-
-          categoryId: 177,
+          categoryId: categoryId,
           // "secondaryCategoryId": "string",
           listingPolicies: {
             fulfillmentPolicyId: "247178000010",
