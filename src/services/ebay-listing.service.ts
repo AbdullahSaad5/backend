@@ -317,19 +317,19 @@ export const ebayListingService = {
             categoryId = 177;
             break;
           case "listing_all_in_one_pc":
-            categoryId = 178;
-            break;
-          case "listing_projectors":
             categoryId = 179;
             break;
+          case "listing_projectors":
+            categoryId = 25321;
+            break;
           case "listing_monitors":
-            categoryId = 180;
+            categoryId = 80053;
             break;
           case "listing_gaming_pc":
-            categoryId = 181;
+            categoryId = 179;
             break;
           case "listing_network_equipments":
-            categoryId = 182;
+            categoryId = 175709;
             break;
           default:
             categoryId = 177;
