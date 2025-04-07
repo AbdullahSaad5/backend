@@ -224,6 +224,8 @@ export const listingController = {
         });
       }
 
+      // console.log("templates :: " , templates)
+
       const templateList = templates.map((template, index) => {
         const listingId = template._id;
         const kind = (template.kind || "UNKNOWN").toLowerCase();
@@ -233,7 +235,7 @@ export const listingController = {
         let fields: string[] = [];
 
         switch (kind) {
-          case "isting_laptops":
+          case "listing_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -279,7 +281,7 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Templates fetched successfully",
-        data: templateList,
+        data: {templateList , templates},
       });
     } catch (error: any) {
       console.error("Error fetching templates:", error);
