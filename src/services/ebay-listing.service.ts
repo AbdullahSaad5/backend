@@ -311,12 +311,19 @@ export const ebayListingService = {
       if (listing.status === "published") {
         const offerBody = {
           sku: listing._id,
-          Brand: ebayData.productInfo?.brand || "Unbranded",
-          Processor: ebayData.prodTechInfo?.processor || "Core I9",
-          RAM: ebayData.prodTechInfo?.ramSize || "16 GB",
-          Storage: ebayData.prodTechInfo?.storageType || "SSD",
+          brand: ebayData.productInfo?.brand || "Unbranded",
+          processor: ebayData.prodTechInfo?.processor || "Core I9",
+          ram: ebayData.prodTechInfo?.ramSize || "16 GB",
+          storage: ebayData.prodTechInfo?.storageType || "SSD",
+          FormFactor: ebayData.prodTechInfo?.formFactor || "Unknown",
+          gpu: ebayData?.prodTechInfo?.gpu || "Unknown",
+          screenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
+          resolution: ebayData?.prodTechInfo?.resolution || "Unknown",
+          lumens: ebayData?.prodTechInfo?.lumens || "Unknown",
+          frequency: ebayData?.prodTechInfo?.frequency || "Unknown",
+          connectivity: ebayData?.prodTechInfo?.connectivity || "Unknown",
           tax: {
-            vatPercentage: 20,
+            vatPercentage: ebayData?.prodPricing?.vat || 20,
             applyTax: true,
             thirdPartyTaxCategory: "Electronics",
           },
@@ -363,6 +370,8 @@ export const ebayListingService = {
               packageType: "USPSPriorityMailFlatRateBox",
             },
           ],
+
+
           categoryId: 177,
           // "secondaryCategoryId": "string",
           listingPolicies: {
