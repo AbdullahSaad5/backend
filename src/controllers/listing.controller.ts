@@ -233,7 +233,7 @@ export const listingController = {
         let fields: string[] = [];
 
         switch (kind) {
-          case "isting_laptops":
+          case "listing_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
