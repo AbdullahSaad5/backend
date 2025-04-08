@@ -437,7 +437,7 @@ Inventory.discriminator(
     options
   )
 );
-// discriminator for projectors
+// discriminator for cpus/processors
 Inventory.discriminator(
   "inventory_cpus/processors",
   new mongoose.Schema(
@@ -484,7 +484,7 @@ Inventory.discriminator(
   )
 );
 
-// discriminator for Monitors
+// discriminator for part
 Inventory.discriminator(
   "part",
   new mongoose.Schema(
