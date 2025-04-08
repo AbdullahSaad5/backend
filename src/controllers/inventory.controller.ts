@@ -1,4 +1,4 @@
-import { ebayService, inventoryService } from "@/services";
+import {  inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
