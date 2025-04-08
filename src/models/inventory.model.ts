@@ -170,6 +170,16 @@ export const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
+export const cpusProcessorsTechnicalSchema = {
+  processorModel: { type: String, required: true },
+  processorType: { type: String },
+  numberOfCores: { type: Number },
+  socketType: { type: String },
+  clockSpeed: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+};
 export const partsTechnicalSchema = {
   processor: { type: [String] },
   model: { type: String },
@@ -427,7 +437,21 @@ Inventory.discriminator(
     options
   )
 );
-
+// discriminator for projectors
+Inventory.discriminator(
+  "inventory_cpus/processors",
+  new mongoose.Schema(
+    {
+      prodTechInfo: cpusProcessorsTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
 // discriminator for projectors
 Inventory.discriminator(
   "inventory_projectors",
