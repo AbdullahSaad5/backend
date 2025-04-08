@@ -99,15 +99,15 @@ export const ebayCustomPolicyService = {
     }
   },
 
- 
+
     async updateCustomPolicy(policyId: string, body: any): Promise<any> {
       try {
         const accessToken = await getStoredEbayAccessToken();
         const url = `${baseURL}/sell/account/v1/custom_policy/${policyId}`;
-  
+
         console.log(`🔹 Sending eBay Update Request: ${url}`);
         console.log(`📤 Request Body:`, JSON.stringify(body, null, 2));
-  
+
         const response = await fetch(url, {
           method: "PUT",
           headers: {
@@ -119,9 +119,9 @@ export const ebayCustomPolicyService = {
           },
           body: JSON.stringify(body),
         });
-  
+
         console.log(`🔹 eBay Response Status: ${response.status} ${response.statusText}`);
-  
+
         // ✅ Fix: Handle empty response before parsing JSON
         const rawText = await response.text();
         if (!rawText) {
@@ -132,9 +132,9 @@ export const ebayCustomPolicyService = {
             message: "Empty response from eBay",
           };
         }
-  
+
         const data = JSON.parse(rawText);
-  
+
         if (!response.ok) {
           console.error("❌ eBay API Error:", JSON.stringify(data, null, 2));
           throw {
@@ -143,7 +143,7 @@ export const ebayCustomPolicyService = {
             data,
           };
         }
-  
+
         console.log("✅ eBay Update Success:", JSON.stringify(data, null, 2));
         return {
           status: response.status,
@@ -161,5 +161,5 @@ export const ebayCustomPolicyService = {
         };
       }
     },
-  
+
 };

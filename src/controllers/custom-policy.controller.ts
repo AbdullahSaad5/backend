@@ -36,7 +36,7 @@ export const customPolicyController = {
       const ebayResponse =
         await ebayCustomPolicyService.createCustomPolicy(policyData);
 
-      if (!ebayResponse || !ebayResponse.customPolicyId) {
+      if (!ebayResponse) {
         throw new Error("Failed to get eBay policy ID");
       }
 
@@ -60,13 +60,13 @@ export const customPolicyController = {
     try {
       const { id } = req.params;
       const updateData = req.body;
-  
+
       // 1️⃣ Retrieve existing policy from DB
       const existingPolicy = await customPolicyService.getCustomPolicyById(id);
       if (!existingPolicy) {
         return res.status(404).json({ error: "Policy not found in database" });
       }
-  
+
       // 2️⃣ Extract eBay Policy ID
       let ebayPolicyId: any = existingPolicy.ebayPolicyId;
       if (!ebayPolicyId) {
@@ -85,25 +85,25 @@ export const customPolicyController = {
           });
         }
       }
-  
+
       // 3️⃣ Update policy in MongoDB
       const updatedPolicy = await customPolicyService.updateCustomPolicy(id, updateData);
       if (!updatedPolicy) {
         return res.status(404).json({ error: "Policy update failed in database" });
       }
-  
+
       // 4️⃣ Prepare clean data for eBay (REMOVE policyType if it's causing issues)
       const ebayUpdateData: any = {
         name: updateData.name || existingPolicy.name,
         label: updateData.label || existingPolicy.label,
         description: updateData.description || existingPolicy.description,
       };
-  
+
       console.log("🟡 Sending update request to eBay with cleaned data:", JSON.stringify(ebayUpdateData, null, 2));
-  
+
       // 5️⃣ Update policy on eBay
       const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(ebayPolicyId, ebayUpdateData);
-  
+
       // 6️⃣ Send success response
       res.status(200).json({
         message: "Policy updated successfully in both DB and eBay",
@@ -117,5 +117,5 @@ export const customPolicyController = {
       });
     }
   }
-  
+
 };
