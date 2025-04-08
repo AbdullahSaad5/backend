@@ -1,17 +1,7 @@
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
-import axios from "axios";
-import {
-  EbayControllerCreateFulfillmentPolicyRequest,
-  EbayControllerCreateLocationRequest,
-  EbayControllerCreateOfferRequest,
-  EbayControllerCreatePaymentPolicyRequest,
-  EbayControllerCreatePolicyRequest,
-  EbayControllerCreateProductRequest,
-  EbayControllerCreateReturnPolicyRequest,
-  EbayControllerUpdateOfferRequest,
-} from "@/contracts/ebay.contract";
+import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
 import {
   exchangeCodeForAccessToken,
   getEbayAuthURL,
@@ -19,44 +9,7 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
-import { IBodyRequest, ICombinedRequest, IParamsRequest } from "@/contracts/request.contract";
-import { format } from "path";
-// import { Ebay } from "@/models"; // Import the  ebay model
-const getEbayErrorMessage = function (errors: any[]): string {
-  if (!errors || errors.length === 0) {
-    return "Unknown error from eBay";
-  }
 
-  const error = errors[0]; // Assuming we are dealing with a single error for simplicity
-  switch (error.code) {
-    case "25001":
-      return `System error occurred: ${error.message}`;
-    case "25002":
-      return `User error occurred: ${error.message}`;
-    case "25003":
-      return `Invalid price: ${error.message}`;
-    case "25004":
-      return `Invalid quantity: ${error.message}`;
-    case "25005":
-      return `Invalid category ID: ${error.message}`;
-    case "25006":
-      return `Invalid listing option: ${error.message}`;
-    case "25007":
-      return `Invalid Fulfillment policy: ${error.message}`;
-    case "25008":
-      return `Invalid Payment policy: ${error.message}`;
-    case "25009":
-      return `Invalid Return policy: ${error.message}`;
-    case "25014":
-      return `Invalid pictures: ${error.message}`;
-    case "25019":
-      return `Cannot revise listing: ${error.message}`;
-    case "25710":
-      return `Resource not found: ${error.message}`;
-    default:
-      return `eBay error occurred: ${error.message || "Unknown error"}`;
-  }
-};
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -161,6 +114,34 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
+
+      const generateListingDescription = (ebayData: any) => {
+        return ebayHtmlTemplate({
+          title: ebayData.productInfo?.title ?? "A TEST product",
+          brand: ebayData.productInfo?.brand || "Unbranded",
+          processor: ebayData.prodTechInfo?.processor || "Core I9",
+          ram: ebayData.prodTechInfo?.ramSize || "16 GB",
+          storage: ebayData.prodTechInfo?.storageType || "SSD",
+          formFactor: ebayData.prodTechInfo?.formFactor || "Unknown",
+          gpu: ebayData.prodTechInfo?.gpu || "Nvidia RTX 3060",
+          screenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
+          resolution: ebayData.prodTechInfo?.resolution || "Unknown",
+          frequency: ebayData.prodTechInfo?.frequency || "Unknown",
+          connectivity: ebayData.prodTechInfo?.connectivity || "Unknown",
+          description: ebayData.productInfo?.description || "No description available.",
+          imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
+          height: ebayData.prodTechInfo?.height || "Unknown",
+          length: ebayData.prodTechInfo?.length || "Unknown",
+          width: ebayData.prodTechInfo?.width || "Unknown",
+          weight: ebayData.prodTechInfo?.weight || "Unknown",
+          weightUnit: "POUND",
+          ean: ebayData.prodTechInfo?.ean,
+          mpn: ebayData.prodTechInfo?.mpn,
+          upc: ebayData.prodTechInfo?.upc,
+        });
+      };
+
+      const listingDescriptionData = generateListingDescription(ebayData);
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
       }
@@ -356,8 +337,9 @@ export const ebayListingService = {
           // "format": "FormatTypeEnum : [AUCTION,FIXED_PRICE]",
           marketplaceId: "EBAY_US",
           merchantLocationKey: "location1",
-          listingDescription: ebayData.productInfo?.description || "No description available.",
-          availableQuantity: ebayData.prodPricing?.listingQuantity || 10,
+          // listingDescription: listingDescriptionData ?? "No description available.",
+          listingDescription: ebayData.prodTechInfo?.description ?? "No description available.",
+          availableQuantity: ebayData.prodPricing?.listingQuantity ?? 10,
           quantityLimitPerBuyer: 5,
           pricingSummary: {
             price: {
