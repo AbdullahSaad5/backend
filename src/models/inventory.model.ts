@@ -173,13 +173,34 @@ export const allInOnePCTechnicalSchema = {
 export const cpusProcessorsTechnicalSchema = {
   processorModel: { type: String, required: true },
   processorType: { type: String },
-  numberOfCores: { type: Number },
+  numberOfCores: { type: String },
   socketType: { type: String },
   clockSpeed: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String },
 };
+
+export const serverCpusProcessorsTechnicalSchema = {
+  processorType: { type: String },
+  clockSpeed: { type: String },
+  mpn: { type: String },
+  connectors: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  numberOfCores: { type: String },
+  productLine: { type: String },
+  CompatibleBrand: { type: String },
+  regionOfManufacture: { type: String },
+  l2Cache: { type: String },
+  l3Cache: { type: String },
+  socketType: { type: String },
+  itemHeight: { type: String },
+  itemLength: { type: String },
+  itemWidth: { type: String },
+  manufacturerWarranty: { type: String },
+};
+
 export const partsTechnicalSchema = {
   processor: { type: [String] },
   model: { type: String },
@@ -437,12 +458,28 @@ Inventory.discriminator(
     options
   )
 );
-// discriminator for projectors
+// discriminator for cpus/processors
 Inventory.discriminator(
   "inventory_cpus/processors",
   new mongoose.Schema(
     {
       prodTechInfo: cpusProcessorsTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
+
+// discriminator for server_cpus/processors
+Inventory.discriminator(
+  "inventory_server_cpus/processors",
+  new mongoose.Schema(
+    {
+      prodTechInfo: serverCpusProcessorsTechnicalSchema,
       // prodPricing: prodPricingSchema,
       // prodDelivery: prodDeliverySchema,
       // prodSeo: prodSeoSchema,
@@ -484,7 +521,7 @@ Inventory.discriminator(
   )
 );
 
-// discriminator for Monitors
+// discriminator for part
 Inventory.discriminator(
   "part",
   new mongoose.Schema(
