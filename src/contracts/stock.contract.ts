@@ -1,5 +1,5 @@
 import mongoose, { Document } from "mongoose";
-
+import { mediaSchema } from "@/models/listing.model";
 interface IStock extends Document {
   inventoryId: mongoose.Types.ObjectId;
   selectedVariations?: {
@@ -9,7 +9,7 @@ interface IStock extends Document {
     totalUnits: number;
     usableUnits: number;
   }[];
-
+  stockInvoice: typeof mediaSchema;
   totalUnits?: number;
   usableUnits?: number;
   costPricePerUnit?: number;
