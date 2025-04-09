@@ -161,5 +161,64 @@ export const ebayCustomPolicyService = {
         };
       }
     },
+    async getCustomPolicyById(policyId: string): Promise<any> {
+      try {
+        const accessToken = await getStoredEbayAccessToken();
+        const url = `${baseURL}/sell/account/v1/custom_policy/${policyId}`;
+
+        console.log(`🔹 Sending eBay Get Request: ${url}`);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US",
+            "Accept-Language": "en-US",
+          },
+        });
+
+        console.log(`🔹 eBay Response Status: ${response.status} ${response.statusText}`);
+
+        // ✅ Fix: Handle empty response before parsing JSON
+        const rawText = await response.text();
+        if (!rawText) {
+          console.warn("⚠️ Warning: eBay response is empty.");
+          return {
+            status: response.status,
+            statusText: response.statusText,
+            message: "Empty response from eBay",
+          };
+        }
+
+        const data = JSON.parse(rawText);
+
+        if (!response.ok) {
+          console.error("❌ eBay API Error:", JSON.stringify(data, null, 2));
+          throw {
+            status: response.status,
+            statusText: response.statusText,
+            data,
+          };
+        }
+
+        console.log("✅ eBay Get Success:", JSON.stringify(data, null, 2));
+        return {
+          status: response.status,
+          statusText: response.statusText,
+          message: "Policy fetched successfully from eBay",
+          data,
+        };
+      } catch (error: any) {
+        console.error("❌ Error fetching eBay custom policy:", error);
+        return {
+          status: error?.status || StatusCodes.INTERNAL_SERVER_ERROR,
+          statusText: error?.statusText || ReasonPhrases.INTERNAL_SERVER_ERROR,
+          message: "Failed to fetch eBay policy",
+          error: error?.data || error,
+        };
+      }
+    }
 
 };

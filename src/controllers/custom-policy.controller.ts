@@ -1,34 +1,46 @@
-import { customPolicy } from './../routes/custom-policy.route';
 import { Request, Response } from "express";
 import { ebayCustomPolicyService } from "@/services";
-import { customPolicyService } from "@/services/custom-policy.service";
 
 export const customPolicyController = {
+  // Fetch all policies from eBay
   getAll: async (req: Request, res: Response) => {
     try {
-      const [dbPolicies, ebayPolicies] = await Promise.all([
-        customPolicyService.getAllCustomPolicies(),
-        ebayCustomPolicyService.getAllCustomPolicies(),
-      ]);
-      res.status(200).json({ dbPolicies, ebayPolicies });
+      // Fetch policies from eBay
+      const ebayPoliciesResponse = await ebayCustomPolicyService.getAllCustomPolicies();
+
+      // Check if response is valid
+      if (!ebayPoliciesResponse || !ebayPoliciesResponse.data) {
+        throw new Error("Failed to fetch eBay policies");
+      }
+
+      // Return eBay policies
+      res.status(200).json({ ebayPolicies: ebayPoliciesResponse.data.customPolicies });
     } catch (error: any) {
+      console.error("❌ Error fetching eBay policies:", error);
       res.status(error.status || 500).json({ error: error.message });
     }
   },
 
+  // Fetch a specific policy by ID from eBay
   getById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const policy = await customPolicyService.getCustomPolicyById(id);
-      if (!policy) {
-        return res.status(404).json({ error: "Policy not found" });
+
+      // Fetch policy by ID from eBay
+      const ebayPolicyResponse = await ebayCustomPolicyService.getCustomPolicyById(id);
+
+      if (!ebayPolicyResponse || !ebayPolicyResponse.data) {
+        return res.status(404).json({ error: "Policy not found on eBay" });
       }
-      res.status(200).json(policy);
+
+      res.status(200).json(ebayPolicyResponse.data);
     } catch (error: any) {
+      console.error("❌ Error fetching eBay policy by ID:", error);
       res.status(error.status || 500).json({ error: error.message });
     }
   },
 
+  // Create a new policy on eBay
   create: async (req: Request, res: Response) => {
     try {
       const policyData = req.body;
@@ -36,83 +48,61 @@ export const customPolicyController = {
       // Create policy on eBay
       const ebayResponse = await ebayCustomPolicyService.createCustomPolicy(policyData);
 
-      if (!ebayResponse) {
-        throw new Error("Failed to get eBay policy ID");
+      if (!ebayResponse || !ebayResponse.data) {
+        throw new Error("Failed to create policy on eBay");
       }
-console.log("here is ebay response", ebayResponse)
-      // Create policy in DB and store the eBay policy ID
-      const dbPolicy = await customPolicyService.createCustomPolicy({
-        ...policyData,
-        customPolicyId: ebayResponse.customPolicyId, // ✅ Save eBay ID
-      });
 
       res.status(201).json({
-        message: "Policy created successfully in both DB and eBay",
-        dbPolicy,
-        ebayResponse,
+        message: "Policy created successfully on eBay",
+        ebayResponse: ebayResponse.data,
       });
     } catch (error: any) {
+      console.error("❌ Error creating policy on eBay:", error);
       res.status(error.status || 500).json({ error: error.message });
     }
   },
 
+  // Update a policy on eBay
   update: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const updateData = req.body;
 
-      // 1️⃣ Retrieve existing policy from DB
-      const existingPolicy = await customPolicyService.getCustomPolicyById(id);
-      if (!existingPolicy) {
-        return res.status(404).json({ error: "Policy not found in database" });
+      // Update policy on eBay
+      const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(id, updateData);
+
+      if (!ebayResponse || !ebayResponse.data) {
+        throw new Error("Failed to update policy on eBay");
       }
 
-      // 2️⃣ Extract eBay Policy ID
-      let customPolicyId: any = existingPolicy.customPolicyId;
-      if (!customPolicyId) {
-        console.warn("⚠️ eBay policy ID missing, attempting to find matching policy...");
-        const ebayPoliciesResponse = await ebayCustomPolicyService.getAllCustomPolicies();
-        const ebayPolicies = ebayPoliciesResponse.data.customPolicies || [];
-        const matchedPolicy = ebayPolicies.find((policy: any) => policy.name === existingPolicy.name);
-        if (matchedPolicy) {
-          customPolicyId = matchedPolicy.customPolicyId;
-          console.log(`✅ Matched eBay policy: ${customPolicyId}`);
-        } else {
-          return res.status(400).json({
-            error: "eBay policy ID not found and no matching policy found on eBay",
-          });
-        }
-      }
-
-      // 3️⃣ Update policy in MongoDB
-      const updatedPolicy = await customPolicyService.updateCustomPolicy(id, updateData);
-      if (!updatedPolicy) {
-        return res.status(404).json({ error: "Policy update failed in database" });
-      }
-
-      // 4️⃣ Prepare clean data for eBay (REMOVE policyType if it's causing issues)
-      const ebayUpdateData: any = {
-        name: updateData.name || existingPolicy.name,
-        label: updateData.label || existingPolicy.label,
-        description: updateData.description || existingPolicy.description,
-      };
-
-      console.log("🟡 Sending update request to eBay with cleaned data:", JSON.stringify(ebayUpdateData, null, 2));
-
-      // 5️⃣ Update policy on eBay
-      const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(customPolicyId, ebayUpdateData);
-
-      // 6️⃣ Send success response
       res.status(200).json({
-        message: "Policy updated successfully in both DB and eBay",
-        updatedPolicy,
-        ebayResponse,
+        message: "Policy updated successfully on eBay",
+        ebayResponse: ebayResponse.data,
       });
     } catch (error: any) {
-      console.error("❌ Error updating eBay custom policy:", JSON.stringify(error, null, 2));
-      res.status(error.status || 500).json({
-        error: error.data || "Internal Server Error",
-      });
+      console.error("❌ Error updating policy on eBay:", error);
+      res.status(error.status || 500).json({ error: error.message });
     }
   },
+
+  // Delete a policy on eBay , currently as there is no delete request in ebay API
+  // delete: async (req: Request, res: Response) => {
+  //   try {
+  //     const { id } = req.params;
+
+  //     // Delete policy on eBay
+  //     const ebayResponse = await ebayCustomPolicyService.deleteCustomPolicy(id);
+
+  //     if (!ebayResponse || ebayResponse.status !== "success") {
+  //       throw new Error("Failed to delete policy on eBay");
+  //     }
+
+  //     res.status(200).json({
+  //       message: "Policy deleted successfully from eBay",
+  //     });
+  //   } catch (error: any) {
+  //     console.error("❌ Error deleting policy on eBay:", error);
+  //     res.status(error.status || 500).json({ error: error.message });
+  //   }
+  // },
 };
