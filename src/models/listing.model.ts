@@ -25,7 +25,7 @@ const prodInfoSchema = {
   title: { type: String, required: true },
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
   description: { type: String },
-  brand: { type: String, required: true },
+  brand: { type: [String], required: true },
   displayUnits: { type: Number, required: true },
 };
 
@@ -107,12 +107,12 @@ const prodSeoSchema = {
 
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
-  model: { type: String },
+  model: { type: [String] },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -141,7 +141,7 @@ export const laptopTechnicalSchema = {
 
 const allInOnePCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -156,7 +156,7 @@ const allInOnePCTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -179,9 +179,9 @@ const allInOnePCTechnicalSchema = {
 };
 
 const projectorTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -217,8 +217,8 @@ const projectorTechnicalSchema = {
 };
 
 const monitorTechnicalSchema = {
-  model: { type: String },
-  features: { type: String },
+  model: { type: [String] },
+  features: { type: [String] },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -246,7 +246,7 @@ const monitorTechnicalSchema = {
 
 const gamingPCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -261,7 +261,7 @@ const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   releaseYear: { type: String },
@@ -311,7 +311,7 @@ const gamingPCTechnicalSchema = {
 };
 
 const networkEquipmentsTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
   unitType: { type: String },
