@@ -72,7 +72,15 @@ export const customPolicyController = {
       const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(id, updateData);
 
       if (!ebayResponse || !ebayResponse.data) {
-        throw new Error("Failed to update policy on eBay");
+        throw new Error("No data returned from eBay");
+      }
+
+      // If eBay returns a 409, treat it as a conflict (already exists)
+      if (ebayResponse.status === 409) {
+        return res.status(409).json({
+          message: "The policy already exists on eBay.",
+          ebayResponse: ebayResponse.data,
+        });
       }
 
       res.status(200).json({
@@ -81,7 +89,20 @@ export const customPolicyController = {
       });
     } catch (error: any) {
       console.error("❌ Error updating policy on eBay:", error);
-      res.status(error.status || 500).json({ error: error.message });
+
+      // Handle eBay errors (e.g., from ebayResponse)
+      if (error?.data?.errors) {
+        // eBay returns an array of errors
+        const ebayErrorMessages = error.data.errors.map((err: any) => err.message).join(", ");
+        return res.status(error.status || 500).json({
+          error: ebayErrorMessages || error.message || "Error updating policy on eBay",
+        });
+      }
+
+      // If there's no specific eBay error, return a general message
+      res.status(error.status || 500).json({
+        error: error.message || "Error updating policy on eBay",
+      });
     }
   },
 

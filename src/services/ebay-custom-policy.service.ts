@@ -137,7 +137,7 @@ export const ebayCustomPolicyService = {
 
       console.log(`🔹 eBay Response Status: ${response.status} ${response.statusText}`);
 
-      // ✅ Fix: Handle empty response before parsing JSON
+      // Handle empty response before parsing JSON
       const rawText = await response.text();
       if (!rawText) {
         console.warn("⚠️ Warning: eBay response is empty.");
@@ -150,12 +150,24 @@ export const ebayCustomPolicyService = {
 
       const data = JSON.parse(rawText);
 
+      // Check for specific error (409 Conflict)
+      if (response.status === 409) {
+        console.warn("⚠️ Policy already exists: ", JSON.stringify(data, null, 2));
+        return {
+          status: response.status,
+          statusText: response.statusText,
+          message: "The policy already exists.",
+          data,
+        };
+      }
+
+      // Handle other errors from eBay
       if (!response.ok) {
         console.error("❌ eBay API Error:", JSON.stringify(data, null, 2));
         throw {
           status: response.status,
           statusText: response.statusText,
-          data,
+          data: data.errors || data, // Ensure errors are accessed properly
         };
       }
 
@@ -171,8 +183,8 @@ export const ebayCustomPolicyService = {
       return {
         status: error?.status || StatusCodes.INTERNAL_SERVER_ERROR,
         statusText: error?.statusText || ReasonPhrases.INTERNAL_SERVER_ERROR,
-        message: "Failed to update eBay policy",
-        error: error?.data || error,
+        message: error?.message || "Failed to update eBay policy",
+        error: error?.data || error?.message || error,
       };
     }
   },
