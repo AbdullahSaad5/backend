@@ -1,4 +1,4 @@
-import {  inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -670,6 +670,7 @@ export const inventoryController = {
         console.log("Cache hit: Returning variations from cache.");
       } else {
         // **Extract multi-select attributes**
+        // **Extract multi-select attributes**
         const attributes = inventoryItem.prodTechInfo;
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
           if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
@@ -678,12 +679,21 @@ export const inventoryController = {
           return acc;
         }, {});
 
-        if (Object.keys(multiSelectAttributes).length === 0) {
+        // **Exclude 'brand' and 'features' from multi-select attributes**
+        const excludedAttributes = ["brand", "features"];
+        const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
+          if (!excludedAttributes.includes(key)) {
+            acc[key] = multiSelectAttributes[key];
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(filteredAttributes).length === 0) {
           return res.status(400).json({ message: "No multi-select attributes found for variations" });
         }
 
-        // **Generate variations dynamically**
-        allVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+        // **Generate variations dynamically using the filtered attributes**
+        allVariations = await inventoryService.generateCombinations(filteredAttributes);
 
         // **Cache generated variations in Redis (TTL: 1 hour)**
         await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
