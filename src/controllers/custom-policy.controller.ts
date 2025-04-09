@@ -71,8 +71,11 @@ export const customPolicyController = {
       // Update policy on eBay
       const ebayResponse = await ebayCustomPolicyService.updateCustomPolicy(id, updateData);
 
-      if (!ebayResponse || !ebayResponse.data) {
-        throw new Error("No data returned from eBay");
+      // eBay returns empty response for successful update (no content)
+      if (!ebayResponse || Object.keys(ebayResponse).length === 0) {
+        return res.status(200).json({
+          message: "Policy updated successfully on eBay. No content returned.",
+        });
       }
 
       // If eBay returns a 409, treat it as a conflict (already exists)
@@ -83,6 +86,7 @@ export const customPolicyController = {
         });
       }
 
+      // If there is any other response data, return it
       res.status(200).json({
         message: "Policy updated successfully on eBay",
         ebayResponse: ebayResponse.data,
