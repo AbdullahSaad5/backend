@@ -1,8 +1,5 @@
 import { Schema, model, Document } from "mongoose";
-import {
-  ICustomPolicy,
-  CustomPolicyModel,
-} from "@/contracts/custom-policy.contract";
+import { ICustomPolicy, CustomPolicyModel } from "@/contracts/custom-policy.contract";
 
 const customPolicySchema = new Schema<ICustomPolicy>(
   {
@@ -27,11 +24,11 @@ const customPolicySchema = new Schema<ICustomPolicy>(
       enum: ["PRODUCT_COMPLIANCE", "TAKE_BACK"],
       required: true,
     },
+    customPolicyId: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
 
-export const CustomPolicy = model<ICustomPolicy, CustomPolicyModel>(
-  "CustomPolicy",
-  customPolicySchema
-);
+export const CustomPolicy = model<ICustomPolicy, CustomPolicyModel>("CustomPolicy", customPolicySchema);
