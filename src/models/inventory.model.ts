@@ -30,7 +30,7 @@ export const prodInfoSchema = {
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },
-  brand: { type: String, required: true },
+  brand: { type:[ String], required: true },
 };
 
 // export const prodMediaSchema = {
@@ -103,7 +103,7 @@ export const laptopTechnicalSchema = {
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -148,7 +148,7 @@ export const allInOnePCTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -219,7 +219,7 @@ export const partsTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -244,7 +244,7 @@ export const partsTechnicalSchema = {
 export const projectorTechnicalSchema = {
   model: { type: String },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -281,7 +281,7 @@ export const projectorTechnicalSchema = {
 
 export const monitorTechnicalSchema = {
   model: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -324,7 +324,7 @@ export const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
 
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },

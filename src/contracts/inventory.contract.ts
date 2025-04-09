@@ -63,7 +63,7 @@ interface IKeywords {
 // Platform-specific inventory details for Amazon
 interface IAmazonPlatformDetails {
   title: string;
-  brand: string;
+  brand: string[];
   inventoryCategory: Types.ObjectId;
   inventorySupplier: Types.ObjectId;
   images: string[];
@@ -97,7 +97,7 @@ interface IAmazonPlatformDetails {
 // Platform-specific inventory details for eBay
 interface IEbayPlatformDetails {
   title: string;
-  brand: string;
+  brand: string[];
   inventoryCategory: Types.ObjectId;
   inventorySupplier: Types.ObjectId;
   images: string[];
@@ -131,7 +131,7 @@ interface IEbayPlatformDetails {
 // Platform-specific inventory details for Website
 interface IWebsitePlatformDetails {
   title: string;
-  brand: string;
+  brand: string[];
   inventoryCategory: Types.ObjectId;
   inventorySupplier: Types.ObjectId;
 
@@ -194,7 +194,7 @@ interface IPlatformInventoryInfo {
   inventoryCategory: Types.ObjectId;
   inventorySupplier: Types.ObjectId; // Populated with category details
   title: string;
-  brand: string;
+  brand: string[];
   inventoryDescription: string;
   images: string[];
   model?: string;
