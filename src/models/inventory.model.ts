@@ -98,7 +98,7 @@ export const prodInfoSchema = {
 
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
-  model: { type: String },
+  model: { type: [String] },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
@@ -132,7 +132,7 @@ export const laptopTechnicalSchema = {
 
 export const allInOnePCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -203,7 +203,7 @@ export const serverCpusProcessorsTechnicalSchema = {
 
 export const partsTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -242,7 +242,7 @@ export const partsTechnicalSchema = {
 };
 
 export const projectorTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   type: { type: String },
   features: { type: [String] },
   connectivity: { type: String },
@@ -280,7 +280,7 @@ export const projectorTechnicalSchema = {
 };
 
 export const monitorTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   features: { type: [String] },
   color: { type: [String] },
   displayType: { type: String },
@@ -309,7 +309,7 @@ export const monitorTechnicalSchema = {
 
 export const gamingPCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -375,7 +375,7 @@ export const gamingPCTechnicalSchema = {
 };
 
 export const networkEquipmentsTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
   unitType: { type: String },
