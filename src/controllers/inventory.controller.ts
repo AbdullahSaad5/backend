@@ -680,7 +680,7 @@ export const inventoryController = {
         }, {});
 
         // **Exclude 'brand' and 'features' from multi-select attributes**
-        const excludedAttributes = ["brand", "features"];
+        const excludedAttributes = ["brand", "features", "model"];
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
           if (!excludedAttributes.includes(key)) {
             acc[key] = multiSelectAttributes[key];
