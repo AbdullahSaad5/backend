@@ -14,5 +14,5 @@ export const fulfillmentPolicy = (router: Router) => {
 
   router.delete("/:id", fulfillmentPolicyController.deletePolicy);
 
-  router.patch("/block/:id", fulfillmentPolicyController.toggleBlock);
+  // router.patch("/block/:id", fulfillmentPolicyController.toggleBlock);
 };
