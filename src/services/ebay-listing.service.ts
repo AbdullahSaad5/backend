@@ -337,22 +337,7 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-      // if (!responseText) {
-      //   // If empty response is received, return success status
-      //   return JSON.stringify({
-      //     status: 201,
-      //     statusText: "Created",
-      //     message: "Item created successfully on eBay",
-      //   });
-      // }
-
-      // let responseData;
-      // try {
-      //   responseData = JSON.parse(responseText);
-      // } catch (error) {
-      //   // Handle invalid JSON error
-      //   throw new Error(`Invalid JSON response from eBay: ${responseText}`);
-      // }
+   
 
       console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
