@@ -337,9 +337,9 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-   
 
-      console.log("ebayData.publishtoebay", listing?.publishToEbay);
+
+      // console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
       // Determine the retail price
       const retailPrice =
@@ -586,8 +586,8 @@ export const ebayListingService = {
           //   "shipmentPackageId": "string"
           // },
         };
-        console.log("Listing Description Data:",listingDescriptionData);
-        console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
+        // console.log("Listing Description Data:",listingDescriptionData);
+        // console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
 
         const offerResponse = await fetch(`${baseURL}/sell/inventory/v1/offer`, {
           method: "POST",
