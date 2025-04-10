@@ -36,7 +36,6 @@ const prodMediaSchema = {
 
 const prodPricingSchema = {
   // prod pricing details
-  listingQuantity: { type: Number, required: true },
   discountType: { type: String, enum: ["fixed", "percentage"] },
   discountValue: { type: Number },
   condition: { type: String },
@@ -46,13 +45,6 @@ const prodPricingSchema = {
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
-
-  // paymentPolicy: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "PaymentPolicy",
-  //   default: null,
-  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  // },
   paymentPolicy: { type: String },
   selectedVariations: [
     {
@@ -65,9 +57,17 @@ const prodPricingSchema = {
         },
       },
       retailPrice: { type: Number, required: true, default: 0 },
+      listingQuantity: { type: Number, required: true, default: 0 },
     },
   ],
   retailPrice: {
+    type: Number,
+    required: function () {
+      return !(this as any).isVariation;
+    },
+    min: 0,
+  },
+  listingQuantity: {
     type: Number,
     required: function () {
       return !(this as any).isVariation;
