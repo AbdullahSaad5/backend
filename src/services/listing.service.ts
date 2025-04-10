@@ -94,9 +94,9 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      console.log("draft lsisitng is here : " , draftListing)
+      // console.log("draft listing is here : " , draftListing)
 
-      // Update Status 
+      // Update Status
       if (stepData.status !== undefined) {
         console.log("draft if work")
         draftListing.status = stepData.status;
@@ -189,9 +189,9 @@ export const listingService = {
         .populate("productInfo.productSupplier")
         // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
-      
+
         console.log("templateListing in service : " , templateListing)
-      
+
         return templateListing;
     } catch (error) {
       console.error("Error fetching listing by condition:", error);
