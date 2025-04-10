@@ -74,10 +74,11 @@ export const listingService = {
       throw new Error(error.message || "Failed to create draft listing");
     }
   },
+
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { listingId, stepData });
+      console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -93,9 +94,18 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      // Update Status & Template Check
+      console.log("draft lsisitng is here : " , draftListing)
+
+      // Update Status 
       if (stepData.status !== undefined) {
+        console.log("draft if work")
         draftListing.status = stepData.status;
+        // draftListing.isTemplate = stepData.isTemplate || false;
+      }
+      // Update Template Check
+      if (stepData.isTemplate) {
+        console.log("template if work")
+        // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
       }
 
