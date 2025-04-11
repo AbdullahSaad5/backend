@@ -41,8 +41,9 @@ export const inventory = (router: Router) => {
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-
+//
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
+  router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
   router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
 

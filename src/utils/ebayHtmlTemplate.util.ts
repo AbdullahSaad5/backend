@@ -1,7 +1,136 @@
 // ebayHtmlTemplate.util.ets
 const ebayHtmlTemplate = (data: any) => {
 
- const htmlData = `
+
+  const generateSpecsRows = (specs: Record<string, any>) => {
+    let rows = '';
+
+    for (const [label, value] of Object.entries(specs)) {
+      if (value) {
+        rows += `
+          <tr data-spec="${value}">
+            <td>${label}</td>
+          </tr>
+        `;
+      }
+    }
+
+    return rows;
+  };
+
+  const specs = {
+
+    ITEMTITLE: data.title,
+    IMAGE01: data.imageUrls[0],
+    IMAGE02: data.imageUrls[1],
+    IMAGE03: data.imageUrls[2],
+    IMAGE04: data.imageUrls[3],
+    IMAGE05: data.imageUrls[4],
+    IMAGE06: data.imageUrls[5],
+    IMAGE07: data.imageUrls[6],
+    IMAGE08: data.imageUrls[7],
+    ITEMDESCRIPTION: data.description,
+    DEFAULTEBAYSTORECATEGORYID: data.categoryId,
+    STOREFRONTPRICE: data?.prodPricing?.retailPrice ?? data?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0,
+    CPU: data.prodTechInfo?.cpu,
+    GPU: data.prodTechInfo?.gpu,
+    RAM: data.prodTechInfo?.ram,
+    STORAGE: data.prodTechInfo?.storage,
+    POWER: data.prodTechInfo?.power,
+
+
+    PROCESSOR: data.prodTechInfo?.processor,
+    MODEL: data.prodTechInfo?.model,
+    OPERATINGSYSTEM: data.prodTechInfo?.operatingSystem,
+    STORAGETYPE: data.prodTechInfo?.storageType,
+    FEATURES: data.prodTechInfo?.features,
+    SSDCAPACITY: data.prodTechInfo?.ssdCapacity,
+    TYPE: data.prodTechInfo?.type,
+    RELEASEYEAR: data.prodTechInfo?.releaseYear,
+
+
+
+    HARDDRIVECAPACITY: data.prodTechInfo?.hardDriveCapacity,
+    COLOR: data.prodTechInfo?.color,
+    MAXRESOLUTION: data.prodTechInfo?.maxResolution,
+    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor,
+    SCREENSIZE: data.prodTechInfo?.screenSize,
+    GRAPHICSPROCESSINGTYPE: data.prodTechInfo?.graphicsProcessingType,
+    CONNECTIVITY: data.prodTechInfo?.connectivity,
+    MOTHERBOARDMODEL: data.prodTechInfo?.motherboardModel,
+    SERIES: data.prodTechInfo?.series,
+    OPERATINGSYSTEMEDITION: data.prodTechInfo?.operatingSystemEdition,
+    MEMORY: data.prodTechInfo?.memory,
+    MAXRAMCAPACITY: data.prodTechInfo?.maxRamCapacity,
+    UNITTYPE: data.prodTechInfo?.unitType,
+    UNITQUANTITY: data.prodTechInfo?.unitQuantity,
+    MPN: data.prodTechInfo?.mpn,
+    PROCESSORSPEED: data.prodTechInfo?.processorSpeed,
+    RAMSIZE: data.prodTechInfo?.ramSize,
+    FORMFACTOR: data.prodTechInfo?.formFactor,
+    EAN: data.prodTechInfo?.ean,
+    PRODUCTTYPE: data.prodTechInfo?.productType,
+    MANUFACTURERWARRANTY: data.prodTechInfo?.manufacturerWarranty,
+    REGIONOFMANUFACTURE: data.prodTechInfo?.regionOfManufacture,
+    HEIGHT: data.prodTechInfo?.height,
+    LENGTH: data.prodTechInfo?.length,
+    WIDTH: data.prodTechInfo?.width,
+    WEIGHT: data.prodTechInfo?.weight,
+    NONNEWCONDITIONDETAILS: data.prodTechInfo?.nonNewConditionDetails,
+    PRODUCTCONDITION: data.prodTechInfo?.productCondition,
+    NUMBEROFLANPORTS: data.prodTechInfo?.numberOfLanPorts,
+    MAXIMUMWIRELESSDATA: data.prodTechInfo?.maximumWirelessData,
+    MAXIMUMLANDATARATE: data.prodTechInfo?.maximumLanDataRate,
+    PORTS: data.prodTechInfo?.ports,
+    TOFIT: data.prodTechInfo?.toFit,
+    DISPLAYTYPE: data.prodTechInfo?.displayType,
+    ASPECTRATIO: data.prodTechInfo?.aspectRatio,
+    IMAGEBRIGHTNESS: data.prodTechInfo?.imageBrightness,
+    THROWRATIO: data.prodTechInfo?.throwRatio,
+    COMPATIBLEOPERATINGSYSTEM: data.prodTechInfo?.compatibleOperatingSystem,
+    COMPATIBLEFORMAT: data.prodTechInfo?.compatibleFormat,
+    LENSMAGNIFICATION: data.prodTechInfo?.lensMagnification,
+    YEARMANUFACTURED: data.prodTechInfo?.yearManufactured,
+    NATIVERESOLUTION: data.prodTechInfo?.nativeResolution,
+    DISPLAYTECHNOLOGY: data.prodTechInfo?.displayTechnology,
+    ENERGYEFFICIENCYRATING: data.prodTechInfo?.energyEfficiencyRating,
+    VIDEOINPUTS: data.prodTechInfo?.videoInputs,
+    REFRESHRATE: data.prodTechInfo?.refreshRate,
+    RESPONSETIME: data.prodTechInfo?.responseTime,
+    BRIGHTNESS: data.prodTechInfo?.brightness,
+    CONTRASTRATIO: data.prodTechInfo?.contrastRatio,
+    ECRANGE: data.prodTechInfo?.ecRange,
+    PRODUCTLINE: data.prodTechInfo?.productLine,
+    CUSTOMBUNDLE: data.prodTechInfo?.customBundle,
+    INTERFACE: data.prodTechInfo?.interface,
+    NETWORKCONNECTIVITY: data.prodTechInfo?.networkConnectivity,
+    NETWORKMANAGEMENTTYPE: data.prodTechInfo?.networkManagementType,
+    NETWORKTYPE: data.prodTechInfo?.networkType,
+    PROCESSORMANUFACTURER: data.prodTechInfo?.processorManufacturer,
+    NUMBEROFPROCESSORS: data.prodTechInfo?.numberOfProcessors,
+    NUMBEROFVANPORTS: data.prodTechInfo?.numberOfVanPorts,
+    PROCESSORTYPE: data.prodTechInfo?.processorType,
+    RAIDLEVEL: data.prodTechInfo?.raidLevel,
+    MEMORYTYPE: data.prodTechInfo?.memoryType,
+    DEVICECONNECTIVITY: data.prodTechInfo?.deviceConnectivity,
+    CONNECTORTYPE: data.prodTechInfo?.connectorType,
+    SUPPORTEDWIRELESSPROTOCOL: data.prodTechInfo?.supportedWirelessProtocol,
+    COMPATIBLEOPERATINGSYSTEMS: data.prodTechInfo?.compatibleOperatingSystems,
+    CALIFORNIAPROP65WARNING: data.prodTechInfo?.californiaProp65Warning,
+    WARRANTYDURATION: data.prodPricing?.warrantyDuration,
+    WARRANTYCOVERAGE: data.prodPricing?.warrantyCoverage,
+    WARRANTYDOCUMENT: data.prodPricing?.warrantyDocument,
+    POSTAGEPOLICY: data.prodDelivery?.postagePolicy,
+    PACKAGEWEIGHT: data.prodDelivery?.packageWeight,
+    PACKAGEDIMENSIONS: data.prodDelivery?.packageDimensions,
+    IRREGULARPACKAGE: data.prodDelivery?.irregularPackage,
+
+
+
+
+  };
+  const specsHtml = generateSpecsRows(specs);
+  const htmlData = `
 
 <html lang="en" dir="ltr" class="no-js">
   <head>
@@ -212,6 +341,7 @@ const ebayHtmlTemplate = (data: any) => {
                             class="thumbnails-control"
                             checked
                           />
+
                           <label
                             for="thumbnail-control-1"
                             id="thumbnail-1"
@@ -672,6 +802,312 @@ const ebayHtmlTemplate = (data: any) => {
                 <div id="tab-content-2" class="tab-content">
                   <!-- Specification Tab Content -->
                   {{ SPECIFICATION }}
+
+                  <div class="item-description-icons">
+                    <table>
+                      // <tr data-spec="{{ MODEL }}">
+
+                      //   <td>model</td>
+                      // </tr>
+                      // <tr data-spec="{{ OPERATINGSYSTEM }}">
+
+                      //   <td>operating system</td>
+                      // </tr>
+                      // <tr data-spec="{{ SSDCAPACITY }}">
+
+                      //   <td>ssd capacity</td>
+                      // </tr>
+                      // <tr data-spec="{{ STORAGETYPE }}">
+
+                      //   <td>storage type</td>
+                      // </tr>
+                      // <tr data-spec="{{ FEATURES }}">
+
+                      //   <td>features</td>
+                      // </tr>
+                      // <tr data-spec="{{ GPU }}">
+
+                      //   <td>gpu</td>
+                      // </tr>
+                      // <tr data-spec="{{ TYPE  }}">
+
+                      //   <td>type</td>
+                      // </tr>
+                      // <tr data-spec="{{ RELEASEYEAR }}">
+
+                      //   <td>release year</td>
+                      // </tr>
+                      // <tr data-spec="{{ HARDDRIVECAPACITY }}">
+
+                      //   <td>hard drive capacity</td>
+                      // </tr>
+                      // <tr data-spec="{{ COLOR }}">
+
+                      //   <td>color</td>
+                      // </tr>
+                      // <tr data-spec="{{ MAXRESOLUTION }}">
+
+                      //   <td>max resolution</td>
+                      // </tr>
+                      // <tr data-spec="{{ MOSTSUITABLEFOR }}">
+
+                      //   <td>most suitable for</td>
+                      // </tr>
+                      // <tr data-spec="{{ WIFI }}">
+
+                      //   <td>screen size</td>
+                      // </tr>
+                      // <tr data-spec="{{ GRAPHICSPROCESSINGTYPE }}">
+
+                      //   <td>graphics processing type</td>
+                      // </tr>
+                      // <tr data-spec="{{ CONNECTIVITY }}">
+
+                      //   <td>connectivity</td>
+                      // </tr>
+                      // <tr data-spec="{{ MOTHERBOARDMODEL }}">
+
+                      //   <td>motherboard model</td>
+                      // </tr>
+                      // <tr data-spec="{{ SERIES }}">
+
+                      //   <td>series</td>
+                      // </tr>
+                      // <tr data-spec="{{ OPERATINGSYSTEMEDITION }}">
+
+                      //   <td>operating system edition</td>
+                      // </tr>
+                      // <tr data-spec="{{ MEMORY }}">
+
+                      //   <td>memory</td>
+                      // </tr>
+                      // <tr data-spec="{{ MAXRAMCAPACITY }}">
+
+                      //   <td>max ram capacity  </td>
+                      // </tr>
+                      // <tr data-spec="{{ UNITTYPE }}">
+
+                      //   <td>unit type</td>
+                      // </tr>
+                      // <tr data-spec="{{ UNITQUANTITY }}">
+
+                      //   <td>unit quantity</td>
+                      // </tr>
+                      // <tr data-spec="{{ MPN }}">
+
+                      //   <td>mpn</td>
+                      // </tr>
+                      // <tr data-spec="{{ PROCESSORSPEED }}">
+
+                      //   <td>processor speed</td>
+                      // </tr>
+                      //       <tr data-spec="{{ RAMSIZE }}">
+
+                      //   <td>ram size</td>
+                      // </tr>
+                      // <tr data-spec="{{ FORMFACTOR }}">
+
+                      //   <td>form factor</td>
+                      // </tr>
+                      // <tr data-spec="{{ EAN }}">
+
+                      //   <td>ean</td>
+                      // </tr>
+                      // <tr data-spec="{{ PRODUCTTYPE }}">
+
+                      //   <td>product type</td>
+                      // </tr>
+                      // <tr data-spec="{{ MANUFACTURERWARRANTY }}">
+
+                      //   <td>manufacturer warranty</td>
+                      // </tr>
+                      // <tr data-spec="{{ REGIONOFMANUFACTURE }}">
+
+                      //   <td>region of manufacture</td>
+                      // </tr>
+                      // <tr data-spec="{{ HEIGHT }}">
+
+                      //   <td>height</td>
+                      // </tr>
+                      // <tr data-spec="{{ LENGTH }}">
+
+                      //   <td>length</td>
+                      // </tr>
+                      // <tr data-spec="{{ WIDTH }}">
+
+                      //   <td>width</td>
+                      // </tr>
+                      // <tr data-spec="{{ WEIGHT }}">
+
+                      //   <td>weight</td>
+                      // </tr>
+                      // <tr data-spec="{{ NONNEWCONDITIONDETAILS }}">
+
+                      //   <td>non new condition details</td>
+                      // </tr>
+                      // <tr data-spec="{{ PRODUCTCONDITION }}">
+
+                      //   <td>product condition</td>
+                      // </tr>
+                      // <tr data-spec="{{ NUMBEROFLANPORTS }}">
+
+                      //   <td>number of lan ports</td>
+                      // </tr>
+                      // <tr data-spec="{{ MAXIMUMWIRELESSDATA }}">
+
+                      //   <td>maximum wireless data</td>
+                      // </tr>
+                      // <tr data-spec="{{ MAXIMUMLANDATARATE }}">
+
+                      //   <td>maximum lan data rate</td>
+                      // </tr>
+                      // <tr data-spec="{{ PORTS }}">
+
+                      //   <td>ports</td>
+                      // </tr>
+                      // <tr data-spec="{{ TOFIT }}">
+
+                      //   <td>to fit</td>
+                      // </tr>
+                      // <tr data-spec="{{ DISPLAYTYPE }}">
+
+                      //   <td>display type</td>
+                      // </tr>
+                      // <tr data-spec="{{ ASPECTRATIO }}">
+
+                      //   <td>aspect ratio</td>
+                      // </tr>
+                      // <tr data-spec="{{ IMAGEBRIGHTNESS }}">
+
+                      //     <td>image brightness</td>
+                      // </tr>
+                      // <tr data-spec="{{ THROWRATIO }}">
+
+                      //   <td>throw ratio</td>
+                      // </tr>
+                      // <tr data-spec="{{ COMPATIBLEOPERATINGSYSTEM }}">
+
+                      //   <td>compatible operating system</td>
+                      // </tr>
+                      // <tr data-spec="{{ COMPATIBLEFORMAT }}">
+
+                      //   <td>compatible format</td>
+                      // </tr>
+                      // <tr data-spec="{{ LENSMAGNIFICATION }}">
+
+                      //   <td>lens magnification</td>
+                      // </tr>
+                      // <tr data-spec="{{ YEARMANUFACTURED }}">
+
+                      //   <td>year manufactured</td>
+                      // </tr>
+                      // <tr data-spec="{{ NATIVERESOLUTION }}">
+
+                      //   <td>native resolution</td>
+                      // </tr>
+                      // <tr data-spec="{{ DISPLAYTECHNOLOGY }}">
+
+                      //   <td>display technology</td>
+                      // </tr>
+                      // <tr data-spec="{{ ENERGYEFFICIENCYRATING }}">
+
+                      //   <td>energy efficiency rating</td>
+                      // </tr>
+                      // <tr data-spec="{{ VIDEOINPUTS }}">
+
+                      //   <td>video inputs</td>
+                      // </tr>
+                      // <tr data-spec="{{ REFRESHRATE }}">
+
+                      //   <td>refresh rate</td>
+                      // </tr>
+                      // <tr data-spec="{{ RESPONSETIME }}">
+
+                      //   <td>response time</td>
+                      // </tr>
+                      // <tr data-spec="{{ BRIGHTNESS }}">
+
+                      //   <td>brightness</td>
+                      // </tr>
+                      // <tr data-spec="{{ CONTRASTRATIO }}">
+
+                      //   <td>contrast ratio</td>
+                      // </tr>
+                      // <tr data-spec="{{ ECRANGE }}">
+
+                      //   <td>ec range</td>
+                      // </tr>
+                      // <tr data-spec="{{ PRODUCTLINE }}">
+
+                      //   <td>product line</td>
+                      // </tr>
+                      // <tr data-spec="{{ CUSTOMBUNDLE }}">
+
+                      //   <td>custom bundle</td>
+                      // </tr>
+                      // <tr data-spec="{{ INTERFACE }}"></tr>
+
+                      //   <td>interface</td>
+                      // </tr>
+                      // <tr data-spec="{{ NETWORKCONNECTIVITY }}">
+
+                      //   <td>network connectivity</td>
+                      //   </tr>
+                      // <tr data-spec="{{ NETWORKMANAGEMENTTYPE }}">
+
+                      //   <td>network management type</td>
+                      // </tr>
+                      // <tr data-spec="{{ NETWORKTYPE }}">
+
+                      //   <td>network type</td>
+                      // </tr>
+                      // <tr data-spec="{{ PROCESSORMANUFACTURER }}">
+
+                      //   <td>processor manufacturer</td>
+                      // </tr>
+                      // <tr data-spec="{{ NUMBEROFPROCESSORS }}">
+
+                      //   <td>number of processors</td>
+                      // </tr>
+                      // <tr data-spec="{{ NUMBEROFVANPORTS }}">
+
+                      //   <td>number of van ports</td>
+                      // </tr>
+                      // <tr data-spec="{{ PROCESSORTYPE }}">
+
+                      //   <td>processor type</td>
+                      // </tr>
+                      // <tr data-spec="{{ RAIDLEVEL }}">
+
+                      //   <td>raid level</td>
+                      // </tr>
+                      // <tr data-spec="{{ MEMORYTYPE }}"></tr>
+
+                      //   <td>memory type</td>
+                      // </tr>
+                      // <tr data-spec="{{ DEVICECONNECTIVITY }}">
+
+                      //   <td>device connectivity</td>
+                      // </tr>
+                      // <tr data-spec="{{ CONNECTORTYPE }}">
+
+                      //   <td>connector type</td>
+                      // </tr>
+                      // <tr data-spec="{{ SUPPORTEDWIRELESSPROTOCOL }}">
+
+                      //   <td>supported wireless protocol</td>
+                      // </tr>
+                      // <tr data-spec="{{ CALIFORNIAPROP65WARNING }}">
+
+                      //   <td>california prop 65 warning</td>
+                      // </tr>
+                      // <tr data-spec="{{ YEARMANUFACTURED }}">
+
+                      //   <td>year manufactured</td>
+                      // </tr>
+                      ${specsHtml}
+                      </table>
+                  </div>
                 </div>
 
                 <label for="tab-control-3" class="mobile-label">Warranty</label>
@@ -683,26 +1119,20 @@ const ebayHtmlTemplate = (data: any) => {
                     href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/warranty.css"
                   />
                   <div class="warranty">
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
+                  <table>
+                      <tr data-spec="{{ WARRANTYDURATION }}">
+
+                        <td>warranty duration</td>
+                      </tr>
+                      <tr data-spec="{{ WARRANTYCOVERAGE }}">
+
+                        <td>warranty coverage</td>
+                      </tr>
+                      <tr data-spec="{{ WARRANTYDOCUMENT }}">
+
+                        <td>warranty document</td>
+                      </tr>
+                  </table>
                   </div>
                 </div>
 
@@ -715,26 +1145,24 @@ const ebayHtmlTemplate = (data: any) => {
                     href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/delivery.css"
                   />
                   <div class="delivery">
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
+                  <table>
+                      <tr data-spec="{{ POSTAGEPOLICY }}">
+
+                        <td>postage policy</td>
+                      </tr>
+                      <tr data-spec="{{ PACKAGEWEIGHT }}">
+
+                          <td>package weight</td>
+                      </tr>
+                      <tr data-spec="{{ PACKAGEDIMENSIONS }}">
+
+                        <td>package dimensions</td>
+                      </tr>
+                      <tr data-spec="{{ IRREGULARPACKAGE }}">
+
+                        <td>irregular package</td>
+                      </tr>
+                   </table>
                   </div>
                 </div>
 
@@ -1479,8 +1907,8 @@ const ebayHtmlTemplate = (data: any) => {
 </html>
   `;
 
-
   const templateData = {
+
     ITEMTITLE: data.title,
     IMAGE01: data.imageUrls[0],
     IMAGE02: data.imageUrls[1],
@@ -1492,14 +1920,116 @@ const ebayHtmlTemplate = (data: any) => {
     IMAGE08: data.imageUrls[7],
     ITEMDESCRIPTION: data.description,
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
-    STOREFRONTPRICE: data.prodPricing?.retailPrice,
+    STOREFRONTPRICE: data?.prodPricing?.retailPrice ?? data?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0,
     CPU: data.prodTechInfo?.cpu,
     GPU: data.prodTechInfo?.gpu,
     RAM: data.prodTechInfo?.ram,
     STORAGE: data.prodTechInfo?.storage,
     POWER: data.prodTechInfo?.power,
 
+
+    PROCESSOR: data.prodTechInfo?.processor,
+    MODEL: data.prodTechInfo?.model,
+    OPERATINGSYSTEM: data.prodTechInfo?.operatingSystem,
+    STORAGETYPE: data.prodTechInfo?.storageType,
+    FEATURES: data.prodTechInfo?.features,
+    SSDCAPACITY: data.prodTechInfo?.ssdCapacity,
+    TYPE: data.prodTechInfo?.type,
+    RELEASEYEAR: data.prodTechInfo?.releaseYear,
+
+
+
+    HARDDRIVECAPACITY: data.prodTechInfo?.hardDriveCapacity,
+    COLOR: data.prodTechInfo?.color,
+    MAXRESOLUTION: data.prodTechInfo?.maxResolution,
+    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor,
+    SCREENSIZE: data.prodTechInfo?.screenSize,
+    GRAPHICSPROCESSINGTYPE: data.prodTechInfo?.graphicsProcessingType,
+    CONNECTIVITY: data.prodTechInfo?.connectivity,
+    MOTHERBOARDMODEL: data.prodTechInfo?.motherboardModel,
+    SERIES: data.prodTechInfo?.series,
+    OPERATINGSYSTEMEDITION: data.prodTechInfo?.operatingSystemEdition,
+    MEMORY: data.prodTechInfo?.memory,
+    MAXRAMCAPACITY: data.prodTechInfo?.maxRamCapacity,
+    UNITTYPE: data.prodTechInfo?.unitType,
+    UNITQUANTITY: data.prodTechInfo?.unitQuantity,
+    MPN: data.prodTechInfo?.mpn,
+    PROCESSORSPEED: data.prodTechInfo?.processorSpeed,
+    RAMSIZE: data.prodTechInfo?.ramSize,
+    FORMFACTOR: data.prodTechInfo?.formFactor,
+    EAN: data.prodTechInfo?.ean,
+    PRODUCTTYPE: data.prodTechInfo?.productType,
+    MANUFACTURERWARRANTY: data.prodTechInfo?.manufacturerWarranty,
+    REGIONOFMANUFACTURE: data.prodTechInfo?.regionOfManufacture,
+    HEIGHT: data.prodTechInfo?.height,
+    LENGTH: data.prodTechInfo?.length,
+    WIDTH: data.prodTechInfo?.width,
+    WEIGHT: data.prodTechInfo?.weight,
+    NONNEWCONDITIONDETAILS: data.prodTechInfo?.nonNewConditionDetails,
+    PRODUCTCONDITION: data.prodTechInfo?.productCondition,
+    NUMBEROFLANPORTS: data.prodTechInfo?.numberOfLanPorts,
+    MAXIMUMWIRELESSDATA: data.prodTechInfo?.maximumWirelessData,
+    MAXIMUMLANDATARATE: data.prodTechInfo?.maximumLanDataRate,
+    PORTS: data.prodTechInfo?.ports,
+    TOFIT: data.prodTechInfo?.toFit,
+    DISPLAYTYPE: data.prodTechInfo?.displayType,
+    ASPECTRATIO: data.prodTechInfo?.aspectRatio,
+    IMAGEBRIGHTNESS: data.prodTechInfo?.imageBrightness,
+    THROWRATIO: data.prodTechInfo?.throwRatio,
+    COMPATIBLEOPERATINGSYSTEM: data.prodTechInfo?.compatibleOperatingSystem,
+    COMPATIBLEFORMAT: data.prodTechInfo?.compatibleFormat,
+    LENSMAGNIFICATION: data.prodTechInfo?.lensMagnification,
+    YEARMANUFACTURED: data.prodTechInfo?.yearManufactured,
+    NATIVERESOLUTION: data.prodTechInfo?.nativeResolution,
+    DISPLAYTECHNOLOGY: data.prodTechInfo?.displayTechnology,
+    ENERGYEFFICIENCYRATING: data.prodTechInfo?.energyEfficiencyRating,
+    VIDEOINPUTS: data.prodTechInfo?.videoInputs,
+    REFRESHRATE: data.prodTechInfo?.refreshRate,
+    RESPONSETIME: data.prodTechInfo?.responseTime,
+    BRIGHTNESS: data.prodTechInfo?.brightness,
+    CONTRASTRATIO: data.prodTechInfo?.contrastRatio,
+    ECRANGE: data.prodTechInfo?.ecRange,
+    PRODUCTLINE: data.prodTechInfo?.productLine,
+    CUSTOMBUNDLE: data.prodTechInfo?.customBundle,
+    INTERFACE: data.prodTechInfo?.interface,
+    NETWORKCONNECTIVITY: data.prodTechInfo?.networkConnectivity,
+    NETWORKMANAGEMENTTYPE: data.prodTechInfo?.networkManagementType,
+    NETWORKTYPE: data.prodTechInfo?.networkType,
+    PROCESSORMANUFACTURER: data.prodTechInfo?.processorManufacturer,
+    NUMBEROFPROCESSORS: data.prodTechInfo?.numberOfProcessors,
+    NUMBEROFVANPORTS: data.prodTechInfo?.numberOfVanPorts,
+    PROCESSORTYPE: data.prodTechInfo?.processorType,
+    RAIDLEVEL: data.prodTechInfo?.raidLevel,
+    MEMORYTYPE: data.prodTechInfo?.memoryType,
+    DEVICECONNECTIVITY: data.prodTechInfo?.deviceConnectivity,
+    CONNECTORTYPE: data.prodTechInfo?.connectorType,
+    SUPPORTEDWIRELESSPROTOCOL: data.prodTechInfo?.supportedWirelessProtocol,
+    COMPATIBLEOPERATINGSYSTEMS: data.prodTechInfo?.compatibleOperatingSystems,
+    CALIFORNIAPROP65WARNING: data.prodTechInfo?.californiaProp65Warning,
+    WARRANTYDURATION: data.prodPricing?.warrantyDuration,
+    WARRANTYCOVERAGE: data.prodPricing?.warrantyCoverage,
+    WARRANTYDOCUMENT: data.prodPricing?.warrantyDocument,
+    POSTAGEPOLICY: data.prodDelivery?.postagePolicy,
+    PACKAGEWEIGHT: data.prodDelivery?.packageWeight,
+    PACKAGEDIMENSIONS: data.prodDelivery?.packageDimensions,
+    IRREGULARPACKAGE: data.prodDelivery?.irregularPackage,
+
+
+
+
   };
+
+  // Replace placeholders in the HTML template with actual data
+  let populatedHtml = htmlData;
+
+  // Loop over the template data and replace the placeholders
+  for (const [key, value] of Object.entries(templateData)) {
+    const placeholder = `{{ ${key} }}`;
+    populatedHtml = populatedHtml.replace(new RegExp(placeholder, "g"), value);
+  }
+
+  // Return the populated HTML
+  return populatedHtml;
 };
 
 export default ebayHtmlTemplate;

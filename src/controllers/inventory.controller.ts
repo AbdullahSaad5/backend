@@ -133,14 +133,6 @@ export const inventoryController = {
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      // const platform = req.query.platform as "amazon" | "ebay" | "website";
-
-      // if (!platform) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Platform query parameter is required",
-      //   });
-      // }
 
       const inventory = await inventoryService.getInventoryById(id);
 
@@ -163,6 +155,39 @@ export const inventoryController = {
       });
     }
   },
+  getInventoryTemplateById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch the original inventory based on the provided ID
+      const inventory = await inventoryService.getInventoryById(id);
+
+      if (!inventory) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Inventory not found",
+        });
+      }
+
+      // Create a new inventory item with the same data
+      const newInventory = { ...inventory.toObject(), _id: undefined }; // Remove the _id to create a new one
+      const createdInventory = await Inventory.create(newInventory);
+
+      // Return the new inventory item and its ID
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        inventory: createdInventory,
+        // newInventoryId: createdInventory._id, // Return the new inventory ID
+      });
+    } catch (error: any) {
+      console.error("Error fetching and creating new inventory from template:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching and creating new inventory",
+      });
+    }
+  },
+
   transformAndSendInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

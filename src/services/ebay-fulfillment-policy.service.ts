@@ -5,17 +5,12 @@ const baseURL = "https://api.ebay.com"; // Ensure this is correct for the eBay e
 export const ebayFulfillmentPolicyService = {
   createEbayFulfillmentPolicy: async (data: any) => {
     try {
-      console.log(
-        "📩 Received Fulfillment Policy Data:",
-        JSON.stringify(data, null, 2)
-      );
+      console.log("📩 Received Fulfillment Policy Data:", JSON.stringify(data, null, 2));
 
-      if (!data.marketplaceId)
-        throw new Error("❌ Missing required field: marketplaceId");
+      if (!data.marketplaceId) throw new Error("❌ Missing required field: marketplaceId");
 
       const accessToken = await getStoredEbayAccessToken();
-      if (!accessToken)
-        throw new Error("❌ Missing or invalid eBay access token");
+      if (!accessToken) throw new Error("❌ Missing or invalid eBay access token");
 
       // ✅ Validate shipping data before making the request
       validateShippingServices(data.shippingOptions);
@@ -24,8 +19,7 @@ export const ebayFulfillmentPolicyService = {
         name: data.name,
         description: data.description || "",
         marketplaceId: data.marketplaceId,
-        categoryTypes:
-          data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
+        categoryTypes: data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
         immediatePay: data.immediatePay ?? false,
         fulfillmentMethods: data.fulfillmentMethods || [],
         pickupDropOff: data.pickupDropOff ?? false,
@@ -60,41 +54,30 @@ export const ebayFulfillmentPolicyService = {
                 : undefined,
               shipToLocations: service.shipToLocations,
               sortOrder: service.sortOrder ?? 1,
-              buyerResponsibleForShipping:
-                service.buyerResponsibleForShipping ?? false,
-              buyerResponsibleForPickup:
-                service.buyerResponsibleForPickup ?? false,
+              buyerResponsibleForShipping: service.buyerResponsibleForShipping ?? false,
+              buyerResponsibleForPickup: service.buyerResponsibleForPickup ?? false,
             })),
           })) || [],
         shipToLocations: data.shipToLocations || {},
       };
 
-      console.log(
-        "🚀 Sending Request to eBay API:",
-        JSON.stringify(requestBody, null, 2)
-      );
+      console.log("🚀 Sending Request to eBay API:", JSON.stringify(requestBody, null, 2));
 
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/fulfillment_policy`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
+      const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       const result = await response.json();
 
       // ✅ Handle HTTP status codes
       if (response.status === 201) {
-        console.log(
-          "✅ Fulfillment Policy Created Successfully:",
-          JSON.stringify(result, null, 2)
-        );
+        console.log("✅ Fulfillment Policy Created Successfully:", JSON.stringify(result, null, 2));
         return { success: true, fulfillmentPolicy: result };
       }
 
@@ -128,10 +111,7 @@ export const ebayFulfillmentPolicyService = {
         errors: errorDetails || [{ message: "Unknown eBay API error" }],
       };
     } catch (error: any) {
-      console.error(
-        "❌ Error creating eBay fulfillment policy:",
-        error.message
-      );
+      console.error("❌ Error creating eBay fulfillment policy:", error.message);
 
       return {
         success: false,
@@ -143,36 +123,45 @@ export const ebayFulfillmentPolicyService = {
   async getAllFulfillmentPolicies(_req: unknown, res: unknown) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_GB`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy?marketplace_id=EBAY_GB`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
       return await response.json();
     } catch (error) {
       console.error("Error fetching eBay fulfillment policies:", error);
       throw new Error("eBay API call failed");
     }
   },
-
+  async getFulfillmentPolicyById(id: any) {
+    try {
+      const accessToken = await getStoredEbayAccessToken();
+      const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy/${id}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching eBay fulfillment policy by ID:", error);
+      throw new Error("eBay API call failed");
+    }
+  },
   async deleteFulfillmentPolicy(policyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
       return response.ok;
     } catch (error) {
       console.error("Error deleting eBay fulfillment policy:", error);
@@ -180,20 +169,17 @@ export const ebayFulfillmentPolicyService = {
     }
   },
   //to get rateTables
-  async getRateTables(marketplaceId: string = "EBAY_GB") {
+  async getRateTables(marketplaceId: string = "EBAY_US") {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/rate_table?marketplace_id=${marketplaceId}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${baseURL}/sell/account/v1/rate_table?marketplace_id=${marketplaceId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      });
 
       const data = await response.json();
 
@@ -203,9 +189,7 @@ export const ebayFulfillmentPolicyService = {
       }
 
       // ✅ Filter only UK (GB) rate tables
-      const gbRateTables = data.rateTables.filter(
-        (table: { countryCode: string }) => table.countryCode === "GB"
-      );
+      const gbRateTables = data.rateTables.filter((table: { countryCode: string }) => table.countryCode === "US");
 
       if (!gbRateTables.length) {
         console.warn("⚠️ No UK rate tables found, returning empty list.");
@@ -232,10 +216,8 @@ export const ebayFulfillmentPolicyService = {
           rateTableId: option.rateTableId ?? "", // Use empty string instead of removing
           shippingServices: option.shippingServices.map((service: any) => ({
             ...service,
-            buyerResponsibleForShipping:
-              service.buyerResponsibleForShipping ?? false,
-            buyerResponsibleForPickup:
-              service.buyerResponsibleForPickup ?? false,
+            buyerResponsibleForShipping: service.buyerResponsibleForShipping ?? false,
+            buyerResponsibleForPickup: service.buyerResponsibleForPickup ?? false,
             surcharge: service.surcharge || { currency: "GBP", value: "0.00" },
             additionalShippingCost: service.additionalShippingCost || {
               currency: "GBP",
@@ -245,18 +227,15 @@ export const ebayFulfillmentPolicyService = {
         })),
       };
 
-      const response = await fetch(
-        `${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`,
-        {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedData),
-        }
-      );
+      const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedData),
+      });
 
       return await response.json();
     } catch (error) {
@@ -267,23 +246,17 @@ export const ebayFulfillmentPolicyService = {
 };
 function validateShippingServices(shippingOptions: any[]) {
   if (!shippingOptions || shippingOptions.length === 0) {
-    throw new Error(
-      "❌ Shipping options are missing. At least one is required."
-    );
+    throw new Error("❌ Shipping options are missing. At least one is required.");
   }
 
   shippingOptions.forEach((option, index) => {
     if (!option.shippingServices || option.shippingServices.length === 0) {
-      throw new Error(
-        `❌ Shipping option ${index + 1} is missing shippingServices.`
-      );
+      throw new Error(`❌ Shipping option ${index + 1} is missing shippingServices.`);
     }
 
     option.shippingServices.forEach((service: any, svcIndex: number) => {
       if (!service.shippingServiceCode) {
-        throw new Error(
-          `❌ Shipping service at index ${svcIndex + 1} is missing 'shippingServiceCode'.`
-        );
+        throw new Error(`❌ Shipping service at index ${svcIndex + 1} is missing 'shippingServiceCode'.`);
       }
     });
   });
