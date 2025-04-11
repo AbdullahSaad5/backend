@@ -52,25 +52,29 @@ export const ebayReturnPolicyService = {
 
       const result = await response.json();
 
-      // ✅ Handle API errors
       if (!response.ok) {
-        if (result.errors?.[0]?.errorId === 20400) {
-          console.warn(
-            "⚠️ Duplicate Return Policy Found, Using Existing Policy ID:",
-            result.errors?.[0]?.parameters?.[0]?.value
-          );
-          return {
-            message: "Using existing return policy",
-            policyId: result.errors?.[0]?.parameters?.[0]?.value,
-          };
-        }
-
-        console.error("⚠️ eBay API Error:", {
+        console.error("⚠️ eBay API Error Response:", {
           status: response.status,
           statusText: response.statusText,
-          errors: result.errors,
+          errors: result.errors?.map((e: any) => ({
+            errorId: e.errorId,
+            domain: e.domain,
+            category: e.category,
+            message: e.message,
+            input: e.parameters?.map((p: any) => `${p.name}: ${p.value}`) || [],
+          })),
         });
-        throw new Error(result.errors?.[0]?.message || "eBay API call failed");
+
+        return {
+          error: true,
+          status: response.status,
+          statusText: response.statusText,
+          errors: result.errors?.map((e: any) => ({
+            errorId: e.errorId,
+            message: e.message,
+            input: e.parameters?.map((p: any) => `${p.name}: ${p.value}`) || [],
+          })),
+        };
       }
 
       console.log("✅ Return Policy Created Successfully:", result);
@@ -78,9 +82,9 @@ export const ebayReturnPolicyService = {
     } catch (error: any) {
       console.error("❌ Error creating eBay return policy:", {
         message: error.message,
-        stack: error.stack,
         name: error.name,
-        error,
+        stack: error.stack,
+        raw: error,
       });
       throw new Error(error.message);
     }

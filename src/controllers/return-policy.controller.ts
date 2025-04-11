@@ -9,10 +9,10 @@ export const returnPolicyController = {
 
       const ebayResponse = await ebayReturnPolicyService.createReturnPolicy(req.body);
 
-      if (!ebayResponse || !ebayResponse.policyId) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to create return policy on eBay.",
-          ebayResponse,
+      if (ebayResponse.error) {
+        return res.status(ebayResponse.status || 400).json({
+          message: "eBay returned an error",
+          errors: ebayResponse.errors || [],
         });
       }
 
@@ -21,7 +21,12 @@ export const returnPolicyController = {
         ebayResponse,
       });
     } catch (error: any) {
-      console.error("❌ Create Return Policy Error:", error);
+      console.error("❌ Create Return Policy Error:", {
+        message: error.message,
+        errorStack: error.stack,
+        bodySent: req.body,
+      });
+
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         message: "Error creating return policy on eBay",
         error: error.message,
