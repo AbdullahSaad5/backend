@@ -41,8 +41,8 @@ export const paymentPolicyController = {
   },
   getSpecificPolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
-      const ebayPolicy = await ebayPaymentPolicyService.getById(paymentPolicyId);
+      const { id } = req.params;
+      const ebayPolicy = await ebayPaymentPolicyService.getById(id);
 
       if (!ebayPolicy || (ebayPolicy as any).errors) {
         return res.status(404).json({ message: "Policy not found on eBay" });
@@ -56,11 +56,11 @@ export const paymentPolicyController = {
   },
   editPolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
+      const { id } = req.params;
 
-      console.log("📩 Received request to edit eBay payment policy", paymentPolicyId, JSON.stringify(req.body, null, 2));
+      console.log("📩 Received request to edit eBay payment policy", id, JSON.stringify(req.body, null, 2));
 
-      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(paymentPolicyId, req.body);
+      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(id, req.body);
 
       if (!ebayResponse || (ebayResponse as any).errors) {
         console.error("❌ eBay failed to update payment policy.", ebayResponse);
@@ -84,11 +84,11 @@ export const paymentPolicyController = {
   },
   deletePolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
+      const { id } = req.params;
 
-      console.log("📩 Received request to delete eBay payment policy", paymentPolicyId);
+      console.log("📩 Received request to delete eBay payment policy", id);
 
-      const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(paymentPolicyId);
+      const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(id);
 
       if (!ebayResponse || (ebayResponse as any).errors) {
         console.error("❌ eBay failed to delete payment policy.", ebayResponse);
@@ -109,5 +109,5 @@ export const paymentPolicyController = {
       });
     }
   },
-  
+
 };
