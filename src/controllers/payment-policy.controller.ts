@@ -29,7 +29,6 @@ export const paymentPolicyController = {
       });
     }
   },
-
   getAllPaymentPolicies: async (req: Request, res: Response) => {
     try {
       const ebayPolicies = await ebayPaymentPolicyService.getAllPaymentPolicies(req, res);
