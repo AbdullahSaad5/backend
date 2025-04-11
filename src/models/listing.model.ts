@@ -25,7 +25,7 @@ const prodInfoSchema = {
   title: { type: String, required: true },
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
   description: { type: String },
-  brand: { type: String, required: true },
+  brand: { type: [String], required: true },
   displayUnits: { type: Number, required: true },
 };
 
@@ -36,7 +36,6 @@ const prodMediaSchema = {
 
 const prodPricingSchema = {
   // prod pricing details
-  listingQuantity: { type: Number, required: true },
   discountType: { type: String, enum: ["fixed", "percentage"] },
   discountValue: { type: Number },
   condition: { type: String },
@@ -46,15 +45,35 @@ const prodPricingSchema = {
   buy2andSave: { type: String },
   buy3andSave: { type: String },
   buy4andSave: { type: String },
-
-  // paymentPolicy: {
-  //   type: Schema.Types.ObjectId,
-  //   ref: "PaymentPolicy",
-  //   default: null,
-  //   set: (value: any) => (value === "" ? null : value), // Convert empty string to null
-  // },
   paymentPolicy: { type: String },
-  retailPrice: { type: Number, default: 0 },
+  selectedVariations: [
+    {
+      _id: false,
+      variationId: {
+        type: Schema.Types.ObjectId,
+        ref: "Variation",
+        required: function (): boolean {
+          return (this as any).isVariation;
+        },
+      },
+      retailPrice: { type: Number, required: true, default: 0 },
+      listingQuantity: { type: Number, required: true, default: 0 },
+    },
+  ],
+  retailPrice: {
+    type: Number,
+    required: function () {
+      return !(this as any).isVariation;
+    },
+    min: 0,
+  },
+  listingQuantity: {
+    type: Number,
+    required: function () {
+      return !(this as any).isVariation;
+    },
+    min: 0,
+  },
   warrantyDuration: { type: String }, // Duration in days
   warrantyCoverage: { type: String }, // Coverage description
   warrantyDocument: {
@@ -88,12 +107,12 @@ const prodSeoSchema = {
 
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
-  model: { type: String },
+  model: { type: [String] },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -122,7 +141,7 @@ export const laptopTechnicalSchema = {
 
 const allInOnePCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -137,7 +156,7 @@ const allInOnePCTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -160,9 +179,9 @@ const allInOnePCTechnicalSchema = {
 };
 
 const projectorTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -198,8 +217,8 @@ const projectorTechnicalSchema = {
 };
 
 const monitorTechnicalSchema = {
-  model: { type: String },
-  features: { type: String },
+  model: { type: [String] },
+  features: { type: [String] },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -227,7 +246,7 @@ const monitorTechnicalSchema = {
 
 const gamingPCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -242,7 +261,7 @@ const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   releaseYear: { type: String },
@@ -292,7 +311,7 @@ const gamingPCTechnicalSchema = {
 };
 
 const networkEquipmentsTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
   unitType: { type: String },
@@ -337,6 +356,7 @@ const listingSchema = new Schema(
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: true },
     ebayItemId: { type: String },
+    offerId: { type: String },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
@@ -349,6 +369,28 @@ const listingSchema = new Schema(
   },
   options
 );
+
+// ✅ Virtual property to check if Inventory has variations
+listingSchema.virtual("isVariation").get(async function () {
+  const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
+  return inventory ? inventory.isVariation : false;
+});
+// listingSchema.pre('save', async function (next) {
+//   const inventory = await mongoose.model('Inventory').findById(this.inventoryId);
+//   if (inventory && inventory.isVariation) {
+//     // Set variationId and retailPrice as required when isVariation is true
+//     this.selectedVariations.forEach(variation => {
+//       variation.variationId = variation.variationId || null;  // ensure no empty variationId
+//       variation.retailPrice = variation.retailPrice || 0;  // set default value if necessary
+//     });
+//   } else {
+//     // if not a variation, ensure retailPrice is set correctly
+//     if (!this.retailPrice) {
+//       return next(new Error('retailPrice is required if no variations'));
+//     }
+//   }
+//   next();
+// });
 
 // Base Listing Model
 const Listing = model<IListing>("Listing", listingSchema);

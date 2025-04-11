@@ -12,6 +12,8 @@ import {
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 
+// space
+
 // Define a type for the tech schemas
 type TechSchemas = {
   laptops: typeof laptopTechnicalSchema;
@@ -58,7 +60,7 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-
+      const multiBrand = stepData.multiBrand === true || stepData.multiBrand === "true"; // Ensure it's a boolean
       const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
 
@@ -95,6 +97,7 @@ export const inventoryService = {
         productInfo,
         // isTemplate,
         // isVariation,
+        multiBrand,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
@@ -175,6 +178,7 @@ export const inventoryService = {
         "stockThreshold",
         "isTemplate",
         "isVariation",
+        "multiBrand",
         "status",
       ];
       topLevelFields.forEach((field) => {

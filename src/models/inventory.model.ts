@@ -30,7 +30,7 @@ export const prodInfoSchema = {
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },
-  brand: { type: String, required: true },
+  brand: { type:[ String], required: true },
 };
 
 // export const prodMediaSchema = {
@@ -95,15 +95,15 @@ export const prodInfoSchema = {
 //     type: [String],
 //   },
 // };
-// mock
+
 export const laptopTechnicalSchema = {
   processor: { type: [String], required: true },
-  model: { type: String },
+  model: { type: [String] },
   // inventoryCondition: { type: String },
   // nonNewConditionDetails: { type: String },
   operatingSystem: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: String },
   unitType: { type: String },
@@ -132,7 +132,7 @@ export const laptopTechnicalSchema = {
 
 export const allInOnePCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -148,7 +148,7 @@ export const allInOnePCTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -170,9 +170,40 @@ export const allInOnePCTechnicalSchema = {
   // weight: { type: String },
 };
 
+export const cpusProcessorsTechnicalSchema = {
+  processorModel: { type: String, required: true },
+  processorType: { type: String },
+  numberOfCores: { type: String },
+  socketType: { type: String },
+  clockSpeed: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+};
+
+export const serverCpusProcessorsTechnicalSchema = {
+  processorType: { type: String },
+  clockSpeed: { type: String },
+  mpn: { type: String },
+  connectors: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  numberOfCores: { type: String },
+  productLine: { type: String },
+  CompatibleBrand: { type: String },
+  regionOfManufacture: { type: String },
+  l2Cache: { type: String },
+  l3Cache: { type: String },
+  socketType: { type: String },
+  itemHeight: { type: String },
+  itemLength: { type: String },
+  itemWidth: { type: String },
+  manufacturerWarranty: { type: String },
+};
+
 export const partsTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   memory: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
@@ -188,7 +219,7 @@ export const partsTechnicalSchema = {
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
   type: { type: String },
@@ -211,9 +242,9 @@ export const partsTechnicalSchema = {
 };
 
 export const projectorTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   type: { type: String },
-  features: { type: String },
+  features: { type: [String] },
   connectivity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -249,8 +280,8 @@ export const projectorTechnicalSchema = {
 };
 
 export const monitorTechnicalSchema = {
-  model: { type: String },
-  features: { type: String },
+  model: { type: [String] },
+  features: { type: [String] },
   color: { type: [String] },
   displayType: { type: String },
   maxResolution: { type: String },
@@ -278,7 +309,7 @@ export const monitorTechnicalSchema = {
 
 export const gamingPCTechnicalSchema = {
   processor: { type: [String] },
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -293,7 +324,7 @@ export const gamingPCTechnicalSchema = {
   operatingSystem: { type: String },
   customBundle: { type: String },
   storageType: { type: [String] },
-  features: { type: String },
+  features: { type: [String] },
 
   ssdCapacity: { type: [String] },
   gpu: { type: [String] },
@@ -344,7 +375,7 @@ export const gamingPCTechnicalSchema = {
 };
 
 export const networkEquipmentsTechnicalSchema = {
-  model: { type: String },
+  model: { type: [String] },
   maxRamCapacity: { type: String },
   unitQuantity: { type: String },
   unitType: { type: String },
@@ -385,6 +416,7 @@ const inventorySchema = new Schema(
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isVariation: { type: Boolean, default: false },
+    multiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
@@ -427,7 +459,37 @@ Inventory.discriminator(
     options
   )
 );
+// discriminator for cpus/processors
+Inventory.discriminator(
+  "inventory_cpus/processors",
+  new mongoose.Schema(
+    {
+      prodTechInfo: cpusProcessorsTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
 
+// discriminator for server_cpus/processors
+Inventory.discriminator(
+  "inventory_server_cpus/processors",
+  new mongoose.Schema(
+    {
+      prodTechInfo: serverCpusProcessorsTechnicalSchema,
+      // prodPricing: prodPricingSchema,
+      // prodDelivery: prodDeliverySchema,
+      // prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      // prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
 // discriminator for projectors
 Inventory.discriminator(
   "inventory_projectors",
@@ -460,7 +522,7 @@ Inventory.discriminator(
   )
 );
 
-// discriminator for Monitors
+// discriminator for part
 Inventory.discriminator(
   "part",
   new mongoose.Schema(

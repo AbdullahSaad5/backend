@@ -45,8 +45,10 @@ export const stockService = {
       return await Stock.find({
         inventoryId,
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
-      }).populate("inventoryId")
-      .populate("selectedVariations.variationId");
+      })
+        .populate("inventoryId")
+        .populate("selectedVariations.variationId")
+        .populate("receivedBy");
     } catch (error: any) {
       throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
     }
@@ -82,8 +84,9 @@ export const stockService = {
       runValidators: true, // Ensure validations are applied
     });
   },
+  //get stock by stockId
   async getStockById(stockId: string) {
-    return await Stock.findById(stockId);
+    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy");
   },
   // 📌 Get Existing Stock Records
   async getExistingStocks(stockIds: string[]) {
@@ -114,15 +117,78 @@ export const stockService = {
     return await Inventory.aggregate([
       {
         $lookup: {
-          from: "stocks", // The collection name in MongoDB (ensure it's correct)
+          from: "stocks",
           localField: "_id",
           foreignField: "inventoryId",
           as: "stocks",
         },
       },
+      { $unwind: "$stocks" },
+
+      // ✅ Lookup and populate `receivedBy` (excluding password)
       {
-        $match: { stocks: { $ne: [] } }, // Ensure we only get inventory with stock
+        $lookup: {
+          from: "users",
+          localField: "stocks.receivedBy",
+          foreignField: "_id",
+          as: "stocks.receivedBy",
+          pipeline: [{ $project: { password: 0 } }],
+        },
       },
+      { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
+
+      // ✅ Lookup and populate `variationId` inside `selectedVariations`
+      {
+        $lookup: {
+          from: "variations", // Ensure this is the correct collection name
+          localField: "stocks.selectedVariations.variationId",
+          foreignField: "_id",
+          as: "variationDetails",
+        },
+      },
+
+      // ✅ Merge populated variations back into `selectedVariations`
+      {
+        $addFields: {
+          "stocks.selectedVariations": {
+            $map: {
+              input: "$stocks.selectedVariations",
+              as: "variation",
+              in: {
+                variationId: "$$variation.variationId",
+                costPricePerUnit: "$$variation.costPricePerUnit",
+                purchasePricePerUnit: "$$variation.purchasePricePerUnit",
+                totalUnits: "$$variation.totalUnits",
+                usableUnits: "$$variation.usableUnits",
+                variationDetails: {
+                  $arrayElemAt: [
+                    "$variationDetails",
+                    { $indexOfArray: ["$variationDetails._id", "$$variation.variationId"] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // ✅ Remove unnecessary fields
+      { $unset: "variationDetails" },
+
+      // ✅ Ensure `receivedBy` is populated and filter only valid stocks
+      { $match: { "stocks.receivedBy": { $ne: null } } },
+
+      // ✅ Regroup stocks after unwind and move `isVariation` & `status` outside `inventory`
+      {
+        $group: {
+          _id: "$_id",
+          isVariation: { $first: "$isVariation" }, // ✅ Extracting `isVariation`
+          status: { $first: "$status" }, // ✅ Extracting `status`
+          inventory: { $first: "$$ROOT" }, // ✅ Keeping full inventory details
+          stocks: { $push: "$stocks" }, // ✅ Keeping stocks properly grouped
+        },
+      },
+      { $replaceRoot: { newRoot: { $mergeObjects: ["$inventory", { stocks: "$stocks" }] } } },
     ]);
   },
 };

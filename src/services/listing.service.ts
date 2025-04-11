@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 import fs from "fs";
 import { validateCsvData } from "@/utils/bulkImport.util";
 export const listingService = {
-  
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
     try {
@@ -12,7 +11,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data : " , stepData)
+      // console.log("step Data : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -38,6 +37,10 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        publishToEbay: stepData.publishToEbay || false,
+        publishToAmazon: stepData.publishToAmazon || false,
+        publishToWebsite: stepData.publishToWebsite || false,
+        selectedStockId: stepData.selectedStockId || "",
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
@@ -71,10 +74,11 @@ export const listingService = {
       throw new Error(error.message || "Failed to create draft listing");
     }
   },
+
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { listingId, stepData });
+      console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -90,9 +94,18 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      // Update Status & Template Check
+      // console.log("draft listing is here : " , draftListing)
+
+      // Update Status
       if (stepData.status !== undefined) {
+        console.log("draft if work")
         draftListing.status = stepData.status;
+        // draftListing.isTemplate = stepData.isTemplate || false;
+      }
+      // Update Template Check
+      if (stepData.isTemplate) {
+        console.log("template if work")
+        // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
       }
 
@@ -117,6 +130,7 @@ export const listingService = {
         "stockThreshold",
         "isBlocked",
         "Kind",
+        "selectedStockId",
       ];
       topLevelFields.forEach((field) => {
         if (stepData[field] !== undefined) {
@@ -166,22 +180,36 @@ export const listingService = {
       throw new Error("Failed to fetch listing");
     }
   },
+
   //getting all template products name and their id
   getListingByCondition: async (condition: Record<string, any>) => {
     try {
-      return await Listing.find(condition)
+      const templateListing = await Listing.find(condition)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
+
+        console.log("templateListing in service : " , templateListing)
+
+        return templateListing;
     } catch (error) {
       console.error("Error fetching listing by condition:", error);
       throw new Error("Failed to fetch listing by condition");
     }
   },
+
   getListingById: async (id: string) => {
     try {
       const listing = await Listing.findById(id)
+        .populate("selectedStockId")
+        .populate({
+          path: "selectedStockId",
+          populate: {
+            path: "selectedVariations.variationId",
+            model: "Variation", // Ensure this matches your Variation model name
+          },
+        })
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
@@ -373,6 +401,7 @@ export const listingService = {
         .populate("userType")
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
+        .populate("selectedStockId")
         .skip(skip)
         .limit(limitNumber);
 
