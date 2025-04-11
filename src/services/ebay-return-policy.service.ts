@@ -89,45 +89,62 @@ export const ebayReturnPolicyService = {
       throw new Error(error.message);
     }
   },
-  async getAllReturnPolicies(_req: unknown, res: unknown) {
+  async getAllReturnPolicies() {
     try {
       const accessToken = await getStoredEbayAccessToken();
       const response = await fetch(`${baseURL}/sell/account/v1/return_policy?marketplace_id=EBAY_GB`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-      });
-      return await response.json();
-    } catch (error) {
-      console.error("Error fetching eBay return policies:", error);
-      throw new Error("eBay API call failed");
-    }
-  },
-  async getById(returnPolicyId: string) {
-    try {
-      const accessToken = await getStoredEbayAccessToken();
-      console.log("📩 Fetching eBay Return Policy by ID:", returnPolicyId);
-      const response = await fetch(`${baseURL}/sell/account/v1/return_policy/${returnPolicyId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
         },
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("❌ Failed to fetch return policy by ID:", data);
+        return {
+          error: true,
+          status: response.status,
+          errors: data.errors || [],
+        };
       }
 
       return data;
-    } catch (error) {
-      console.error("Error fetching eBay return policy by ID:", error);
-      throw new Error("eBay API call failed");
+    } catch (error: any) {
+      console.error("❌ Error fetching eBay return policies:", error);
+      return {
+        error: true,
+        message: error.message,
+      };
+    }
+  },
+  async getById(returnPolicyId: string) {
+    try {
+      const accessToken = await getStoredEbayAccessToken();
+      const response = await fetch(`${baseURL}/sell/account/v1/return_policy/${returnPolicyId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          error: true,
+          status: response.status,
+          errors: data.errors || [],
+        };
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error("❌ Error fetching eBay return policy by ID:", error);
+      return {
+        error: true,
+        message: error.message,
+      };
     }
   },
   async deleteReturnPolicy(policyId: string) {
@@ -140,13 +157,25 @@ export const ebayReturnPolicyService = {
           Accept: "application/json",
         },
       });
-      return response.ok;
-    } catch (error) {
-      console.error("Error deleting eBay return policy:", error);
-      throw new Error("eBay API call failed");
+
+      if (!response.ok) {
+        const result = await response.json();
+        return {
+          error: true,
+          status: response.status,
+          errors: result.errors || [],
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("❌ Error deleting eBay return policy:", error);
+      return {
+        error: true,
+        message: error.message,
+      };
     }
   },
-
   async editReturnPolicy(policyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
@@ -159,10 +188,24 @@ export const ebayReturnPolicyService = {
         },
         body: JSON.stringify(data),
       });
-      return await response.json();
-    } catch (error) {
-      console.error("Error updating eBay return policy:", error);
-      throw new Error("eBay API call failed");
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return {
+          error: true,
+          status: response.status,
+          errors: result.errors || [],
+        };
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error("❌ Error updating eBay return policy:", error);
+      return {
+        error: true,
+        message: error.message,
+      };
     }
   },
 };
