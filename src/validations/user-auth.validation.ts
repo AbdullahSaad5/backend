@@ -18,7 +18,8 @@ export const authValidation = {
       firstName: z.string().trim().min(3, "First name is required"),
       lastName: z.string().trim().min(3, "Last name is required"),
       email: z.string().trim().min(3, "Email is required").regex(REGEX.EMAIL, "Invalid email format"),
-      password: z.string().regex(REGEX.PASSWORD, "(A-Z) (a-z) (0-9) (one charcter) (between 8-20)"),
+      phoneNumber: z.string().trim().optional(),
+      password: z.string().regex(REGEX.PASSWORD, "(A-Z) (a-z) (0-9) (one charcter) (between 8-20)").optional(),
       signUpThrough: z.enum(["Google", "Apple", "Web"]).default("Web"),
     });
     try {
@@ -72,15 +73,33 @@ export const authValidation = {
     }
   },
 
+
+  
+
   // Validation for update profile
   updateProfile: async (req: IBodyRequest<UserUpdateProfilePayload>, res: Response, next: NextFunction) => {
+
+    // Define the address schema
+  const addressSchema =  z.object({
+    userId: z.string().optional(), // Optional if it's an update; otherwise, it's for new addresses
+    label: z.string().trim().min(3, "Address label must be at least 3 characters").optional(),
+    street: z.string().trim().min(3, "Street must be at least 3 characters").optional(),
+    city: z.string().trim().min(2, "City must be at least 2 characters").optional(),
+    state: z.string().trim().min(2, "State must be at least 2 characters").optional(),
+    postalCode: z.string().trim().optional(),
+    country: z.string().trim().min(2, "Country must be at least 2 characters").optional(),
+    isDefault: z.boolean().optional(),
+  })
+
     const schema: ZodSchema = z.object({
       firstName: z.string().trim().min(3, "First name is required").optional(),
       lastName: z.string().trim().min(3, "Last name is required").optional(),
       phoneNumber: z.string().trim().optional(),
       profileImage: z.string().url("Invalid URL format for profile image").optional(),
+      dob: z.date().optional(),
       oldPassword: z.string().optional(),
       newPassword: z.string().regex(REGEX.PASSWORD, "(A-Z) (a-z) (0-9) (one charcter) (between 8-20)").optional(),
+      address: addressSchema.optional(),
     })
     try {
       const validatedData = schema.parse(req.body);
@@ -138,7 +157,7 @@ export const authValidation = {
     next: NextFunction
   ) => {
     const schema: ZodSchema = z.object({
-      newPassword: z.string().regex(REGEX.PASSWORD, "(A-Z) (a-z) (0-9) (one character) (between 8-20)"),
+      password: z.string().regex(REGEX.PASSWORD, "(A-Z) (a-z) (0-9) (one character) (between 8-20)"),
     });
     try {
       const validatedData = schema.parse(req.body);

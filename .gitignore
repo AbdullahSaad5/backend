@@ -8,3 +8,8 @@ storage/public
 .vercel
 dist
 uploads
+.codegpt
+
+fireabase-admin
+data
+diagram.excalidraw

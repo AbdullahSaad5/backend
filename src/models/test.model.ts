@@ -25,6 +25,7 @@ const userSchema = new Schema(
     lastName: { type: String },
     email: {
       type: String,
+      lowercase: true,
       required: true,
       validate: {
         validator: validateEmail,

@@ -4,22 +4,33 @@ import { authValidation } from "@/validations";
 import { authGuard } from "@/guards";
 // import passport from "../passport"
 
-
 export const auth = (router: Router) => {
   // Route for user registration
   router.post("/register", authValidation.registerUser, authController.registerUser);
 
+  // Route for user login
   router.post("/login", authValidation.loginUser, authController.loginUser);
 
-  router.get("/profile", authGuard.isAuth, authController.getProfile);
+  // Route for Google social login
+  router.post("/google-login", authController.googleLogin);
 
-  router.patch("/update-profile", authValidation.updateProfile, authGuard.isAuth, authController.updateProfile);
+  router.post("/facebook-login", authController.facebookLogin);
 
-  router.get("/verify-email/:token" , authController.verifyEmail)
-
+  // Route for forgot password
   router.post("/forgot-password", authValidation.forgotPassword, authController.forgotPassword);
 
+  // Route for reset password
   router.post("/reset-password/:token", authValidation.resetPassword, authController.resetPassword);
+
+  // Route for get logedin user profile
+  router.get("/profile", authGuard.isAuth, authController.getProfile);
+
+  // Route for update user profile
+  // TODO: add validation ' authValidation.updateProfile'
+  router.patch("/update-profile", authGuard.isAuth, authController.updateProfile);
+
+  // route for verify email
+  router.get("/verify-email/:token", authController.verifyEmail);
 };
 
 // router.get("/google" , passport.authenticate("google" , {scope: ["profile" , "email"]}))

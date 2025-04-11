@@ -1,11 +1,9 @@
-import { user } from "./../routes/user.route";
-import { conversationService, messageService, userService } from "@/services";
 import { getAccessTokenFromHeaders } from "@/utils/headers.util";
 import { jwtVerify } from "@/utils/jwt.util";
-import { sendFCM } from "@/utils/send-fcm.util";
 import { Server as HttpServer } from "http";
-import mongoose, { Types } from "mongoose";
 import { Server, Socket } from "socket.io";
+import { conversationService, messageService } from "@/services";
+import mongoose, { Types } from "mongoose";
 
 interface User {
   id: string;
@@ -16,29 +14,9 @@ interface SocketWithUser extends Socket {
 }
 
 class SocketManager {
-  private connections: Map<string, string> = new Map();
+  private connections = new Map<string, string>();
   private io: Server | null = null;
-  private groupRooms: Map<string, Set<string>> = new Map();
-
-  getConnections(): Map<string, string> {
-    return this.connections;
-  }
-
-  setConnection(userId: string, socketId: string): void {
-    this.connections.set(userId, socketId);
-  }
-
-  removeConnection(userId: string): void {
-    this.connections.delete(userId);
-  }
-
-  getSocketId(userId: string): string | undefined {
-    return this.connections.get(userId);
-  }
-
-  getIo(): Server | null {
-    return this.io;
-  }
+  private groupRooms = new Map<string, Set<string>>();
 
   private initializeServer(server: HttpServer): void {
     this.io = new Server(server, {
@@ -47,356 +25,120 @@ class SocketManager {
   }
 
   private setupMiddleware(): void {
-    this.io!.use((socket: Socket, next) => {
-      const { accessToken } = getAccessTokenFromHeaders(socket.handshake.headers);
-      if (!accessToken) {
-        console.log("No access token");
-        return next(new Error("Authentication error"));
-      }
-
+    this.io!.use(async (socket: Socket, next) => {
       try {
-        const user = jwtVerify({ accessToken: accessToken });
-        Object.assign(socket, { user: { id: user.id.toString() } }) as SocketWithUser;
+        const { accessToken } = getAccessTokenFromHeaders(socket.handshake.headers);
+        if (!accessToken) return next(new Error("No access token"));
+
+        const user = jwtVerify(accessToken);
+        (socket as SocketWithUser).user = { id: user.id.toString() };
         next();
       } catch (error) {
-        console.error(error);
-        next(new Error("Authentication error"));
+        console.log("Authentication error:", error);
+        next(new Error("Authentication failed"));
       }
     });
   }
 
-  private handleConnection(socket: Socket): void {
-    const socketWithUser = socket as SocketWithUser;
+  private handleConnection(socket: SocketWithUser): void {
+    console.log(`User connected: ${socket.user.id}`);
+    this.connections.set(socket.user.id, socket.id);
 
-    if (!socketWithUser.user) {
-      this.io!.to(socket.id).emit("error", "Authentication error");
-      socket.disconnect();
-      return;
-    }
-
-    this.io!.to(socket.id).emit("message", "Welcome to the chat");
-    this.setConnection(socketWithUser.user.id, socket.id);
-
-    this.setupMessageHandler(socketWithUser);
-    this.setupDisconnectHandler(socketWithUser);
-    this.setupGroupChatHandlers(socketWithUser);
-  }
-
-  private setupGroupChatHandlers(socket: SocketWithUser): void {
-    socket.on("joinGroup", async (conversationId: string) => {
-      if (!this.groupRooms.has(conversationId)) {
-        this.groupRooms.set(conversationId, new Set());
-      }
-      this.groupRooms.get(conversationId)!.add(socket.user.id);
-      socket.join(conversationId);
-      this.io!.to(conversationId).emit("userJoinedGroup", { userId: socket.user.id, groupId: conversationId });
-    });
-
-    socket.on("leaveGroup", async (conversationId: string) => {
-      const group = this.groupRooms.get(conversationId);
-      if (group) {
-        group.delete(socket.user.id);
-        if (group.size === 0) {
-          this.groupRooms.delete(conversationId);
-        }
-      }
-      socket.leave(conversationId);
-      this.io!.to(conversationId).emit("userLeftGroup", { userId: socket.user.id, groupId: conversationId });
-    });
-  }
-
-  private setupMessageHandler(socket: SocketWithUser): void {
-    socket.on("message", async (conversationId: string, message: string, files?: any[], lockChat: boolean = false) => {
-      const conversation = await conversationService.getConversation(socket.user.id, conversationId);
-      if (!conversation) {
-        return this.io!.to(socket.id).emit("error", "Conversation not found");
-      }
-
-      if (conversation.isGroup) {
-        // Throw error to say that you should use group chat API
-        return this.io!.to(socket.id).emit("error", "Use group chat API to send message to group");
-      }
-
-      const allMemberIds = conversation.members.map((member) => member.id.toString());
-
-      const exceedingMembers = await userService.checkIfAnyConversationLimitExceeded(allMemberIds, "MESSAGES");
-
-      if (exceedingMembers.length) {
-        console.log("Exceeded Free Plan Limit");
-        return this.io!.to(socket.id).emit("subscription-error", {
-          conversationId,
-          message: "You have exceeded the conversation limit",
-        });
-      }
-
-      // Find receiver id
-      const receiverMember = conversation.members.find((member) => member.id.toString() !== socket.user.id);
-
-      if (!receiverMember?.id) {
-        return this.io!.to(socket.id).emit("error", "Receiver not found");
-      }
-
-      const lastMashupMessage = await messageService.findLastMashupMessage({
-        conversation: new Types.ObjectId(conversationId),
-      });
-
-      let membersScanned = lastMashupMessage?.scannedBy || [];
-
-      membersScanned = Array.isArray(membersScanned) ? membersScanned : [membersScanned];
-
-      const exists = membersScanned.includes(new mongoose.Types.ObjectId(receiverMember.id.toString()));
-
-      if (!lastMashupMessage || exists) {
-        const receiverSocketId = this.getSocketId(receiverMember.id.toString());
-        if (!receiverSocketId) {
-          // TODO: Save message to database
-          // TODO: Send push notification to receiver
-          // return this.io!.to(socket.id).emit("error", "Receiver is not connected to the server");
-        } else {
-          const senderObject = conversation.members.find((member) => member.id.toString() === socket.user.id);
-          if (lockChat) {
-            this.io!.to(receiverSocketId).emit("message", {
-              senderId: socket.user.id,
-              sender: {
-                _id: senderObject?.id,
-                name: senderObject?.name,
-                id: senderObject?.id,
-              },
-              message: `${senderObject?.name} has locked the chat`,
-              conversationId,
-              files,
-              isQrCode: false,
-              isNotification: true,
-            });
-          }
-          this.io!.to(receiverSocketId).emit("message", {
-            senderId: socket.user.id,
-            sender: {
-              _id: senderObject?.id,
-              name: senderObject?.name,
-              id: senderObject?.id,
-            },
-            message: message,
-            conversationId,
-            files,
-            isQrCode: lockChat,
-          });
-
-          if (lockChat) {
-            this.io!.to(receiverSocketId).emit("lock-conversation", conversationId);
-          }
-        }
-      }
-
-      if (lockChat) {
-        const senderObject = conversation.members.find((member) => member.id.toString() === socket.user.id);
-        await messageService.create({
-          content: `${senderObject?.name} has locked the chat`,
-          sender: new mongoose.Types.ObjectId(socket.user.id),
-          conversation: new mongoose.Types.ObjectId(conversationId),
-          files,
-          isQrCode: false,
-          scannedBy: [],
-          isNotification: true,
-        });
-      }
-
-      await messageService.create({
-        content: message,
-        sender: new mongoose.Types.ObjectId(socket.user.id),
-        conversation: new mongoose.Types.ObjectId(conversationId),
-        files,
-        isQrCode: lockChat,
-        scannedBy: lockChat ? [new mongoose.Types.ObjectId(socket.user.id)] : [],
-      });
-
-      await userService.decrementMessageCount(allMemberIds);
-
-      if (!lastMashupMessage || exists) {
-        const token = await userService.getFCMToken(receiverMember.id.toString());
-
-        if (token && receiverMember.notificationStatus) {
-          const sender = await userService.getById(socket.user.id);
-          const notification: {
-            title: string;
-            body: string;
-            imageUrl?: string;
-          } = {
-            title: "New message from " + sender?.name,
-            body: lockChat ? "Locked message" : message || "Attachment",
-            imageUrl: files?.[0]?.url,
-          };
-
-          if (notification.imageUrl === undefined) delete notification.imageUrl;
-
-          await sendFCM({
-            notification,
-            data: {
-              conversationId,
-            },
-            token,
-          });
-        }
-      }
-    });
-
-    socket.on(
-      "groupMessage",
-      async (conversationId: string, message: string, files?: string[], lockChat: boolean = false) => {
-        if (!conversationId) {
-          return this.io!.to(socket.id).emit("error", "Group not found");
-        }
-
-        const conversation = await conversationService.getConversation(socket.user.id, conversationId);
+    // Personal messaging
+    socket.on("message", async (conversationId: string, message: string) => {
+      try {
+        const conversation = await conversationService.getConversationById(conversationId);
         if (!conversation) {
-          return this.io!.to(socket.id).emit("error", "Conversation not found");
+          return socket.emit("error", "Conversation not found");
         }
 
-        const allMemberIds = conversation.members.map((member) => member.id.toString());
-
-        const exceedingMembers = await userService.checkIfAnyConversationLimitExceeded(allMemberIds, "MESSAGES");
-
-        if (exceedingMembers.length) {
-          console.log("Exceeded Free Plan Limit");
-          return this.io!.to(socket.id).emit("subscription-error", {
-            conversationId,
-            message: "You have exceeded the conversation limit",
-          });
+        const senderId = new mongoose.Types.ObjectId(socket.user.id);
+        
+        // Verify participant
+        const isParticipant = conversation.participants.some(p => p.equals(senderId));
+        if (!isParticipant) {
+          return socket.emit("error", "Not authorized");
         }
 
-        let allUnlockedMembers = conversation.members;
+        // Create message
+        const newMessage = await messageService.createMessage(
+          senderId,
+          message,
+          new mongoose.Types.ObjectId(conversationId)
+        );
 
-        const lastMashupMessage = await messageService.findLastMashupMessage({
-          conversation: new Types.ObjectId(conversationId),
-        });
+        // Add message to conversation
+        await conversationService.addMessageToConversation(
+          conversationId,
+          newMessage._id
+        );
 
-        if (lastMashupMessage) {
-          let membersScanned = lastMashupMessage?.scannedBy || [];
+        // Find other participants
+        const receivers = conversation.participants
+          .filter(p => !p.equals(senderId))
+          .map(p => p.toString());
 
-          membersScanned = Array.isArray(membersScanned) ? membersScanned : [membersScanned];
-
-          allUnlockedMembers = allUnlockedMembers.filter((member) =>
-            membersScanned.includes(new mongoose.Types.ObjectId(member.id.toString()))
-          );
-        }
-
-        let onlineUsers = allUnlockedMembers.filter((member) => this.getSocketId(member.id.toString()));
-
-        const senderObject = conversation.members.find((member) => member.id.toString() === socket.user.id);
-        onlineUsers.forEach((member) => {
-          // Don't send message to the sender
-          if (member.id.toString() === socket.user.id) {
-            return;
-          }
-          const userSocketId = this.getSocketId(member.id.toString());
-          if (userSocketId) {
-            let sender;
-            if (senderObject) {
-              sender = {
-                _id: senderObject.id,
-                name: senderObject.name,
-                id: senderObject.id,
-              };
-            } else {
-              sender = socket.user.id;
-            }
-            this.io!.to(userSocketId).emit("groupMessage", {
-              sender,
-              message: message,
-              conversationId,
-              files,
-              isQrCode: lockChat,
-            });
+        // Send to online participants
+        receivers.forEach(receiverId => {
+          if (this.connections.has(receiverId)) {
+            this.io!.to(this.connections.get(receiverId)!).emit("message", newMessage);
           }
         });
 
-        if (lockChat) {
-          const members = conversation.members.map((member) => member.id.toString());
-          const membersExceptSender = members.filter((member) => member !== socket.user.id);
-          membersExceptSender.forEach(async (member) => {
-            const receiverSocketId = this.getSocketId(member);
-            if (receiverSocketId) {
-              this.io!.to(receiverSocketId).emit("lock-conversation", conversationId);
-            }
-          });
-        }
-
-        // Save the group message to the database
-        await messageService.create({
-          content: message,
-          sender: new mongoose.Types.ObjectId(socket.user.id),
-          conversation: new mongoose.Types.ObjectId(conversationId),
-          files,
-          isQrCode: lockChat,
-          scannedBy: lockChat ? [new mongoose.Types.ObjectId(socket.user.id)] : [],
-        });
-
-        await userService.decrementMessageCount(allMemberIds);
-
-        allUnlockedMembers.forEach(async (member) => {
-          if (member.id.toString() === socket.user.id) {
-            return;
-          }
-          const token = await userService.getFCMToken(member.id.toString());
-
-          if (token && member.notificationStatus) {
-            const sender = await userService.getById(socket.user.id);
-            const notification: {
-              title: string;
-              body: string;
-              imageUrl?: string;
-            } = {
-              title: "New message from " + sender?.name + " in " + conversation.title,
-              body: lockChat ? "Locked message" : message || "Attachment",
-              imageUrl: files?.[0],
-            };
-
-            if (notification.imageUrl === undefined) delete notification.imageUrl;
-
-            await sendFCM({
-              notification,
-              data: {
-                conversationId,
-              },
-              token,
-            });
-          }
-        });
+      } catch (error) {
+        console.log("Message error:", error);
+        socket.emit("error", "Failed to send message");
       }
-    );
-  }
+    });
 
-  private setupDisconnectHandler(socket: SocketWithUser): void {
-    socket.on("disconnect", () => {
-      this.removeConnection(socket.user.id);
-      // Remove user from each connected group
-      this.groupRooms.forEach((group, groupId) => {
-        if (group.has(socket.user.id)) {
-          group.delete(socket.user.id);
-          if (group.size === 0) {
-            this.groupRooms.delete(groupId);
-          }
-          this.io!.to(groupId).emit("userLeftGroup", { userId: socket.user.id, groupId });
+    // Group messaging
+    socket.on("groupMessage", async (groupId: string, message: string) => {
+      try {
+        const group = await conversationService.getConversationById(groupId);
+        if (!group?.isGroup) {
+          return socket.emit("error", "Group not found");
         }
-      });
-      console.log("A user disconnected");
+
+        const senderId = new mongoose.Types.ObjectId(socket.user.id);
+        const newMessage = await messageService.createMessage(
+          senderId,
+          message,
+          new mongoose.Types.ObjectId(groupId)
+        );
+
+        await conversationService.addMessageToConversation(groupId, newMessage._id);
+
+        // Broadcast to group
+        this.io!.to(groupId).emit("groupMessage", newMessage);
+
+      } catch (error) {
+        console.log("Group message error:", error);
+        socket.emit("error", "Failed to send group message");
+      }
+    });
+
+    // Group management
+    socket.on("joinGroup", (groupId: string) => {
+      socket.join(groupId);
+      console.log(`User ${socket.user.id} joined group ${groupId}`);
+    });
+
+    socket.on("disconnect", () => {
+      console.log(`User disconnected: ${socket.user.id}`);
+      this.connections.delete(socket.user.id);
     });
   }
 
-  run = async (server: HttpServer): Promise<void> => {
+  public run(server: HttpServer): void {
     this.initializeServer(server);
     this.setupMiddleware();
-    this.io!.on("connection", this.handleConnection.bind(this));
-    console.log("Socket.io server is up and running");
+    
+    this.io!.on("connection", (socket: Socket) => {
+      this.handleConnection(socket as SocketWithUser);
+    });
 
-    if (process.env.NODE_ENV === "dev") {
-      const TIME_INTERVAL = 60 * 1000;
-      setInterval(() => {
-        console.log("Group rooms", this.groupRooms);
-        console.log("Connections", this.connections);
-      }, TIME_INTERVAL);
-    }
-  };
+    console.log("Socket server running");
+  }
 }
 
 export const socketManager = new SocketManager();
