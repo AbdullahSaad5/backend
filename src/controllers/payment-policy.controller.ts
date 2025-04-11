@@ -1,4 +1,4 @@
-import { paymentPolicyService, ebayPaymentPolicyService } from "@/services";
+import {  ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -109,19 +109,5 @@ export const paymentPolicyController = {
       });
     }
   },
-  toggleBlock: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const { isBlocked } = req.body;
-      const result = await paymentPolicyService.toggleBlock(id, isBlocked);
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: `Policy ${isBlocked ? "blocked" : "unblocked"} successfully`,
-        data: result,
-      });
-    } catch (error) {
-      console.error("Toggle Block Policy Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating policy status" });
-    }
-  },
+  
 };
