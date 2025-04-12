@@ -7,39 +7,51 @@ export const ebayReturnPolicyService = {
     try {
       console.log("📩 Received Return Policy Data:", JSON.stringify(data, null, 2));
 
-      // ✅ Validate required fields
       if (!data.marketplaceId) throw new Error("❌ Missing required field: marketplaceId");
-      if (!data.returnPeriod) throw new Error("❌ Missing required field: returnPeriod");
+      if (!data.returnPeriod?.value) throw new Error("❌ Missing required field: returnPeriod");
 
       const accessToken = await getStoredEbayAccessToken();
-
-      // ✅ Determine if the policy applies to Motors Vehicles
       const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
 
-      // ✅ Allowed return methods based on category
-      const allowedReturnMethods = isMotorsCategory
-        ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
-        : ["CREDIT_CARD", "PAYPAL", "DEBIT_CARD"];
-
-      // ✅ Validate return methods
-      const validReturnMethods =
-        data.returnMethods?.filter((method: any) => allowedReturnMethods.includes(method)) || [];
-
-      // ✅ Construct API request payload
       const requestBody: any = {
         name: data.name,
         description: data.description || "",
         marketplaceId: data.marketplaceId,
-        categoryTypes: data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
-        returnMethods: validReturnMethods, // ✅ Ensure only valid methods are sent
-        returnPeriod: data.returnPeriod, // ✅ Ensure returnPeriod is sent
+        categoryTypes:
+          data.categoryTypes?.map((type: any) => ({
+            name: type.name,
+            ...(typeof type.default === "boolean" ? { default: type.default } : {}),
+          })) || [],
+        returnPeriod: {
+          unit: data.returnPeriod.unit || "DAY",
+          value: data.returnPeriod.value,
+        },
         returnsAccepted: data.returnsAccepted,
         returnShippingCostPayer: data.returnShippingCostPayer,
       };
 
+      if (data.refundMethod) requestBody.refundMethod = data.refundMethod;
+      if (data.returnMethod) requestBody.returnMethod = data.returnMethod;
+      if (data.returnInstructions) requestBody.returnInstructions = data.returnInstructions;
+      if (data.restockingFeePercentage) requestBody.restockingFeePercentage = data.restockingFeePercentage;
+      if (typeof data.extendedHolidayReturnsOffered === "boolean") {
+        requestBody.extendedHolidayReturnsOffered = data.extendedHolidayReturnsOffered;
+      }
+
+      if (data.internationalOverride) {
+        requestBody.internationalOverride = {
+          returnMethod: data.internationalOverride.returnMethod,
+          returnPeriod: {
+            unit: data.internationalOverride.returnPeriod.unit || "DAY",
+            value: data.internationalOverride.returnPeriod.value,
+          },
+          returnsAccepted: data.internationalOverride.returnsAccepted,
+          returnShippingCostPayer: data.internationalOverride.returnShippingCostPayer,
+        };
+      }
+
       console.log("🚀 Sending Request to eBay API:", JSON.stringify(requestBody, null, 2));
 
-      // ✅ Send request to eBay API
       const response = await fetch(`${baseURL}/sell/account/v1/return_policy`, {
         method: "POST",
         headers: {
@@ -179,6 +191,47 @@ export const ebayReturnPolicyService = {
   async editReturnPolicy(policyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+
+      // ✅ Build updated request body
+      const requestBody: any = {
+        name: data.name,
+        description: data.description || "",
+        marketplaceId: data.marketplaceId,
+        categoryTypes:
+          data.categoryTypes?.map((type: any) => ({
+            name: type.name,
+            ...(typeof type.default === "boolean" ? { default: type.default } : {}),
+          })) || [],
+        returnPeriod: {
+          unit: data.returnPeriod.unit || "DAY",
+          value: data.returnPeriod.value,
+        },
+        returnsAccepted: data.returnsAccepted,
+        returnShippingCostPayer: data.returnShippingCostPayer,
+      };
+
+      if (data.refundMethod) requestBody.refundMethod = data.refundMethod;
+      if (data.returnMethod) requestBody.returnMethod = data.returnMethod;
+      if (data.returnInstructions) requestBody.returnInstructions = data.returnInstructions;
+      if (data.restockingFeePercentage) requestBody.restockingFeePercentage = data.restockingFeePercentage;
+      if (typeof data.extendedHolidayReturnsOffered === "boolean") {
+        requestBody.extendedHolidayReturnsOffered = data.extendedHolidayReturnsOffered;
+      }
+
+      if (data.internationalOverride) {
+        requestBody.internationalOverride = {
+          returnMethod: data.internationalOverride.returnMethod,
+          returnPeriod: {
+            unit: data.internationalOverride.returnPeriod.unit || "DAY",
+            value: data.internationalOverride.returnPeriod.value,
+          },
+          returnsAccepted: data.internationalOverride.returnsAccepted,
+          returnShippingCostPayer: data.internationalOverride.returnShippingCostPayer,
+        };
+      }
+
+      console.log("✏️ Editing Return Policy:", JSON.stringify(requestBody, null, 2));
+
       const response = await fetch(`${baseURL}/sell/account/v1/return_policy/${policyId}`, {
         method: "PUT",
         headers: {
@@ -186,12 +239,13 @@ export const ebayReturnPolicyService = {
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
+        console.error("⚠️ eBay API Error on Update:", result);
         return {
           error: true,
           status: response.status,
@@ -199,9 +253,13 @@ export const ebayReturnPolicyService = {
         };
       }
 
+      console.log("✅ Return Policy Updated Successfully:", result);
       return result;
     } catch (error: any) {
-      console.error("❌ Error updating eBay return policy:", error);
+      console.error("❌ Error updating eBay return policy:", {
+        message: error.message,
+        stack: error.stack,
+      });
       return {
         error: true,
         message: error.message,
