@@ -142,12 +142,10 @@ export const ebayPaymentPolicyService = {
 
       const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
 
-      // Define allowed methods
       const allowedPaymentMethods = isMotorsCategory
         ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
         : ["PAYPAL", "CREDIT_CARD", "DEBIT_CARD"];
 
-      // Filter only valid methods
       const validPaymentMethods = (data.paymentMethods || []).filter((method: any) =>
         allowedPaymentMethods.includes(method.paymentMethodType)
       );
@@ -163,7 +161,6 @@ export const ebayPaymentPolicyService = {
       if (typeof data.immediatePay === "boolean") updatedData.immediatePay = data.immediatePay;
       if (data.paymentInstructions) updatedData.paymentInstructions = data.paymentInstructions;
 
-      // Include deposit for motors if valid
       if (isMotorsCategory && data.deposit?.amount?.value && data.deposit?.dueIn?.value) {
         updatedData.deposit = {
           amount: {
@@ -195,10 +192,33 @@ export const ebayPaymentPolicyService = {
         body: JSON.stringify(updatedData),
       });
 
-      return await response.json();
-    } catch (error) {
-      console.error("❌ Error updating eBay payment policy:", error);
-      throw new Error("eBay API call failed");
+      const result = await response.json();
+
+      // 🔍 Handle error cases with detailed messages
+      if (!response.ok) {
+        const error = result.errors?.[0];
+        const message = error?.longMessage || error?.message || "eBay API call failed";
+        console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
+
+        return {
+          success: false,
+          status: response.status,
+          message,
+          ebayError: error,
+        };
+      }
+
+      // ✅ Success case
+      return {
+        success: true,
+        policy: result,
+      };
+    } catch (error: any) {
+      console.error("❌ Error updating eBay payment policy:", error.message || error);
+      return {
+        success: false,
+        message: error.message || "Something went wrong while updating payment policy",
+      };
     }
   },
   async getById(policyId: string) {
