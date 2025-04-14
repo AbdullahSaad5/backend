@@ -30,6 +30,7 @@ export const stockService = {
       selectedVariations, // ✅ Store variations in selectedVariations
       receivedDate: data.receivedDate,
       receivedBy: data.receivedBy,
+      stockInvoice: data.stockInvoice,
       purchaseDate: data.purchaseDate,
       markAsStock: data.markAsStock,
     });

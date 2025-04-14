@@ -9,6 +9,7 @@ export const stockController = {
     try {
       const {
         inventoryId,
+        stockInvoice,
         variations, // Only required if isVariation is true
         totalUnits,
         usableUnits,
@@ -72,6 +73,7 @@ export const stockController = {
         receivedDate,
         receivedBy,
         purchaseDate,
+        stockInvoice,
         markAsStock,
       };
 
@@ -311,7 +313,7 @@ export const stockController = {
         stock.costPricePerUnit = costPricePerUnit;
         stock.purchasePricePerUnit = purchasePricePerUnit;
       }
-
+      stock.stockInvoice = req.body.stockInvoice || stock.stockInvoice;
       stock.receivedDate = req.body.receivedDate || stock.receivedDate;
       stock.receivedBy = req.body.receivedBy || stock.receivedBy;
       stock.purchaseDate = req.body.purchaseDate || stock.purchaseDate;
