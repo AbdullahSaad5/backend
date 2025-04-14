@@ -98,13 +98,13 @@ export const listingService = {
 
       // Update Status
       if (stepData.status !== undefined) {
-        console.log("draft if work")
+        console.log("draft if work");
         draftListing.status = stepData.status;
         // draftListing.isTemplate = stepData.isTemplate || false;
       }
       // Update Template Check
       if (stepData.isTemplate) {
-        console.log("template if work")
+        console.log("template if work");
         // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
       }
@@ -190,9 +190,9 @@ export const listingService = {
         // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
 
-        console.log("templateListing in service : " , templateListing)
+      console.log("templateListing in service : ", templateListing);
 
-        return templateListing;
+      return templateListing;
     } catch (error) {
       console.error("Error fetching listing by condition:", error);
       throw new Error("Failed to fetch listing by condition");
@@ -548,7 +548,7 @@ export const listingService = {
   exportListing: async (): Promise<string> => {
     try {
       // Fetch all listing from the database
-      const listing = await Listing.find({});
+      const listing: any = await Listing.find({});
 
       // Format the listing data for CSV export
       const formattedData = listing.map((listing: any) => ({
@@ -581,34 +581,54 @@ export const listingService = {
       throw new Error("Failed to export listing.");
     }
   },
-  bulkUpdateListingTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
+  bulkUpdateListingTaxDiscount: async (
+    listingIds: string[],
+    discountType: "fixed" | "percentage",
+    discountValue: number,
+    vat: number
+  ) => {
     try {
-      // Check if the discountValue and vat are numbers and valid
-      if (typeof discountValue !== "number" || typeof vat !== "number") {
-        throw new Error("Invalid discountValue or vat. They must be numbers.");
-      }
+      const listings = await Listing.find({ _id: { $in: listingIds } });
 
-      // Perform bulk update with nested prodPricing field
-      const result = await Listing.updateMany(
-        { _id: { $in: listingIds } }, // Filter valid listing IDs
-        {
-          $set: {
-            "prodPricing.discountValue": discountValue,
-            "prodPricing.vat": vat,
-          },
+      const percent = discountValue / 100;
+      const bulkOps = listings.map((listing: any) => {
+        const update: any = {
+          "prodPricing.vat": vat,
+          "prodPricing.discountType": discountType,
+          "prodPricing.discountValue": discountValue,
+        };
+
+        const pricing = listing?.prodPricing?.retailPrice || listing?.prodPricing.selectedVariations.retailPrice || {};
+
+        if (discountType === "percentage") {
+          if (Array.isArray(pricing.selectedVariations) && pricing.selectedVariations.length > 0) {
+            // Update variation prices based on percentage
+            update["prodPricing.selectedVariations"] = pricing.selectedVariations.map((v: any) => {
+              const original = v.retailPrice / (1 - (pricing.discountValue || 0) / 100);
+              const newPrice = +(original * (1 - percent)).toFixed(2);
+              return { ...v.toObject(), retailPrice: newPrice };
+            });
+          } else if (pricing.retailPrice) {
+            const original = pricing.retailPrice / (1 - (pricing.discountValue || 0) / 100);
+            const newPrice = +(original * (1 - percent)).toFixed(2);
+            update["prodPricing.retailPrice"] = newPrice;
+          }
         }
-      );
 
-      if (result.modifiedCount === 0) {
-        throw new Error("No listing were updated. Please verify listing IDs and data.");
-      }
+        return {
+          updateOne: {
+            filter: { _id: listing._id },
+            update: { $set: update },
+          },
+        };
+      });
 
+      const result = await Listing.bulkWrite(bulkOps);
       return result;
     } catch (error: any) {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
-
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
       listingId,
