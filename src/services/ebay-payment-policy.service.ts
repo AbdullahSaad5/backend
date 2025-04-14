@@ -141,6 +141,7 @@ export const ebayPaymentPolicyService = {
   async editPaymentPolicy(paymentPolicyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+      console.log("📩 Editing payment policy:", paymentPolicyId);
 
       const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
 
@@ -197,6 +198,16 @@ export const ebayPaymentPolicyService = {
       const result = await response.json();
 
       if (!response.ok) {
+        // Handle Duplicate Policy Error
+        if (result.errors?.[0]?.errorId === 20400 && result.errors[0]?.longMessage === "Duplicate Policy") {
+          return {
+            success: false,
+            status: response.status,
+            message: `Duplicate policy detected. Policy ID: ${result.errors[0].parameters[0].value}`,
+          };
+        }
+
+        // Other eBay errors
         return {
           success: false,
           status: response.status,
@@ -216,7 +227,6 @@ export const ebayPaymentPolicyService = {
       };
     }
   },
-
   async getById(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
