@@ -1,4 +1,4 @@
-import {  ebayPaymentPolicyService } from "@/services";
+import { ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -9,7 +9,7 @@ export const paymentPolicyController = {
 
       const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(req.body);
 
-      if (!ebayResponse || !ebayResponse.policyId) {
+      if (!ebayResponse || !ebayResponse.success || !ebayResponse.policy?.paymentPolicyId) {
         console.error("❌ eBay failed to create payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
           message: "Failed to create payment policy on eBay.",
@@ -108,5 +108,4 @@ export const paymentPolicyController = {
       });
     }
   },
-
 };

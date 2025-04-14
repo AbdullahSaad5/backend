@@ -81,7 +81,7 @@ export const ebayPaymentPolicyService = {
           return {
             success: true,
             message: "Using existing payment policy",
-            policyId: existingId,
+            paymentPolicyId: existingId,
           };
         }
 
@@ -119,10 +119,10 @@ export const ebayPaymentPolicyService = {
     }
   },
 
-  async deletePaymentPolicy(policyId: string) {
+  async deletePaymentPolicy(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -136,7 +136,7 @@ export const ebayPaymentPolicyService = {
     }
   },
 
-  async editPaymentPolicy(policyId: string, data: any) {
+  async editPaymentPolicy(paymentPolicyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
 
@@ -182,7 +182,7 @@ export const ebayPaymentPolicyService = {
         };
       }
 
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -221,10 +221,10 @@ export const ebayPaymentPolicyService = {
       };
     }
   },
-  async getById(policyId: string) {
+  async getById(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
