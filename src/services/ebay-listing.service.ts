@@ -437,7 +437,7 @@ export const ebayListingService = {
           categoryId: categoryId,
           // "secondaryCategoryId": "string",
           listingPolicies: {
-            fulfillmentPolicyId: "247178000010",
+            fulfillmentPolicyId: "247696768010" ,
             paymentPolicyId: "247178015010",
             returnPolicyId: "247178019010",
             // bestOfferTerms: {
@@ -697,7 +697,7 @@ export const ebayListingService = {
           Lumens: [prodTechInfo?.lumens || "Unknown"],
           Resolution: [prodTechInfo?.resolution || "Unknown"],
         };
-      case "Wireless Access Points":
+      case "Neetwork Equipments":
         return {
           Brand: [prodTechInfo?.brand || "Unbranded"],
           Frequency: [prodTechInfo?.frequency || "Unknown"],

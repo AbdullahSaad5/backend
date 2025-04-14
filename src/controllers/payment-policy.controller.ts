@@ -1,4 +1,4 @@
-import {  ebayPaymentPolicyService } from "@/services";
+import { ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -9,7 +9,7 @@ export const paymentPolicyController = {
 
       const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(req.body);
 
-      if (!ebayResponse || !ebayResponse.policyId) {
+      if (!ebayResponse || !ebayResponse.success || !ebayResponse.policy?.paymentPolicyId) {
         console.error("❌ eBay failed to create payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
           message: "Failed to create payment policy on eBay.",
@@ -29,7 +29,6 @@ export const paymentPolicyController = {
       });
     }
   },
-
   getAllPaymentPolicies: async (req: Request, res: Response) => {
     try {
       const ebayPolicies = await ebayPaymentPolicyService.getAllPaymentPolicies(req, res);
@@ -85,15 +84,15 @@ export const paymentPolicyController = {
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-
       console.log("📩 Received request to delete eBay payment policy", id);
 
       const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(id);
 
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse.success) {
+        const message = ebayResponse.message || "Failed to delete payment policy on eBay.";
         console.error("❌ eBay failed to delete payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to delete payment policy on eBay.",
+          message,
           ebayResponse,
         });
       }
@@ -109,5 +108,4 @@ export const paymentPolicyController = {
       });
     }
   },
-
 };

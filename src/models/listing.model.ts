@@ -5,7 +5,7 @@ import {
   IWebsitePlatformDetails,
   IListing,
 } from "@/contracts/listing.contract";
-import { invokeMap } from "lodash";
+import { invokeMap, max } from "lodash";
 import { productCategory } from "@/routes/product-category.route";
 import { ref } from "@firebase/storage";
 
@@ -22,7 +22,7 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  title: { type: String, required: true },
+  title: { type: String, required: true, maxlength: 80 },
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
   description: { type: String },
   brand: { type: [String], required: true },
