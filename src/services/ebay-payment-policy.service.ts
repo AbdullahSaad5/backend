@@ -122,6 +122,7 @@ export const ebayPaymentPolicyService = {
   async deletePaymentPolicy(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+
       const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         method: "DELETE",
         headers: {
@@ -129,13 +130,27 @@ export const ebayPaymentPolicyService = {
           Accept: "application/json",
         },
       });
-      return response.ok;
-    } catch (error) {
-      console.error("Error deleting eBay payment policy:", error);
-      throw new Error("eBay API call failed");
+
+      if (!response.ok) {
+        const result = await response.json();
+        console.error("❌ eBay Delete Policy Error:", JSON.stringify(result, null, 2));
+
+        return {
+          success: false,
+          message: result.errors?.[0]?.longMessage || result.errors?.[0]?.message || "Failed to delete policy",
+          ebayError: result,
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("❌ Exception deleting eBay policy:", error);
+      return {
+        success: false,
+        message: error.message || "eBay API call failed",
+      };
     }
   },
-
   async editPaymentPolicy(paymentPolicyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();

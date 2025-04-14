@@ -84,15 +84,15 @@ export const paymentPolicyController = {
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-
       console.log("📩 Received request to delete eBay payment policy", id);
 
       const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(id);
 
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse.success) {
+        const message = ebayResponse.message || "Failed to delete payment policy on eBay.";
         console.error("❌ eBay failed to delete payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to delete payment policy on eBay.",
+          message,
           ebayResponse,
         });
       }
