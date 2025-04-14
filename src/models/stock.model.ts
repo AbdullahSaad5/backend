@@ -1,7 +1,16 @@
 import { IStock } from "@/contracts/stock.contract";
 import mongoose, { Schema, Document } from "mongoose";
-import { mediaSchema } from "./listing.model";
 
+const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  fileType: { type: String },
+  filename: { type: String },
+};
 interface IStockModel extends IStock, Document {
   isVariation: boolean;
 }
