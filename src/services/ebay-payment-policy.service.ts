@@ -86,7 +86,7 @@ export const ebayPaymentPolicyService = {
         }
 
         console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
-        throw new Error(result.errors?.[0]?.message || "eBay API call failed");
+        throw new Error(result.errors?.[0]?.longMessage || result.errors?.[0]?.message || "eBay API call failed");
       }
 
       console.log("✅ Payment Policy Created Successfully:", result);
