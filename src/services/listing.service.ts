@@ -591,28 +591,44 @@ export const listingService = {
       const listings = await Listing.find({ _id: { $in: listingIds } });
 
       const percent = discountValue / 100;
+
       const bulkOps = listings.map((listing: any) => {
+        const prodPricing = listing.prodPricing || {};
         const update: any = {
           "prodPricing.vat": vat,
           "prodPricing.discountType": discountType,
           "prodPricing.discountValue": discountValue,
         };
 
-        const pricing = listing?.prodPricing?.retailPrice || listing?.prodPricing.selectedVariations.retailPrice || {};
+        // Case 1: Listings with variations
+        if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+          const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+            const basePrice = variation.retailPrice || 0;
 
-        if (discountType === "percentage") {
-          if (Array.isArray(pricing.selectedVariations) && pricing.selectedVariations.length > 0) {
-            // Update variation prices based on percentage
-            update["prodPricing.selectedVariations"] = pricing.selectedVariations.map((v: any) => {
-              const original = v.retailPrice / (1 - (pricing.discountValue || 0) / 100);
-              const newPrice = +(original * (1 - percent)).toFixed(2);
-              return { ...v.toObject(), retailPrice: newPrice };
-            });
-          } else if (pricing.retailPrice) {
-            const original = pricing.retailPrice / (1 - (pricing.discountValue || 0) / 100);
-            const newPrice = +(original * (1 - percent)).toFixed(2);
-            update["prodPricing.retailPrice"] = newPrice;
+            let newPrice = basePrice;
+            if (discountType === "percentage") {
+              const discounted = +(basePrice * (1 - percent)).toFixed(2);
+              newPrice = discounted;
+            }
+
+            return {
+              ...(variation.toObject?.() ?? variation),
+              retailPrice: newPrice,
+            };
+          });
+
+          update["prodPricing.selectedVariations"] = updatedVariations;
+        }
+
+        // Case 2: Listings without variations
+        else if (typeof prodPricing.retailPrice === "number") {
+          let newPrice = prodPricing.retailPrice;
+
+          if (discountType === "percentage") {
+            newPrice = +(newPrice * (1 - percent)).toFixed(2);
           }
+
+          update["prodPricing.retailPrice"] = newPrice;
         }
 
         return {
