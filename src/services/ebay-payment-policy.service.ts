@@ -122,6 +122,7 @@ export const ebayPaymentPolicyService = {
 
       if (!response.ok) {
         const result = await response.json();
+
         return {
           success: false,
           message: parseEbayError(result),
@@ -141,6 +142,7 @@ export const ebayPaymentPolicyService = {
   async editPaymentPolicy(paymentPolicyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+      console.log("📩 Editing payment policy:", paymentPolicyId);
 
       const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
 
@@ -184,8 +186,11 @@ export const ebayPaymentPolicyService = {
         };
       }
 
+      // Log the data being sent to ensure correctness
+      console.log("📦 Data being sent to eBay:", JSON.stringify(updatedData, null, 2));
+
       const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
-        method: "PUT",
+        method: "PUT", // Ensure it's a PUT request for an update, not a POST
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
@@ -197,10 +202,11 @@ export const ebayPaymentPolicyService = {
       const result = await response.json();
 
       if (!response.ok) {
+        const parsedError = parseEbayError(result);
         return {
           success: false,
           status: response.status,
-          message: parseEbayError(result),
+          message: parsedError, // Use parseEbayError to parse the error
           ebayError: result,
         };
       }
@@ -216,7 +222,6 @@ export const ebayPaymentPolicyService = {
       };
     }
   },
-
   async getById(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();

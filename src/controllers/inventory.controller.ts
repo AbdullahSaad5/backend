@@ -603,7 +603,7 @@ export const inventoryController = {
       });
     }
   },
-  bulkUpdateInventoryTaxDiscount: async (req: Request, res: Response) => {
+  bulkUpdateInventoryTaxAndDiscount: async (req: Request, res: Response) => {
     try {
       const { inventoryIds, discountValue, vat } = req.body;
 
@@ -623,7 +623,7 @@ export const inventoryController = {
       }
 
       // Perform bulk update
-      const result = await inventoryService.bulkUpdateInventoryTaxDiscount(inventoryIds, discountValue, vat);
+      const result = await inventoryService.bulkUpdateInventoryTaxAndDiscount(inventoryIds, discountValue, vat);
 
       return res.status(200).json({
         message: "Inventory VAT/tax and discount updated successfully",

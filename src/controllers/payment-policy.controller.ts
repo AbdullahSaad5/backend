@@ -1,3 +1,4 @@
+import { paymentPolicy } from "@/routes/payment-policy.route";
 import { ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
@@ -55,16 +56,20 @@ export const paymentPolicyController = {
   },
   editPolicy: async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
+      const {id: paymentPolicyId } = req.params;
 
-      console.log("📩 Received request to edit eBay payment policy", id, JSON.stringify(req.body, null, 2));
+      console.log(
+        "📩 Received request to edit eBay payment policy",
+        paymentPolicyId,
+        JSON.stringify(req.body, null, 2)
+      );
 
-      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(id, req.body);
+      const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(paymentPolicyId, req.body);
 
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse.success) {
         console.error("❌ eBay failed to update payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to update payment policy on eBay.",
+          message: ebayResponse.message || "Failed to update payment policy on eBay.",
           ebayResponse,
         });
       }
@@ -81,6 +86,7 @@ export const paymentPolicyController = {
       });
     }
   },
+
   deletePolicy: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

@@ -21,6 +21,7 @@ const uploadToFirebase = async (
     const storageFile = adminStorage.file(destination);
     await storageFile.save(filePath, {
       metadata: {
+
         contentType: destination.includes("videos")
           ? "video/mp4"
           : "image/jpeg",
