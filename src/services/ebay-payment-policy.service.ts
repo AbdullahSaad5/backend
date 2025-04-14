@@ -122,6 +122,7 @@ export const ebayPaymentPolicyService = {
 
       if (!response.ok) {
         const result = await response.json();
+
         return {
           success: false,
           message: parseEbayError(result),
@@ -185,8 +186,11 @@ export const ebayPaymentPolicyService = {
         };
       }
 
+      // Log the data being sent to ensure correctness
+      console.log("📦 Data being sent to eBay:", JSON.stringify(updatedData, null, 2));
+
       const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
-        method: "PUT",
+        method: "PUT", // Ensure it's a PUT request for an update, not a POST
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
@@ -198,20 +202,11 @@ export const ebayPaymentPolicyService = {
       const result = await response.json();
 
       if (!response.ok) {
-        // Handle Duplicate Policy Error
-        if (result.errors?.[0]?.errorId === 20400 && result.errors[0]?.longMessage === "Duplicate Policy") {
-          return {
-            success: false,
-            status: response.status,
-            message: `Duplicate policy detected. Policy ID: ${result.errors[0].parameters[0].value}`,
-          };
-        }
-
-        // Other eBay errors
+        const parsedError = parseEbayError(result);
         return {
           success: false,
           status: response.status,
-          message: parseEbayError(result),
+          message: parsedError, // Use parseEbayError to parse the error
           ebayError: result,
         };
       }
