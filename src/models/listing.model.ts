@@ -58,6 +58,7 @@ const prodPricingSchema = {
       },
       retailPrice: { type: Number, required: true, default: 0 },
       listingQuantity: { type: Number, required: true, default: 0 },
+      discountValue: { type: Number },
     },
   ],
   retailPrice: {

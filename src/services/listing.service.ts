@@ -588,8 +588,24 @@ export const listingService = {
     vat: number
   ) => {
     try {
-      const listings = await Listing.find({ _id: { $in: listingIds } });
+      // Step 1: Validate the format of the listing IDs
+      if (!Array.isArray(listingIds) || listingIds.length === 0) {
+        return { status: 400, message: "listingIds array is required" };
+      }
 
+      // Validate that each listingId is a valid ObjectId
+      const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+      if (invalidIds.length > 0) {
+        return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
+      }
+
+      // Step 2: Check if the listings exist in the database
+      const listings = await Listing.find({ _id: { $in: listingIds } });
+      if (listings.length !== listingIds.length) {
+        const existingIds = listings.map((listing: any) => listing._id.toString());
+        const missingIds = listingIds.filter((id) => !existingIds.includes(id));
+        return { status: 400, message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.` };
+      }
       const percent = discountValue / 100;
 
       const bulkOps = listings.map((listing: any) => {
