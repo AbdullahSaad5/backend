@@ -438,65 +438,38 @@ export const inventoryService = {
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
-      const invalidRows: { row: number; errors: string[] }[] = [];
-
-      if (invalidRows.length > 0) {
-        console.log("❌ Some rows were skipped due to validation errors:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-
       if (validRows.length === 0) {
         console.log("❌ No valid Inventory to import.");
         return;
       }
 
-      // ✅ Fetch all existing product titles to prevent duplicates
-      const existingTitles = new Set(
-        (await Inventory.find({}, "productInfo.title")).map((p: any) => p.productInfo.title)
-      );
-      console.log("🔹 Existing Titles:", existingTitles);
-
-      // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-      const existingSuppliers = await User.find({ supplierKey: { $in: supplierKeys } }, "_id supplierKey");
-      const supplierMap = new Map(existingSuppliers.map((supplier: any) => [supplier.supplierKey, supplier._id]));
-      console.log("🔹 Supplier Map:", supplierMap);
-
-      // ✅ Filter out invalid suppliers
-      const filteredRows = validRows.filter(({ data }) => {
-        console.log(`🔍 Processing row ${data.row}: ${JSON.stringify(data)}`);
-
-        if (!supplierMap.has(data.productSupplierKey)) {
-          invalidRows.push({
-            row: data.row,
-            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-          });
-          return false;
-        }
-
-        // Check if the title is missing or empty
-        if (!data.title) {
-          console.log(`❌ Missing title for row ${data.row}`);
-          invalidRows.push({
-            row: data.row,
-            errors: ["Missing title"],
-          });
-          return false;
-        }
-
-        return true;
+      // Debugging the valid rows received
+      console.log("🔹 Valid Rows Received for Bulk Import:");
+      validRows.forEach(({ row, data }) => {
+        console.log(`Row: ${row}`);
+        console.log("Data:", data);
       });
 
-      if (filteredRows.length === 0) {
-        console.log("❌ No valid Inventory to insert after supplier validation.");
-        return;
-      }
+      // Fetch all existing product titles to prevent duplicates
+      // const existingTitles = new Set(
+      //   (await Inventory.find({}, "productInfo.title")).map((p: any) => p.productInfo.title)
+      // );
+      // console.log("🔹 Existing Titles:", existingTitles);
 
-      // ✅ Bulk insert new Inventory (avoiding duplicates)
-      const bulkOperations = filteredRows
-        .filter(({ data }) => !existingTitles.has(data.title))
+      // Prepare bulk operations
+      const bulkOperations = validRows
+        .filter(({ data }) => {
+          // Ensure the data object and title exist
+          if (!data || !data.title) {
+            console.log(`❌ Missing title or invalid data for row ${data?.row}`);
+            return false; // Skip invalid rows
+          }
+          // if (existingTitles.has(data.title)) {
+          //   console.log(`❌ Duplicate title found for row ${data.row}: ${data.title}`);
+          //   return false; // Skip rows with duplicate titles
+          // }
+          return true;
+        })
         .map(({ data }) => {
           console.log(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
 
@@ -519,6 +492,7 @@ export const inventoryService = {
                   storageType: data.storageType || [],
                   features: data.features || [],
                   ssdCapacity: data.ssdCapacity || [],
+                  screenSize: data.screenSize || "14 px",
                   gpu: data.gpu || "",
                   unitType: data.unitType || "box",
                   unitQuantity: data.unitQuantity || "1",
@@ -533,7 +507,7 @@ export const inventoryService = {
                   color: data.color || [],
                   maxResolution: data.maxResolution || "",
                   mostSuitableFor: data.mostSuitableFor || "",
-                  screenSize: data.screenSize || "",
+
                   graphicsProcessingType: data.graphicsProcessingType || "",
                   connectivity: data.connectivity || "",
                   manufacturerWarranty: data.manufacturerWarranty || "",
@@ -542,15 +516,16 @@ export const inventoryService = {
                   length: data.length || "",
                   weight: data.weight || "",
                   width: data.width || "",
+                  /* Default/Empty values for various tech fields */
                 },
                 productInfo: {
                   productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                  productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
+                  productSupplier: data.productSupplier, // Directly use the passed supplier _id
                   title: data.title,
                   description: data.description,
                   inventoryImages: data.images.map((url: string) => ({
                     id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    size: 0, // Placeholder size, calculate or leave it as 0
+                    size: 0, // Placeholder size
                     url,
                     type: "image/jpeg",
                   })),
@@ -567,22 +542,13 @@ export const inventoryService = {
         return;
       }
 
-      // ✅ Perform Bulk Insert Operation
+      // Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
       console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
-
-      // ✅ Log skipped rows due to invalid suppliers
-      if (invalidRows.length > 0) {
-        console.log("❌ Some products were skipped due to invalid suppliers:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
     } catch (error) {
       console.error("❌ Bulk import failed:", error);
     }
   },
-
   //bulk Export inventory to CSV
   exportInventory: async (): Promise<string> => {
     try {
