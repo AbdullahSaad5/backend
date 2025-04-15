@@ -581,6 +581,7 @@ export const listingService = {
       throw new Error("Failed to export listing.");
     }
   },
+  // Service
   bulkUpdateListingTaxDiscount: async (
     listingIds: string[],
     discountType: "fixed" | "percentage",
@@ -588,7 +589,7 @@ export const listingService = {
     vat: number
   ) => {
     try {
-      // Step 1: Validate the format of the listing IDs
+      // Validate the format of the listing IDs
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return { status: 400, message: "listingIds array is required" };
       }
@@ -599,52 +600,59 @@ export const listingService = {
         return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
       }
 
-      // Step 2: Check if the listings exist in the database
       const listings = await Listing.find({ _id: { $in: listingIds } });
       if (listings.length !== listingIds.length) {
         const existingIds = listings.map((listing: any) => listing._id.toString());
         const missingIds = listingIds.filter((id) => !existingIds.includes(id));
         return { status: 400, message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.` };
       }
-      const percent = discountValue / 100;
+
+      const percent = discountType === "percentage" ? discountValue / 100 : 0;
 
       const bulkOps = listings.map((listing: any) => {
         const prodPricing = listing.prodPricing || {};
         const update: any = {
           "prodPricing.vat": vat,
           "prodPricing.discountType": discountType,
-          "prodPricing.discountValue": discountValue,
         };
 
         // Case 1: Listings with variations
         if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
             const basePrice = variation.retailPrice || 0;
+            let newDiscountValue = variation.discountValue || 0;
 
-            let newPrice = basePrice;
+            // Update discount value based on discount type
             if (discountType === "percentage") {
-              const discounted = +(basePrice * (1 - percent)).toFixed(2);
-              newPrice = discounted;
+              const calculatedDiscount = +(basePrice * percent).toFixed(2);
+              newDiscountValue += calculatedDiscount; // Add the calculated discount to the existing discount value
+            } else if (discountType === "fixed") {
+              newDiscountValue += discountValue; // Add the fixed discount to the existing discount value
             }
 
             return {
               ...(variation.toObject?.() ?? variation),
-              retailPrice: newPrice,
+              discountValue: newDiscountValue, // Store the final discounted value
             };
           });
 
-          update["prodPricing.selectedVariations"] = updatedVariations;
+          // Use array filter to update the selectedVariations correctly
+          update["prodPricing.selectedVariations"] = updatedVariations; // Directly update the variations array
         }
 
         // Case 2: Listings without variations
         else if (typeof prodPricing.retailPrice === "number") {
-          let newPrice = prodPricing.retailPrice;
+          let newDiscountValue = prodPricing.discountValue || 0;
 
+          // Update discount value based on discount type
           if (discountType === "percentage") {
-            newPrice = +(newPrice * (1 - percent)).toFixed(2);
+            const calculatedDiscount = +(prodPricing.retailPrice * percent).toFixed(2);
+            newDiscountValue += calculatedDiscount; // Add the percentage discount to the existing discount value
+          } else if (discountType === "fixed") {
+            newDiscountValue += discountValue; // Add the fixed discount to the existing discount value
           }
 
-          update["prodPricing.retailPrice"] = newPrice;
+          update["prodPricing.discountValue"] = newDiscountValue;
         }
 
         return {
@@ -655,12 +663,15 @@ export const listingService = {
         };
       });
 
+      // Execute bulk update
       const result = await Listing.bulkWrite(bulkOps);
-      return result;
+      return { status: 200, message: "Listing updates successful", result };
     } catch (error: any) {
+      // Catch and throw error if any issue occurs
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
+
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
       listingId,

@@ -614,30 +614,37 @@ export const listingController = {
       });
     }
   },
+  // Controller
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
       const { listingIds, discountType, discountValue, vat } = req.body;
 
+      // Validate listingIds
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return res.status(400).json({ message: "listingIds array is required" });
       }
 
+      // Validate discountType
       if (!["fixed", "percentage"].includes(discountType)) {
         return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
       }
 
+      // Validate discountValue and vat
       if (typeof discountValue !== "number" || typeof vat !== "number") {
         return res.status(400).json({ message: "discountValue and vat must be numbers" });
       }
 
+      // Call the service to perform the bulk update
       const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountType, discountValue, vat);
 
+      // Return success response
       return res.status(200).json({
         message: "Listing VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Internal Server Error", error: error.message });
+      // Catch errors and return a 500 response with the error message
+      return res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
   upsertListingParts: async (req: Request, res: Response) => {
