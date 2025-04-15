@@ -581,7 +581,7 @@ export const listingService = {
       throw new Error("Failed to export listing.");
     }
   },
-  // Service
+  //service
   bulkUpdateListingTaxDiscount: async (
     listingIds: string[],
     discountType: "fixed" | "percentage",
@@ -597,12 +597,14 @@ export const listingService = {
       console.log("discountType : ", discountType);
       console.log("discountValue : ", discountValue);
       console.log("vat : ", vat);
+
       // Validate that each listingId is a valid ObjectId
       const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
       if (invalidIds.length > 0) {
         return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
       }
 
+      // Fetch listings from the database
       const listings = await Listing.find({ _id: { $in: listingIds } });
       if (listings.length !== listingIds.length) {
         const existingIds = listings.map((listing: any) => listing._id.toString());
@@ -613,9 +615,7 @@ export const listingService = {
       const percent = discountType === "percentage" ? discountValue / 100 : 0;
 
       const bulkOps = listings.map((listing: any) => {
-        const prodPricing = listing.prodPricing || {};
-
-        // Log to see if prodPricing exists and has the required fields
+        const prodPricing = listing.prodPricing; // Ensure prodPricing is not undefined
         console.log("Updating listing:", listing._id);
         console.log("prodPricing:", prodPricing);
 
@@ -627,43 +627,34 @@ export const listingService = {
         // Case 1: Listings with variations
         if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-            const basePrice = variation.retailPrice || 0;
-            let newDiscountValue = variation.discountValue || 0;
-
-            // Update discount value based on discount type
+            const basePrice = variation.retailPrice;
+            let newDiscountValue;
             if (discountType === "percentage") {
-              const calculatedDiscount = +(basePrice * percent).toFixed(2);
-              newDiscountValue += calculatedDiscount; // Add the calculated discount to the existing discount value
-            } else if (discountType === "fixed") {
-              newDiscountValue += discountValue; // Add the fixed discount to the existing discount value
+              newDiscountValue = +(basePrice * percent).toFixed(2);
+            } else {
+              newDiscountValue = discountValue; // Set directly for 'fixed'
             }
-
             return {
-              ...(variation.toObject?.() ?? variation),
-              discountValue: newDiscountValue, // Store the final discounted value
+              ...variation.toObject?.(),
+              discountValue: newDiscountValue,
             };
           });
 
-          // Directly update the variations array (no array filter needed)
           update["prodPricing.selectedVariations"] = updatedVariations;
         }
 
-        // Case 2: Listings without variations (no selected variations)
+        // Case 2: Listings without variations
         else if (typeof prodPricing.retailPrice === "number") {
-          let newDiscountValue = prodPricing.discountValue || 0;
-
-          // Update discount value based on discount type
+          let newDiscountValue;
           if (discountType === "percentage") {
-            const calculatedDiscount = +(prodPricing.retailPrice * percent).toFixed(2);
-            newDiscountValue += calculatedDiscount; // Add the percentage discount to the existing discount value
-          } else if (discountType === "fixed") {
-            newDiscountValue += discountValue; // Add the fixed discount to the existing discount value
+            newDiscountValue = +(prodPricing.retailPrice * percent).toFixed(2);
+          } else {
+            newDiscountValue = discountValue; // Set directly for 'fixed'
           }
-
           update["prodPricing.discountValue"] = newDiscountValue;
         }
 
-        // Log the update object to verify correct values
+        // Log the final update object
         console.log("Update Object for Listing ID", listing._id, ":", JSON.stringify(update, null, 2));
 
         return {
@@ -674,7 +665,7 @@ export const listingService = {
         };
       });
 
-      // Log the bulkOps to see if the update operations are correct
+      // Log the bulkOps to check the operations
       console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
 
       // Execute bulk update
@@ -683,7 +674,6 @@ export const listingService = {
 
       return { status: 200, message: "Listing updates successful", result };
     } catch (error: any) {
-      // Catch and throw error if any issue occurs
       console.error("Error during bulk update:", error);
       throw new Error(`Error during bulk update: ${error.message}`);
     }
