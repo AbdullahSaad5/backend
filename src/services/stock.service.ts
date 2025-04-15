@@ -179,6 +179,13 @@ export const stockService = {
       // Ensure `receivedBy` is populated and filter only valid stocks
       { $match: { "stocks.receivedBy": { $ne: null } } },
 
+      // Add a match to check that at least one stock has `markAsStock: true`
+      {
+        $match: {
+          "stocks.markAsStock": true,
+        },
+      },
+
       // Lookup and populate `productCategory` from `productcategories` collection inside productInfo
       {
         $lookup: {
