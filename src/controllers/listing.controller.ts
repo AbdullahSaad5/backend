@@ -630,8 +630,8 @@ export const listingController = {
       }
 
       // Validate discountValue and vat
-      if (typeof discountValue !== "number" || typeof vat !== "number") {
-        return res.status(400).json({ message: "discountValue and vat must be numbers" });
+      if (typeof discountValue !== "number") {
+        return res.status(400).json({ message: "discountValue must be numbers" });
       }
 
       // Call the service to perform the bulk update
