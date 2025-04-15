@@ -593,7 +593,10 @@ export const listingService = {
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return { status: 400, message: "listingIds array is required" };
       }
-
+      console.log("listingIds : ", listingIds);
+      console.log("discountType : ", discountType);
+      console.log("discountValue : ", discountValue);
+      console.log("vat : ", vat);
       // Validate that each listingId is a valid ObjectId
       const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
       if (invalidIds.length > 0) {
@@ -611,6 +614,11 @@ export const listingService = {
 
       const bulkOps = listings.map((listing: any) => {
         const prodPricing = listing.prodPricing || {};
+
+        // Log to see if prodPricing exists and has the required fields
+        console.log("Updating listing:", listing._id);
+        console.log("prodPricing:", prodPricing);
+
         const update: any = {
           "prodPricing.vat": vat,
           "prodPricing.discountType": discountType,
@@ -636,11 +644,11 @@ export const listingService = {
             };
           });
 
-          // Use array filter to update the selectedVariations correctly
-          update["prodPricing.selectedVariations"] = updatedVariations; // Directly update the variations array
+          // Directly update the variations array (no array filter needed)
+          update["prodPricing.selectedVariations"] = updatedVariations;
         }
 
-        // Case 2: Listings without variations
+        // Case 2: Listings without variations (no selected variations)
         else if (typeof prodPricing.retailPrice === "number") {
           let newDiscountValue = prodPricing.discountValue || 0;
 
@@ -655,6 +663,9 @@ export const listingService = {
           update["prodPricing.discountValue"] = newDiscountValue;
         }
 
+        // Log the update object to verify correct values
+        console.log("Update Object for Listing ID", listing._id, ":", JSON.stringify(update, null, 2));
+
         return {
           updateOne: {
             filter: { _id: listing._id },
@@ -663,11 +674,17 @@ export const listingService = {
         };
       });
 
+      // Log the bulkOps to see if the update operations are correct
+      console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
+
       // Execute bulk update
       const result = await Listing.bulkWrite(bulkOps);
+      console.log("Bulk Write Result:", result);
+
       return { status: 200, message: "Listing updates successful", result };
     } catch (error: any) {
       // Catch and throw error if any issue occurs
+      console.error("Error during bulk update:", error);
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
