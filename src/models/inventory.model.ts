@@ -416,7 +416,7 @@ const inventorySchema = new Schema(
     kind: { type: String },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isVariation: { type: Boolean, default: false },
-    multiBrand: { type: Boolean, default: false },
+    isMultiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],

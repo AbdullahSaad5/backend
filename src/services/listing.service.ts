@@ -586,18 +586,14 @@ export const listingService = {
     listingIds: string[],
     discountType: "fixed" | "percentage",
     discountValue: number,
-    vat: number
+    vat: number,
+    retailPrice: number
   ) => {
     try {
       // Validate the format of the listing IDs
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return { status: 400, message: "listingIds array is required" };
       }
-
-      console.log("listingIds : ", listingIds);
-      console.log("discountType : ", discountType);
-      console.log("discountValue : ", discountValue);
-      console.log("vat : ", vat);
 
       // Validate that each listingId is a valid ObjectId
       const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
@@ -620,17 +616,35 @@ export const listingService = {
         console.log("Updating listing:", listing._id);
         console.log("prodPricing:", prodPricing);
 
-        // Initialize update object with new values
+        // Initialize update object for VAT and discountType
         let update: any = {
-          // "prodPricing.vat": vat,
-          // "prodPricing.discountType": discountType,
-          prodPricing: {
-            vat: vat,
-            discountType: discountType,
+          $set: {
+            "prodPricing.vat": vat,
+            "prodPricing.discountType": discountType,
           },
         };
 
-        // Case 1: Listings with variations
+        // If retailPrice is provided, update it
+        if (retailPrice) {
+          // Case 1: Listings with variations
+          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              return {
+                ...variation,
+                retailPrice: retailPrice, // Set retailPrice in each variation
+              };
+            });
+
+            update.$set["prodPricing.selectedVariations"] = updatedVariations;
+          }
+
+          // Case 2: Listings without variations
+          else if (typeof prodPricing.retailPrice === "number") {
+            update.$set["prodPricing.retailPrice"] = retailPrice;
+          }
+        }
+
+        // Case 1: Listings with variations (update discount based on discountType)
         if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
             const basePrice = variation.retailPrice || 0;
@@ -645,22 +659,15 @@ export const listingService = {
             }
 
             return {
-              ...(variation.toObject?.() ?? variation),
+              ...variation,
               discountValue: newDiscountValue, // Final discounted value
             };
           });
 
-          // update["prodPricing.selectedVariations"] = updatedVariations;
-          update = {
-            ...update,
-            prodPricing: {
-              ...update.prodPricing,
-              selectedVariations: updatedVariations,
-            },
-          };
+          update.$set["prodPricing.selectedVariations"] = updatedVariations;
         }
 
-        // Case 2: Listings without variations
+        // Case 2: Listings without variations (update discount)
         else if (typeof prodPricing.retailPrice === "number") {
           let newDiscountValue = prodPricing.discountValue || 0;
 
@@ -671,15 +678,7 @@ export const listingService = {
             newDiscountValue += discountValue;
           }
 
-          // update["prodPricing.discountValue"] = newDiscountValue;
-          update = {
-            ...update,
-            prodPricing: {
-              ...update.prodPricing,
-              // discountValue: newDiscountValue,
-              discountValue: 100,
-            },
-          };
+          update.$set["prodPricing.discountValue"] = newDiscountValue;
         }
 
         // Log the final update object
@@ -688,9 +687,8 @@ export const listingService = {
         // Use updateDoc to update with $set
         return {
           updateOne: {
-            filter: { _id: listing._id, kind: "listing_laptops" }, // Ensure _id is a valid ObjectId
-            update: { $set: update }, // Use $set to update the fields
-            upsert: true,
+            filter: { _id: listing._id, kind: listing.kind }, // Dynamically use listing.kind
+            update: update,
           },
         };
       });
@@ -698,11 +696,6 @@ export const listingService = {
       // Log the bulkOps to check the operations
       console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
 
-      await Promise.all(
-        bulkOps.map((op) => {
-          return Listing.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });
-        })
-      );
       // Execute bulk update using bulkWrite
       const result = await Listing.bulkWrite(bulkOps);
       console.log("Bulk Write Result:", result);
@@ -713,6 +706,7 @@ export const listingService = {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
+
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
       listingId,

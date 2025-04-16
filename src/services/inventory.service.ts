@@ -60,7 +60,7 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-      const multiBrand = stepData.multiBrand === true || stepData.multiBrand === "true"; // Ensure it's a boolean
+      const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
       const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
 
@@ -97,7 +97,7 @@ export const inventoryService = {
         productInfo,
         // isTemplate,
         // isVariation,
-        multiBrand,
+        isMultiBrand,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
@@ -178,7 +178,7 @@ export const inventoryService = {
         "stockThreshold",
         "isTemplate",
         "isVariation",
-        "multiBrand",
+        "isMultiBrand",
         "status",
       ];
       topLevelFields.forEach((field) => {
@@ -480,7 +480,7 @@ export const inventoryService = {
                 kind: "inventory_laptops", // Adjust if necessary based on the kind
                 status: "draft", // Default status
                 isVariation: false, // Default value
-                multiBrand: false, // Default value
+                isMultiBrand: false, // Default value
                 isTemplate: false, // Default value
                 isPart: false, // Default value
                 stocks: [], // Assuming empty initially

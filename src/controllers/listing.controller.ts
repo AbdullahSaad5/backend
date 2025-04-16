@@ -617,7 +617,7 @@ export const listingController = {
   // Controller
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { listingIds, discountType, discountValue, vat } = req.body;
+      const { listingIds, discountType, discountValue, vat, retailPrice } = req.body;
 
       // Validate listingIds
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
@@ -625,17 +625,23 @@ export const listingController = {
       }
 
       // Validate discountType
-      if (!["fixed", "percentage"].includes(discountType)) {
-        return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
-      }
+      // if (!["fixed", "percentage"].includes(discountType)) {
+      //   return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
+      // }
 
       // Validate discountValue and vat
-      if (typeof discountValue !== "number") {
-        return res.status(400).json({ message: "discountValue must be numbers" });
-      }
+      // if (typeof discountValue !== "number") {
+      //   return res.status(400).json({ message: "discountValue must be numbers" });
+      // }
 
       // Call the service to perform the bulk update
-      const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountType, discountValue, vat);
+      const result = await listingService.bulkUpdateListingTaxDiscount(
+        listingIds,
+        discountType,
+        discountValue,
+        vat,
+        retailPrice
+      );
 
       // Return success response
       return res.status(200).json({
