@@ -621,9 +621,13 @@ export const listingService = {
         console.log("prodPricing:", prodPricing);
 
         // Initialize update object with new values
-        const update: any = {
-          "prodPricing.vat": vat,
-          "prodPricing.discountType": discountType,
+        let update: any = {
+          // "prodPricing.vat": vat,
+          // "prodPricing.discountType": discountType,
+          prodPricing: {
+            vat: vat,
+            discountType: discountType,
+          },
         };
 
         // Case 1: Listings with variations
@@ -646,7 +650,14 @@ export const listingService = {
             };
           });
 
-          update["prodPricing.selectedVariations"] = updatedVariations;
+          // update["prodPricing.selectedVariations"] = updatedVariations;
+          update = {
+            ...update,
+            prodPricing: {
+              ...update.prodPricing,
+              selectedVariations: updatedVariations,
+            },
+          };
         }
 
         // Case 2: Listings without variations
@@ -660,7 +671,15 @@ export const listingService = {
             newDiscountValue += discountValue;
           }
 
-          update["prodPricing.discountValue"] = newDiscountValue;
+          // update["prodPricing.discountValue"] = newDiscountValue;
+          update = {
+            ...update,
+            prodPricing: {
+              ...update.prodPricing,
+              // discountValue: newDiscountValue,
+              discountValue: 100,
+            },
+          };
         }
 
         // Log the final update object
@@ -669,8 +688,9 @@ export const listingService = {
         // Use updateDoc to update with $set
         return {
           updateOne: {
-            filter: { _id: listing._id },
+            filter: { _id: listing._id, kind: "listing_all_in_one_pc" }, // Ensure _id is a valid ObjectId
             update: { $set: update }, // Use $set to update the fields
+            upsert: true,
           },
         };
       });
@@ -678,6 +698,11 @@ export const listingService = {
       // Log the bulkOps to check the operations
       console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
 
+      await Promise.all(
+        bulkOps.map((op) => {
+          return Listing.updateOne(op.updateOne.filter, op.updateOne.update, { upsert: op.updateOne.upsert });
+        })
+      );
       // Execute bulk update using bulkWrite
       const result = await Listing.bulkWrite(bulkOps);
       console.log("Bulk Write Result:", result);
