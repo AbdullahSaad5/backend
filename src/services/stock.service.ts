@@ -241,4 +241,123 @@ export const stockService = {
       },
     ]);
   },
+  async getInventoryWithStockWithDraft() {
+    return await Inventory.aggregate([
+      {
+        $lookup: {
+          from: "stocks",
+          localField: "_id",
+          foreignField: "inventoryId",
+          as: "stocks",
+        },
+      },
+      { $unwind: "$stocks" },
+
+      // Lookup and populate `receivedBy` (excluding password)
+      {
+        $lookup: {
+          from: "users",
+          localField: "stocks.receivedBy",
+          foreignField: "_id",
+          as: "stocks.receivedBy",
+          pipeline: [{ $project: { password: 0 } }],
+        },
+      },
+      { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
+
+      // Lookup and populate `variationId` inside `selectedVariations`
+      {
+        $lookup: {
+          from: "variations", // Ensure this is the correct collection name
+          localField: "stocks.selectedVariations.variationId",
+          foreignField: "_id",
+          as: "variationDetails",
+        },
+      },
+
+      // Merge populated variations back into `selectedVariations`
+      {
+        $addFields: {
+          "stocks.selectedVariations": {
+            $map: {
+              input: "$stocks.selectedVariations",
+              as: "variation",
+              in: {
+                variationId: "$$variation.variationId",
+                costPricePerUnit: "$$variation.costPricePerUnit",
+                purchasePricePerUnit: "$$variation.purchasePricePerUnit",
+                totalUnits: "$$variation.totalUnits",
+                usableUnits: "$$variation.usableUnits",
+                variationDetails: {
+                  $arrayElemAt: [
+                    "$variationDetails",
+                    { $indexOfArray: ["$variationDetails._id", "$$variation.variationId"] },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+
+      // Remove unnecessary fields
+      { $unset: "variationDetails" },
+
+      // Ensure `receivedBy` is populated and filter only valid stocks
+      { $match: { "stocks.receivedBy": { $ne: null } } },
+      // Lookup and populate `productCategory` from `productcategories` collection inside productInfo
+      {
+        $lookup: {
+          from: "productcategories", // correct collection name for productCategory
+          localField: "productInfo.productCategory", // Link to the productCategory ObjectId
+          foreignField: "_id",
+          as: "productCategory",
+        },
+      },
+      { $unwind: { path: "$productCategory", preserveNullAndEmptyArrays: true } },
+
+      // Lookup and populate `productSupplier` from `users` collection inside productInfo
+      {
+        $lookup: {
+          from: "users",
+          localField: "productInfo.productSupplier", // Link to the productSupplier ObjectId
+          foreignField: "_id",
+          as: "productSupplier",
+          pipeline: [{ $project: { password: 0 } }], // Optionally exclude sensitive fields
+        },
+      },
+      { $unwind: { path: "$productSupplier", preserveNullAndEmptyArrays: true } },
+
+      // Regroup stocks after unwind and move `isVariation` & `status` outside `inventory`
+      {
+        $group: {
+          _id: "$_id",
+          isVariation: { $first: "$isVariation" }, // Extracting `isVariation`
+          status: { $first: "$status" }, // Extracting `status`
+          inventory: { $first: "$$ROOT" }, // Keeping full inventory details
+          stocks: { $push: "$stocks" }, // Keeping stocks properly grouped
+          productCategory: { $first: "$productCategory" }, // Adding populated productCategory
+          productSupplier: { $first: "$productSupplier" }, // Adding populated productSupplier
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              "$inventory",
+              {
+                stocks: "$stocks",
+                productInfo: {
+                  $mergeObjects: [
+                    "$inventory.productInfo",
+                    { productCategory: "$productCategory", productSupplier: "$productSupplier" },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+    ]);
+  },
 };

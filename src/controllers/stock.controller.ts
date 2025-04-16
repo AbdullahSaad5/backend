@@ -129,7 +129,17 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-
+  getInventoryWithStockWithDraft: async (req: Request, res: Response) => {
+    try {
+      const inventoryWithStocks = await stockService.getInventoryWithStockWithDraft();
+      if (inventoryWithStocks.length === 0) {
+        return res.status(404).json({ message: "No inventory with stock found" });
+      }
+      res.status(200).json(inventoryWithStocks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
   // 📌 Get All Stock Purchases for a inventory(only those stocks who are markAsStock=true)
   getStockByInventoryId: async (req: Request, res: Response) => {
     try {

@@ -4,27 +4,22 @@ import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { Listing, User } from "@/models";
+import { Inventory, User } from "@/models";
 import { Request, Response } from "express";
 import Papa from "papaparse";
 import dotenv from "dotenv";
+import { inventoryService } from "@/services";
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
-const uploadToFirebase = async (
-  filePath: string,
-  destination: string
-): Promise<string | null> => {
+const uploadToFirebase = async (filePath: string, destination: string): Promise<string | null> => {
   if (!filePath) throw new Error("No file provided!");
   try {
     const storageFile = adminStorage.file(destination);
     await storageFile.save(filePath, {
       metadata: {
-
-        contentType: destination.includes("videos")
-          ? "video/mp4"
-          : "image/jpeg",
+        contentType: destination.includes("videos") ? "video/mp4" : "image/jpeg",
       },
       public: true,
     });
@@ -38,14 +33,7 @@ const uploadToFirebase = async (
 
 const validateCsvData = async (csvFilePath: string) => {
   console.log(`📂 Validating CSV file: ${csvFilePath}`);
-  const requiredColumns = [
-    "brand",
-    "title",
-    "description",
-    "productSupplierKey",
-    "productCategory",
-    "price",
-  ];
+  const requiredColumns = ["brand", "title", "description", "productSupplierKey", "productCategory"];
 
   const csvContent = fs.readFileSync(csvFilePath, "utf8");
   const parsedCSV = Papa.parse(csvContent, {
@@ -53,8 +41,7 @@ const validateCsvData = async (csvFilePath: string) => {
     skipEmptyLines: true,
   });
 
-  if (parsedCSV.errors.length > 0)
-    throw new Error(`CSV Parsing Errors: ${JSON.stringify(parsedCSV.errors)}`);
+  if (parsedCSV.errors.length > 0) throw new Error(`CSV Parsing Errors: ${JSON.stringify(parsedCSV.errors)}`);
 
   const validRows: { row: number; data: any }[] = [];
   const invalidRows: { row: number; errors: string[] }[] = [];
@@ -68,17 +55,14 @@ const validateCsvData = async (csvFilePath: string) => {
       if (!row[col]?.trim()) errors.push(`${col} is missing or empty`);
     });
 
-    if (!row.price || isNaN(parseFloat(row.price)))
-      errors.push("Price must be a valid number");
+    if (!row.costPrice || isNaN(parseFloat(row.costPrice))) errors.push("Price must be a valid number");
 
     if (row.productSupplierKey) {
       const supplier = await User.findOne({
         supplierKey: row.productSupplierKey,
       }).select("_id");
       if (!supplier) {
-        errors.push(
-          `supplierKey ${row.productSupplierKey} does not exist in the database`
-        );
+        errors.push(`supplierKey ${row.productSupplierKey} does not exist in the database`);
       } else {
         row.productSupplier = supplier._id;
       }
@@ -98,9 +82,7 @@ const validateCsvData = async (csvFilePath: string) => {
     }
   }
 
-  console.log(
-    `✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`
-  );
+  console.log(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
   return { validRows, invalidRows, validIndexes };
 };
 
@@ -119,14 +101,11 @@ const processZipFile = async (zipFilePath: string) => {
     }
     zip.extractAllTo(extractPath, true);
 
-    const extractedItems = fs
-      .readdirSync(extractPath)
-      .filter((item) => item !== "__MACOSX");
+    const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
     console.log("🔹 Extracted files:", extractedItems);
 
     const mainFolder =
-      extractedItems.length === 1 &&
-      fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
+      extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
         ? path.join(extractPath, extractedItems[0])
         : extractPath;
 
@@ -134,9 +113,7 @@ const processZipFile = async (zipFilePath: string) => {
     console.log("✅ Files inside extracted folder:", files);
 
     const csvFile = files.find((f) => f.endsWith(".csv"));
-    const mediaFolder = files.find((f) =>
-      fs.lstatSync(path.join(mainFolder, f)).isDirectory()
-    );
+    const mediaFolder = files.find((f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory());
 
     if (!csvFile || !mediaFolder) {
       throw new Error("Invalid ZIP structure. Missing CSV or media folder.");
@@ -163,9 +140,7 @@ const processZipFile = async (zipFilePath: string) => {
 
       const uploadFiles = async (files: string[], destination: string) => {
         try {
-          const uploads = files.map((file) =>
-            uploadFileToFirebase(file, `${destination}/${uuidv4()}`)
-          );
+          const uploads = files.map((file) => uploadFileToFirebase(file, `${destination}/${uuidv4()}`));
 
           const results = await Promise.allSettled(uploads);
 
@@ -179,7 +154,7 @@ const processZipFile = async (zipFilePath: string) => {
       };
 
       const imagesFolder = path.join(productMediaPath, "images");
-      const videosFolder = path.join(productMediaPath, "videos");
+      // const videosFolder = path.join(productMediaPath, "videos");
 
       data.images = fs.existsSync(imagesFolder)
         ? await uploadFiles(
@@ -188,16 +163,16 @@ const processZipFile = async (zipFilePath: string) => {
           )
         : [];
 
-      data.videos = fs.existsSync(videosFolder)
-        ? await uploadFiles(
-            fs.readdirSync(videosFolder).map((f) => path.join(videosFolder, f)),
-            `products/${folderIndex}/videos`
-          )
-        : [];
+      // data.videos = fs.existsSync(videosFolder)
+      //   ? await uploadFiles(
+      //       fs.readdirSync(videosFolder).map((f) => path.join(videosFolder, f)),
+      //       `products/${folderIndex}/videos`
+      //     )
+      //   : [];
     }
 
     console.log("🚀 Starting bulk import...");
-    await bulkImportInventory(validRows);
+    await inventoryService.bulkImportInventory(validRows);
     console.log(`✅ Bulk import completed.`);
   } catch (error) {
     console.error("❌ Error processing ZIP file:", error);
@@ -218,135 +193,3 @@ const processZipFile = async (zipFilePath: string) => {
 };
 
 export { validateCsvData, processZipFile };
-const bulkImportInventory = async (
-  validRows: { row: number; data: any }[]
-): Promise<void> => {
-  try {
-    const invalidRows: { row: number; errors: string[] }[] = [];
-
-    if (invalidRows.length > 0) {
-      console.log("❌ Some rows were skipped due to validation errors:");
-      invalidRows.forEach(({ row, errors }) => {
-        console.log(`Row ${row}: ${errors.join(", ")}`);
-      });
-    }
-
-    if (validRows.length === 0) {
-      console.log("❌ No valid Inventory to import.");
-      return;
-    }
-
-    // ✅ Fetch all existing product titles to prevent duplicates
-    const existingTitles = new Set(
-      (await Listing.find({}, "title")).map((p: any) => p.title)
-    );
-
-    // ✅ Fetch all suppliers in one query to optimize validation
-    const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-    const existingSuppliers = await User.find(
-      { supplierKey: { $in: supplierKeys } },
-      "_id supplierKey"
-      // ).lean();
-    );
-    const supplierMap = new Map(
-      existingSuppliers.map((supplier: any) => [supplier.supplierKey, supplier._id])
-    );
-
-    // ✅ Filter out invalid suppliers
-    const filteredRows = validRows.filter(({ data }) => {
-      if (!supplierMap.has(data.productSupplierKey)) {
-        invalidRows.push({
-          row: data.row,
-          errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-        });
-        return false;
-      }
-      return true;
-    });
-
-    if (filteredRows.length === 0) {
-      console.log("❌ No valid Inventory to insert after supplier validation.");
-      return;
-    }
-
-    // ✅ Bulk insert new Inventory (avoiding duplicates)
-    const bulkOperations = filteredRows
-      .filter(({ data }) => !existingTitles.has(data.title))
-      .map(({ data }) => ({
-        insertOne: {
-          document: {
-            title: data.title,
-            brand: data.brand,
-            description: data.description,
-            productCategory: new mongoose.Types.ObjectId(data.productCategory),
-            productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-            price: parseFloat(data.price),
-            media: {
-              images: data.images.map((url: string) => ({
-                url,
-                type: "image/jpeg",
-              })),
-              videos: data.videos.map((url: string) => ({
-                url,
-                type: "video/mp4",
-              })),
-            },
-            platformDetails: ["amazon", "ebay", "website"].reduce(
-              (acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    description: data.description,
-                    productCategory: new mongoose.Types.ObjectId(
-                      data.productCategory
-                    ),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              },
-              {}
-            ),
-          },
-        },
-      }));
-
-    if (bulkOperations.length === 0) {
-      console.log("✅ No new Inventory to insert.");
-      return;
-    }
-
-    // ✅ Perform Bulk Insert Operation
-    await Listing.bulkWrite(bulkOperations);
-    console.log(
-      `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
-    );
-
-    // ✅ Log skipped rows due to invalid suppliers
-    if (invalidRows.length > 0) {
-      console.log("❌ Some products were skipped due to invalid suppliers:");
-      invalidRows.forEach(({ row, errors }) => {
-        console.log(`Row ${row}: ${errors.join(", ")}`);
-      });
-    }
-  } catch (error) {
-    console.error("❌ Bulk import failed:", error);
-  }
-};

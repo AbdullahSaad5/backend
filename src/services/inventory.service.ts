@@ -436,122 +436,115 @@ export const inventoryService = {
     }
   },
   //bulk import inventory as CSV
-  bulkImportInventory: async (filePath: string): Promise<void> => {
+  bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
-      // ✅ Validate CSV data (supplier validation happens inside)
-      const { validRows, invalidRows } = await validateCsvData(filePath);
-
-      if (invalidRows.length > 0) {
-        console.log("❌ Some rows were skipped due to validation errors:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-
       if (validRows.length === 0) {
-        console.log("❌ No valid inventory to import.");
+        console.log("❌ No valid Inventory to import.");
         return;
       }
 
-      // ✅ Fetch all existing inventory titles to prevent duplicates
-      const existingTitles = new Set((await Inventory.find({}, "title")).map((p: any) => p.title));
-
-      // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-      const existingSuppliers = await User.find(
-        { supplierKey: { $in: supplierKeys } },
-        "_id supplierKey"
-        // ).lean();
-      );
-      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
-
-      // ✅ Filter out invalid suppliers
-      const filteredRows = validRows.filter(({ data }) => {
-        if (!supplierMap.has(data.productSupplierKey)) {
-          invalidRows.push({
-            row: data.row,
-            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-          });
-          return false;
-        }
-        return true;
+      // Debugging the valid rows received
+      console.log("🔹 Valid Rows Received for Bulk Import:");
+      validRows.forEach(({ row, data }) => {
+        console.log(`Row: ${row}`);
+        console.log("Data:", data);
       });
 
-      if (filteredRows.length === 0) {
-        console.log("❌ No valid inventory to insert after supplier validation.");
-        return;
-      }
+      // Fetch all existing product titles to prevent duplicates
+      // const existingTitles = new Set(
+      //   (await Inventory.find({}, "productInfo.title")).map((p: any) => p.productInfo.title)
+      // );
+      // console.log("🔹 Existing Titles:", existingTitles);
 
-      // ✅ Bulk insert new inventory (avoiding duplicates)
-      const bulkOperations = filteredRows
-        .filter(({ data }) => !existingTitles.has(data.title))
-        .map(({ data }) => ({
-          insertOne: {
-            document: {
-              title: data.title,
-              brand: data.brand,
-              inventoryDescription: data.inventoryDescription,
-              productCategory: new mongoose.Types.ObjectId(data.productCategory),
-              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-              price: parseFloat(data.price),
-              media: {
-                images: data.images.map((url: string) => ({
-                  url,
-                  type: "image/jpeg",
-                })),
-                videos: data.videos.map((url: string) => ({
-                  url,
-                  type: "video/mp4",
-                })),
+      // Prepare bulk operations
+      const bulkOperations = validRows
+        .filter(({ data }) => {
+          // Ensure the data object and title exist
+          if (!data || !data.title) {
+            console.log(`❌ Missing title or invalid data for row ${data?.row}`);
+            return false; // Skip invalid rows
+          }
+          // if (existingTitles.has(data.title)) {
+          //   console.log(`❌ Duplicate title found for row ${data.row}: ${data.title}`);
+          //   return false; // Skip rows with duplicate titles
+          // }
+          return true;
+        })
+        .map(({ data }) => {
+          console.log(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
+
+          return {
+            insertOne: {
+              document: {
+                isBlocked: false,
+                kind: "inventory_laptops", // Adjust if necessary based on the kind
+                status: "draft", // Default status
+                isVariation: false, // Default value
+                multiBrand: false, // Default value
+                isTemplate: false, // Default value
+                isPart: false, // Default value
+                stocks: [], // Assuming empty initially
+                stockThreshold: 10, // Default value
+                prodTechInfo: {
+                  processor: data.processor || [],
+                  model: data.model || [],
+                  operatingSystem: data.operatingSystem || "",
+                  storageType: data.storageType || [],
+                  features: data.features || [],
+                  ssdCapacity: data.ssdCapacity || [],
+                  screenSize: data.screenSize || "14 px",
+                  gpu: data.gpu || "",
+                  unitType: data.unitType || "box",
+                  unitQuantity: data.unitQuantity || "1",
+                  mpn: data.mpn || "",
+                  processorSpeed: data.processorSpeed || "",
+                  series: data.series || "",
+                  ramSize: data.ramSize || [],
+                  californiaProp65Warning: data.californiaProp65Warning || "",
+                  type: data.type || "",
+                  releaseYear: data.releaseYear || "",
+                  hardDriveCapacity: data.hardDriveCapacity || [],
+                  color: data.color || [],
+                  maxResolution: data.maxResolution || "",
+                  mostSuitableFor: data.mostSuitableFor || "",
+
+                  graphicsProcessingType: data.graphicsProcessingType || "",
+                  connectivity: data.connectivity || "",
+                  manufacturerWarranty: data.manufacturerWarranty || "",
+                  regionOfManufacture: data.regionOfManufacture || "",
+                  height: data.height || "",
+                  length: data.length || "",
+                  weight: data.weight || "",
+                  width: data.width || "",
+                  /* Default/Empty values for various tech fields */
+                },
+                productInfo: {
+                  productCategory: new mongoose.Types.ObjectId(data.productCategory),
+                  productSupplier: data.productSupplier, // Directly use the passed supplier _id
+                  title: data.title,
+                  description: data.description,
+                  inventoryImages: data.images.map((url: string) => ({
+                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    size: 0, // Placeholder size
+                    url,
+                    type: "image/jpeg",
+                  })),
+                  inventoryCondition: data.inventoryCondition || "new",
+                  brand: data.brand || [],
+                },
               },
-              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    inventoryDescription: data.inventoryDescription,
-                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              }, {}),
             },
-          },
-        }));
+          };
+        });
 
       if (bulkOperations.length === 0) {
-        console.log("✅ No new inventory to insert.");
+        console.log("✅ No new Inventory to insert.");
         return;
       }
 
-      // ✅ Perform Bulk Insert Operation
+      // Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventory.`);
-
-      // ✅ Log skipped rows due to invalid suppliers
-      if (invalidRows.length > 0) {
-        console.log("❌ Some inventory were skipped due to invalid suppliers:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
+      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
     } catch (error) {
       console.error("❌ Bulk import failed:", error);
     }
