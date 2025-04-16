@@ -586,18 +586,14 @@ export const listingService = {
     listingIds: string[],
     discountType: "fixed" | "percentage",
     discountValue: number,
-    vat: number
+    vat: number,
+    retailPrice: number
   ) => {
     try {
       // Validate the format of the listing IDs
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return { status: 400, message: "listingIds array is required" };
       }
-
-      console.log("listingIds : ", listingIds);
-      console.log("discountType : ", discountType);
-      console.log("discountValue : ", discountValue);
-      console.log("vat : ", vat);
 
       // Validate that each listingId is a valid ObjectId
       const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
@@ -620,7 +616,7 @@ export const listingService = {
         console.log("Updating listing:", listing._id);
         console.log("prodPricing:", prodPricing);
 
-        // Initialize update object
+        // Initialize update object for VAT and discountType
         let update: any = {
           $set: {
             "prodPricing.vat": vat,
@@ -628,7 +624,27 @@ export const listingService = {
           },
         };
 
-        // Case 1: Listings with variations
+        // If retailPrice is provided, update it
+        if (retailPrice) {
+          // Case 1: Listings with variations
+          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              return {
+                ...variation,
+                retailPrice: retailPrice, // Set retailPrice in each variation
+              };
+            });
+
+            update.$set["prodPricing.selectedVariations"] = updatedVariations;
+          }
+
+          // Case 2: Listings without variations
+          else if (typeof prodPricing.retailPrice === "number") {
+            update.$set["prodPricing.retailPrice"] = retailPrice;
+          }
+        }
+
+        // Case 1: Listings with variations (update discount based on discountType)
         if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
             const basePrice = variation.retailPrice || 0;
@@ -651,7 +667,7 @@ export const listingService = {
           update.$set["prodPricing.selectedVariations"] = updatedVariations;
         }
 
-        // Case 2: Listings without variations
+        // Case 2: Listings without variations (update discount)
         else if (typeof prodPricing.retailPrice === "number") {
           let newDiscountValue = prodPricing.discountValue || 0;
 
