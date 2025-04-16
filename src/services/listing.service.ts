@@ -688,7 +688,7 @@ export const listingService = {
         // Use updateDoc to update with $set
         return {
           updateOne: {
-            filter: { _id: listing._id, kind: "listing_all_in_one_pc" }, // Ensure _id is a valid ObjectId
+            filter: { _id: listing._id, kind: "listing_laptops" }, // Ensure _id is a valid ObjectId
             update: { $set: update }, // Use $set to update the fields
             upsert: true,
           },
