@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
-import { Inventory, Stock, User, Variation } from "@/models";
+import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { setCacheWithTTL } from "@/datasources/redis.datasource";
 import { validateCsvData } from "@/utils/bulkImport.util";
