@@ -9,8 +9,6 @@ export const requestLogger = async (req: any, res: Response, next: NextFunction)
   const ip = req.ip || req.connection.remoteAddress || "";
   const userAgent = headers["user-agent"] || "";
   const start = Date.now();
-console.log("Request received:", { method, url, ip, userAgent });
-console.log("headers:", headers);
   res.on("finish", async () => {
     const duration = Date.now() - start; // Calculate response duration
     const statusCode = res.statusCode;
