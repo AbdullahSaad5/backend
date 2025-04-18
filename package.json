@@ -22,7 +22,8 @@
     "create:service": "node scripts/create-api.js service",
     "create:controller": "node scripts/create-api.js controller",
     "create:route": "node scripts/create-api.js route",
-    "create:contract": "node scripts/create-api.js contract"
+    "create:contract": "node scripts/create-api.js contract",
+    "prebuild": "rm -rf src/uploads/*"
   },
   "keywords": [],
   "author": "",

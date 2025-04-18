@@ -30,7 +30,7 @@ export const prodInfoSchema = {
 
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new"] },
-  brand: { type:[ String], required: true },
+  brand: { type: [String], required: true },
 };
 
 // export const prodMediaSchema = {
@@ -418,6 +418,7 @@ const inventorySchema = new Schema(
     isVariation: { type: Boolean, default: false },
     isMultiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
+    alias: { type: String, unique: true },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },

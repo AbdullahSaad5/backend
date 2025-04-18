@@ -1,13 +1,8 @@
 import mongoose, { Schema, model } from "mongoose";
 import {
-  IAmazonPlatformDetails,
-  IEbayPlatformDetails,
-  IWebsitePlatformDetails,
+
   IListing,
 } from "@/contracts/listing.contract";
-import { invokeMap, max } from "lodash";
-import { productCategory } from "@/routes/product-category.route";
-import { ref } from "@firebase/storage";
 
 export const mediaSchema = {
   id: { type: String },
@@ -364,6 +359,7 @@ const listingSchema = new Schema(
     publishToWebsite: { type: Boolean },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
+    alias: { type: String, unique: true },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
     selectedVariations: selectedVariationsSchema,

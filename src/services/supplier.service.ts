@@ -27,21 +27,21 @@ export const supplierService = {
       additionalDocuments,
       supplierCategory,
     } = data;
-  
+
     const hashedPassword = await createHash(password);
-  
+
     // Find supplier userType from UserCategory
     const supplierCategoryDoc = await UserCategory.findOne({ role: "supplier" });
-  
+
     if (!supplierCategoryDoc) {
       throw new Error("Supplier user type not found in UserCategory.");
     }
-  
+
     const userType = supplierCategoryDoc._id; // Hardcoded userType as "supplier"
-  
+
     // Generate unique supplier key
     const supplierKey = await generateUniqueSupplierKey(firstName, lastName);
-  
+
     // Create the new supplier
     const supplier = new User({
       firstName,
@@ -54,10 +54,10 @@ export const supplierService = {
       additionalDocuments,
       supplierKey, // Ensure supplierKey is generated and added
     });
-  
+
     return supplier.save();
   },
-  
+
 
   createAddress: (address: ISupplierAddress) => {
     const newAddress = new Address(address);
@@ -199,7 +199,7 @@ export const supplierService = {
       // Build the query dynamically based on filters
       const query: any = {
         //TODO: confusion here regarding query
-        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
+        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3")
       };
 
       if (searchQuery) {

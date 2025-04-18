@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
-import { Inventory, Stock, User, Variation } from "@/models";
+import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { setCacheWithTTL } from "@/datasources/redis.datasource";
 import { validateCsvData } from "@/utils/bulkImport.util";
@@ -174,7 +174,9 @@ export const inventoryController = {
       const newInventory = {
         ...inventory.toObject(),
         _id: undefined,
+
         isTemplate: false,
+
         isVariation: false,
         status: "draft",
       }; // Remove the _id to create a new one

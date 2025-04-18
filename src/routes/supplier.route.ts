@@ -3,6 +3,7 @@ import { supplierController } from "@/controllers";
 import { supplierValidation } from "@/validations";
 
 export const supplier = (router: Router) => {
+  // TODO: , "supplierValidation.validateId" add validation
   // route for create new supplier
   router.post(
     "/",
@@ -22,7 +23,6 @@ export const supplier = (router: Router) => {
   );
 
   // route for update supplier
-  // TODO: , "supplierValidation.validateId" add validation
   router.patch("/:id", supplierController.editSupplier);
 
   // route for delete supplier using id

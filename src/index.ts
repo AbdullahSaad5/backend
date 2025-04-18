@@ -7,11 +7,7 @@ import { authMiddleware, corsMiddleware } from "./middlewares";
 import { router } from "./routes/index.route";
 import { socketManager } from "./datasources/socket.datasource";
 import seedData from "./utils/seeder.util";
-
-// import { Producttt } from "./models/discriminator.model";
-// import Stripe from "stripe";
-// import { stripeController } from "./controllers/stripe.controller";
-
+import { requestLogger } from "./middlewares/requestLogger.middleware";
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -39,7 +35,9 @@ app.options("*", corsMiddleware);
 // So, I had to keep it here
 // To make sure it keeps working, don't remove this route from here
 // app.post("/api/stripe/handle-webhook", express.raw({ type: "application/json" }), stripeController.webhookHandler);
-
+app.use(requestLogger); // Use the request logger middleware
+// Use morgan for logging requests
+// const accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" });
 app.use(
   express.json({ limit: "10mb" }),
   express.urlencoded({ limit: "10mb", extended: true }),
@@ -54,42 +52,6 @@ app.use(
 app.get("/", (req, res) => {
   res.send("Welcome to Bavit Backend");
 });
-
-// // this was just for product create testing
-// app.post("/", async (req, res) => {
-//   await Producttt.create({
-//     name: "PC",
-//     kind: "PC",
-//     techSpecf: {
-//       cpu: "Intel Core i9",
-//       gpu: "Nvidia RTX 3090",
-//       ram: "32GB",
-//     },
-//     details: {
-//       processor: "Rdcasdasd processor",
-//       model: "New model",
-//       brand: "Hp Brnad",
-//     },
-//   });
-
-//   await Producttt.create({
-//     name: "Projector",
-//     kind: "Projector",
-//     techSpecf: {
-//       resolution: "1920x1080",
-//       lumens: "5000",
-//       contrast: "1000:1",
-//     },
-//     details: {
-//       processor: "Rdcasdasd processor",
-//       model: "New model",
-//       brand: "Hp Brnad",
-//     },
-//   });
-
-//   res.send("Product created");
-// });
-
 app.use("/api", router);
 
 const port = process.env.PORT || 5000;

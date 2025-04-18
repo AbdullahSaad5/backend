@@ -2,7 +2,7 @@ import { Listing, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
-import { validateCsvData } from "@/utils/bulkImport.util";
+
 export const listingService = {
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
@@ -107,6 +107,7 @@ export const listingService = {
         console.log("template if work");
         // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
+        draftListing.alias = stepData.alias || "";
       }
 
       // Update Nested Sections Dynamically
@@ -129,7 +130,7 @@ export const listingService = {
         "publishToWebsite",
         "stockThreshold",
         "isBlocked",
-        "Kind",
+        "kind",
         "selectedStockId",
       ];
       topLevelFields.forEach((field) => {
@@ -422,127 +423,7 @@ export const listingService = {
       throw new Error("Error during search and filter");
     }
   },
-  //bulk import products as CSV
-  bulkImportListing: async (filePath: string): Promise<void> => {
-    try {
-      // ✅ Validate CSV data (supplier validation happens inside)
-      const { validRows, invalidRows } = await validateCsvData(filePath);
 
-      if (invalidRows.length > 0) {
-        console.log("❌ Some rows were skipped due to validation errors:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-
-      if (validRows.length === 0) {
-        console.log("❌ No valid listing to import.");
-        return;
-      }
-
-      // ✅ Fetch all existing listing titles to prevent duplicates
-      const existingTitles = new Set((await Listing.find({}, "title")).map((p: any) => p.title));
-
-      // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-      const existingSuppliers = await User.find(
-        { supplierKey: { $in: supplierKeys } },
-        "_id supplierKey"
-        // ).lean();
-      );
-      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
-
-      // ✅ Filter out invalid suppliers
-      const filteredRows = validRows.filter(({ data }) => {
-        if (!supplierMap.has(data.productSupplierKey)) {
-          invalidRows.push({
-            row: data.row,
-            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-          });
-          return false;
-        }
-        return true;
-      });
-
-      if (filteredRows.length === 0) {
-        console.log("❌ No valid listing to insert after supplier validation.");
-        return;
-      }
-
-      // ✅ Bulk insert new listing (avoiding duplicates)
-      const bulkOperations = filteredRows
-        .filter(({ data }) => !existingTitles.has(data.title))
-        .map(({ data }) => ({
-          insertOne: {
-            document: {
-              title: data.title,
-              brand: data.brand,
-              description: data.description,
-              productCategory: new mongoose.Types.ObjectId(data.productCategory),
-              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-              price: parseFloat(data.price),
-              media: {
-                images: data.images.map((url: string) => ({
-                  url,
-                  type: "image/jpeg",
-                })),
-                videos: data.videos.map((url: string) => ({
-                  url,
-                  type: "video/mp4",
-                })),
-              },
-              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    description: data.description,
-                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              }, {}),
-            },
-          },
-        }));
-
-      if (bulkOperations.length === 0) {
-        console.log("✅ No new listing to insert.");
-        return;
-      }
-
-      // ✅ Perform Bulk Insert Operation
-      await Listing.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new listing.`);
-
-      // ✅ Log skipped rows due to invalid suppliers
-      if (invalidRows.length > 0) {
-        console.log("❌ Some listing were skipped due to invalid suppliers:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-    } catch (error) {
-      console.error("❌ Bulk import failed:", error);
-    }
-  },
 
   //bulk Export listing to CSV
   exportListing: async (): Promise<string> => {
