@@ -11,6 +11,7 @@ import {
   networkEquipmentsTechnicalSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
+import { addLog } from "@/utils/bulkImportLogs.util";
 
 // space
 
@@ -441,12 +442,12 @@ export const inventoryService = {
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
-        console.log("❌ No valid Inventory to import.");
+        addLog("❌ No valid Inventory to import.");
         return;
       }
 
       // Debugging the valid rows received
-      console.log("🔹 Valid Rows Received for Bulk Import:");
+      addLog("🔹 Valid Rows Received for Bulk Import:");
       validRows.forEach(({ row, data }) => {
         console.log(`Row: ${row}`);
         console.log("Data:", data);
@@ -473,7 +474,7 @@ export const inventoryService = {
           return true;
         })
         .map(({ data }) => {
-          console.log(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
+          addLog(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
 
           return {
             insertOne: {
@@ -540,15 +541,15 @@ export const inventoryService = {
         });
 
       if (bulkOperations.length === 0) {
-        console.log("✅ No new Inventory to insert.");
+        addLog("✅ No new Inventory to insert.");
         return;
       }
 
       // Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
-    } catch (error) {
-      console.error("❌ Bulk import failed:", error);
+      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+    } catch (error: any) {
+      addLog(`❌ Bulk import failed: ${error.message}`);
     }
   },
   //bulk Export inventory to CSV

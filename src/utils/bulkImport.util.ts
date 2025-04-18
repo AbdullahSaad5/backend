@@ -9,6 +9,7 @@ import { Request, Response } from "express";
 import Papa from "papaparse";
 import dotenv from "dotenv";
 import { inventoryService } from "@/services";
+import { addLog } from "./bulkImportLogs.util";
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -86,12 +87,17 @@ const validateCsvData = async (csvFilePath: string) => {
   return { validRows, invalidRows, validIndexes };
 };
 
+// service.ts
+
+// Assuming this exists
+
 const processZipFile = async (zipFilePath: string) => {
   const extractPath = path.join(process.cwd(), "extracted");
 
   try {
-    console.log(`📂 Processing ZIP file: ${zipFilePath}`);
+    addLog(`📂 Processing ZIP file: ${zipFilePath}`);
     if (!fs.existsSync(zipFilePath)) {
+      addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
       throw new Error(`ZIP file does not exist: ${zipFilePath}`);
     }
 
@@ -102,7 +108,7 @@ const processZipFile = async (zipFilePath: string) => {
     zip.extractAllTo(extractPath, true);
 
     const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
-    console.log("🔹 Extracted files:", extractedItems);
+    addLog(`🔹 Extracted files: ${extractedItems.join(", ")}`);
 
     const mainFolder =
       extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
@@ -110,34 +116,46 @@ const processZipFile = async (zipFilePath: string) => {
         : extractPath;
 
     const files = fs.readdirSync(mainFolder);
-    console.log("✅ Files inside extracted folder:", files);
+    addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
 
     const csvFile = files.find((f) => f.endsWith(".csv"));
     const mediaFolder = files.find((f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory());
 
     if (!csvFile || !mediaFolder) {
+      addLog("❌ Invalid ZIP structure. Missing CSV or media folder.");
       throw new Error("Invalid ZIP structure. Missing CSV or media folder.");
     }
 
-    console.log("✅ CSV File:", csvFile);
-    console.log("✅ Media Folder:", mediaFolder);
+    addLog(`✅ CSV File: ${csvFile}`);
+    addLog(`✅ Media Folder: ${mediaFolder}`);
 
-    const csvFilePath = path.join(mainFolder, csvFile);
-    const { validRows, validIndexes } = await validateCsvData(csvFilePath);
+    // Proceed with CSV validation and bulk import
+    const { validRows, validIndexes, invalidRows } = await validateCsvData(path.join(mainFolder, csvFile));
+
+    // Log invalid rows
+    if (invalidRows.length > 0) {
+      addLog(`❌ Invalid Rows Found: ${invalidRows.length}`);
+      invalidRows.forEach((row) => {
+        addLog(`Row ${row.row} failed: ${row.errors.join(", ")}`);
+      });
+    }
 
     if (validRows.length === 0) {
-      console.log("❌ No valid rows found in CSV. Exiting.");
+      addLog("❌ No valid rows found in CSV. Exiting.");
       return;
     }
 
+    // Process media and files for valid rows
     for (const [index, { data }] of validRows.entries()) {
       const folderIndex = (index + 1).toString();
       if (!validIndexes.has(index + 1)) continue;
 
-      console.log(`📂 Processing media for row: ${folderIndex}`);
+      addLog(`📂 Processing media for row: ${folderIndex}`);
       const productMediaPath = path.join(mainFolder, mediaFolder, folderIndex);
-      if (!fs.existsSync(productMediaPath)) continue;
-
+      if (!fs.existsSync(productMediaPath)) {
+        addLog(`❌ No media found for row: ${folderIndex}`);
+        continue;
+      }
       const uploadFiles = async (files: string[], destination: string) => {
         try {
           const uploads = files.map((file) => uploadFileToFirebase(file, `${destination}/${uuidv4()}`));
@@ -171,16 +189,16 @@ const processZipFile = async (zipFilePath: string) => {
       //   : [];
     }
 
-    console.log("🚀 Starting bulk import...");
+    addLog("🚀 Starting bulk import...");
     await inventoryService.bulkImportInventory(validRows);
-    console.log(`✅ Bulk import completed.`);
-  } catch (error) {
-    console.error("❌ Error processing ZIP file:", error);
+    addLog("✅ Bulk import completed.");
+  } catch (error: any) {
+    addLog(`❌ Error processing ZIP file: ${error.message}`);
   } finally {
     try {
       if (fs.existsSync(extractPath)) {
         fs.rmSync(extractPath, { recursive: true, force: true });
-        console.log("🗑️ Extracted files cleaned up.");
+        addLog("🗑️ Extracted files cleaned up.");
       }
       if (fs.existsSync(zipFilePath)) {
         // fs.unlinkSync(zipFilePath);
