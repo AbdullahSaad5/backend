@@ -1,4 +1,5 @@
-import { paymentPolicyService, ebayPaymentPolicyService } from "@/services";
+import { paymentPolicy } from "@/routes/payment-policy.route";
+import { ebayPaymentPolicyService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -9,7 +10,7 @@ export const paymentPolicyController = {
 
       const ebayResponse = await ebayPaymentPolicyService.createPaymentPolicy(req.body);
 
-      if (!ebayResponse || !ebayResponse.policyId) {
+      if (!ebayResponse || !ebayResponse.success || !ebayResponse.policy?.paymentPolicyId) {
         console.error("❌ eBay failed to create payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
           message: "Failed to create payment policy on eBay.",
@@ -29,7 +30,6 @@ export const paymentPolicyController = {
       });
     }
   },
-
   getAllPaymentPolicies: async (req: Request, res: Response) => {
     try {
       const ebayPolicies = await ebayPaymentPolicyService.getAllPaymentPolicies(req, res);
@@ -41,8 +41,8 @@ export const paymentPolicyController = {
   },
   getSpecificPolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
-      const ebayPolicy = await ebayPaymentPolicyService.getById(paymentPolicyId);
+      const { id } = req.params;
+      const ebayPolicy = await ebayPaymentPolicyService.getById(id);
 
       if (!ebayPolicy || (ebayPolicy as any).errors) {
         return res.status(404).json({ message: "Policy not found on eBay" });
@@ -56,16 +56,20 @@ export const paymentPolicyController = {
   },
   editPolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
+      const {id: paymentPolicyId } = req.params;
 
-      console.log("📩 Received request to edit eBay payment policy", paymentPolicyId, JSON.stringify(req.body, null, 2));
+      console.log(
+        "📩 Received request to edit eBay payment policy",
+        paymentPolicyId,
+        JSON.stringify(req.body, null, 2)
+      );
 
       const ebayResponse = await ebayPaymentPolicyService.editPaymentPolicy(paymentPolicyId, req.body);
 
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse.success) {
         console.error("❌ eBay failed to update payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to update payment policy on eBay.",
+          message: ebayResponse.message || "Failed to update payment policy on eBay.",
           ebayResponse,
         });
       }
@@ -82,18 +86,19 @@ export const paymentPolicyController = {
       });
     }
   },
+
   deletePolicy: async (req: Request, res: Response) => {
     try {
-      const { paymentPolicyId } = req.params;
+      const { id } = req.params;
+      console.log("📩 Received request to delete eBay payment policy", id);
 
-      console.log("📩 Received request to delete eBay payment policy", paymentPolicyId);
+      const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(id);
 
-      const ebayResponse = await ebayPaymentPolicyService.deletePaymentPolicy(paymentPolicyId);
-
-      if (!ebayResponse || (ebayResponse as any).errors) {
+      if (!ebayResponse.success) {
+        const message = ebayResponse.message || "Failed to delete payment policy on eBay.";
         console.error("❌ eBay failed to delete payment policy.", ebayResponse);
         return res.status(StatusCodes.BAD_REQUEST).json({
-          message: "Failed to delete payment policy on eBay.",
+          message,
           ebayResponse,
         });
       }
@@ -107,21 +112,6 @@ export const paymentPolicyController = {
         message: "Error deleting payment policy on eBay",
         error: error.message,
       });
-    }
-  },
-  toggleBlock: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const { isBlocked } = req.body;
-      const result = await paymentPolicyService.toggleBlock(id, isBlocked);
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: `Policy ${isBlocked ? "blocked" : "unblocked"} successfully`,
-        data: result,
-      });
-    } catch (error) {
-      console.error("Toggle Block Policy Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating policy status" });
     }
   },
 };

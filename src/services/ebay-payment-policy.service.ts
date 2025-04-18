@@ -1,36 +1,55 @@
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
+import { parseEbayError } from "@/utils/parseEbayErrors.utils";
 
-const baseURL = "https://api.ebay.com"; // Ensure this is correct for the eBay environment
+const baseURL = "https://api.ebay.com";
 
 export const ebayPaymentPolicyService = {
   async createPaymentPolicy(data: any) {
     try {
-      console.log("📩 Received Payment Policy Data:", JSON.stringify(data, null, 2));
-
       if (!data.marketplaceId) throw new Error("❌ Missing required field: marketplaceId");
-
       const accessToken = await getStoredEbayAccessToken();
-      // Determine if it's a Motors category
-      const isMotorsCategory = data.categoryTypes.some((type: any) => type.name === "MOTORS_VEHICLES");
 
-      // Allowed payment methods based on category
+      const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
+
       const allowedPaymentMethods = isMotorsCategory
         ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
-        : ["CREDIT_CARD", "PAYPAL", "DEBIT_CARD"]; // Adjust based on eBay docs
+        : ["PAYPAL", "CREDIT_CARD", "DEBIT_CARD"];
 
-      // Filter payment methods
-      const validPaymentMethods =
-        data.paymentMethods?.filter((method: any) => allowedPaymentMethods.includes(method.paymentMethodType)) || [];
+      const validPaymentMethods = (data.paymentMethods || []).filter((method: any) =>
+        allowedPaymentMethods.includes(method.paymentMethodType)
+      );
+
       const requestBody: any = {
         name: data.name,
-        description: data.description || "",
         marketplaceId: data.marketplaceId,
         categoryTypes: data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
-        immediatePay: data.immediatePay,
-        paymentMethods: data.paymentMethods || [],
+        paymentMethods: validPaymentMethods,
       };
 
-      console.log("🚀 Sending Request to eBay API:", JSON.stringify(requestBody, null, 2));
+      if (data.description) requestBody.description = data.description;
+      if (typeof data.immediatePay === "boolean") requestBody.immediatePay = data.immediatePay;
+      if (data.paymentInstructions) requestBody.paymentInstructions = data.paymentInstructions;
+
+      if (isMotorsCategory && data.deposit?.amount?.value && data.deposit?.dueIn?.value) {
+        requestBody.deposit = {
+          amount: {
+            currency: data.deposit.amount.currency || "USD",
+            value: data.deposit.amount.value,
+          },
+          dueIn: {
+            unit: data.deposit.dueIn.unit || "DAY",
+            value: data.deposit.dueIn.value,
+          },
+          paymentMethods: data.deposit.paymentMethods || [],
+        };
+      }
+
+      if (data.fullPaymentDueIn?.value) {
+        requestBody.fullPaymentDueIn = {
+          unit: data.fullPaymentDueIn.unit || "DAY",
+          value: data.fullPaymentDueIn.value,
+        };
+      }
 
       const response = await fetch(`${baseURL}/sell/account/v1/payment_policy`, {
         method: "POST",
@@ -45,29 +64,34 @@ export const ebayPaymentPolicyService = {
       const result = await response.json();
 
       if (!response.ok) {
-        // Check if the error is due to a duplicate policy
         if (result.errors?.[0]?.errorId === 20400) {
-          console.warn(
-            "⚠️ Duplicate Payment Policy Found, Using Existing Policy ID:",
-            result.errors?.[0]?.parameters?.[0]?.value
-          );
+          const existingId = result.errors?.[0]?.parameters?.[0]?.value;
           return {
+            success: true,
             message: "Using existing payment policy",
-            policyId: result.errors?.[0]?.parameters?.[0]?.value,
+            paymentPolicyId: existingId,
           };
         }
 
-        console.error("⚠️ eBay API Error:", JSON.stringify(result, null, 2));
-        throw new Error(result.errors?.[0]?.message || "eBay API call failed");
+        return {
+          success: false,
+          message: parseEbayError(result),
+          ebayError: result,
+        };
       }
 
-      console.log("✅ Payment Policy Created Successfully:", result);
-      return result;
+      return {
+        success: true,
+        policy: result,
+      };
     } catch (error: any) {
-      console.error("❌ Error creating eBay payment policy:", error.message);
-      throw new Error(error.message);
+      return {
+        success: false,
+        message: error.message || "Something went wrong while creating policy",
+      };
     }
   },
+
   async getAllPaymentPolicies(_req: unknown, res: unknown) {
     try {
       const accessToken = await getStoredEbayAccessToken();
@@ -80,50 +104,128 @@ export const ebayPaymentPolicyService = {
       });
       return await response.json();
     } catch (error) {
-      console.error("Error fetching eBay payment policies:", error);
       throw new Error("eBay API call failed");
     }
   },
 
-  async deletePaymentPolicy(policyId: string) {
+  async deletePaymentPolicy(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
+
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
         },
       });
-      return response.ok;
-    } catch (error) {
-      console.error("Error deleting eBay payment policy:", error);
-      throw new Error("eBay API call failed");
+
+      if (!response.ok) {
+        const result = await response.json();
+
+        return {
+          success: false,
+          message: parseEbayError(result),
+          ebayError: result,
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "eBay API call failed",
+      };
     }
   },
 
-  async editPaymentPolicy(policyId: string, data: any) {
+  async editPaymentPolicy(paymentPolicyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
-        method: "PUT",
+      console.log("📩 Editing payment policy:", paymentPolicyId);
+
+      const isMotorsCategory = data.categoryTypes?.some((type: any) => type.name === "MOTORS_VEHICLES");
+
+      const allowedPaymentMethods = isMotorsCategory
+        ? ["CASH_ON_PICKUP", "CASHIER_CHECK", "MONEY_ORDER", "PERSONAL_CHECK"]
+        : ["PAYPAL", "CREDIT_CARD", "DEBIT_CARD"];
+
+      const validPaymentMethods = (data.paymentMethods || []).filter((method: any) =>
+        allowedPaymentMethods.includes(method.paymentMethodType)
+      );
+
+      const updatedData: any = {
+        name: data.name,
+        marketplaceId: data.marketplaceId,
+        categoryTypes: data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
+        paymentMethods: validPaymentMethods,
+      };
+
+      if (data.description) updatedData.description = data.description;
+      if (typeof data.immediatePay === "boolean") updatedData.immediatePay = data.immediatePay;
+      if (data.paymentInstructions) updatedData.paymentInstructions = data.paymentInstructions;
+
+      if (isMotorsCategory && data.deposit?.amount?.value && data.deposit?.dueIn?.value) {
+        updatedData.deposit = {
+          amount: {
+            currency: data.deposit.amount.currency || "USD",
+            value: data.deposit.amount.value,
+          },
+          dueIn: {
+            unit: data.deposit.dueIn.unit || "DAY",
+            value: data.deposit.dueIn.value,
+          },
+          paymentMethods: data.deposit.paymentMethods || [],
+        };
+      }
+
+      if (data.fullPaymentDueIn?.value) {
+        updatedData.fullPaymentDueIn = {
+          unit: data.fullPaymentDueIn.unit || "DAY",
+          value: data.fullPaymentDueIn.value,
+        };
+      }
+
+      // Log the data being sent to ensure correctness
+      console.log("📦 Data being sent to eBay:", JSON.stringify(updatedData, null, 2));
+
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
+        method: "PUT", // Ensure it's a PUT request for an update, not a POST
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(updatedData),
       });
-      return await response.json();
-    } catch (error) {
-      console.error("Error updating eBay payment policy:", error);
-      throw new Error("eBay API call failed");
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        const parsedError = parseEbayError(result);
+        return {
+          success: false,
+          status: response.status,
+          message: parsedError, // Use parseEbayError to parse the error
+          ebayError: result,
+        };
+      }
+
+      return {
+        success: true,
+        policy: result,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error.message || "Something went wrong while updating payment policy",
+      };
     }
   },
-  async getById(policyId: string) {
+  async getById(paymentPolicyId: string) {
     try {
       const accessToken = await getStoredEbayAccessToken();
-      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${policyId}`, {
+      const response = await fetch(`${baseURL}/sell/account/v1/payment_policy/${paymentPolicyId}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           Accept: "application/json",
@@ -133,7 +235,6 @@ export const ebayPaymentPolicyService = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error("Error fetching eBay payment policy by ID:", error);
       throw new Error("eBay API call failed");
     }
   },

@@ -10,7 +10,7 @@ const orderSchema = new Schema(
     orderNumber: {
       type: String,
       required: true,
-      unique: true, // Unique order number
+
       default: () => `ORD-${Date.now()}`, // Auto-generate a simple order number
     },
     orderDate: {
