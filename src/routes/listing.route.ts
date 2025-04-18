@@ -1,7 +1,6 @@
 import { listingController } from "@/controllers";
 import { listingValidation } from "@/validations";
 import { Router } from "express";
-import { handleBulkImport, handleBulkExport } from "@/controllers/listing.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const listing = (router: Router) => {
@@ -15,11 +14,7 @@ export const listing = (router: Router) => {
 
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
-  // Route for bulk import (POST request)
-  router.post("/bulk-import", uploadMiddleware, handleBulkImport);
 
-  // Route for bulk export (GET request)
-  router.get("/bulk-export", handleBulkExport);
   //get all the listings by inventoryId
   router.get("/inventory/:inventoryId", listingController.getListingsByInventoryId);
 

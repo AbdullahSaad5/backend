@@ -15,51 +15,88 @@ export const ebayFulfillmentPolicyService = {
       // ✅ Validate shipping data before making the request
       validateShippingServices(data.shippingOptions);
 
-      const requestBody = {
+      const requestBody: any = {
         name: data.name,
         description: data.description || "",
         marketplaceId: data.marketplaceId,
         categoryTypes: data.categoryTypes?.map((type: any) => ({ name: type.name })) || [],
         immediatePay: data.immediatePay ?? false,
-        fulfillmentMethods: data.fulfillmentMethods || [],
-        pickupDropOff: data.pickupDropOff ?? false,
-        localPickup: data.localPickup ?? false,
         handlingTime: {
           value: data.handlingTime?.value ?? 1,
           unit: data.handlingTime?.unit ?? "DAY",
         },
-        globalShipping: data.globalShipping ?? false,
-        freightShipping: data.freightShipping ?? false,
-        shippingOptions:
-          data.shippingOptions?.map((option: any) => ({
+      };
+
+      // ⏬ Conditionally add fulfillmentMethods
+      if (data.fulfillmentMethods?.length) {
+        requestBody.fulfillmentMethods = data.fulfillmentMethods;
+      }
+
+      // ⏬ Conditionally add pickup options
+      if (data.pickupDropOff) requestBody.pickupDropOff = true;
+      if (data.localPickup) requestBody.localPickup = true;
+
+      // ⏬ Global and Freight shipping
+      if (data.globalShipping) requestBody.globalShipping = true;
+      if (data.freightShipping) requestBody.freightShipping = true;
+
+      // ⏬ Conditionally add shippingOptions
+      if (Array.isArray(data.shippingOptions) && data.shippingOptions.length > 0) {
+        requestBody.shippingOptions = data.shippingOptions.map((option: any) => {
+          const formattedOption: any = {
             costType: option.costType,
             optionType: option.optionType,
-            packageHandlingCost: option.packageHandlingCost
-              ? {
-                  currency: option.packageHandlingCost.currency,
-                  value: option.packageHandlingCost.value,
-                }
-              : undefined,
-            shippingPromotionOffered: option.shippingPromotionOffered ?? false,
-            insuranceOffered: option.insuranceOffered ?? false,
-            shippingServices: option.shippingServices?.map((service: any) => ({
-              freeShipping: service.freeShipping,
-              shippingCarrierCode: service.shippingCarrierCode,
-              shippingServiceCode: service.shippingServiceCode,
-              shippingCost: service.shippingCost
-                ? {
-                    currency: service.shippingCost.currency,
-                    value: service.shippingCost.value,
-                  }
-                : undefined,
-              shipToLocations: service.shipToLocations,
-              sortOrder: service.sortOrder ?? 1,
-              buyerResponsibleForShipping: service.buyerResponsibleForShipping ?? false,
-              buyerResponsibleForPickup: service.buyerResponsibleForPickup ?? false,
-            })),
-          })) || [],
-        shipToLocations: data.shipToLocations || {},
-      };
+          };
+
+          if (option.packageHandlingCost) {
+            formattedOption.packageHandlingCost = {
+              currency: option.packageHandlingCost.currency,
+              value: option.packageHandlingCost.value,
+            };
+          }
+
+          if (option.insuranceOffered !== undefined) formattedOption.insuranceOffered = option.insuranceOffered;
+          if (option.shippingPromotionOffered !== undefined)
+            formattedOption.shippingPromotionOffered = option.shippingPromotionOffered;
+
+          // Conditionally add shipping services
+          if (Array.isArray(option.shippingServices)) {
+            formattedOption.shippingServices = option.shippingServices.map((service: any) => {
+              const formattedService: any = {
+                freeShipping: service.freeShipping ?? false,
+                shippingCarrierCode: service.shippingCarrierCode,
+                shippingServiceCode: service.shippingServiceCode,
+                sortOrder: service.sortOrder ?? 1,
+              };
+
+              if (service.shippingCost) {
+                formattedService.shippingCost = {
+                  currency: service.shippingCost.currency,
+                  value: service.shippingCost.value,
+                };
+              }
+
+              if (service.shipToLocations) {
+                formattedService.shipToLocations = service.shipToLocations;
+              }
+
+              if (service.buyerResponsibleForShipping !== undefined)
+                formattedService.buyerResponsibleForShipping = service.buyerResponsibleForShipping;
+              if (service.buyerResponsibleForPickup !== undefined)
+                formattedService.buyerResponsibleForPickup = service.buyerResponsibleForPickup;
+
+              return formattedService;
+            });
+          }
+
+          return formattedOption;
+        });
+      }
+
+      // ⏬ Conditionally include shipToLocations if present
+      if (data.shipToLocations) {
+        requestBody.shipToLocations = data.shipToLocations;
+      }
 
       console.log("🚀 Sending Request to eBay API:", JSON.stringify(requestBody, null, 2));
 
@@ -207,25 +244,90 @@ export const ebayFulfillmentPolicyService = {
   async editFulfillmentPolicy(policyId: string, data: any) {
     try {
       const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken) throw new Error("Missing eBay access token");
 
-      // ✅ Ensure required fields are included
-      const updatedData = {
+      const updatedData: any = {
         ...data,
-        shippingOptions: data.shippingOptions.map((option: any) => ({
-          ...option,
-          rateTableId: option.rateTableId ?? "", // Use empty string instead of removing
-          shippingServices: option.shippingServices.map((service: any) => ({
-            ...service,
-            buyerResponsibleForShipping: service.buyerResponsibleForShipping ?? false,
-            buyerResponsibleForPickup: service.buyerResponsibleForPickup ?? false,
-            surcharge: service.surcharge || { currency: "GBP", value: "0.00" },
-            additionalShippingCost: service.additionalShippingCost || {
-              currency: "GBP",
-              value: "0.00",
-            },
-          })),
-        })),
       };
+
+      // ⏬ Conditionally include shippingOptions if present
+      if (Array.isArray(data.shippingOptions)) {
+        updatedData.shippingOptions = data.shippingOptions.map((option: any) => {
+          const formattedOption: any = {
+            costType: option.costType,
+            optionType: option.optionType,
+          };
+
+          if (option.rateTableId !== undefined) {
+            formattedOption.rateTableId = option.rateTableId || ""; // fallback to ""
+          }
+
+          if (option.packageHandlingCost) {
+            formattedOption.packageHandlingCost = {
+              currency: option.packageHandlingCost.currency,
+              value: option.packageHandlingCost.value,
+            };
+          }
+
+          if (option.shippingPromotionOffered !== undefined)
+            formattedOption.shippingPromotionOffered = option.shippingPromotionOffered;
+
+          if (option.insuranceOffered !== undefined) formattedOption.insuranceOffered = option.insuranceOffered;
+
+          // ⏬ Conditionally map shippingServices
+          if (Array.isArray(option.shippingServices)) {
+            formattedOption.shippingServices = option.shippingServices.map((service: any) => {
+              const formattedService: any = {
+                shippingCarrierCode: service.shippingCarrierCode,
+                shippingServiceCode: service.shippingServiceCode,
+                freeShipping: service.freeShipping ?? false,
+                sortOrder: service.sortOrder ?? 1,
+              };
+
+              if (service.shippingCost) {
+                formattedService.shippingCost = {
+                  currency: service.shippingCost.currency,
+                  value: service.shippingCost.value,
+                };
+              }
+
+              if (service.additionalShippingCost) {
+                formattedService.additionalShippingCost = {
+                  currency: service.additionalShippingCost.currency,
+                  value: service.additionalShippingCost.value,
+                };
+              } else {
+                formattedService.additionalShippingCost = { currency: "GBP", value: "0.00" };
+              }
+
+              if (service.surcharge) {
+                formattedService.surcharge = {
+                  currency: service.surcharge.currency,
+                  value: service.surcharge.value,
+                };
+              } else {
+                formattedService.surcharge = { currency: "GBP", value: "0.00" };
+              }
+
+              if (service.shipToLocations) {
+                formattedService.shipToLocations = service.shipToLocations;
+              }
+
+              if (service.buyerResponsibleForShipping !== undefined) {
+                formattedService.buyerResponsibleForShipping = service.buyerResponsibleForShipping;
+              }
+
+              if (service.buyerResponsibleForPickup !== undefined) {
+                formattedService.buyerResponsibleForPickup = service.buyerResponsibleForPickup;
+              }
+
+              return formattedService;
+            });
+          }
+
+          return formattedOption;
+        });
+      }
 
       const response = await fetch(`${baseURL}/sell/account/v1/fulfillment_policy/${policyId}`, {
         method: "PUT",
@@ -237,9 +339,15 @@ export const ebayFulfillmentPolicyService = {
         body: JSON.stringify(updatedData),
       });
 
-      return await response.json();
-    } catch (error) {
-      console.error("Error updating eBay fulfillment policy:", error);
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("❌ Failed to update policy:", result);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error("❌ Error updating eBay fulfillment policy:", error.message);
       throw new Error("eBay API call failed");
     }
   },

@@ -3,9 +3,10 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
-import { Inventory, Stock, Variation } from "@/models";
+import { Inventory, Stock, User, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { setCacheWithTTL } from "@/datasources/redis.datasource";
+import { validateCsvData } from "@/utils/bulkImport.util";
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -170,7 +171,15 @@ export const inventoryController = {
       }
 
       // Create a new inventory item with the same data
-      const newInventory = { ...inventory.toObject(), _id: undefined }; // Remove the _id to create a new one
+      const newInventory = {
+        ...inventory.toObject(),
+        _id: undefined,
+
+        isTemplate: false,
+
+        isVariation: false,
+        status: "draft",
+      }; // Remove the _id to create a new one
       const createdInventory = await Inventory.create(newInventory);
 
       // Return the new inventory item and its ID
@@ -602,7 +611,7 @@ export const inventoryController = {
       });
     }
   },
-  bulkUpdateInventoryTaxDiscount: async (req: Request, res: Response) => {
+  bulkUpdateInventoryTaxAndDiscount: async (req: Request, res: Response) => {
     try {
       const { inventoryIds, discountValue, vat } = req.body;
 
@@ -622,7 +631,7 @@ export const inventoryController = {
       }
 
       // Perform bulk update
-      const result = await inventoryService.bulkUpdateInventoryTaxDiscount(inventoryIds, discountValue, vat);
+      const result = await inventoryService.bulkUpdateInventoryTaxAndDiscount(inventoryIds, discountValue, vat);
 
       return res.status(200).json({
         message: "Inventory VAT/tax and discount updated successfully",
@@ -810,6 +819,7 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  //bulk import inventory as CSV
 
   updateVariations: async (req: Request, res: Response) => {
     try {

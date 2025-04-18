@@ -11,6 +11,4 @@ export const paymentPolicy = (router: Router) => {
   router.patch("/:id", paymentPolicyController.editPolicy);
 
   router.delete("/:id", paymentPolicyController.deletePolicy);
-
-  router.patch("/block/:id", paymentPolicyController.toggleBlock);
 };

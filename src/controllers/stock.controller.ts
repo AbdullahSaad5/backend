@@ -9,6 +9,7 @@ export const stockController = {
     try {
       const {
         inventoryId,
+        stockInvoice,
         variations, // Only required if isVariation is true
         totalUnits,
         usableUnits,
@@ -72,6 +73,7 @@ export const stockController = {
         receivedDate,
         receivedBy,
         purchaseDate,
+        stockInvoice,
         markAsStock,
       };
 
@@ -127,7 +129,17 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-
+  getInventoryWithStockWithDraft: async (req: Request, res: Response) => {
+    try {
+      const inventoryWithStocks = await stockService.getInventoryWithStockWithDraft();
+      if (inventoryWithStocks.length === 0) {
+        return res.status(404).json({ message: "No inventory with stock found" });
+      }
+      res.status(200).json(inventoryWithStocks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
   // 📌 Get All Stock Purchases for a inventory(only those stocks who are markAsStock=true)
   getStockByInventoryId: async (req: Request, res: Response) => {
     try {
@@ -311,7 +323,7 @@ export const stockController = {
         stock.costPricePerUnit = costPricePerUnit;
         stock.purchasePricePerUnit = purchasePricePerUnit;
       }
-
+      stock.stockInvoice = req.body.stockInvoice || stock.stockInvoice;
       stock.receivedDate = req.body.receivedDate || stock.receivedDate;
       stock.receivedBy = req.body.receivedBy || stock.receivedBy;
       stock.purchaseDate = req.body.purchaseDate || stock.purchaseDate;
