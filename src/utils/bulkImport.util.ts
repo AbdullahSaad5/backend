@@ -33,7 +33,7 @@ const uploadToFirebase = async (filePath: string, destination: string): Promise<
 };
 
 const validateCsvData = async (csvFilePath: string) => {
-  console.log(`📂 Validating CSV file: ${csvFilePath}`);
+  addLog(`📂 Validating CSV file: ${csvFilePath}`);
   const requiredColumns = ["brand", "title", "description", "productSupplierKey", "productCategory"];
 
   const csvContent = fs.readFileSync(csvFilePath, "utf8");
@@ -83,7 +83,7 @@ const validateCsvData = async (csvFilePath: string) => {
     }
   }
 
-  console.log(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
+  addLog(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
   return { validRows, invalidRows, validIndexes };
 };
 
