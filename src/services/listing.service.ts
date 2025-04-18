@@ -107,6 +107,7 @@ export const listingService = {
         console.log("template if work");
         // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
+        draftListing.alias = stepData.alias || "";
       }
 
       // Update Nested Sections Dynamically
@@ -129,7 +130,7 @@ export const listingService = {
         "publishToWebsite",
         "stockThreshold",
         "isBlocked",
-        "Kind",
+        "kind",
         "selectedStockId",
       ];
       topLevelFields.forEach((field) => {

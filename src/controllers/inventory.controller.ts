@@ -174,7 +174,9 @@ export const inventoryController = {
       const newInventory = {
         ...inventory.toObject(),
         _id: undefined,
+
         isTemplate: false,
+
         isVariation: false,
         status: "draft",
       }; // Remove the _id to create a new one

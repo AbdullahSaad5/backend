@@ -151,6 +151,7 @@ export const inventoryService = {
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
         draftInventory.isTemplate = stepData.isTemplate || false;
+        draftInventory.alias = stepData.alias || "";
       }
 
       // Update Nested Sections Dynamically
@@ -173,10 +174,11 @@ export const inventoryService = {
         "publishToWebsite",
         "stockThreshold",
         "isBlocked",
-        "Kind",
+        "kind",
         "stocks",
         "stockThreshold",
         "isTemplate",
+        "alias",
         "isVariation",
         "isMultiBrand",
         "status",
