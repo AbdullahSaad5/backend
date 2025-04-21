@@ -1,4 +1,4 @@
-import { Inventory, Stock, User } from "@/models";
+import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -362,7 +362,7 @@ export const inventoryService = {
       // Build the query dynamically based on filters
       const query: any = {};
 
-      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
+      // Search logic if searchQuery is provided
       if (searchQuery) {
         query.$or = [
           {
@@ -377,7 +377,6 @@ export const inventoryService = {
               $options: "i",
             },
           },
-
           {
             "prodPricing.condition": {
               $regex: searchQuery,
@@ -385,6 +384,52 @@ export const inventoryService = {
             },
           },
         ];
+
+        // Perform searches for productSupplier and productCategory in parallel using Promise.all
+        const [productSuppliers, productCategories] = await Promise.all([
+          User.find({
+            $or: [
+              { firstName: { $regex: searchQuery, $options: "i" } },
+              { lastName: { $regex: searchQuery, $options: "i" } },
+              { email: { $regex: searchQuery, $options: "i" } },
+            ],
+          }).select("_id"),
+
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
+        ]);
+
+        // Check if search query contains both first and last name (e.g., "Asad Khan")
+        if (searchQuery.includes(" ")) {
+          const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+
+          // Filter product suppliers based on both first name and last name
+          const supplierQuery = {
+            $or: [
+              { firstName: { $regex: firstNameQuery, $options: "i" } },
+              { lastName: { $regex: lastNameQuery, $options: "i" } },
+            ],
+          };
+
+          const suppliersWithFullName = await User.find(supplierQuery).select("_id");
+          // Combine both individual and full-name matches
+          productSuppliers.push(...suppliersWithFullName);
+        }
+
+        // Add filters for productSupplier and productCategory ObjectIds to the query
+        query.$or.push(
+          {
+            "productInfo.productSupplier": {
+              $in: productSuppliers.map((supplier) => supplier._id),
+            },
+          },
+          {
+            "productInfo.productCategory": {
+              $in: productCategories.map((category) => category._id),
+            },
+          }
+        );
       }
 
       // Add filters for status, isBlocked, and isTemplate
@@ -413,7 +458,7 @@ export const inventoryService = {
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
-      // Fetch inventory with pagination
+      // Fetch filtered inventory with pagination and populate the necessary fields
       const inventory = await Inventory.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
@@ -421,7 +466,7 @@ export const inventoryService = {
         .skip(skip)
         .limit(limitNumber);
 
-      // Count total inventory
+      // Count total filtered inventory
       const totalInventory = await Inventory.countDocuments(query);
 
       return {
@@ -438,6 +483,7 @@ export const inventoryService = {
       throw new Error("Error during search and filter");
     }
   },
+
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
