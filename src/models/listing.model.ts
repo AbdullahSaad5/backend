@@ -1,8 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import {
-
-  IListing,
-} from "@/contracts/listing.contract";
+import { IListing } from "@/contracts/listing.contract";
 
 export const mediaSchema = {
   id: { type: String },
@@ -147,7 +144,7 @@ const allInOnePCTechnicalSchema = {
   ramSize: { type: [String] },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String },
+  ean: { type: String, unique: true },
   series: { type: String },
   operatingSystem: { type: [String] },
   operatingSystemEdition: { type: String },
@@ -182,7 +179,7 @@ const projectorTechnicalSchema = {
   unitType: { type: String },
   unitQuantity: { type: String },
   mpn: { type: String },
-  ean: { type: String },
+  ean: { type: String , unique: true},
   color: { type: [String] },
   numberOfLANPorts: { type: String },
   maximumWirelessData: { type: String },
@@ -223,7 +220,7 @@ const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String },
+  ean: { type: String, unique:true },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -252,7 +249,7 @@ const gamingPCTechnicalSchema = {
   ramSize: { type: [String] },
   formFactor: { type: String },
   motherboardModel: { type: String },
-  ean: { type: String },
+  ean: { type: String, unique:true },
   series: { type: String },
   operatingSystem: { type: String },
   customBundle: { type: String },
@@ -316,7 +313,7 @@ const networkEquipmentsTechnicalSchema = {
   type: { type: String },
   ramSize: { type: [String] },
   formFactor: { type: [String] },
-  ean: { type: String },
+  ean: { type: String, unique: true },
   manufacturerWarranty: { type: String },
   regionOfManufacture: { type: String },
   interface: { type: String },
