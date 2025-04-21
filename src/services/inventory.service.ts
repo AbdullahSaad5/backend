@@ -1,4 +1,4 @@
-import { Inventory, ProductCategory, Stock, User } from "@/models";
+import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -399,6 +399,23 @@ export const inventoryService = {
             name: { $regex: searchQuery, $options: "i" },
           }).select("_id"),
         ]);
+
+        // Check if search query contains both first and last name (e.g., "Asad Khan")
+        if (searchQuery.includes(" ")) {
+          const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+
+          // Filter product suppliers based on both first name and last name
+          const supplierQuery = {
+            $or: [
+              { firstName: { $regex: firstNameQuery, $options: "i" } },
+              { lastName: { $regex: lastNameQuery, $options: "i" } },
+            ],
+          };
+
+          const suppliersWithFullName = await User.find(supplierQuery).select("_id");
+          // Combine both individual and full-name matches
+          productSuppliers.push(...suppliersWithFullName);
+        }
 
         // Add filters for productSupplier and productCategory ObjectIds to the query
         query.$or.push(
