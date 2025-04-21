@@ -650,8 +650,8 @@ export const inventoryService = {
         // Top-level fields
 
         // ProductInfo subfields
-        "productInfo.productCategory",
-        "productInfo.productSupplier",
+        // "productInfo.productCategory",
+        // "productInfo.productSupplier",
         // "productInfo.title",
         // "productInfo.description",
         "productInfo.inventoryCondition",
