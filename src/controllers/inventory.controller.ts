@@ -683,14 +683,18 @@ export const inventoryController = {
       }
 
       // **Handle search queries properly**
-      const searchFilters: Record<string, string> = {};
+      const searchFilters: Record<string, string[]> = {}; // Allow multiple values per key
       if (searchQueries) {
         const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
 
         searchArray.forEach((filter: any) => {
           const [key, value] = filter.split(":");
           if (key && value) {
-            searchFilters[key] = value.toLowerCase(); // Store search filters as lowercase for case-insensitive matching
+            // Allow multiple values for the same attribute
+            if (!searchFilters[key]) {
+              searchFilters[key] = [];
+            }
+            searchFilters[key].push(value.toLowerCase()); // Store filter values in lowercase
           }
         });
       }
@@ -703,7 +707,6 @@ export const inventoryController = {
         allVariations = JSON.parse(cachedVariations);
         console.log("Cache hit: Returning variations from cache.");
       } else {
-        // **Extract multi-select attributes**
         // **Extract multi-select attributes**
         const attributes = inventoryItem.prodTechInfo;
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
@@ -734,11 +737,14 @@ export const inventoryController = {
         console.log("Cache miss: Generated and cached all variations.");
       }
 
-      // **Apply dynamic search filters**
+      // **Apply dynamic search filters (allow multiple values per filter)**
       if (Object.keys(searchFilters).length > 0) {
         allVariations = allVariations.filter((variation: any) => {
           return Object.keys(searchFilters).every((key) => {
-            return variation[key] && variation[key].toString().toLowerCase() === searchFilters[key];
+            const filterValues = searchFilters[key];
+            const variationValue = variation[key]?.toString().toLowerCase();
+            // Check if the variation's value matches any of the filter values for the key
+            return filterValues.includes(variationValue);
           });
         });
       }
