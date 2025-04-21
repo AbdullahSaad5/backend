@@ -1,4 +1,4 @@
-import { Listing, User } from "@/models";
+import { Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -50,7 +50,7 @@ export const listingService = {
       };
 
       // ✅ Remove fields if they are null or undefined
-      if (draftListingData.prodTechInfo?.ean   == null) {
+      if (draftListingData.prodTechInfo?.ean == null) {
         delete draftListingData.prodTechInfo.ean;
       }
 
@@ -377,7 +377,27 @@ export const listingService = {
           },
         ];
       }
+      // Perform searches for productSupplier and productCategory in parallel using Promise.all
+      const [productCategories] = await Promise.all([
+        // User.find({
+        //   $or: [
+        //     { firstName: { $regex: searchQuery, $options: "i" } },
+        //     { lastName: { $regex: searchQuery, $options: "i" } },
+        //     { email: { $regex: searchQuery, $options: "i" } },
+        //   ],
+        // }).select("_id"),
 
+        ProductCategory.find({
+          name: { $regex: searchQuery, $options: "i" },
+        }).select("_id"),
+      ]);
+
+      // Add filters for productSupplier and productCategory ObjectIds to the query
+      query.$or.push({
+        "productInfo.productCategory": {
+          $in: productCategories.map((category) => category._id),
+        },
+      });
       // Add filters for status, isBlocked, and isTemplate
       if (status && ["draft", "published"].includes(status)) {
         query.status = status;
@@ -423,7 +443,6 @@ export const listingService = {
       throw new Error("Error during search and filter");
     }
   },
-
 
   //bulk Export listing to CSV
   exportListing: async (): Promise<string> => {
