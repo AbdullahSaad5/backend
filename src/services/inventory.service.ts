@@ -643,4 +643,122 @@ export const inventoryService = {
 
     return cartesianProduct(values);
   },
+  getAllOptions: async () => {
+    try {
+      // List of all top-level fields and subfields you want to get unique values for
+      const fields = [
+        // Top-level fields
+
+        // ProductInfo subfields
+        "productInfo.productCategory",
+        "productInfo.productSupplier",
+        // "productInfo.title",
+        // "productInfo.description",
+        "productInfo.inventoryCondition",
+        "productInfo.brand",
+
+        // ProdTechInfo subfields
+        "prodTechInfo.processor",
+        "prodTechInfo.model",
+        "prodTechInfo.operatingSystem",
+        "prodTechInfo.storageType",
+        "prodTechInfo.features",
+        "prodTechInfo.ssdCapacity",
+        "prodTechInfo.gpu",
+        "prodTechInfo.unitType",
+        "prodTechInfo.unitQuantity",
+        "prodTechInfo.mpn",
+        "prodTechInfo.processorSpeed",
+        "prodTechInfo.series",
+        "prodTechInfo.ramSize",
+        "prodTechInfo.californiaProp65Warning",
+        "prodTechInfo.type",
+        "prodTechInfo.releaseYear",
+        "prodTechInfo.hardDriveCapacity",
+        "prodTechInfo.color",
+        "prodTechInfo.maxResolution",
+        "prodTechInfo.mostSuitableFor",
+        "prodTechInfo.screenSize",
+        "prodTechInfo.graphicsProcessingType",
+        "prodTechInfo.connectivity",
+        "prodTechInfo.manufacturerWarranty",
+        "prodTechInfo.regionOfManufacture",
+        "prodTechInfo.height",
+        "prodTechInfo.length",
+        "prodTechInfo.weight",
+        "prodTechInfo.width",
+
+        "prodTechInfo.motherboardModel",
+
+        "prodTechInfo.operatingSystemEdition",
+        "prodTechInfo.memory",
+        "prodTechInfo.maxRamCapacity",
+
+        "prodTechInfo.formFactor",
+        "prodTechInfo.ean",
+        "prodTechInfo.inventoryType",
+
+        "prodTechInfo.nonNewConditionDetails",
+
+        "prodTechInfo.numberOfLANPorts",
+        "prodTechInfo.maximumWirelessData",
+        "prodTechInfo.maximumLANDataRate",
+        "prodTechInfo.ports",
+        "prodTechInfo.toFit",
+        "prodTechInfo.displayType",
+        "prodTechInfo.aspectRatio",
+        "prodTechInfo.imageBrightness",
+        "prodTechInfo.throwRatio",
+        "prodTechInfo.compatibleOperatingSystem",
+        "prodTechInfo.compatibleFormat",
+        "prodTechInfo.lensMagnification",
+        "prodTechInfo.yearManufactured",
+        "prodTechInfo.nativeResolution",
+        "prodTechInfo.displayTechnology",
+        "prodTechInfo.energyEfficiencyRating",
+        "prodTechInfo.videoInputs",
+        "prodTechInfo.refreshRate",
+        "prodTechInfo.responseTime",
+        "prodTechInfo.brightness",
+        "prodTechInfo.contrastRatio",
+        "prodTechInfo.ecRange",
+        "prodTechInfo.productLine",
+        "prodTechInfo.customBundle",
+        "prodTechInfo.interface",
+        "prodTechInfo.networkConnectivity",
+        "prodTechInfo.networkManagementType",
+        "prodTechInfo.networkType",
+        "prodTechInfo.processorManufacturer",
+        "prodTechInfo.numberOfProcessors",
+        "prodTechInfo.numberOfVANPorts",
+        "prodTechInfo.processorType",
+        "prodTechInfo.raidLfevel",
+        "prodTechInfo.memoryType",
+        "prodTechInfo.deviceConnectivity",
+        "prodTechInfo.connectorType",
+        "prodTechInfo.supportedWirelessProtocol",
+      ];
+
+      // Create an object to store the distinct values for each field
+      const allOptions: Record<string, any[]> = {};
+
+      // Loop through each field and fetch distinct values
+      for (let field of fields) {
+        let distinctValues = await Inventory.find({}).distinct(field);
+
+        // Filter out empty values (empty string, null, undefined)
+        distinctValues = distinctValues.filter((value) => value !== "" && value !== null && value !== undefined);
+
+        // Add to the allOptions object if the field has valid values
+        if (distinctValues.length > 0) {
+          allOptions[field] = distinctValues;
+        }
+      }
+
+      return allOptions;
+    } catch (error) {
+      console.error("Error fetching all options:", error);
+      throw new Error("Failed to fetch all options");
+    }
+  },
 };

@@ -9,6 +9,7 @@ export const inventory = (router: Router) => {
 
   // Create or update a draft inventory
   router.post("/", inventoryController.createDraftInventory);
+  router.get("/get-all-options", inventoryController.getAllOptions);
   router.patch(
     "/:id",
     // inventoryValidation.updateInventory,
@@ -41,7 +42,7 @@ export const inventory = (router: Router) => {
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-//
+  //
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 

@@ -768,7 +768,22 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  // Controller to fetch selectable options for attributes
+  getAllOptions: async (req: Request, res: Response) => {
+    try {
+      // Fetch the options for each attribute
+      const options = await inventoryService.getAllOptions();
 
+      // Return the options in the response
+      return res.status(200).json({
+        message: "Attribute options fetched successfully",
+        options,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching attribute options:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  },
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
