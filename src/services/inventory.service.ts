@@ -740,20 +740,28 @@ export const inventoryService = {
       ];
 
       // Create an object to store the distinct values for each field
-      const allOptions: Record<string, any[]> = {};
+      const fetchPromises = fields.map((field) => {
+        return Inventory.find({})
+          .distinct(field)
+          .then((distinctValues) => {
+            // Filter out empty values
+            distinctValues = distinctValues.filter((value) => value !== "" && value !== null && value !== undefined);
+            return { field, distinctValues };
+          });
+      });
 
-      // Loop through each field and fetch distinct values
-      for (let field of fields) {
-        let distinctValues = await Inventory.find({}).distinct(field);
+      // Wait for all the promises to resolve
+      const results = await Promise.all(fetchPromises);
 
-        // Filter out empty values (empty string, null, undefined)
-        distinctValues = distinctValues.filter((value) => value !== "" && value !== null && value !== undefined);
+      // Create an object to store the valid results
+      const allOptions: Record<string, any> = {};
 
-        // Add to the allOptions object if the field has valid values
+      // Add the valid results to the allOptions object
+      results.forEach(({ field, distinctValues }) => {
         if (distinctValues.length > 0) {
           allOptions[field] = distinctValues;
         }
-      }
+      });
 
       return allOptions;
     } catch (error) {
