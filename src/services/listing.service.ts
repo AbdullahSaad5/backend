@@ -50,7 +50,7 @@ export const listingService = {
       };
 
       // ✅ Remove fields if they are null or undefined
-      if (draftListingData.prodTechInfo?.ean == null) {
+      if (draftListingData.prodTechInfo?.ean   == null) {
         delete draftListingData.prodTechInfo.ean;
       }
 

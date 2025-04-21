@@ -131,7 +131,7 @@ export const ebayListingService = {
           description: ebayData.productInfo?.description || "No description available.",
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
           weightUnit: "POUND",
-          ean: ebayData.prodTechInfo?.ean,
+          ean: ebayData.prodTechInfo?.ean.map((ean: any) => ean) ?? [],
           mpn: ebayData.prodTechInfo?.mpn,
           upc: ebayData.prodTechInfo?.upc,
           model: ebayData.prodTechInfo?.model,
@@ -239,7 +239,7 @@ export const ebayListingService = {
           upc: ebayData.prodTechInfo?.upc,
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
 
-          ean: ebayData.prodTechInfo?.ean,
+          ean: ebayData.prodTechInfo?.ean.map((ean: any) => ean) ?? [],
           // "epid": "string",
 
           // "isbn": [
