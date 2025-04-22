@@ -567,6 +567,41 @@ export const inventoryController = {
       });
     }
   },
+
+  toggleIsTemplate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTemplate } = req.body;
+
+      if (typeof isTemplate !== "boolean") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isTemplate must be a boolean value",
+        });
+      }
+
+      const updatedInventory = await inventoryService.toggleIsTemplate(id, isTemplate);
+
+      if (!updatedInventory) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Inventory not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Product Catalogue ${isTemplate ? "is" : "is not"} a template now`,
+        data: updatedInventory,
+      });
+    } catch (error: any) {
+      console.error("Error toggling template status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling template status",
+      });
+    }
+  },
   getInventoryStats: async (req: Request, res: Response) => {
     try {
       const stats = await inventoryService.getInventoryStats();
