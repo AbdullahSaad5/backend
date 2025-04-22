@@ -1,6 +1,7 @@
 import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
 import { Parser } from "json2csv";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import fs from "fs";
 import os from "os";
 import { validateCsvData } from "@/utils/bulkImport.util";
@@ -17,6 +18,7 @@ import { addLog } from "@/utils/bulkImportLogs.util";
 import path from "path";
 import { productCategory } from "@/routes/product-category.route";
 import { cond } from "lodash";
+import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 
 // space
 
@@ -613,13 +615,24 @@ export const inventoryService = {
       addLog(`❌ Bulk import failed: ${error.message}`);
     }
   },
+
   //bulk Export inventory to CSV
   exportInventory: async (inventoryIds: string[]) => {
-    const items = await Inventory.find({ _id: { $in: inventoryIds } }).lean();
+    const cacheKey = generateCacheKey(inventoryIds);
 
+    // Check cache first
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return { fromCache: true, file: JSON.parse(cachedData) };
+    }
+
+    // Fetch inventory items from database
+    const items = await Inventory.find({ _id: { $in: inventoryIds } }).lean();
     if (!items.length) throw new Error("No inventory items found");
 
-    const flattened = items.map((item: any) => ({
+    // Process the inventory data into rows
+    const rows = items.map((item: any) => ({
+      id: item._id.toString().slice(-6),
       brand: item.productInfo?.brand?.join(", "),
       title: item.productInfo?.title,
       description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
@@ -631,20 +644,17 @@ export const inventoryService = {
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
     }));
 
-    const fields = Object.keys(flattened[0] || {});
-    const parser = new Parser({ fields });
-    const csv = parser.parse(flattened);
+    // Use json2csv to convert rows into CSV format
+    const parser = new Parser({ fields: Object.keys(rows[0]) });
+    const csv = parser.parse(rows);
 
-    const filename = `inventory-export-${uuidv4()}.csv`;
+    // Convert CSV to base64 for easier transmission
+    const base64Csv = Buffer.from(csv, "utf-8").toString("base64");
 
-    const downloadsFolder = path.join(os.homedir(), "Downloads");
-    const filePath = path.join(__dirname, "..", "exports", filename);
-    // const filePath = path.join(downloadsFolder, filename);
+    // Cache the base64 CSV for 5 minutes
+    await setCacheWithTTL(cacheKey, base64Csv, 300);
 
-    fs.mkdirSync(downloadsFolder, { recursive: true });
-    fs.writeFileSync(filePath, csv);
-
-    return filePath;
+    return { fromCache: false, file: base64Csv };
   },
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
@@ -834,3 +844,13 @@ export const inventoryService = {
     }
   },
 };
+function generateCacheKey(inventoryIds: string[]) {
+  // Concatenate all IDs into a single string
+  const concatenatedIds = inventoryIds.join("");
+
+  // Create a hash of the concatenated IDs
+  const hash = crypto.createHash("sha256").update(concatenatedIds).digest("hex");
+
+  // The hash itself will be the file name (base16 format)
+  return hash; // This is the base16 string
+}
