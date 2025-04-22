@@ -306,6 +306,16 @@ export const inventoryService = {
       throw new Error("Failed to toggle block status");
     }
   },
+  toggleIsTemplate: async (id: string, isTemplate: boolean) => {
+    try {
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      if (!updatedInventory) throw new Error("Inventory not found");
+      return updatedInventory;
+    } catch (error) {
+      console.error("Error toggling template status:", error);
+      throw new Error("Failed to toggle template status");
+    }
+  },
   // New API for fetching inventory stats (separate service logic)
   getInventoryStats: async () => {
     try {
