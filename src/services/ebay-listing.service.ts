@@ -131,7 +131,7 @@ export const ebayListingService = {
           description: ebayData.productInfo?.description || "No description available.",
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
           weightUnit: "POUND",
-          ean: ebayData.prodTechInfo?.ean.map((ean: any) => ean) ?? [],
+          ean: ebayData.prodTechInfo?.ean,
           mpn: ebayData.prodTechInfo?.mpn,
           upc: ebayData.prodTechInfo?.upc,
           model: ebayData.prodTechInfo?.model,
@@ -144,7 +144,7 @@ export const ebayListingService = {
           hardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
           color: ebayData.prodTechInfo?.color,
           maxResolution: ebayData.prodTechInfo?.maxResolution,
-          mostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor.map((mostSuitableFor: any) => mostSuitableFor) ?? [],
+          mostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
           graphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
           motherboardModel: ebayData.prodTechInfo?.motherboardModel,
           series: ebayData.prodTechInfo?.series,
@@ -168,7 +168,7 @@ export const ebayListingService = {
           maximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
           maximumLANDataRate: ebayData.prodTechInfo?.maximumLANDataRate,
           ports: ebayData.prodTechInfo?.ports,
-          toFit: ebayData.prodTechInfo?.toFit.map((toFit: any) => toFit) ?? [],
+          toFit: ebayData.prodTechInfo?.toFit,
           displayType: ebayData.prodTechInfo?.displayType,
           aspectRatio: ebayData.prodTechInfo?.aspectRatio,
           imageBrightness: ebayData.prodTechInfo?.imageBrightness,
@@ -239,7 +239,7 @@ export const ebayListingService = {
           upc: ebayData.prodTechInfo?.upc,
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
 
-          ean: ebayData.prodTechInfo?.ean.map((ean: any) => ean) ?? [],
+          ean: ebayData.prodTechInfo?.ean,
           // "epid": "string",
 
           // "isbn": [
@@ -338,7 +338,6 @@ export const ebayListingService = {
 
       const responseText = await response.text();
 
-
       // console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
       // Determine the retail price
@@ -395,7 +394,8 @@ export const ebayListingService = {
           marketplaceId: "EBAY_US",
           merchantLocationKey: "location1",
           // listingDescription: listingDescriptionData ?? "No description available.",
-          listingDescription: listingDescriptionData ?? ebayData.prodTechInfo?.description ?? "No description available.",
+          listingDescription:
+            listingDescriptionData ?? ebayData.prodTechInfo?.description ?? "No description available.",
           availableQuantity: ebayData.prodPricing?.listingQuantity ?? 10,
           quantityLimitPerBuyer: 5,
           pricingSummary: {
@@ -437,7 +437,7 @@ export const ebayListingService = {
           categoryId: categoryId,
           // "secondaryCategoryId": "string",
           listingPolicies: {
-            fulfillmentPolicyId: "247696768010" ,
+            fulfillmentPolicyId: "247696768010",
             paymentPolicyId: "247178015010",
             returnPolicyId: "247178019010",
             // bestOfferTerms: {
