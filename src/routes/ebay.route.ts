@@ -17,7 +17,10 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback", ebayListingService.handleAuthorizationCallback);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
-
+  router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
+  router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
+  router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
+  router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
   // router.get(

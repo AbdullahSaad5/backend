@@ -106,6 +106,128 @@ export const ebayListingService = {
     }
   },
 
+  getEbayCategories: async (req: Request, res: Response) => {
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+      const CATEGORY_ID = 3;
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categories = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categories,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay categories",
+      });
+    }
+  },
+
+  getEbaySubCategories: async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const CATEGORY_ID = 3;
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_category_subtree?category_id=${categoryId}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const subCategories = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: subCategories,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay subcategories",
+      });
+    }
+  },
+
+  getEbayCategorySuggestions: async (req: Request, res: Response) => {
+    try {
+      const { query } = req.query;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/0/get_category_suggestions?q=${query}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categorySuggestions = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categorySuggestions,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay category suggestions",
+      });
+    }
+  },
+
+  getEbayCategoryAspects: async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const CATEGORY_ID = 3;
+
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_item_aspects_for_category?category_id=${categoryId}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categoryAspects = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categoryAspects,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay category aspects",
+      });
+    }
+  },
+
   async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
@@ -338,7 +460,6 @@ export const ebayListingService = {
 
       const responseText = await response.text();
 
-
       // console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
       // Determine the retail price
@@ -395,7 +516,8 @@ export const ebayListingService = {
           marketplaceId: "EBAY_US",
           merchantLocationKey: "location1",
           // listingDescription: listingDescriptionData ?? "No description available.",
-          listingDescription: listingDescriptionData ?? ebayData.prodTechInfo?.description ?? "No description available.",
+          listingDescription:
+            listingDescriptionData ?? ebayData.prodTechInfo?.description ?? "No description available.",
           availableQuantity: ebayData.prodPricing?.listingQuantity ?? 10,
           quantityLimitPerBuyer: 5,
           pricingSummary: {
@@ -437,7 +559,7 @@ export const ebayListingService = {
           categoryId: categoryId,
           // "secondaryCategoryId": "string",
           listingPolicies: {
-            fulfillmentPolicyId: "247696768010" ,
+            fulfillmentPolicyId: "247696768010",
             paymentPolicyId: "247178015010",
             returnPolicyId: "247178019010",
             // bestOfferTerms: {
