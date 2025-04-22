@@ -47,6 +47,10 @@ export const listing = (router: Router) => {
   // route for toggle block status
   router.patch("/block/:id", listingController.toggleBlock);
 
+
+  // route for toggle block status
+  router.patch("/istemplate/:id", listingController.toggleIsTemplate);
+
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);
 

@@ -264,6 +264,16 @@ export const listingService = {
       throw new Error("Failed to toggle block status");
     }
   },
+  toggleIsTemplate: async (id: string, isTemplate: boolean) => {
+    try {
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      if (!updatedListing) throw new Error("Listing not found");
+      return updatedListing;
+    } catch (error) {
+      console.error("Error toggling listing template status:", error);
+      throw new Error("Failed to toggle listing template status");
+    }
+  },
   // New API for fetching listing stats (separate service logic)
   getListingStats: async () => {
     try {
