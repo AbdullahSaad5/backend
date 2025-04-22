@@ -1,7 +1,12 @@
 import { Request, Response } from "express";
 import { inventoryService } from "@/services"; // Adjust import path as needed
 import { processZipFile } from "@/utils/bulkImport.util";
+import { Inventory } from "@/models";
 import { addLog, getLogs, clearLogs } from "@/utils/bulkImportLogs.util"; // Adjust import path as needed
+import { Parser } from "json2csv";
+import * as fs from "fs";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
 // Assuming you have the service imported
 
 export const handleBulkImport = async (req: Request, res: Response) => {
@@ -30,18 +35,33 @@ export const handleBulkImport = async (req: Request, res: Response) => {
 };
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
-    const filePath = await inventoryService.exportInventory();
+    const { inventoryIds } = req.body;
 
-    // Send the file as  download to the client
+    if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
+      return res.status(400).json({ error: "No inventory IDs provided" });
+    }
+
+    const filePath = await inventoryService.exportInventory(inventoryIds);
+
+    // Send the CSV file as download
     res.download(filePath, (err) => {
       if (err) {
-        console.error("Error downloading file:", err);
-        res.status(500).json({ error: "Failed to download file" });
+        console.error("❌ Error sending file:", err);
+        res.status(500).json({ error: "Failed to send CSV file" });
       } else {
-        console.log("✅ File sent successfully.");
+        console.log("✅ CSV file sent successfully.");
+
+        // After the file has been sent, delete it from the server
+        try {
+          fs.unlinkSync(filePath); // Delete the file
+          console.log("🗑️ CSV file deleted after sending.");
+        } catch (deleteError) {
+          console.error("❌ Error deleting CSV file:", deleteError);
+        }
       }
     });
   } catch (error: any) {
+    console.error("❌ Error exporting inventory:", error.message);
     res.status(500).json({ error: error.message });
   }
 };
