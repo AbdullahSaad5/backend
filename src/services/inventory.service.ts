@@ -255,13 +255,14 @@ export const inventoryService = {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");
     }
   },
+  
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
