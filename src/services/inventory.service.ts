@@ -1,7 +1,8 @@
 import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
-import Papa from "papaparse";
+import { Parser } from "json2csv";
 import mongoose from "mongoose";
 import fs from "fs";
+import os from "os";
 import { validateCsvData } from "@/utils/bulkImport.util";
 import {
   allInOnePCTechnicalSchema,
@@ -11,7 +12,11 @@ import {
   networkEquipmentsTechnicalSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
+import { v4 as uuidv4 } from "uuid";
 import { addLog } from "@/utils/bulkImportLogs.util";
+import path from "path";
+import { productCategory } from "@/routes/product-category.route";
+import { cond } from "lodash";
 
 // space
 
@@ -610,41 +615,37 @@ export const inventoryService = {
     }
   },
   //bulk Export inventory to CSV
-  exportInventory: async (): Promise<string> => {
-    try {
-      // Fetch all inventory from the database
-      const inventory = await Inventory.find({});
+  exportInventory: async (inventoryIds: string[]) => {
+    const items = await Inventory.find({ _id: { $in: inventoryIds } }).lean();
 
-      // Format the inventory data for CSV export
-      const formattedData = inventory.map((inventory: any) => ({
-        InventoryID: inventory._id,
-        Title: inventory.title,
-        Description: inventory.description,
-        Price: inventory.price,
-        Category: inventory.category,
-        // ProductSupplier: inventory?.supplier?.name,
-        Stock: inventory.stock,
-        SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.productInfo),
-        EbayInfo: JSON.stringify(inventory.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.productInfo),
-      }));
+    if (!items.length) throw new Error("No inventory items found");
 
-      // Convert the data to CSV format using Papa.unparse
-      const csv = Papa.unparse(formattedData);
+    const flattened = items.map((item: any) => ({
+      brand: item.productInfo?.brand?.join(", "),
+      title: item.productInfo?.title,
+      description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
+      productCategory: item.productInfo?.productCategory?.name,
+      condition: item.productInfo?.inventoryCondition,
+      processor: item.prodTechInfo?.processor?.join(", "),
+      gpu: item.prodTechInfo?.gpu,
+      screenSize: item.prodTechInfo?.screenSize,
+      images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
+    }));
 
-      // Generate a unique file path for the export
-      const filePath = `exports/inventory_${Date.now()}.csv`;
+    const fields = Object.keys(flattened[0] || {});
+    const parser = new Parser({ fields });
+    const csv = parser.parse(flattened);
 
-      // Write the CSV data to a file
-      fs.writeFileSync(filePath, csv);
+    const filename = `inventory-export-${uuidv4()}.csv`;
 
-      console.log("✅ Export completed successfully.");
-      return filePath;
-    } catch (error) {
-      console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export inventory.");
-    }
+    const downloadsFolder = path.join(os.homedir(), "Downloads");
+    const filePath = path.join(__dirname, "..", "exports", filename);
+    // const filePath = path.join(downloadsFolder, filename);
+
+    fs.mkdirSync(downloadsFolder, { recursive: true });
+    fs.writeFileSync(filePath, csv);
+
+    return filePath;
   },
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
