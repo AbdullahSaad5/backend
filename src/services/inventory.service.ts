@@ -786,30 +786,37 @@ export const inventoryService = {
       ];
 
       // Create an object to store the distinct values for each field
-      const fetchPromises = fields.map((field) => {
-        return Inventory.find({})
+      const fetchPromises = fields.map((field) =>
+        Inventory.find({})
           .distinct(field)
           .then((distinctValues) => {
-            // Filter out empty values
             distinctValues = distinctValues.filter((value) => value !== "" && value !== null && value !== undefined);
             return { field, distinctValues };
-          });
-      });
+          })
+      );
 
-      // Wait for all the promises to resolve
       const results = await Promise.all(fetchPromises);
 
-      // Create an object to store the valid results
       const allOptions: Record<string, any> = {};
-
-      // Add the valid results to the allOptions object
       results.forEach(({ field, distinctValues }) => {
         if (distinctValues.length > 0) {
           allOptions[field] = distinctValues;
         }
       });
 
-      return allOptions;
+      // Separate into productInfo and prodTechInfo
+      const productInfo: Record<string, any> = {};
+      const prodTechInfo: Record<string, any> = {};
+
+      Object.entries(allOptions).forEach(([key, value]) => {
+        if (key.startsWith("productInfo.")) {
+          productInfo[key.replace("productInfo.", "")] = value;
+        } else if (key.startsWith("prodTechInfo.")) {
+          prodTechInfo[key.replace("prodTechInfo.", "")] = value;
+        }
+      });
+
+      return { productInfo, prodTechInfo };
     } catch (error) {
       console.error("Error fetching all options:", error);
       throw new Error("Failed to fetch all options");
