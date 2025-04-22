@@ -226,8 +226,12 @@ export const listingController = {
 
       // console.log("templates :: " , templates)
 
-      const templateList = templates.map((template, index) => {
+      const templateList = templates.map((template: any, index) => {
+       
         const listingId = template._id;
+        const templateAlias = template?.alias;
+
+        // console.log("templateAlias : ", templateAlias);
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
         // ✅ Ensure correct access to prodTechInfo
@@ -266,9 +270,9 @@ export const listingController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `TEMP-${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, listingId };
+        return { templateName, listingId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
