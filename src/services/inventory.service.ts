@@ -1,7 +1,9 @@
 import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
-import Papa from "papaparse";
+import { Parser } from "json2csv";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import fs from "fs";
+import os from "os";
 import { validateCsvData } from "@/utils/bulkImport.util";
 import {
   allInOnePCTechnicalSchema,
@@ -11,7 +13,12 @@ import {
   networkEquipmentsTechnicalSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
+import { v4 as uuidv4 } from "uuid";
 import { addLog } from "@/utils/bulkImportLogs.util";
+import path from "path";
+import { productCategory } from "@/routes/product-category.route";
+import { cond } from "lodash";
+import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 
 // space
 
@@ -608,42 +615,46 @@ export const inventoryService = {
       addLog(`❌ Bulk import failed: ${error.message}`);
     }
   },
+
   //bulk Export inventory to CSV
-  exportInventory: async (): Promise<string> => {
-    try {
-      // Fetch all inventory from the database
-      const inventory = await Inventory.find({});
+  exportInventory: async (inventoryIds: string[]) => {
+    const cacheKey = generateCacheKey(inventoryIds);
 
-      // Format the inventory data for CSV export
-      const formattedData = inventory.map((inventory: any) => ({
-        InventoryID: inventory._id,
-        Title: inventory.title,
-        Description: inventory.description,
-        Price: inventory.price,
-        Category: inventory.category,
-        // ProductSupplier: inventory?.supplier?.name,
-        Stock: inventory.stock,
-        SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.productInfo),
-        EbayInfo: JSON.stringify(inventory.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.productInfo),
-      }));
-
-      // Convert the data to CSV format using Papa.unparse
-      const csv = Papa.unparse(formattedData);
-
-      // Generate a unique file path for the export
-      const filePath = `exports/inventory_${Date.now()}.csv`;
-
-      // Write the CSV data to a file
-      fs.writeFileSync(filePath, csv);
-
-      console.log("✅ Export completed successfully.");
-      return filePath;
-    } catch (error) {
-      console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export inventory.");
+    // Check cache first
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return { fromCache: true, file: JSON.parse(cachedData) };
     }
+
+    // Fetch inventory items from database
+    const items = await Inventory.find({ _id: { $in: inventoryIds } }).lean();
+    if (!items.length) throw new Error("No inventory items found");
+
+    // Process the inventory data into rows
+    const rows = items.map((item: any) => ({
+      id: item._id.toString().slice(-6),
+      brand: item.productInfo?.brand?.join(", "),
+      title: item.productInfo?.title,
+      description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
+      productCategory: item.productInfo?.productCategory?.name,
+      condition: item.productInfo?.inventoryCondition,
+      processor: item.prodTechInfo?.processor?.join(", "),
+      gpu: item.prodTechInfo?.gpu,
+      screenSize: item.prodTechInfo?.screenSize,
+      images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
+    }));
+
+    // Use json2csv to convert rows into CSV format
+    const parser = new Parser({ fields: Object.keys(rows[0]) });
+    const csv = parser.parse(rows);
+
+    // Convert CSV to base64 for easier transmission
+    const base64Csv = Buffer.from(csv, "utf-8").toString("base64");
+
+    // Cache the base64 CSV for 5 minutes
+    await setCacheWithTTL(cacheKey, base64Csv, 300);
+
+    return { fromCache: false, file: base64Csv };
   },
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
@@ -833,3 +844,13 @@ export const inventoryService = {
     }
   },
 };
+function generateCacheKey(inventoryIds: string[]) {
+  // Concatenate all IDs into a single string
+  const concatenatedIds = inventoryIds.join("");
+
+  // Create a hash of the concatenated IDs
+  const hash = crypto.createHash("sha256").update(concatenatedIds).digest("hex");
+
+  // The hash itself will be the file name (base16 format)
+  return hash; // This is the base16 string
+}
