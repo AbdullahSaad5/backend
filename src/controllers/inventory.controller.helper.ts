@@ -36,32 +36,17 @@ export const handleBulkImport = async (req: Request, res: Response) => {
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
     const { inventoryIds } = req.body;
-
     if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
-      return res.status(400).json({ error: "No inventory IDs provided" });
+      return res.status(400).json({ error: "inventoryIds must be a non-empty array" });
     }
 
-    const filePath = await inventoryService.exportInventory(inventoryIds);
+    const { fromCache, file } = await inventoryService.exportInventory(inventoryIds);
 
-    // Send the CSV file as download
-    res.download(filePath, (err) => {
-      if (err) {
-        console.error("❌ Error sending file:", err);
-        res.status(500).json({ error: "Failed to send CSV file" });
-      } else {
-        console.log("✅ CSV file sent successfully.");
-
-        // After the file has been sent, delete it from the server
-        try {
-          fs.unlinkSync(filePath); // Delete the file
-          console.log("🗑️ CSV file deleted after sending.");
-        } catch (deleteError) {
-          console.error("❌ Error deleting CSV file:", deleteError);
-        }
-      }
+    res.status(200).json({
+      message: fromCache ? "Served from cache" : "Generated new CSV",
+      data: file, // base64-encoded CSV string
     });
-  } catch (error: any) {
-    console.error("❌ Error exporting inventory:", error.message);
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 };
