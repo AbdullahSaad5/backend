@@ -299,125 +299,93 @@ export const listingService = {
   },
   searchAndFilterListings: async (filters: any) => {
     try {
-      const {
-        searchQuery = "",
-        isBlocked,
-        isTemplate,
-        status, // Extract status from filters
-        startDate,
-        endDate,
-        page = 1, // Default to page 1 if not provided
-        limit = 10, // Default to 10 records per page
-      } = filters;
+      const { searchQuery = "", isBlocked, isTemplate, status, startDate, endDate, page = 1, limit = 10 } = filters;
 
-      // Convert page and limit to numbers safely
-      const pageNumber = Math.max(parseInt(page, 10) || 1, 1); // Ensure minimum page is 1
+      const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
-      // Build the query dynamically based on filters
       const query: any = {};
 
-      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
       if (searchQuery) {
+        // Base search fields
         query.$or = [
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
+
+        // Search productCategory and productSupplier in parallel
+        const [productCategories] = await Promise.all([
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
+
+          // ProductSupplier.find({
+          //   $or: [
+          //     { firstName: { $regex: searchQuery, $options: "i" } },
+          //     { lastName: { $regex: searchQuery, $options: "i" } },
+          //   ],
+          // }).select("_id"),
+        ]);
+
+        // Support full name searches like "Asad Khan"
+        // if (searchQuery.includes(" ")) {
+        //   const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+        //   const fullNameMatches = await ProductSupplier.find({
+        //     $or: [
+        //       {
+        //         $and: [
+        //           { firstName: { $regex: firstNameQuery, $options: "i" } },
+        //           { lastName: { $regex: lastNameQuery, $options: "i" } },
+        //         ],
+        //       },
+        //     ],
+        //   }).select("_id");
+
+        //   productSuppliers.push(...fullNameMatches);
+        // }
+
+        // Add ObjectId-based search conditions
+        query.$or.push(
+          {
+            "productInfo.productCategory": {
+              $in: productCategories.map((c) => c._id),
+            },
+          }
+          // {
+          //   "productInfo.productSupplier": {
+          //     $in: productSuppliers.map((s) => s._id),
+          //   },
+          // }
+        );
       }
-      // Perform searches for productSupplier and productCategory in parallel using Promise.all
-      const [productCategories] = await Promise.all([
-        // User.find({
-        //   $or: [
-        //     { firstName: { $regex: searchQuery, $options: "i" } },
-        //     { lastName: { $regex: searchQuery, $options: "i" } },
-        //     { email: { $regex: searchQuery, $options: "i" } },
-        //   ],
-        // }).select("_id"),
 
-        ProductCategory.find({
-          name: { $regex: searchQuery, $options: "i" },
-        }).select("_id"),
-      ]);
-
-      // Add filters for productSupplier and productCategory ObjectIds to the query
-      query.$or.push({
-        "productInfo.productCategory": {
-          $in: productCategories.map((category) => category._id),
-        },
-      });
-      // Add filters for status, isBlocked, and isTemplate
       if (status && ["draft", "published"].includes(status)) {
         query.status = status;
       }
+
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
+
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
       }
 
-      // Date range filter for createdAt
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
-        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
+        if (startDate && !isNaN(Date.parse(startDate))) {
+          dateFilter.$gte = new Date(startDate);
+        }
+        if (endDate && !isNaN(Date.parse(endDate))) {
+          dateFilter.$lte = new Date(endDate);
+        }
+        if (Object.keys(dateFilter).length > 0) {
+          query.createdAt = dateFilter;
+        }
       }
 
-      // Fetch listing with pagination
       const listing = await Listing.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
@@ -426,7 +394,6 @@ export const listingService = {
         .skip(skip)
         .limit(limitNumber);
 
-      // Count total listing
       const totalListing = await Listing.countDocuments(query);
 
       return {
