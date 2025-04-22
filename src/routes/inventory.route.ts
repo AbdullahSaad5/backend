@@ -53,6 +53,9 @@ export const inventory = (router: Router) => {
   // route for toggle block status
   router.patch("/block/:id", inventoryController.toggleBlock);
 
+  // route for toggle  template status Change
+  router.patch("/istemplate/:id", inventoryController.toggleIsTemplate);
+
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", inventoryController.upsertInventoryParts);
 
