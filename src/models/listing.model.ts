@@ -1,6 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
-import { generateUniqueSupplierKey } from "@/services/user.service";
 
 export const mediaSchema = {
   id: { type: String },
@@ -171,7 +170,44 @@ const allInOnePCTechnicalSchema = {
   // Uncomment if weight is required
   // weight: { type: String },
 };
-
+const miniPCTechnicalSchema = {
+  processor: { type: [String] },
+  model: { type: [String] },
+  memory: { type: [String] },
+  maxRamCapacity: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  ramSize: { type: [String] },
+  formFactor: { type: String },
+  motherboardModel: { type: String },
+  ean: { type: String },
+  series: { type: String },
+  operatingSystem: { type: [String] },
+  operatingSystemEdition: { type: String },
+  storageType: { type: [String] },
+  features: { type: [String] },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
+  type: { type: String },
+  releaseYear: { type: Number },
+  productType: { type: String, default: "All In One PC" },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
+  // maxResolution: { type: String },
+  mostSuitableFor: { type: [String] },
+  screenSize: { type: String },
+  graphicsProcessingType: { type: String },
+  connectivity: { type: [String] },
+  manufacturerWarranty: { type: String },
+  regionOfManufacture: { type: String },
+  height: { type: String },
+  length: { type: String },
+  width: { type: String },
+  // Uncomment if weight is required
+  // weight: { type: String },
+};
 const projectorTechnicalSchema = {
   model: { type: [String] },
   type: { type: String },
@@ -422,6 +458,21 @@ Listing.discriminator(
   )
 );
 
+// discriminator for mini pc
+Listing.discriminator(
+  "listing_mini_pc",
+  new mongoose.Schema(
+    {
+      prodTechInfo: miniPCTechnicalSchema,
+      prodPricing: prodPricingSchema,
+      prodDelivery: prodDeliverySchema,
+      prodSeo: prodSeoSchema,
+      productInfo: prodInfoSchema,
+      prodMedia: prodMediaSchema,
+    },
+    options
+  )
+);
 // discriminator for projectors
 Listing.discriminator(
   "listing_projectors",

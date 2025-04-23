@@ -98,6 +98,41 @@ export const allInOnePCTechnicalSchema = {
   width: { type: String },
 };
 
+export const miniPCTechnicalSchema = {
+  processor: { type: [String] },
+  model: { type: [String] },
+  memory: { type: [String] },
+  maxRamCapacity: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: [String] },
+  formFactor: { type: String },
+  motherboardModel: { type: String },
+  ean: { type: String },
+  operatingSystem: { type: [String] },
+  operatingSystemEdition: { type: String },
+  storageType: { type: [String] },
+  features: { type: [String] },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
+  type: { type: String },
+  releaseYear: { type: String },
+  inventoryType: { type: String, default: "All In One PC" },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
+  mostSuitableFor: { type: [String] },
+  screenSize: { type: String },
+  graphicsProcessingType: { type: String },
+  connectivity: { type: [String] },
+  manufacturerWarranty: { type: String },
+  regionOfManufacture: { type: String },
+  height: { type: String },
+  length: { type: String },
+  width: { type: String },
+};
 export const cpusProcessorsTechnicalSchema = {
   processorModel: { type: String, required: true },
   processorType: { type: String },
@@ -341,6 +376,17 @@ Inventory.discriminator(
   )
 );
 
+// discriminator for mini pc
+Inventory.discriminator(
+  "inventory_mini_pc",
+  new mongoose.Schema(
+    {
+      prodTechInfo: miniPCTechnicalSchema,
+      productInfo: prodInfoSchema,
+    },
+    options
+  )
+);
 // discriminator for cpus/processors
 Inventory.discriminator(
   "inventory_cpus/processors",
