@@ -18,6 +18,7 @@ export const stockService = {
       purchaseDate,
       stockInvoice,
       markAsStock,
+      priceBreakdown,
     } = data;
 
     // Validate inventory existence
@@ -97,6 +98,7 @@ export const stockService = {
         stockInvoice,
         purchaseDate,
         markAsStock,
+        priceBreakdown,
       });
 
       await stock.save();
