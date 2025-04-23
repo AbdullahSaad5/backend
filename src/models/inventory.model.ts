@@ -1,6 +1,4 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IInventory } from "@/contracts/inventory.contract";
-import { paymentPolicy } from "@/routes/payment-policy.route";
 
 export const mediaSchema = {
   id: { type: String },
@@ -314,7 +312,8 @@ const inventorySchema = new Schema(
   },
   { ...options, collection: "inventory" }
 );
-
+// Compound Index to ensure unique alias across all documents in the 'inventory' collection
+inventorySchema.index({ alias: 1 }, { unique: true });
 // Base Inventory Model
 const Inventory = model("Inventory", inventorySchema);
 
@@ -341,6 +340,7 @@ Inventory.discriminator(
     options
   )
 );
+
 // discriminator for cpus/processors
 Inventory.discriminator(
   "inventory_cpus/processors",
@@ -423,4 +423,7 @@ Inventory.discriminator(
     options
   )
 );
+
+// Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
+Inventory.schema.index({ ean: 1 }, { unique: true });
 export { Inventory };
