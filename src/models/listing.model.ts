@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
+import { generateUniqueSupplierKey } from "@/services/user.service";
 
 export const mediaSchema = {
   id: { type: String },
@@ -220,7 +221,7 @@ const monitorTechnicalSchema = {
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
-  ean: { type: String},
+  ean: { type: String },
   mpn: { type: String },
   unitType: { type: String },
   unitQuantity: { type: String },
@@ -363,12 +364,12 @@ const listingSchema = new Schema(
   },
   options
 );
-
 // ✅ Virtual property to check if Inventory has variations
 listingSchema.virtual("isVariation").get(async function () {
   const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
   return inventory ? inventory.isVariation : false;
 });
+listingSchema.index({ alias: 1 }, { unique: true });
 // listingSchema.pre('save', async function (next) {
 //   const inventory = await mongoose.model('Inventory').findById(this.inventoryId);
 //   if (inventory && inventory.isVariation) {
@@ -484,6 +485,6 @@ Listing.discriminator(
     options
   )
 );
-
+Listing.schema.index({ ean: 1 }, { unique: true });
 // Export the base Listing and its discriminators
 export { Listing };
