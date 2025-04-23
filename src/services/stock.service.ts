@@ -1,42 +1,107 @@
 import { Stock } from "@/models/stock.model";
 import { Inventory, Variation } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
+import mongoose from "mongoose";
 
 export const stockService = {
   // 📌 Add New Stock Purchase Entry
   addStock: async (data: any) => {
-    const inventoryExists = await Inventory.findById(data.inventoryId);
+    const {
+      inventoryId,
+      variations,
+      totalUnits,
+      usableUnits,
+      costPricePerUnit,
+      purchasePricePerUnit,
+      receivedDate,
+      receivedBy,
+      purchaseDate,
+      stockInvoice,
+      markAsStock,
+    } = data;
+
+    // Validate inventory existence
+    const inventoryExists = await Inventory.findById(inventoryId);
     if (!inventoryExists) {
       throw new Error("Inventory not found. Please provide a valid inventoryId.");
     }
 
-    // Ensure variations exist
-    if (!data.variations || !Array.isArray(data.variations) || data.variations.length === 0) {
-      throw new Error("At least one variation must be provided.");
+    const { isVariation } = inventoryExists;
+
+    // Ensure variations exist if isVariation is true
+    if (isVariation) {
+      if (!variations || !Array.isArray(variations) || variations.length === 0) {
+        throw new Error("At least one variation must be provided.");
+      }
+
+      // Validate each variation
+      for (const variation of variations) {
+        if (
+          !variation.variationId ||
+          !mongoose.Types.ObjectId.isValid(variation.variationId) ||
+          variation.costPricePerUnit === undefined ||
+          variation.purchasePricePerUnit === undefined ||
+          variation.totalUnits === undefined ||
+          variation.usableUnits === undefined
+        ) {
+          throw new Error(
+            "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits."
+          );
+        }
+      }
+
+      // Transform variations to match the Stock model structure
+      const selectedVariations = variations.map((variation: any) => ({
+        variationId: variation.variationId,
+        costPricePerUnit: variation.costPricePerUnit,
+        purchasePricePerUnit: variation.purchasePricePerUnit,
+        totalUnits: variation.totalUnits,
+        usableUnits: variation.usableUnits,
+      }));
+
+      // Create stock entry with variations
+      const stock = new Stock({
+        inventoryId,
+        selectedVariations,
+        receivedDate,
+        receivedBy,
+        stockInvoice,
+        purchaseDate,
+        markAsStock,
+      });
+
+      await stock.save();
+      return { message: "Stock saved successfully", stock };
+    } else {
+      // Handle non-variation inventory
+      if (
+        totalUnits === undefined ||
+        usableUnits === undefined ||
+        costPricePerUnit === undefined ||
+        purchasePricePerUnit === undefined
+      ) {
+        throw new Error(
+          "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, and purchasePricePerUnit are required."
+        );
+      }
+
+      // Create stock entry without variations
+      const stock = new Stock({
+        inventoryId,
+        totalUnits,
+        usableUnits,
+        costPricePerUnit,
+        purchasePricePerUnit,
+        receivedDate,
+        receivedBy,
+        stockInvoice,
+        purchaseDate,
+        markAsStock,
+      });
+
+      await stock.save();
+      return { message: "Stock saved successfully", stock };
     }
-
-    // Transform variations to match Stock model structure
-    const selectedVariations = data.variations.map((variation: any) => ({
-      variationId: variation.variationId,
-      costPricePerUnit: variation.costPricePerUnit,
-      purchasePricePerUnit: variation.purchasePricePerUnit,
-      totalUnits: variation.totalUnits,
-      usableUnits: variation.usableUnits,
-    }));
-
-    // Create stock entry
-    const stock = new Stock({
-      inventoryId: data.inventoryId,
-      selectedVariations, // ✅ Store variations in selectedVariations
-      receivedDate: data.receivedDate,
-      receivedBy: data.receivedBy,
-      stockInvoice: data.stockInvoice,
-      purchaseDate: data.purchaseDate,
-      markAsStock: data.markAsStock,
-    });
-
-    await stock.save();
-    return { message: "Stock saved successfully", stock };
   },
 
   // 📌 Get All Stock Entries for an Invenetory
@@ -114,6 +179,7 @@ export const stockService = {
   },
 
   // 📌 Get Inventory That Have Stock Along With Their Stock Entries
+  // Service to get inventory with associated stock
   async getInventoryWithStock() {
     return await Inventory.aggregate([
       {
@@ -138,17 +204,17 @@ export const stockService = {
       },
       { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
 
-      // Lookup and populate `variationId` inside `selectedVariations`
+      // Lookup and populate variations inside selectedVariations
       {
         $lookup: {
-          from: "variations", // Ensure this is the correct collection name
+          from: "variations",
           localField: "stocks.selectedVariations.variationId",
           foreignField: "_id",
           as: "variationDetails",
         },
       },
 
-      // Merge populated variations back into `selectedVariations`
+      // Merge populated variations back into selectedVariations
       {
         $addFields: {
           "stocks.selectedVariations": {
@@ -173,13 +239,12 @@ export const stockService = {
         },
       },
 
-      // Remove unnecessary fields
       { $unset: "variationDetails" },
 
-      // Ensure `receivedBy` is populated and filter only valid stocks
+      // Ensure receivedBy is populated and filter only valid stocks
       { $match: { "stocks.receivedBy": { $ne: null } } },
 
-      // Add a match to check that at least one stock has `markAsStock: true`
+      // Filter only stocks with markAsStock = true
       {
         $match: {
           "stocks.markAsStock": true,
@@ -241,6 +306,7 @@ export const stockService = {
       },
     ]);
   },
+
   async getInventoryWithStockWithDraft() {
     return await Inventory.aggregate([
       {
@@ -265,7 +331,7 @@ export const stockService = {
       },
       { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
 
-      // Lookup and populate `variationId` inside `selectedVariations`
+      // Lookup and populate `variationId` inside `selectedVariations` (for variations)
       {
         $lookup: {
           from: "variations", // Ensure this is the correct collection name
@@ -300,11 +366,12 @@ export const stockService = {
         },
       },
 
-      // Remove unnecessary fields
+      // Remove unnecessary fields like `variationDetails`
       { $unset: "variationDetails" },
 
       // Ensure `receivedBy` is populated and filter only valid stocks
       { $match: { "stocks.receivedBy": { $ne: null } } },
+
       // Lookup and populate `productCategory` from `productcategories` collection inside productInfo
       {
         $lookup: {
