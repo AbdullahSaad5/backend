@@ -172,10 +172,20 @@ const seedData = async () => {
       _id: "675ae44f9dfbe212be595dcc",
       name: "all in one pc",
       description:
-        "This Category deals in All In One PC This Category dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff123ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "This Category deals in All In One PC. This Category will auto seeded in the system even if usuer accidently delete it from the database.",
       image:
         "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(3).jpg?alt=media&token=74c4d1eb-b45c-46ff-985e-e900edd56e43",
       tags: ["pc", "system ", "all in one"],
+      isBlocked: false,
+    },
+    {
+      _id: "6808c108de660f64292ad7ed",
+      name: "mini pc",
+      description:
+        "This Category deals in Mini PCs. This Category will auto seeded in the system even if user accidently delete it from the database.",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FComputer%20PC%20Personal%20Computer%20Build.jpg?alt=media&token=85d5d4b7-3609-4e81-a742-e3ae4fd2db30",
+      tags: ["mini pc", "system ", "pc"],
       isBlocked: false,
     },
     {
