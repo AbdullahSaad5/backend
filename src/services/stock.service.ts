@@ -444,4 +444,23 @@ export const stockService = {
       },
     ]);
   },
+
+  async getAllStockOptions() {
+    try {
+      // Use distinct to get all unique 'priceBreakdown.name' values from the Inventory collection
+      const distinctPriceBreakdownNames = await Stock.aggregate([
+        { $unwind: "$priceBreakdown" }, // Unwind the priceBreakdown array
+        { $group: { _id: "$priceBreakdown.name" } }, // Group by priceBreakdown.name
+        { $project: { _id: 0, name: "$_id" } }, // Only return the distinct names
+      ]);
+
+      // Extract names into an array
+      const names = distinctPriceBreakdownNames.map((item) => item.name);
+
+      return names;
+    } catch (error) {
+      console.error("Error fetching distinct price breakdown names:", error);
+      throw new Error("Failed to fetch distinct price breakdown names");
+    }
+  },
 };

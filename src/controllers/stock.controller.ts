@@ -301,4 +301,21 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+
+  // Controller to fetch selectable options for attributes
+  getAllStockOptions: async (req: Request, res: Response) => {
+    try {
+      // Fetch the options for each attribute
+      const options = await stockService.getAllStockOptions();
+
+      // Return the options in the response
+      return res.status(200).json({
+        message: "Attribute options fetched successfully",
+        options,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching Stock  attribute options:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  },
 };
