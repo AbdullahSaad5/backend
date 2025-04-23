@@ -1,10 +1,7 @@
-import { Inventory, ProductCategory, Stock, User, UserCategory } from "@/models";
+import { Inventory, ProductCategory, Stock, User } from "@/models";
 import { Parser } from "json2csv";
 import mongoose from "mongoose";
 import crypto from "crypto";
-import fs from "fs";
-import os from "os";
-import { validateCsvData } from "@/utils/bulkImport.util";
 import {
   allInOnePCTechnicalSchema,
   gamingPCTechnicalSchema,
@@ -13,11 +10,7 @@ import {
   networkEquipmentsTechnicalSchema,
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
-import { v4 as uuidv4 } from "uuid";
 import { addLog } from "@/utils/bulkImportLogs.util";
-import path from "path";
-import { productCategory } from "@/routes/product-category.route";
-import { cond } from "lodash";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 
 // space
