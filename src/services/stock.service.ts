@@ -306,7 +306,6 @@ export const stockService = {
       },
     ]);
   },
-
   async getInventoryWithStockWithDraft() {
     return await Inventory.aggregate([
       {
@@ -330,6 +329,19 @@ export const stockService = {
         },
       },
       { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
+
+      // Add a field to indicate if receivedBy is invalid (non-existent user)
+      {
+        $addFields: {
+          "stocks.receivedByStatus": {
+            $cond: {
+              if: { $eq: ["$stocks.receivedBy", null] }, // Check if the user is not found
+              then: "Inventory manager has been deleted or is invalid", // Message for invalid ObjectId
+              else: "Valid manager", // Valid manager message (if receivedBy is populated)
+            },
+          },
+        },
+      },
 
       // Lookup and populate `variationId` inside `selectedVariations` (for variations)
       {
@@ -365,12 +377,15 @@ export const stockService = {
           },
         },
       },
-
       // Remove unnecessary fields like `variationDetails`
       { $unset: "variationDetails" },
 
       // Ensure `receivedBy` is populated and filter only valid stocks
-      { $match: { "stocks.receivedBy": { $ne: null } } },
+      {
+        $match: {
+          "stocks.receivedByStatus": { $ne: "Inventory manager has been deleted or is invalid" }, // Only filter invalid "receivedBy" here
+        },
+      },
 
       // Lookup and populate `productCategory` from `productcategories` collection inside productInfo
       {
