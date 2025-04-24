@@ -406,7 +406,7 @@ listingSchema.virtual("isVariation").get(async function () {
   const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
   return inventory ? inventory.isVariation : false;
 });
-listingSchema.index({ alias: 1 }, { unique: true });
+listingSchema.index({ alias: 1 }, { unique: false });
 // listingSchema.pre('save', async function (next) {
 //   const inventory = await mongoose.model('Inventory').findById(this.inventoryId);
 //   if (inventory && inventory.isVariation) {
@@ -537,6 +537,6 @@ Listing.discriminator(
     options
   )
 );
-Listing.schema.index({ ean: 1 }, { unique: true });
+Listing.schema.index({ ean: 1 }, { unique:false });
 // Export the base Listing and its discriminators
 export { Listing };

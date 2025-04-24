@@ -262,7 +262,7 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory by condition");
     }
   },
-  
+
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
@@ -715,7 +715,7 @@ export const inventoryService = {
         // "productInfo.productSupplier",
         // "productInfo.title",
         // "productInfo.description",
-        "productInfo.inventoryCondition",
+        // "productInfo.inventoryCondition",
         "productInfo.brand",
 
         // ProdTechInfo subfields
