@@ -236,6 +236,7 @@ export const inventoryController = {
       });
     }
   },
+
   //Get All Template Inventory Names
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -251,15 +252,23 @@ export const inventoryController = {
       }
 
       const templateList = templates.map((template, index) => {
+        // console.log("templatetemplate : " , template)
+
         const inventoryId = template._id;
+        const templateAlias = template.alias;
+
+        // console.log("templateListNAme : " , templateAlias)
+
         const kind = (template.kind || "UNKNOWN").toLowerCase();
+
+        console.log("kinddd : ", kind);
 
         // ✅ Ensure correct access to prodTechInfo
         const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
 
         switch (kind) {
-          case "laptops":
+          case "inventory_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -269,30 +278,32 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "inventory_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "inventory_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "inventory_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "inventory_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "inventory_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
             fields = ["UNKNOWN"];
         }
 
+        console.log("fields : " , fields)
+
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, inventoryId };
+        return { templateName, inventoryId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -301,6 +312,8 @@ export const inventoryController = {
         const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
         return numB - numA;
       });
+
+      // console.log("templateList : " , templateList)
 
       return res.status(StatusCodes.OK).json({
         success: true,
