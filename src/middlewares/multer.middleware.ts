@@ -18,10 +18,7 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
+    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
   },
 });
 
@@ -47,7 +44,7 @@ const storage = multer.diskStorage({
 // Create multer upload instance
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
+  limits: { fileSize: 1024 * 1024 * 50 }, // 5MB file size limit
   // fileFilter: fileFilter,
 });
 
@@ -117,29 +114,29 @@ export const uploadMiddleware = (req: any, res: any, next: NextFunction) => {
   //   next();
   // });
 
-    upload.single("file")(req, res, (err) => {
-      if (err instanceof multer.MulterError) {
-        // Handle multer errors
-        switch (err.code) {
-          case "LIMIT_FILE_SIZE":
-            return res.status(StatusCodes.BAD_REQUEST).json({
-              status: StatusCodes.BAD_REQUEST,
-              error: "Error: File size is too large. Max limit is 5MB",
-            });
-          default:
-            return res.status(StatusCodes.BAD_REQUEST).json({
-              status: StatusCodes.BAD_REQUEST,
-              error: err.message,
-            });
-        }
-      } else if (err) {
-        // Handle unknown errors
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          error: err.message,
-        });
+  upload.single("file")(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      // Handle multer errors
+      switch (err.code) {
+        case "LIMIT_FILE_SIZE":
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            status: StatusCodes.BAD_REQUEST,
+            error: "Error: File size is too large. Max limit is 5MB",
+          });
+        default:
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            status: StatusCodes.BAD_REQUEST,
+            error: err.message,
+          });
       }
-      // Everything went fine.
-      next();
-    });
+    } else if (err) {
+      // Handle unknown errors
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        error: err.message,
+      });
+    }
+    // Everything went fine.
+    next();
+  });
 };

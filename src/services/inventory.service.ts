@@ -498,25 +498,20 @@ export const inventoryService = {
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
+      // Check if there are valid rows to import
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
         return;
       }
 
-      // Debugging the valid rows received
+      // Debugging: Log received valid rows
       addLog("🔹 Valid Rows Received for Bulk Import:");
       validRows.forEach(({ row, data }) => {
         console.log(`Row: ${row}`);
         console.log("Data:", data);
       });
 
-      // Fetch all existing product titles to prevent duplicates
-      // const existingTitles = new Set(
-      //   (await Inventory.find({}, "productInfo.title")).map((p: any) => p.productInfo.title)
-      // );
-      // console.log("🔹 Existing Titles:", existingTitles);
-
-      // Prepare bulk operations
+      // Prepare bulk operations by filtering out invalid rows and those with missing data
       const bulkOperations = validRows
         .filter(({ data }) => {
           // Ensure the data object and title exist
@@ -524,27 +519,32 @@ export const inventoryService = {
             console.log(`❌ Missing title or invalid data for row ${data?.row}`);
             return false; // Skip invalid rows
           }
-          // if (existingTitles.has(data.title)) {
-          //   console.log(`❌ Duplicate title found for row ${data.row}: ${data.title}`);
-          //   return false; // Skip rows with duplicate titles
-          // }
+
           return true;
         })
-        .map(({ data }) => {
-          addLog(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
+        .map(({ row, data }) => {
+          // Check that row is defined
+          if (row === undefined) {
+            console.log("❌ Missing row number.");
+            return null; // Skip this row if it doesn't have a valid row number
+          }
 
+          // Log the row details being prepared for insertion
+          addLog(`📦 Preparing to insert row ${row} with title: ${data.title}`);
+
+          // Prepare the MongoDB document for insertion
           return {
             insertOne: {
               document: {
                 isBlocked: false,
-                kind: "inventory_laptops", // Adjust if necessary based on the kind
+                kind: "inventory_laptops", // This can be adjusted if needed
                 status: "draft", // Default status
                 isVariation: false, // Default value
                 isMultiBrand: false, // Default value
                 isTemplate: false, // Default value
                 isPart: false, // Default value
-                stocks: [], // Assuming empty initially
-                stockThreshold: 10, // Default value
+                stocks: [], // Assuming stocks are initially empty
+                stockThreshold: 10, // Default threshold
                 prodTechInfo: {
                   processor: data.processor || [],
                   model: data.model || [],
@@ -552,7 +552,7 @@ export const inventoryService = {
                   storageType: data.storageType || [],
                   features: data.features || [],
                   ssdCapacity: data.ssdCapacity || [],
-                  screenSize: data.screenSize || "14 px",
+                  screenSize: data.screenSize || "14 px", // Default screen size
                   gpu: data.gpu || "",
                   unitType: data.unitType || "box",
                   unitQuantity: data.unitQuantity || "1",
@@ -567,7 +567,6 @@ export const inventoryService = {
                   color: data.color || [],
                   maxResolution: data.maxResolution || "",
                   mostSuitableFor: data.mostSuitableFor || "",
-
                   graphicsProcessingType: data.graphicsProcessingType || "",
                   connectivity: data.connectivity || "",
                   manufacturerWarranty: data.manufacturerWarranty || "",
@@ -576,34 +575,36 @@ export const inventoryService = {
                   length: data.length || "",
                   weight: data.weight || "",
                   width: data.width || "",
-                  /* Default/Empty values for various tech fields */
+                  // Default/Empty values for various technical fields
                 },
                 productInfo: {
                   productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                  productSupplier: data.productSupplier, // Directly use the passed supplier _id
+                  productSupplier: data.productSupplier, // Use the passed supplier _id directly
                   title: data.title,
                   description: data.description,
-                  inventoryImages: data.images.map((url: string) => ({
+                  inventoryImages: (data.images || []).map((url: string) => ({
                     id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     size: 0, // Placeholder size
                     url,
-                    type: "image/jpeg",
+                    type: "image/jpeg", // Assuming the images are jpeg; can be adjusted
                   })),
-                  inventoryCondition: data.inventoryCondition || "new",
+                  inventoryCondition: data.inventoryCondition || "new", // Default condition
                   brand: data.brand || [],
                 },
               },
             },
           };
-        });
+        })
+        .filter(Boolean); // Remove any null entries (invalid rows without row number)
 
+      // If no bulk operations are prepared, exit early
       if (bulkOperations.length === 0) {
         addLog("✅ No new Inventory to insert.");
         return;
       }
 
-      // Perform Bulk Insert Operation
-      await Inventory.bulkWrite(bulkOperations);
+      // Perform the bulk insert operation
+      await Inventory.bulkWrite(bulkOperations.filter((operation) => operation !== null));
       addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
