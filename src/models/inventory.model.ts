@@ -348,7 +348,7 @@ const inventorySchema = new Schema(
   { ...options, collection: "inventory" }
 );
 // Compound Index to ensure unique alias across all documents in the 'inventory' collection
-inventorySchema.index({ alias: 1 }, { unique: true });
+inventorySchema.index({ alias: 1 }, { unique:false });
 // Base Inventory Model
 const Inventory = model("Inventory", inventorySchema);
 
@@ -471,5 +471,5 @@ Inventory.discriminator(
 );
 
 // Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
-Inventory.schema.index({ ean: 1 }, { unique: true });
+Inventory.schema.index({ ean: 1 }, { unique: false });
 export { Inventory };
