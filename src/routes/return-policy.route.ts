@@ -11,6 +11,4 @@ export const returnPolicy = (router: Router) => {
   router.patch("/:id", returnPolicyController.editPolicy);
 
   router.delete("/:id", returnPolicyController.deletePolicy);
-
-  router.patch("/block/:id", returnPolicyController.toggleBlock);
 };

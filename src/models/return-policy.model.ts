@@ -11,7 +11,7 @@ const returnPolicySchema = new Schema<IReturnPolicy>(
     isBlocked: { type: Boolean, default: false },
     marketplaceId: { type: String, required: true },
 
-    ebayPolicyId: { type: String, unique: true, sparse: true }, // Store eBay's return policy ID
+    ebayPolicyId: { type: String, sparse: true }, // Store eBay's return policy ID
 
     categoryTypes: [
       {

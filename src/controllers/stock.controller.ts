@@ -9,10 +9,12 @@ export const stockController = {
     try {
       const {
         inventoryId,
+        stockInvoice,
         variations, // Only required if isVariation is true
         totalUnits,
         usableUnits,
         costPricePerUnit,
+        priceBreakdown,
         purchasePricePerUnit,
         receivedDate,
         receivedBy,
@@ -26,16 +28,14 @@ export const stockController = {
         return res.status(404).json({ message: "Inventory not found. Please provide a valid inventoryId." });
       }
 
-      // ✅ Check if Inventory has variations enabled
       const { isVariation } = inventoryExists;
 
       if (isVariation) {
-        // ✅ Ensure variations exist
+        // Validate variations if isVariation is true
         if (!variations || !Array.isArray(variations) || variations.length === 0) {
           return res.status(400).json({ message: "At least one variation must be provided." });
         }
 
-        // Validate each variation
         for (const variation of variations) {
           if (
             !variation.variationId ||
@@ -52,7 +52,7 @@ export const stockController = {
           }
         }
       } else {
-        // ✅ Ensure direct stock details are provided
+        // Validate direct stock details for non-variation inventories
         if (
           totalUnits === undefined ||
           usableUnits === undefined ||
@@ -66,55 +66,31 @@ export const stockController = {
         }
       }
 
-      // ✅ Prepare stock entry based on `isVariation`
-      const stockData: any = {
+      // Prepare data for stock creation
+      const stockData = {
         inventoryId,
+        stockInvoice,
         receivedDate,
         receivedBy,
         purchaseDate,
         markAsStock,
+        variations,
+        totalUnits,
+        priceBreakdown,
+        usableUnits,
+        costPricePerUnit,
+        purchasePricePerUnit,
       };
 
-      if (isVariation) {
-        stockData.selectedVariations = variations.map((variation: any) => ({
-          variationId: variation.variationId,
-          costPricePerUnit: variation.costPricePerUnit,
-          purchasePricePerUnit: variation.purchasePricePerUnit,
-          totalUnits: variation.totalUnits,
-          usableUnits: variation.usableUnits,
-        }));
-      } else {
-        stockData.totalUnits = totalUnits;
-        stockData.usableUnits = usableUnits;
-        stockData.costPricePerUnit = costPricePerUnit;
-        stockData.purchasePricePerUnit = purchasePricePerUnit;
-      }
+      // Pass to service for actual stock creation
+      const response = await stockService.addStock(stockData);
 
-      // ✅ Save stock entry
-      const stock = new Stock(stockData);
-      await stock.save();
-
-      res.status(201).json({ message: "Stock saved successfully", stock });
+      res.status(201).json(response);
     } catch (error: any) {
-      console.error("❌ Error in addStock:", error);
-
-      if (error.name === "ValidationError") {
-        return res.status(400).json({ message: "Validation Error", error: error.message });
-      }
-      if (error.message.includes("Inventory not found")) {
-        return res.status(404).json({ message: error.message });
-      }
-      if (error.code === 11000) {
-        return res.status(400).json({
-          message: "Duplicate stock entry detected. Ensure inventoryId is correct.",
-          error: error.keyValue,
-        });
-      }
-
-      res.status(500).json({ message: error.message });
+      console.error("Error in addStock:", error);
+      res.status(500).json({ message: error.message || "An error occurred" });
     }
   },
-
   // 📌 Get inventory That Have Stock Along With Their Stock Entries
   getInventoryWithStock: async (req: Request, res: Response) => {
     try {
@@ -127,8 +103,19 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-
+  getInventoryWithStockWithDraft: async (req: Request, res: Response) => {
+    try {
+      const inventoryWithStocks = await stockService.getInventoryWithStockWithDraft();
+      if (inventoryWithStocks.length === 0) {
+        return res.status(404).json({ message: "No inventory with stock found" });
+      }
+      res.status(200).json(inventoryWithStocks);
+    } catch (error) {
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
   // 📌 Get All Stock Purchases for a inventory(only those stocks who are markAsStock=true)
+  // Controller to get stock by inventoryId and ensure `markAsStock` is true
   getStockByInventoryId: async (req: Request, res: Response) => {
     try {
       const { inventoryId } = req.params;
@@ -193,72 +180,7 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
-  // updateStock: async (req: Request, res: Response) => {
-  //   try {
-  //     const { stockId } = req.params;
-  //     const { variations, receivedDate, receivedBy, purchaseDate, markAsStock } = req.body;
 
-  //     // Validate stockId
-  //     if (!mongoose.Types.ObjectId.isValid(stockId)) {
-  //       return res.status(400).json({ message: "Invalid Stock ID format" });
-  //     }
-
-  //     // Validate required fields
-  //     if (!variations || !Array.isArray(variations) || variations.length === 0) {
-  //       return res.status(400).json({ message: "At least one variation is required." });
-  //     }
-
-  //     if (!receivedDate || !receivedBy || !purchaseDate) {
-  //       return res.status(400).json({ message: "Received Date, Received By, and Purchase Date are required." });
-  //     }
-
-  //     // Validate each variation
-  //     for (const variation of variations) {
-  //       if (
-  //         !variation.variationId ||
-  //         !mongoose.Types.ObjectId.isValid(variation.variationId) ||
-  //         variation.costPricePerUnit === undefined ||
-  //         variation.purchasePricePerUnit === undefined ||
-  //         variation.totalUnits === undefined ||
-  //         variation.usableUnits === undefined
-  //       ) {
-  //         return res.status(400).json({
-  //           message:
-  //             "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
-  //         });
-  //       }
-  //     }
-
-  //     // Call stock service to update stock
-  //     const updatedStock = await stockService.updateStock(stockId, req.body);
-
-  //     if (!updatedStock) {
-  //       return res.status(404).json({ message: "Stock record not found" });
-  //     }
-
-  //     res.status(200).json({
-  //       message: "Stock record updated successfully",
-  //       stock: updatedStock,
-  //     });
-  //   } catch (error: any) {
-  //     console.error("❌ Error in updateStock:", error);
-
-  //     if (error.name === "ValidationError") {
-  //       return res.status(400).json({ message: "Validation Error", error: error.message });
-  //     }
-  //     if (error.message.includes("Stock record not found")) {
-  //       return res.status(404).json({ message: error.message });
-  //     }
-  //     if (error.code === 11000) {
-  //       return res.status(400).json({
-  //         message: "Duplicate stock entry detected. Ensure stockId is correct.",
-  //         error: error.keyValue,
-  //       });
-  //     }
-
-  //     res.status(500).json({ message: "Internal Server Error", error });
-  //   }
-  // },
   viewStock: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;
@@ -311,7 +233,7 @@ export const stockController = {
         stock.costPricePerUnit = costPricePerUnit;
         stock.purchasePricePerUnit = purchasePricePerUnit;
       }
-
+      stock.stockInvoice = req.body.stockInvoice || stock.stockInvoice;
       stock.receivedDate = req.body.receivedDate || stock.receivedDate;
       stock.receivedBy = req.body.receivedBy || stock.receivedBy;
       stock.purchaseDate = req.body.purchaseDate || stock.purchaseDate;
@@ -377,6 +299,23 @@ export const stockController = {
       return res.status(200).json({ message: "Stock costs updated successfully", result });
     } catch (error) {
       res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
+
+  // Controller to fetch selectable options for attributes
+  getAllStockOptions: async (req: Request, res: Response) => {
+    try {
+      // Fetch the options for each attribute
+      const options = await stockService.getAllStockOptions();
+
+      // Return the options in the response
+      return res.status(200).json({
+        message: "Attribute options fetched successfully",
+        options,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching Stock  attribute options:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   },
 };

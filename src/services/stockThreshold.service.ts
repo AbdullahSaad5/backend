@@ -3,7 +3,7 @@ import { Stock } from "@/models/stock.model";
 export const stockThresholdService = {
   // Check if stock is below threshold
   async checkStockThreshold(productId: string) {
-    const stock = await Stock.findOne({ productId });
+    const stock: any = await Stock.findOne({ productId });
     if (!stock) return null;
     return stock.quantity <= stock.stockThreshold;
   },
@@ -15,11 +15,7 @@ export const stockThresholdService = {
 
   // Update stock threshold for a product
   async updateStockThreshold(productId: string, newThreshold: number) {
-    const stock = await Stock.findOneAndUpdate(
-      { productId },
-      { stockThreshold: newThreshold },
-      { new: true }
-    );
+    const stock = await Stock.findOneAndUpdate({ productId }, { stockThreshold: newThreshold }, { new: true });
     return stock;
   },
 

@@ -1,7 +1,7 @@
 import { inventoryController } from "@/controllers";
 import { inventoryValidation } from "@/validations";
 import { Router } from "express";
-import { handleBulkImport, handleBulkExport } from "@/controllers/listing.controller.helper"; // Adjust import path as needed
+import { handleBulkImport, handleBulkExport } from "@/controllers/inventory.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 
 export const inventory = (router: Router) => {
@@ -9,13 +9,14 @@ export const inventory = (router: Router) => {
 
   // Create or update a draft inventory
   router.post("/", inventoryController.createDraftInventory);
+  router.get("/get-all-options", inventoryController.getAllOptions);
   router.patch(
     "/:id",
     // inventoryValidation.updateInventory,
     inventoryController.updateDraftInventoryController
   );
 
-  router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxDiscount);
+  // router.patch("/bulk-update-vat-and-discount", inventoryController.bulkUpdateInventoryTaxAndDiscount);
   //new route for search and filter and pagination
   router.get("/search", inventoryController.searchAndFilterInventory);
   router.get("/with-stock", inventoryController.getInventoriesWithStock);
@@ -25,7 +26,7 @@ export const inventory = (router: Router) => {
   router.post("/bulk-import", uploadMiddleware, handleBulkImport);
 
   // Route for bulk export (GET request)
-  router.get("/bulk-export", handleBulkExport);
+  router.post("/bulk-export", handleBulkExport);
 
   router.get("/transform/:id", inventoryValidation.validateId, inventoryController.transformAndSendInventory);
   // Fetch transformed template inventory by ID
@@ -41,8 +42,9 @@ export const inventory = (router: Router) => {
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-
+  //
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
+  router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
   router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
 
@@ -50,6 +52,9 @@ export const inventory = (router: Router) => {
 
   // route for toggle block status
   router.patch("/block/:id", inventoryController.toggleBlock);
+
+  // route for toggle  template status Change
+  router.patch("/istemplate/:id", inventoryController.toggleIsTemplate);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", inventoryController.upsertInventoryParts);

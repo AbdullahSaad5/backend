@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Inventory } from "@/models";
 
+
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
     try {
@@ -82,21 +83,21 @@ export const listingController = {
       // Update listing
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
       // if (stepData.publishToEbay) {
-        // Sync product with eBay if it's marked for publishing
-        const ebayItemId = await ebayListingService.syncListingWithEbay(updatedListing);
+      // Sync product with eBay if it's marked for publishing
+      const ebayResponse = await ebayListingService.syncListingWithEbay(updatedListing);
 
-        // Update the product with the eBay Item ID
-        await listingService.updateDraftListing(updatedListing._id, {
-          ebayItemId,
-        });
+      // Update the product with the eBay Item ID
+      await listingService.updateDraftListing(updatedListing._id, {
+        ebayResponse,
+      });
 
-        // Return success with the updated product
-        return res.status(StatusCodes.OK).json({
-          success: true,
-          message: "Draft product updated and synced with eBay successfully",
-          data: updatedListing,
-          ebayItemId, // Include eBay Item ID in the response
-        });
+      // Return success with the updated product
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message:  "Draft product updated and synced with eBay successfully",
+        data: updatedListing,
+        ebayResponse, // Include eBay Item ID in the response
+      });
       // }
       if (!updatedListing) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -226,8 +227,12 @@ export const listingController = {
 
       // console.log("templates :: " , templates)
 
-      const templateList = templates.map((template, index) => {
+      const templateList = templates.map((template: any, index) => {
+       
         const listingId = template._id;
+        const templateAlias = template?.alias;
+
+        // console.log("templateAlias : ", templateAlias);
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
         // ✅ Ensure correct access to prodTechInfo
@@ -266,9 +271,9 @@ export const listingController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `TEMP-${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, listingId };
+        return { templateName, listingId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -281,7 +286,7 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Templates fetched successfully",
-        data: {templateList , templates},
+        data: { templateList, templates },
       });
     } catch (error: any) {
       console.error("Error fetching templates:", error);
@@ -561,6 +566,41 @@ export const listingController = {
       });
     }
   },
+
+  toggleIsTemplate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTemplate} = req.body;
+
+      if (typeof isTemplate !== "boolean") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isTemplate must be a boolean value",
+        });
+      }
+
+      const updatedListing = await listingService.toggleIsTemplate(id, isTemplate);
+
+      if (!updatedListing) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Listing ${isTemplate ? "is" : "is not"} template now`,
+        data: updatedListing,
+      });
+    } catch (error: any) {
+      console.error("Error toggling listing tempalate status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling listing template status",
+      });
+    }
+  },
   getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();
@@ -614,34 +654,43 @@ export const listingController = {
       });
     }
   },
+  // Controller
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { listingIds, discountValue, vat } = req.body;
+      const { listingIds, discountType, discountValue, vat, retailPrice } = req.body;
 
+      // Validate listingIds
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return res.status(400).json({ message: "listingIds array is required" });
       }
 
-      if (discountValue === undefined || vat === undefined) {
-        return res.status(400).json({ message: "Both discount and VAT/tax are required" });
-      }
+      // Validate discountType
+      // if (!["fixed", "percentage"].includes(discountType)) {
+      //   return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
+      // }
 
-      // Validate each listingId format
-      for (const listingId of listingIds) {
-        if (!mongoose.Types.ObjectId.isValid(listingId)) {
-          return res.status(400).json({ message: `Invalid listingId: ${listingId}` });
-        }
-      }
+      // Validate discountValue and vat
+      // if (typeof discountValue !== "number") {
+      //   return res.status(400).json({ message: "discountValue must be numbers" });
+      // }
 
-      // Perform bulk update
-      const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountValue, vat);
+      // Call the service to perform the bulk update
+      const result = await listingService.bulkUpdateListingTaxDiscount(
+        listingIds,
+        discountType,
+        discountValue,
+        vat,
+        retailPrice
+      );
 
+      // Return success response
       return res.status(200).json({
         message: "Listing VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Internal Server Error", error: error.message });
+      // Catch errors and return a 500 response with the error message
+      return res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
   upsertListingParts: async (req: Request, res: Response) => {

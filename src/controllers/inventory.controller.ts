@@ -1,11 +1,12 @@
-import {  inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
-import { Inventory, Stock, Variation } from "@/models";
+import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { setCacheWithTTL } from "@/datasources/redis.datasource";
+import { validateCsvData } from "@/utils/bulkImport.util";
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -133,14 +134,6 @@ export const inventoryController = {
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      // const platform = req.query.platform as "amazon" | "ebay" | "website";
-
-      // if (!platform) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Platform query parameter is required",
-      //   });
-      // }
 
       const inventory = await inventoryService.getInventoryById(id);
 
@@ -163,6 +156,47 @@ export const inventoryController = {
       });
     }
   },
+  getInventoryTemplateById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch the original inventory based on the provided ID
+      const inventory = await inventoryService.getInventoryById(id);
+
+      if (!inventory) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Inventory not found",
+        });
+      }
+
+      // Create a new inventory item with the same data
+      const newInventory = {
+        ...inventory.toObject(),
+        _id: undefined,
+
+        isTemplate: false,
+
+        isVariation: false,
+        status: "draft",
+      }; // Remove the _id to create a new one
+      const createdInventory = await Inventory.create(newInventory);
+
+      // Return the new inventory item and its ID
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        inventory: createdInventory,
+        // newInventoryId: createdInventory._id, // Return the new inventory ID
+      });
+    } catch (error: any) {
+      console.error("Error fetching and creating new inventory from template:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching and creating new inventory",
+      });
+    }
+  },
+
   transformAndSendInventory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -202,6 +236,7 @@ export const inventoryController = {
       });
     }
   },
+
   //Get All Template Inventory Names
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -217,15 +252,23 @@ export const inventoryController = {
       }
 
       const templateList = templates.map((template, index) => {
+        // console.log("templatetemplate : " , template)
+
         const inventoryId = template._id;
+        const templateAlias = template.alias;
+
+        // console.log("templateListNAme : " , templateAlias)
+
         const kind = (template.kind || "UNKNOWN").toLowerCase();
+
+        console.log("kinddd : ", kind);
 
         // ✅ Ensure correct access to prodTechInfo
         const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
 
         switch (kind) {
-          case "laptops":
+          case "inventory_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -235,30 +278,32 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "inventory_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "inventory_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "inventory_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "inventory_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "inventory_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
             fields = ["UNKNOWN"];
         }
 
+        console.log("fields : " , fields)
+
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, inventoryId };
+        return { templateName, inventoryId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -267,6 +312,8 @@ export const inventoryController = {
         const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
         return numB - numA;
       });
+
+      // console.log("templateList : " , templateList)
 
       return res.status(StatusCodes.OK).json({
         success: true,
@@ -312,7 +359,10 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "inventory_all_iPn_one_pc":
+          case "inventory_all_in_one_pc":
+            fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+            break;
+          case "inventory_mini_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "inventory_projectors":
@@ -520,6 +570,41 @@ export const inventoryController = {
       });
     }
   },
+
+  toggleIsTemplate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTemplate } = req.body;
+
+      if (typeof isTemplate !== "boolean") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isTemplate must be a boolean value",
+        });
+      }
+
+      const updatedInventory = await inventoryService.toggleIsTemplate(id, isTemplate);
+
+      if (!updatedInventory) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Inventory not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Product Catalogue ${isTemplate ? "is" : "is not"} a template now`,
+        data: updatedInventory,
+      });
+    } catch (error: any) {
+      console.error("Error toggling template status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling template status",
+      });
+    }
+  },
   getInventoryStats: async (req: Request, res: Response) => {
     try {
       const stats = await inventoryService.getInventoryStats();
@@ -577,7 +662,7 @@ export const inventoryController = {
       });
     }
   },
-  bulkUpdateInventoryTaxDiscount: async (req: Request, res: Response) => {
+  bulkUpdateInventoryTaxAndDiscount: async (req: Request, res: Response) => {
     try {
       const { inventoryIds, discountValue, vat } = req.body;
 
@@ -597,7 +682,7 @@ export const inventoryController = {
       }
 
       // Perform bulk update
-      const result = await inventoryService.bulkUpdateInventoryTaxDiscount(inventoryIds, discountValue, vat);
+      const result = await inventoryService.bulkUpdateInventoryTaxAndDiscount(inventoryIds, discountValue, vat);
 
       return res.status(200).json({
         message: "Inventory VAT/tax and discount updated successfully",
@@ -649,14 +734,18 @@ export const inventoryController = {
       }
 
       // **Handle search queries properly**
-      const searchFilters: Record<string, string> = {};
+      const searchFilters: Record<string, string[]> = {}; // Allow multiple values per key
       if (searchQueries) {
         const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
 
         searchArray.forEach((filter: any) => {
           const [key, value] = filter.split(":");
           if (key && value) {
-            searchFilters[key] = value.toLowerCase(); // Store search filters as lowercase for case-insensitive matching
+            // Allow multiple values for the same attribute
+            if (!searchFilters[key]) {
+              searchFilters[key] = [];
+            }
+            searchFilters[key].push(value.toLowerCase()); // Store filter values in lowercase
           }
         });
       }
@@ -678,23 +767,35 @@ export const inventoryController = {
           return acc;
         }, {});
 
-        if (Object.keys(multiSelectAttributes).length === 0) {
+        // **Exclude 'brand' and 'features' from multi-select attributes**
+        const excludedAttributes = ["brand", "features", "model", "toFit", "connectivity", "mostSuitableFor"];
+        const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
+          if (!excludedAttributes.includes(key)) {
+            acc[key] = multiSelectAttributes[key];
+          }
+          return acc;
+        }, {});
+
+        if (Object.keys(filteredAttributes).length === 0) {
           return res.status(400).json({ message: "No multi-select attributes found for variations" });
         }
 
-        // **Generate variations dynamically**
-        allVariations = await inventoryService.generateCombinations(multiSelectAttributes);
+        // **Generate variations dynamically using the filtered attributes**
+        allVariations = await inventoryService.generateCombinations(filteredAttributes);
 
         // **Cache generated variations in Redis (TTL: 1 hour)**
         await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
         console.log("Cache miss: Generated and cached all variations.");
       }
 
-      // **Apply dynamic search filters**
+      // **Apply dynamic search filters (allow multiple values per filter)**
       if (Object.keys(searchFilters).length > 0) {
         allVariations = allVariations.filter((variation: any) => {
           return Object.keys(searchFilters).every((key) => {
-            return variation[key] && variation[key].toString().toLowerCase() === searchFilters[key];
+            const filterValues = searchFilters[key];
+            const variationValue = variation[key]?.toString().toLowerCase();
+            // Check if the variation's value matches any of the filter values for the key
+            return filterValues.includes(variationValue);
           });
         });
       }
@@ -718,7 +819,22 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  // Controller to fetch selectable options for attributes
+  getAllOptions: async (req: Request, res: Response) => {
+    try {
+      // Fetch the options for each attribute
+      const options = await inventoryService.getAllOptions();
 
+      // Return the options in the response
+      return res.status(200).json({
+        message: "Attribute options fetched successfully",
+        options,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching attribute options:", error);
+      return res.status(500).json({ message: "Internal server error" });
+    }
+  },
   // Store Selected Variations (POST Request)
   storeSelectedVariations: async (req: Request, res: Response) => {
     try {
@@ -775,6 +891,7 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  //bulk import inventory as CSV
 
   updateVariations: async (req: Request, res: Response) => {
     try {

@@ -106,6 +106,128 @@ export const ebayListingService = {
     }
   },
 
+  getEbayCategories: async (req: Request, res: Response) => {
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+      const CATEGORY_ID = 3;
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categories = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categories,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay categories",
+      });
+    }
+  },
+
+  getEbaySubCategories: async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const CATEGORY_ID = 3;
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_category_subtree?category_id=${categoryId}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const subCategories = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: subCategories,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay subcategories",
+      });
+    }
+  },
+
+  getEbayCategorySuggestions: async (req: Request, res: Response) => {
+    try {
+      const { query } = req.query;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/0/get_category_suggestions?q=${query}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categorySuggestions = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categorySuggestions,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay category suggestions",
+      });
+    }
+  },
+
+  getEbayCategoryAspects: async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const CATEGORY_ID = 3;
+
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_item_aspects_for_category?category_id=${categoryId}`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const categoryAspects = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: categoryAspects,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay category aspects",
+      });
+    }
+  },
+
   async syncListingWithEbay(listing: any): Promise<string> {
     try {
       const token = await getStoredEbayAccessToken();
@@ -118,7 +240,7 @@ export const ebayListingService = {
       const generateListingDescription = (ebayData: any) => {
         return ebayHtmlTemplate({
           title: ebayData.productInfo?.title ?? "A TEST product",
-          brand: ebayData.productInfo?.brand || "Unbranded",
+          brand: ebayData.productInfo?.brand || "Mix Brand",
           processor: ebayData.prodTechInfo?.processor || "Core I9",
           ram: ebayData.prodTechInfo?.ramSize || "16 GB",
           storage: ebayData.prodTechInfo?.storageType || "SSD",
@@ -130,14 +252,86 @@ export const ebayListingService = {
           connectivity: ebayData.prodTechInfo?.connectivity || "Unknown",
           description: ebayData.productInfo?.description || "No description available.",
           imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
-          height: ebayData.prodTechInfo?.height || "Unknown",
-          length: ebayData.prodTechInfo?.length || "Unknown",
-          width: ebayData.prodTechInfo?.width || "Unknown",
-          weight: ebayData.prodTechInfo?.weight || "Unknown",
           weightUnit: "POUND",
           ean: ebayData.prodTechInfo?.ean,
           mpn: ebayData.prodTechInfo?.mpn,
           upc: ebayData.prodTechInfo?.upc,
+          model: ebayData.prodTechInfo?.model,
+          operatingSystem: ebayData.prodTechInfo?.operatingSystem,
+          storageType: ebayData.prodTechInfo?.storageType,
+          features: ebayData.prodTechInfo?.features,
+          ssdCapacity: ebayData.prodTechInfo?.ssdCapacity,
+          type: ebayData.prodTechInfo?.type,
+          releaseYear: ebayData.prodTechInfo?.releaseYear,
+          hardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
+          color: ebayData.prodTechInfo?.color,
+          maxResolution: ebayData.prodTechInfo?.maxResolution,
+          mostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
+          graphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
+          motherboardModel: ebayData.prodTechInfo?.motherboardModel,
+          series: ebayData.prodTechInfo?.series,
+          operatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
+          memory: ebayData.prodTechInfo?.memory,
+          maxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
+          unitType: ebayData.prodTechInfo?.unitType,
+          unitQuantity: ebayData.prodTechInfo?.unitQuantity,
+          processorSpeed: ebayData.prodTechInfo?.processorSpeed,
+          ramSize: ebayData.prodTechInfo?.ramSize,
+          productType: ebayData.prodTechInfo?.productType,
+          manufacturerWarranty: ebayData.prodPricing?.manufacturerWarranty,
+          regionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
+          height: ebayData.prodTechInfo?.height || "Unknown",
+          length: ebayData.prodTechInfo?.length || "Unknown",
+          width: ebayData.prodTechInfo?.width || "Unknown",
+          weight: ebayData.prodTechInfo?.weight || "Unknown",
+          nonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
+          productCondition: ebayData.prodTechInfo?.productCondition,
+          numberOfLANPorts: ebayData.prodTechInfo?.numberOfLANPorts,
+          maximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
+          maximumLANDataRate: ebayData.prodTechInfo?.maximumLANDataRate,
+          ports: ebayData.prodTechInfo?.ports,
+          toFit: ebayData.prodTechInfo?.toFit,
+          displayType: ebayData.prodTechInfo?.displayType,
+          aspectRatio: ebayData.prodTechInfo?.aspectRatio,
+          imageBrightness: ebayData.prodTechInfo?.imageBrightness,
+          throwRatio: ebayData.prodTechInfo?.throwRatio,
+          compatibleOperatingSystem: ebayData.prodTechInfo?.compatibleOperatingSystem,
+          compatibleFormat: ebayData.prodTechInfo?.compatibleFormat,
+          lensMagnification: ebayData.prodTechInfo?.lensMagnification,
+          nativeResolution: ebayData.prodTechInfo?.nativeResolution,
+          displayTechnology: ebayData.prodTechInfo?.displayTechnology,
+          energyEfficiencyRating: ebayData.prodTechInfo?.energyEfficiencyRating,
+          videoInputs: ebayData.prodTechInfo?.videoInputs,
+          refreshRate: ebayData.prodTechInfo?.refreshRate,
+          responseTime: ebayData.prodTechInfo?.responseTime,
+          brightness: ebayData.prodTechInfo?.brightness,
+          contrastRatio: ebayData.prodTechInfo?.contrastRatio,
+          ecRange: ebayData.prodTechInfo?.ecRange,
+          productLine: ebayData.prodTechInfo?.productLine,
+          customBundle: ebayData.prodTechInfo?.customBundle,
+          interface: ebayData.prodTechInfo?.interface,
+          networkConnectivity: ebayData.prodTechInfo?.networkConnectivity,
+          networkManagementType: ebayData.prodTechInfo?.networkManagementType,
+          networkType: ebayData.prodTechInfo?.networkType,
+          processorManufacturer: ebayData.prodTechInfo?.processorManufacturer,
+          numberOfProcessors: ebayData.prodTechInfo?.numberOfProcessors,
+          numberOfVANPorts: ebayData.prodTechInfo?.numberOfVANPorts,
+          processorType: ebayData.prodTechInfo?.processorType,
+          raidLevel: ebayData.prodTechInfo?.raidLevel,
+          memoryType: ebayData.prodTechInfo?.memoryType,
+          deviceConnectivity: ebayData.prodTechInfo?.deviceConnectivity,
+          connectorType: ebayData.prodTechInfo?.connectorType,
+          supportedWirelessProtocol: ebayData.prodTechInfo?.supportedWirelessProtocol,
+          compatibleOperatingSystems: ebayData.prodTechInfo?.compatibleOperatingSystems,
+          californiaProp65Warning: ebayData.prodTechInfo?.californiaProp65Warning,
+          yearManufactured: ebayData.prodTechInfo?.yearManufactured,
+          warrantyDuration: ebayData.prodPricing?.warrantyDuration,
+          warrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
+          warrantyDocument: ebayData.prodPricing?.warrantyDocument,
+          postagePolicy: ebayData.prodDelivery?.postagePolicy,
+          packageWeight: ebayData.prodDelivery?.packageWeight,
+          packageDimensions: ebayData.prodDelivery?.packageDimensions,
+          irregularPackage: ebayData.prodDelivery?.irregularPackage,
         });
       };
 
@@ -265,24 +459,8 @@ export const ebayListingService = {
       });
 
       const responseText = await response.text();
-      // if (!responseText) {
-      //   // If empty response is received, return success status
-      //   return JSON.stringify({
-      //     status: 201,
-      //     statusText: "Created",
-      //     message: "Item created successfully on eBay",
-      //   });
-      // }
 
-      // let responseData;
-      // try {
-      //   responseData = JSON.parse(responseText);
-      // } catch (error) {
-      //   // Handle invalid JSON error
-      //   throw new Error(`Invalid JSON response from eBay: ${responseText}`);
-      // }
-
-      console.log("ebayData.publishtoebay", listing?.publishToEbay);
+      // console.log("ebayData.publishtoebay", listing?.publishToEbay);
 
       // Determine the retail price
       const retailPrice =
@@ -317,12 +495,12 @@ export const ebayListingService = {
         }
         const offerBody = {
           sku: listing._id,
-          brand: ebayData.productInfo?.brand || "Unbranded",
-          processor: ebayData.prodTechInfo?.processor || "Core I9",
-          ram: ebayData.prodTechInfo?.ramSize || "16 GB",
+          brand: ebayData.productInfo?.brand || "Mix Brand",
+          processor: ebayData.prodTechInfo?.processor || "Unknown",
+          ram: ebayData.prodTechInfo?.ramSize || "Unknown",
           storage: ebayData.prodTechInfo?.storageType || "SSD",
           FormFactor: ebayData.prodTechInfo?.formFactor || "Unknown",
-          gpu: ebayData?.prodTechInfo?.gpu || "Nvidia RTX 3060",
+          gpu: ebayData?.prodTechInfo?.gpu || "Unknown",
           screenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
           resolution: ebayData?.prodTechInfo?.resolution || "Unknown",
           lumens: ebayData?.prodTechInfo?.lumens || "Unknown",
@@ -338,7 +516,8 @@ export const ebayListingService = {
           marketplaceId: "EBAY_US",
           merchantLocationKey: "location1",
           // listingDescription: listingDescriptionData ?? "No description available.",
-          listingDescription: ebayData.prodTechInfo?.description ?? "No description available.",
+          listingDescription:
+            listingDescriptionData ?? ebayData.prodTechInfo?.description ?? "No description available.",
           availableQuantity: ebayData.prodPricing?.listingQuantity ?? 10,
           quantityLimitPerBuyer: 5,
           pricingSummary: {
@@ -377,11 +556,10 @@ export const ebayListingService = {
               packageType: "USPSPriorityMailFlatRateBox",
             },
           ],
-
           categoryId: categoryId,
           // "secondaryCategoryId": "string",
           listingPolicies: {
-            fulfillmentPolicyId: "247178000010",
+            fulfillmentPolicyId: "247696768010",
             paymentPolicyId: "247178015010",
             returnPolicyId: "247178019010",
             // bestOfferTerms: {
@@ -530,7 +708,8 @@ export const ebayListingService = {
           //   "shipmentPackageId": "string"
           // },
         };
-        console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
+        // console.log("Listing Description Data:",listingDescriptionData);
+        // console.log("Request Body for Offer Creation:", JSON.stringify(offerBody, null, 2));
 
         const offerResponse = await fetch(`${baseURL}/sell/inventory/v1/offer`, {
           method: "POST",
@@ -640,7 +819,7 @@ export const ebayListingService = {
           Lumens: [prodTechInfo?.lumens || "Unknown"],
           Resolution: [prodTechInfo?.resolution || "Unknown"],
         };
-      case "Wireless Access Points":
+      case "Neetwork Equipments":
         return {
           Brand: [prodTechInfo?.brand || "Unbranded"],
           Frequency: [prodTechInfo?.frequency || "Unknown"],

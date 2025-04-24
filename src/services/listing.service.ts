@@ -1,8 +1,8 @@
-import { Listing, User } from "@/models";
+import { Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
-import { validateCsvData } from "@/utils/bulkImport.util";
+
 export const listingService = {
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
@@ -74,10 +74,11 @@ export const listingService = {
       throw new Error(error.message || "Failed to create draft listing");
     }
   },
+
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { listingId, stepData });
+      console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -93,10 +94,20 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      // Update Status & Template Check
+      // console.log("draft listing is here : " , draftListing)
+
+      // Update Status
       if (stepData.status !== undefined) {
+        console.log("draft if work");
         draftListing.status = stepData.status;
+        // draftListing.isTemplate = stepData.isTemplate || false;
+      }
+      // Update Template Check
+      if (stepData.isTemplate) {
+        console.log("template if work");
+        // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
+        draftListing.alias = stepData.alias || "";
       }
 
       // Update Nested Sections Dynamically
@@ -119,7 +130,7 @@ export const listingService = {
         "publishToWebsite",
         "stockThreshold",
         "isBlocked",
-        "Kind",
+        "kind",
         "selectedStockId",
       ];
       topLevelFields.forEach((field) => {
@@ -179,10 +190,10 @@ export const listingService = {
         .populate("productInfo.productSupplier")
         // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
-      
-        console.log("templateListing in service : " , templateListing)
-      
-        return templateListing;
+
+      console.log("templateListing in service : ", templateListing);
+
+      return templateListing;
     } catch (error) {
       console.error("Error fetching listing by condition:", error);
       throw new Error("Failed to fetch listing by condition");
@@ -253,6 +264,16 @@ export const listingService = {
       throw new Error("Failed to toggle block status");
     }
   },
+  toggleIsTemplate: async (id: string, isTemplate: boolean) => {
+    try {
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      if (!updatedListing) throw new Error("Listing not found");
+      return updatedListing;
+    } catch (error) {
+      console.error("Error toggling listing template status:", error);
+      throw new Error("Failed to toggle listing template status");
+    }
+  },
   // New API for fetching listing stats (separate service logic)
   getListingStats: async () => {
     try {
@@ -288,105 +309,93 @@ export const listingService = {
   },
   searchAndFilterListings: async (filters: any) => {
     try {
-      const {
-        searchQuery = "",
-        isBlocked,
-        isTemplate,
-        status, // Extract status from filters
-        startDate,
-        endDate,
-        page = 1, // Default to page 1 if not provided
-        limit = 10, // Default to 10 records per page
-      } = filters;
+      const { searchQuery = "", isBlocked, isTemplate, status, startDate, endDate, page = 1, limit = 10 } = filters;
 
-      // Convert page and limit to numbers safely
-      const pageNumber = Math.max(parseInt(page, 10) || 1, 1); // Ensure minimum page is 1
+      const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
-      // Build the query dynamically based on filters
       const query: any = {};
 
-      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
       if (searchQuery) {
+        // Base search fields
         query.$or = [
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
+
+        // Search productCategory and productSupplier in parallel
+        const [productCategories] = await Promise.all([
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
+
+          // ProductSupplier.find({
+          //   $or: [
+          //     { firstName: { $regex: searchQuery, $options: "i" } },
+          //     { lastName: { $regex: searchQuery, $options: "i" } },
+          //   ],
+          // }).select("_id"),
+        ]);
+
+        // Support full name searches like "Asad Khan"
+        // if (searchQuery.includes(" ")) {
+        //   const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+        //   const fullNameMatches = await ProductSupplier.find({
+        //     $or: [
+        //       {
+        //         $and: [
+        //           { firstName: { $regex: firstNameQuery, $options: "i" } },
+        //           { lastName: { $regex: lastNameQuery, $options: "i" } },
+        //         ],
+        //       },
+        //     ],
+        //   }).select("_id");
+
+        //   productSuppliers.push(...fullNameMatches);
+        // }
+
+        // Add ObjectId-based search conditions
+        query.$or.push(
+          {
+            "productInfo.productCategory": {
+              $in: productCategories.map((c) => c._id),
+            },
+          }
+          // {
+          //   "productInfo.productSupplier": {
+          //     $in: productSuppliers.map((s) => s._id),
+          //   },
+          // }
+        );
       }
 
-      // Add filters for status, isBlocked, and isTemplate
       if (status && ["draft", "published"].includes(status)) {
         query.status = status;
       }
+
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
       }
+
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
       }
 
-      // Date range filter for createdAt
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
-        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
+        if (startDate && !isNaN(Date.parse(startDate))) {
+          dateFilter.$gte = new Date(startDate);
+        }
+        if (endDate && !isNaN(Date.parse(endDate))) {
+          dateFilter.$lte = new Date(endDate);
+        }
+        if (Object.keys(dateFilter).length > 0) {
+          query.createdAt = dateFilter;
+        }
       }
 
-      // Fetch listing with pagination
       const listing = await Listing.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
@@ -395,7 +404,6 @@ export const listingService = {
         .skip(skip)
         .limit(limitNumber);
 
-      // Count total listing
       const totalListing = await Listing.countDocuments(query);
 
       return {
@@ -412,133 +420,12 @@ export const listingService = {
       throw new Error("Error during search and filter");
     }
   },
-  //bulk import products as CSV
-  bulkImportListing: async (filePath: string): Promise<void> => {
-    try {
-      // ✅ Validate CSV data (supplier validation happens inside)
-      const { validRows, invalidRows } = await validateCsvData(filePath);
-
-      if (invalidRows.length > 0) {
-        console.log("❌ Some rows were skipped due to validation errors:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-
-      if (validRows.length === 0) {
-        console.log("❌ No valid listing to import.");
-        return;
-      }
-
-      // ✅ Fetch all existing listing titles to prevent duplicates
-      const existingTitles = new Set((await Listing.find({}, "title")).map((p: any) => p.title));
-
-      // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-      const existingSuppliers = await User.find(
-        { supplierKey: { $in: supplierKeys } },
-        "_id supplierKey"
-        // ).lean();
-      );
-      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
-
-      // ✅ Filter out invalid suppliers
-      const filteredRows = validRows.filter(({ data }) => {
-        if (!supplierMap.has(data.productSupplierKey)) {
-          invalidRows.push({
-            row: data.row,
-            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-          });
-          return false;
-        }
-        return true;
-      });
-
-      if (filteredRows.length === 0) {
-        console.log("❌ No valid listing to insert after supplier validation.");
-        return;
-      }
-
-      // ✅ Bulk insert new listing (avoiding duplicates)
-      const bulkOperations = filteredRows
-        .filter(({ data }) => !existingTitles.has(data.title))
-        .map(({ data }) => ({
-          insertOne: {
-            document: {
-              title: data.title,
-              brand: data.brand,
-              description: data.description,
-              productCategory: new mongoose.Types.ObjectId(data.productCategory),
-              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-              price: parseFloat(data.price),
-              media: {
-                images: data.images.map((url: string) => ({
-                  url,
-                  type: "image/jpeg",
-                })),
-                videos: data.videos.map((url: string) => ({
-                  url,
-                  type: "video/mp4",
-                })),
-              },
-              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    description: data.description,
-                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              }, {}),
-            },
-          },
-        }));
-
-      if (bulkOperations.length === 0) {
-        console.log("✅ No new listing to insert.");
-        return;
-      }
-
-      // ✅ Perform Bulk Insert Operation
-      await Listing.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new listing.`);
-
-      // ✅ Log skipped rows due to invalid suppliers
-      if (invalidRows.length > 0) {
-        console.log("❌ Some listing were skipped due to invalid suppliers:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-    } catch (error) {
-      console.error("❌ Bulk import failed:", error);
-    }
-  },
 
   //bulk Export listing to CSV
   exportListing: async (): Promise<string> => {
     try {
       // Fetch all listing from the database
-      const listing = await Listing.find({});
+      const listing: any = await Listing.find({});
 
       // Format the listing data for CSV export
       const formattedData = listing.map((listing: any) => ({
@@ -571,30 +458,128 @@ export const listingService = {
       throw new Error("Failed to export listing.");
     }
   },
-  bulkUpdateListingTaxDiscount: async (listingIds: string[], discountValue: number, vat: number) => {
+  //service
+  bulkUpdateListingTaxDiscount: async (
+    listingIds: string[],
+    discountType: "fixed" | "percentage",
+    discountValue: number,
+    vat: number,
+    retailPrice: number
+  ) => {
     try {
-      // Check if the discountValue and vat are numbers and valid
-      if (typeof discountValue !== "number" || typeof vat !== "number") {
-        throw new Error("Invalid discountValue or vat. They must be numbers.");
+      // Validate the format of the listing IDs
+      if (!Array.isArray(listingIds) || listingIds.length === 0) {
+        return { status: 400, message: "listingIds array is required" };
       }
 
-      // Perform bulk update with nested prodPricing field
-      const result = await Listing.updateMany(
-        { _id: { $in: listingIds } }, // Filter valid listing IDs
-        {
+      // Validate that each listingId is a valid ObjectId
+      const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+      if (invalidIds.length > 0) {
+        return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
+      }
+
+      // Fetch listings from the database
+      const listings = await Listing.find({ _id: { $in: listingIds } });
+      if (listings.length !== listingIds.length) {
+        const existingIds = listings.map((listing: any) => listing._id.toString());
+        const missingIds = listingIds.filter((id) => !existingIds.includes(id));
+        return { status: 400, message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.` };
+      }
+
+      const percent = discountType === "percentage" ? discountValue / 100 : 0;
+
+      const bulkOps = listings.map((listing: any) => {
+        const prodPricing = listing.prodPricing || {}; // Ensure prodPricing is not undefined
+        console.log("Updating listing:", listing._id);
+        console.log("prodPricing:", prodPricing);
+
+        // Initialize update object for VAT and discountType
+        let update: any = {
           $set: {
-            "prodPricing.discountValue": discountValue,
             "prodPricing.vat": vat,
+            "prodPricing.discountType": discountType,
           },
+        };
+
+        // If retailPrice is provided, update it
+        if (retailPrice) {
+          // Case 1: Listings with variations
+          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              return {
+                ...variation,
+                retailPrice: retailPrice, // Set retailPrice in each variation
+              };
+            });
+
+            update.$set["prodPricing.selectedVariations"] = updatedVariations;
+          }
+
+          // Case 2: Listings without variations
+          else if (typeof prodPricing.retailPrice === "number") {
+            update.$set["prodPricing.retailPrice"] = retailPrice;
+          }
         }
-      );
 
-      if (result.modifiedCount === 0) {
-        throw new Error("No listing were updated. Please verify listing IDs and data.");
-      }
+        // Case 1: Listings with variations (update discount based on discountType)
+        if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+          const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+            const basePrice = variation.retailPrice || 0;
+            let newDiscountValue = variation.discountValue || 0;
 
-      return result;
+            // Update discount value based on discount type
+            if (discountType === "percentage") {
+              const calculatedDiscount = +(basePrice * percent).toFixed(2);
+              newDiscountValue += calculatedDiscount;
+            } else if (discountType === "fixed") {
+              newDiscountValue += discountValue;
+            }
+
+            return {
+              ...variation,
+              discountValue: newDiscountValue, // Final discounted value
+            };
+          });
+
+          update.$set["prodPricing.selectedVariations"] = updatedVariations;
+        }
+
+        // Case 2: Listings without variations (update discount)
+        else if (typeof prodPricing.retailPrice === "number") {
+          let newDiscountValue = prodPricing.discountValue || 0;
+
+          if (discountType === "percentage") {
+            const calculatedDiscount = +(prodPricing.retailPrice * percent).toFixed(2);
+            newDiscountValue += calculatedDiscount;
+          } else if (discountType === "fixed") {
+            newDiscountValue += discountValue;
+          }
+
+          update.$set["prodPricing.discountValue"] = newDiscountValue;
+        }
+
+        // Log the final update object
+        console.log("Update Object for Listing ID", listing._id, ":", JSON.stringify(update, null, 2));
+
+        // Use updateDoc to update with $set
+        return {
+          updateOne: {
+            filter: { _id: listing._id, kind: listing.kind }, // Dynamically use listing.kind
+            update: update,
+          },
+        };
+      });
+
+      // Log the bulkOps to check the operations
+      console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
+
+      // Execute bulk update using bulkWrite
+      const result = await Listing.bulkWrite(bulkOps);
+      console.log("Bulk Write Result:", result);
+
+      return { status: 200, message: "Listing updates successful", result };
     } catch (error: any) {
+      console.error("Error during bulk update:", error);
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
