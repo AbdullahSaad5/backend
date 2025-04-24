@@ -1,6 +1,4 @@
 import mongoose, { Schema, model } from "mongoose";
-import { IInventory } from "@/contracts/inventory.contract";
-import { paymentPolicy } from "@/routes/payment-policy.route";
 
 export const mediaSchema = {
   id: { type: String },
@@ -100,6 +98,41 @@ export const allInOnePCTechnicalSchema = {
   width: { type: String },
 };
 
+export const miniPCTechnicalSchema = {
+  processor: { type: [String] },
+  model: { type: [String] },
+  memory: { type: [String] },
+  maxRamCapacity: { type: String },
+  unitType: { type: String },
+  unitQuantity: { type: String },
+  mpn: { type: String },
+  processorSpeed: { type: String },
+  series: { type: String },
+  ramSize: { type: [String] },
+  formFactor: { type: String },
+  motherboardModel: { type: String },
+  ean: { type: String },
+  operatingSystem: { type: [String] },
+  operatingSystemEdition: { type: String },
+  storageType: { type: [String] },
+  features: { type: [String] },
+  ssdCapacity: { type: [String] },
+  gpu: { type: [String] },
+  type: { type: String },
+  releaseYear: { type: String },
+  inventoryType: { type: String, default: "All In One PC" },
+  hardDriveCapacity: { type: [String] },
+  color: { type: [String] },
+  mostSuitableFor: { type: [String] },
+  screenSize: { type: String },
+  graphicsProcessingType: { type: String },
+  connectivity: { type: [String] },
+  manufacturerWarranty: { type: String },
+  regionOfManufacture: { type: String },
+  height: { type: String },
+  length: { type: String },
+  width: { type: String },
+};
 export const cpusProcessorsTechnicalSchema = {
   processorModel: { type: String, required: true },
   processorType: { type: String },
@@ -307,14 +340,15 @@ const inventorySchema = new Schema(
     isVariation: { type: Boolean, default: false },
     isMultiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
-    alias: { type: String, unique: true },
+    alias: { type: String },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
   { ...options, collection: "inventory" }
 );
-
+// Compound Index to ensure unique alias across all documents in the 'inventory' collection
+inventorySchema.index({ alias: 1 }, { unique: true });
 // Base Inventory Model
 const Inventory = model("Inventory", inventorySchema);
 
@@ -336,6 +370,18 @@ Inventory.discriminator(
   new mongoose.Schema(
     {
       prodTechInfo: allInOnePCTechnicalSchema,
+      productInfo: prodInfoSchema,
+    },
+    options
+  )
+);
+
+// discriminator for mini pc
+Inventory.discriminator(
+  "inventory_mini_pc",
+  new mongoose.Schema(
+    {
+      prodTechInfo: miniPCTechnicalSchema,
       productInfo: prodInfoSchema,
     },
     options
@@ -423,4 +469,7 @@ Inventory.discriminator(
     options
   )
 );
+
+// Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
+Inventory.schema.index({ ean: 1 }, { unique: true });
 export { Inventory };

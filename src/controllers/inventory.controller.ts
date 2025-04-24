@@ -359,7 +359,10 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "inventory_all_iPn_one_pc":
+          case "inventory_all_in_one_pc":
+            fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+            break;
+          case "inventory_mini_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "inventory_projectors":
