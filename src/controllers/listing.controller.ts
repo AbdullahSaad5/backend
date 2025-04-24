@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Inventory } from "@/models";
 
-
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
     try {
@@ -94,7 +93,7 @@ export const listingController = {
       // Return success with the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
-        message:  "Draft product updated and synced with eBay successfully",
+        message: "Draft product updated and synced with eBay successfully",
         data: updatedListing,
         ebayResponse, // Include eBay Item ID in the response
       });
@@ -137,6 +136,22 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching listing:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching listing",
+      });
+    }
+  },
+
+  getSellerList: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getEbaySellerList();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
       });
     } catch (error: any) {
       console.error("Error fetching listing:", error);
@@ -228,7 +243,6 @@ export const listingController = {
       // console.log("templates :: " , templates)
 
       const templateList = templates.map((template: any, index) => {
-       
         const listingId = template._id;
         const templateAlias = template?.alias;
 
@@ -570,7 +584,7 @@ export const listingController = {
   toggleIsTemplate: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { isTemplate} = req.body;
+      const { isTemplate } = req.body;
 
       if (typeof isTemplate !== "boolean") {
         return res.status(StatusCodes.BAD_REQUEST).json({
