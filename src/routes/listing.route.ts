@@ -11,6 +11,7 @@ export const listing = (router: Router) => {
   router.patch("/bulk-update-vat-and-discount", listingController.bulkUpdateListingTaxDiscount);
   //new route for search and filter and pagination
   router.get("/search", listingController.searchAndFilterListing);
+  router.get("/get-seller-list", listingController.getSellerList);
 
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
