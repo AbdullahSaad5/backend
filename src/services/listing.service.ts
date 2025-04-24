@@ -2,7 +2,8 @@ import { Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
-
+import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
+import { parseStringPromise } from "xml2js";
 export const listingService = {
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
@@ -594,5 +595,61 @@ export const listingService = {
   // Get selected variations for a listing
   getSelectedListingPartsService: async (listingId: string) => {
     return await Listing.findById(listingId).select("selectedVariations");
+  },
+
+  getEbaySellerList: async () => {
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+      const ebayUrl = "https://api.ebay.com/ws/api.dll";
+
+      const listingBody = `
+       <?xml version="1.0" encoding="utf-8"?>
+<GetSellerListRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+	<ErrorLanguage>en_US</ErrorLanguage>
+	<WarningLevel>High</WarningLevel>
+
+  <GranularityLevel>Coarse</GranularityLevel>
+<StartTimeFrom>2025-01-01T00:00:00.000Z</StartTimeFrom>
+<StartTimeTo>2025-04-24T23:59:59.000Z</StartTimeTo>
+  <IncludeWatchCount>true</IncludeWatchCount>
+  <Pagination>
+    <EntriesPerPage>2</EntriesPerPage>
+  </Pagination>
+</GetSellerListRequest>
+
+      `;
+
+      console.log("Request Body For get seller List:", listingBody, null, 2);
+      const response = await fetch(ebayUrl, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetSellerList",
+          "X-EBAY-API-IAF-TOKEN": token,
+          "Content-Type": "text/xml",
+        },
+        body: listingBody,
+      });
+
+      const responseBody = await response.text();
+      const parsedXML = await parseStringPromise(responseBody);
+      return JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        rawXML: responseBody,
+        parsed: parsedXML,
+      });
+    } catch (error: any) {
+      console.error("Error getting getSellerList from eBay:", error.message);
+
+      return JSON.stringify({
+        status: 500,
+        message: error.message,
+      });
+    }
   },
 };
