@@ -69,6 +69,7 @@ export const stockService = {
         stockInvoice,
         purchaseDate,
         markAsStock,
+        priceBreakdown
       });
 
       await stock.save();
