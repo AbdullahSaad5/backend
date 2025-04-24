@@ -70,6 +70,15 @@ const StockSchema = new Schema<IStockModel>(
       },
       min: 0,
     },
+
+    priceBreakdown: [
+      {
+        _id: false,
+        name: { type: String, required: true },
+        value: { type: Schema.Types.Mixed, required: true },
+        comment: { type: String, required: false },
+      },
+    ],
     stockInvoice: { type: mediaSchema, _id: false },
     batchNumber: { type: Number, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },

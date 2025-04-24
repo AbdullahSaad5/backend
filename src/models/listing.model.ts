@@ -49,6 +49,7 @@ const prodPricingSchema = {
         },
       },
       retailPrice: { type: Number, required: true, default: 0 },
+      images: { type: [mediaSchema], _id: false },
       listingQuantity: { type: Number, required: true, default: 0 },
       discountValue: { type: Number },
     },
