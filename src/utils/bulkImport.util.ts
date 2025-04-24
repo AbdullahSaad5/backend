@@ -4,7 +4,7 @@ import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { Inventory, User } from "@/models";
+import { Inventory, ProductCategory, User } from "@/models";
 import { Request, Response } from "express";
 import Papa from "papaparse";
 import dotenv from "dotenv";
@@ -71,8 +71,17 @@ const validateCsvData = async (csvFilePath: string) => {
       errors.push("productSupplierKey is required");
     }
 
-    if (row.productCategory && !mongoose.isValidObjectId(row.productCategory))
-      errors.push("productCategory must be a valid MongoDB ObjectId");
+    if (row.productCategory) {
+      const category = await ProductCategory.findOne({ name: row.productCategory }).select("_id");
+      if (!category) {
+        errors.push(`Product category '${row.productCategory}' does not exist in the database`);
+      } else {
+        row.productCategory = category._id; // Replace name with its ObjectId
+      }
+    } else {
+      errors.push("productCategory is required");
+    }
+
     if (row.productSupplier && !mongoose.isValidObjectId(row.productSupplier))
       errors.push("productSupplier must be a valid MongoDB ObjectId");
     if (errors.length > 0) {
@@ -145,6 +154,12 @@ const processZipFile = async (zipFilePath: string) => {
       return;
     }
 
+    // Log the valid rows before processing
+    addLog(`✅ Valid rows: ${validRows.length}`);
+    validRows.forEach((row, index) => {
+      addLog(`Row ${index + 1}: ${JSON.stringify(row.data)}`);
+    });
+
     // Process media and files for valid rows
     for (const [index, { data }] of validRows.entries()) {
       const folderIndex = (index + 1).toString();
@@ -156,12 +171,15 @@ const processZipFile = async (zipFilePath: string) => {
         addLog(`❌ No media found for row: ${folderIndex}`);
         continue;
       }
+
       const uploadFiles = async (files: string[], destination: string) => {
+        if (!files || files.length === 0) {
+          console.log(`❌ No files to upload for ${destination}`);
+          return [];
+        }
         try {
           const uploads = files.map((file) => uploadFileToFirebase(file, `${destination}/${uuidv4()}`));
-
           const results = await Promise.allSettled(uploads);
-
           return results
             .filter((res) => res.status === "fulfilled")
             .map((res) => (res as PromiseFulfilledResult<string>).value);
@@ -172,8 +190,6 @@ const processZipFile = async (zipFilePath: string) => {
       };
 
       const imagesFolder = path.join(productMediaPath, "images");
-      // const videosFolder = path.join(productMediaPath, "videos");
-
       data.images = fs.existsSync(imagesFolder)
         ? await uploadFiles(
             fs.readdirSync(imagesFolder).map((f) => path.join(imagesFolder, f)),
@@ -181,6 +197,11 @@ const processZipFile = async (zipFilePath: string) => {
           )
         : [];
 
+      // Log the images for each row
+      console.log("Images for row:", data.images);
+
+      // Uncomment if videos need to be uploaded
+      // const videosFolder = path.join(productMediaPath, "videos");
       // data.videos = fs.existsSync(videosFolder)
       //   ? await uploadFiles(
       //       fs.readdirSync(videosFolder).map((f) => path.join(videosFolder, f)),
@@ -190,10 +211,21 @@ const processZipFile = async (zipFilePath: string) => {
     }
 
     addLog("🚀 Starting bulk import...");
+
+    // Validate the structure of validRows before bulk import
+    validRows.forEach((row, index) => {
+      if (!row.data || !row.data.brand || !row.data.title) {
+        console.error(`❌ Missing essential data in row ${index + 1}:`, row);
+        addLog(`❌ Missing essential data in row ${index + 1}`);
+      }
+    });
+
+    // Bulk import valid rows
     await inventoryService.bulkImportInventory(validRows);
     addLog("✅ Bulk import completed.");
   } catch (error: any) {
     addLog(`❌ Error processing ZIP file: ${error.message}`);
+    console.error("Full error details:", error);
   } finally {
     try {
       if (fs.existsSync(extractPath)) {
