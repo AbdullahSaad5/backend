@@ -6,8 +6,7 @@ import { Inventory, Stock, Variation } from "@/models";
 export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
-
-    console.log("resresres : " , req.body)
+    console.log("resresres : ", req.body);
 
     try {
       const {
@@ -236,6 +235,13 @@ export const stockController = {
         stock.costPricePerUnit = costPricePerUnit;
         stock.purchasePricePerUnit = purchasePricePerUnit;
       }
+
+      // ✅ Price Breakdown update
+      if (req.body.priceBreakdown && Array.isArray(req.body.priceBreakdown)) {
+        stock.priceBreakdown = req.body.priceBreakdown;
+      }
+
+      // ✅ Optional fields
       stock.stockInvoice = req.body.stockInvoice || stock.stockInvoice;
       stock.receivedDate = req.body.receivedDate || stock.receivedDate;
       stock.receivedBy = req.body.receivedBy || stock.receivedBy;
@@ -243,12 +249,14 @@ export const stockController = {
       stock.markAsStock = req.body.markAsStock || stock.markAsStock;
 
       await stock.save();
+
       res.status(200).json({ message: "Stock updated successfully", stock });
     } catch (error: any) {
       console.error("❌ Error in editStock:", error);
       res.status(500).json({ message: "Internal Server Error" });
     }
   },
+
   getStockByStockId: async (req: Request, res: Response) => {
     try {
       const { stockId } = req.params;

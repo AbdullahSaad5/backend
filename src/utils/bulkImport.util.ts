@@ -34,7 +34,7 @@ const uploadToFirebase = async (filePath: string, destination: string): Promise<
 
 const validateCsvData = async (csvFilePath: string) => {
   addLog(`📂 Validating CSV file: ${csvFilePath}`);
-  const requiredColumns = ["brand", "title", "description", "productSupplierKey", "productCategory"];
+  const requiredColumns = ["brand", "title", "description", "productSupplierKey", "productCategory", "processor"];
 
   const csvContent = fs.readFileSync(csvFilePath, "utf8");
   const parsedCSV = Papa.parse(csvContent, {
@@ -76,7 +76,9 @@ const validateCsvData = async (csvFilePath: string) => {
       if (!category) {
         errors.push(`Product category '${row.productCategory}' does not exist in the database`);
       } else {
-        row.productCategory = category._id; // Replace name with its ObjectId
+        row.productCategoryName = row.productCategory;
+        row.productCategory = category._id;
+        // Replace name with its ObjectId
       }
     } else {
       errors.push("productCategory is required");
@@ -95,10 +97,6 @@ const validateCsvData = async (csvFilePath: string) => {
   addLog(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
   return { validRows, invalidRows, validIndexes };
 };
-
-// service.ts
-
-// Assuming this exists
 
 const processZipFile = async (zipFilePath: string) => {
   const extractPath = path.join(process.cwd(), "extracted");

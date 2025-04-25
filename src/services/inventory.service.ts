@@ -537,7 +537,7 @@ export const inventoryService = {
             insertOne: {
               document: {
                 isBlocked: false,
-                kind: "inventory_laptops", // This can be adjusted if needed
+                kind: `inventory_${data.productCategoryName.toLowerCase().replace(/\s+/g, "_")}`,
                 status: "draft", // Default status
                 isVariation: false, // Default value
                 isMultiBrand: false, // Default value
@@ -636,8 +636,8 @@ export const inventoryService = {
       productCategory: item.productInfo?.productCategory?.name,
       condition: item.productInfo?.inventoryCondition,
       processor: item.prodTechInfo?.processor?.join(", "),
-      gpu: item.prodTechInfo?.gpu,
-      screenSize: item.prodTechInfo?.screenSize,
+      gpu: item.prodTechInfo?.gpu?.join(", "),
+      screenSize: item.prodTechInfo?.screenSize?.join(", "),
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
     }));
 

@@ -668,7 +668,7 @@ export const listingController = {
       });
     }
   },
-  // Controller
+
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
       const { listingIds, discountType, discountValue, vat, retailPrice } = req.body;
