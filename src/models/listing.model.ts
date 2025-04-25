@@ -222,7 +222,7 @@ const projectorTechnicalSchema = {
   numberOfLANPorts: { type: String },
   maximumWirelessData: { type: String },
   maximumLANDataRate: { type: String },
-  ports: { type: String },
+  ports: { type: [String] },
   toFit: { type: [String] },
   manufacturerWarranty: { type: String },
   regionOfManufacture: { type: String },
