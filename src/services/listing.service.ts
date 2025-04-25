@@ -526,14 +526,19 @@ export const listingService = {
         if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
             const basePrice = variation.retailPrice || 0;
-            let newDiscountValue = variation.discountValue || 0;
+            let newDiscountValue = 0;
 
-            // Update discount value based on discount type
-            if (discountType === "percentage") {
-              const calculatedDiscount = +(basePrice * percent).toFixed(2);
-              newDiscountValue += calculatedDiscount;
-            } else if (discountType === "fixed") {
-              newDiscountValue += discountValue;
+            // If retailPrice is missing, discountValue will be set to 0
+            if (basePrice === 0) {
+              newDiscountValue = 0;
+            } else {
+              // Calculate discount value based on discount type
+              if (discountType === "percentage") {
+                const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
+                newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
+              } else if (discountType === "fixed") {
+                newDiscountValue = basePrice - discountValue; // Apply fixed discount
+              }
             }
 
             return {
@@ -547,13 +552,17 @@ export const listingService = {
 
         // Case 2: Listings without variations (update discount)
         else if (typeof prodPricing.retailPrice === "number") {
-          let newDiscountValue = prodPricing.discountValue || 0;
+          let newDiscountValue = 0;
 
-          if (discountType === "percentage") {
-            const calculatedDiscount = +(prodPricing.retailPrice * percent).toFixed(2);
-            newDiscountValue += calculatedDiscount;
-          } else if (discountType === "fixed") {
-            newDiscountValue += discountValue;
+          if (prodPricing.retailPrice === 0) {
+            newDiscountValue = 0; // If retailPrice is missing or 0, no discount
+          } else {
+            if (discountType === "percentage") {
+              const discountAmount = (prodPricing.retailPrice * discountValue) / 100; // Calculate discount amount
+              newDiscountValue = prodPricing.retailPrice - discountAmount; // Apply discount to retail price
+            } else if (discountType === "fixed") {
+              newDiscountValue = prodPricing.retailPrice - discountValue; // Apply fixed discount
+            }
           }
 
           update.$set["prodPricing.discountValue"] = newDiscountValue;
@@ -584,6 +593,7 @@ export const listingService = {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
+
 
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
