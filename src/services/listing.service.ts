@@ -507,27 +507,43 @@ export const listingService = {
           // Case 1: Listings with variations
           if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
             const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-              // Update retailPrice for each variation
+              const basePrice = variation.retailPrice || 0;
+              let newDiscountValue = 0;
+
+              // Calculate discount for each variation
+              if (basePrice === 0) {
+                newDiscountValue = 0;
+              } else {
+                // Calculate discount value based on discount type
+                if (discountType === "percentage") {
+                  const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
+                  newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
+                } else if (discountType === "fixed") {
+                  newDiscountValue = basePrice - discountValue; // Apply fixed discount
+                }
+              }
+
+              // Return updated variation object with new retail price and discount value
               return {
                 ...variation,
                 retailPrice: retailPrice, // Set retailPrice in each variation
+                discountValue: newDiscountValue, // Set the discounted price
               };
             });
 
             update.$set["prodPricing.selectedVariations"] = updatedVariations;
           }
-
           // Case 2: Listings without variations (already handled previously)
           else if (typeof prodPricing.retailPrice === "number") {
             update.$set["prodPricing.retailPrice"] = retailPrice;
           }
         }
 
-        // Case 1: Listings with variations (update discount based on discountType)
-        if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+        // Case 2: Listings without variations (update the variation inside selectedVariations)
+        else if (prodPricing.selectedVariations && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-            const basePrice = variation.retailPrice || 0;
             let newDiscountValue = 0;
+            const basePrice = variation.retailPrice || 0;
 
             // If retailPrice is missing, discountValue will be set to 0
             if (basePrice === 0) {
@@ -544,13 +560,13 @@ export const listingService = {
 
             return {
               ...variation,
-              discountValue: newDiscountValue, // Final discounted value
+              retailPrice: retailPrice, // Set retailPrice in each variation
+              discountValue: newDiscountValue, // Set the discounted price
             };
           });
 
           update.$set["prodPricing.selectedVariations"] = updatedVariations;
         }
-
         // Case 2: Listings without variations (update discount)
         else if (typeof prodPricing.retailPrice === "number") {
           let newDiscountValue = 0;
