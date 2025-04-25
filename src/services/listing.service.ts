@@ -502,11 +502,12 @@ export const listingService = {
           },
         };
 
-        // If retailPrice is provided, update it
+        // If retailPrice is provided, update it in the variations or the main listing
         if (retailPrice) {
           // Case 1: Listings with variations
           if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
             const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              // Update retailPrice for each variation
               return {
                 ...variation,
                 retailPrice: retailPrice, // Set retailPrice in each variation
@@ -516,7 +517,7 @@ export const listingService = {
             update.$set["prodPricing.selectedVariations"] = updatedVariations;
           }
 
-          // Case 2: Listings without variations
+          // Case 2: Listings without variations (already handled previously)
           else if (typeof prodPricing.retailPrice === "number") {
             update.$set["prodPricing.retailPrice"] = retailPrice;
           }
@@ -593,7 +594,6 @@ export const listingService = {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
-
 
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
