@@ -622,7 +622,9 @@ export const inventoryService = {
     }
 
     // Fetch inventory items from database
-    const items = await Inventory.find({ _id: { $in: inventoryIds } }).lean();
+    const items = await Inventory.find({ _id: { $in: inventoryIds } })
+      .populate("productInfo.productCategory", "name") // Only get the name field
+      .lean();
     if (!items.length) throw new Error("No inventory items found");
 
     // Process the inventory data into rows
