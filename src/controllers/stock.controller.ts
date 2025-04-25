@@ -6,6 +6,9 @@ import { Inventory, Stock, Variation } from "@/models";
 export const stockController = {
   // 📌 Add New Stock Purchase
   addStock: async (req: Request, res: Response) => {
+
+    console.log("resresres : " , req.body)
+
     try {
       const {
         inventoryId,
