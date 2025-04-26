@@ -637,7 +637,7 @@ export const inventoryService = {
       condition: item.productInfo?.inventoryCondition,
       processor: item.prodTechInfo?.processor?.join(", "),
       gpu: item.prodTechInfo?.gpu?.join(", "),
-      screenSize: item.prodTechInfo?.screenSize?.join(", "),
+      screenSize: item.prodTechInfo?.screenSize,
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
     }));
 
