@@ -9,6 +9,7 @@ export const inventory = (router: Router) => {
 
   // Create or update a draft inventory
   router.post("/", inventoryController.createDraftInventory);
+  router.get("/get-all-options", inventoryController.getAllOptions);
   router.patch(
     "/:id",
     // inventoryValidation.updateInventory,
@@ -25,7 +26,7 @@ export const inventory = (router: Router) => {
   router.post("/bulk-import", uploadMiddleware, handleBulkImport);
 
   // Route for bulk export (GET request)
-  router.get("/bulk-export", handleBulkExport);
+  router.post("/bulk-export", handleBulkExport);
 
   router.get("/transform/:id", inventoryValidation.validateId, inventoryController.transformAndSendInventory);
   // Fetch transformed template inventory by ID
@@ -41,7 +42,7 @@ export const inventory = (router: Router) => {
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-//
+  //
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
@@ -51,6 +52,9 @@ export const inventory = (router: Router) => {
 
   // route for toggle block status
   router.patch("/block/:id", inventoryController.toggleBlock);
+
+  // route for toggle  template status Change
+  router.patch("/istemplate/:id", inventoryController.toggleIsTemplate);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", inventoryController.upsertInventoryParts);

@@ -1,8 +1,7 @@
-import { Inventory, Stock, User } from "@/models";
-import Papa from "papaparse";
+import { Inventory, ProductCategory, Stock, User } from "@/models";
+import { Parser } from "json2csv";
 import mongoose from "mongoose";
-import fs from "fs";
-import { validateCsvData } from "@/utils/bulkImport.util";
+import crypto from "crypto";
 import {
   allInOnePCTechnicalSchema,
   gamingPCTechnicalSchema,
@@ -12,6 +11,7 @@ import {
   projectorTechnicalSchema,
 } from "@/models/inventory.model";
 import { addLog } from "@/utils/bulkImportLogs.util";
+import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 
 // space
 
@@ -255,13 +255,14 @@ export const inventoryService = {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");
     }
   },
+
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
@@ -304,6 +305,16 @@ export const inventoryService = {
     } catch (error) {
       console.error("Error toggling block status:", error);
       throw new Error("Failed to toggle block status");
+    }
+  },
+  toggleIsTemplate: async (id: string, isTemplate: boolean) => {
+    try {
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      if (!updatedInventory) throw new Error("Inventory not found");
+      return updatedInventory;
+    } catch (error) {
+      console.error("Error toggling template status:", error);
+      throw new Error("Failed to toggle template status");
     }
   },
   // New API for fetching inventory stats (separate service logic)
@@ -362,7 +373,7 @@ export const inventoryService = {
       // Build the query dynamically based on filters
       const query: any = {};
 
-      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
+      // Search logic if searchQuery is provided
       if (searchQuery) {
         query.$or = [
           {
@@ -377,7 +388,6 @@ export const inventoryService = {
               $options: "i",
             },
           },
-
           {
             "prodPricing.condition": {
               $regex: searchQuery,
@@ -385,6 +395,52 @@ export const inventoryService = {
             },
           },
         ];
+
+        // Perform searches for productSupplier and productCategory in parallel using Promise.all
+        const [productSuppliers, productCategories] = await Promise.all([
+          User.find({
+            $or: [
+              { firstName: { $regex: searchQuery, $options: "i" } },
+              { lastName: { $regex: searchQuery, $options: "i" } },
+              { email: { $regex: searchQuery, $options: "i" } },
+            ],
+          }).select("_id"),
+
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
+        ]);
+
+        // Check if search query contains both first and last name (e.g., "Asad Khan")
+        if (searchQuery.includes(" ")) {
+          const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+
+          // Filter product suppliers based on both first name and last name
+          const supplierQuery = {
+            $or: [
+              { firstName: { $regex: firstNameQuery, $options: "i" } },
+              { lastName: { $regex: lastNameQuery, $options: "i" } },
+            ],
+          };
+
+          const suppliersWithFullName = await User.find(supplierQuery).select("_id");
+          // Combine both individual and full-name matches
+          productSuppliers.push(...suppliersWithFullName);
+        }
+
+        // Add filters for productSupplier and productCategory ObjectIds to the query
+        query.$or.push(
+          {
+            "productInfo.productSupplier": {
+              $in: productSuppliers.map((supplier) => supplier._id),
+            },
+          },
+          {
+            "productInfo.productCategory": {
+              $in: productCategories.map((category) => category._id),
+            },
+          }
+        );
       }
 
       // Add filters for status, isBlocked, and isTemplate
@@ -413,7 +469,7 @@ export const inventoryService = {
         if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
       }
 
-      // Fetch inventory with pagination
+      // Fetch filtered inventory with pagination and populate the necessary fields
       const inventory = await Inventory.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
@@ -421,7 +477,7 @@ export const inventoryService = {
         .skip(skip)
         .limit(limitNumber);
 
-      // Count total inventory
+      // Count total filtered inventory
       const totalInventory = await Inventory.countDocuments(query);
 
       return {
@@ -438,28 +494,24 @@ export const inventoryService = {
       throw new Error("Error during search and filter");
     }
   },
+
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
+      // Check if there are valid rows to import
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
         return;
       }
 
-      // Debugging the valid rows received
+      // Debugging: Log received valid rows
       addLog("🔹 Valid Rows Received for Bulk Import:");
       validRows.forEach(({ row, data }) => {
         console.log(`Row: ${row}`);
         console.log("Data:", data);
       });
 
-      // Fetch all existing product titles to prevent duplicates
-      // const existingTitles = new Set(
-      //   (await Inventory.find({}, "productInfo.title")).map((p: any) => p.productInfo.title)
-      // );
-      // console.log("🔹 Existing Titles:", existingTitles);
-
-      // Prepare bulk operations
+      // Prepare bulk operations by filtering out invalid rows and those with missing data
       const bulkOperations = validRows
         .filter(({ data }) => {
           // Ensure the data object and title exist
@@ -467,27 +519,32 @@ export const inventoryService = {
             console.log(`❌ Missing title or invalid data for row ${data?.row}`);
             return false; // Skip invalid rows
           }
-          // if (existingTitles.has(data.title)) {
-          //   console.log(`❌ Duplicate title found for row ${data.row}: ${data.title}`);
-          //   return false; // Skip rows with duplicate titles
-          // }
+
           return true;
         })
-        .map(({ data }) => {
-          addLog(`📦 Preparing to insert row ${data.row} with title: ${data.title}`);
+        .map(({ row, data }) => {
+          // Check that row is defined
+          if (row === undefined) {
+            console.log("❌ Missing row number.");
+            return null; // Skip this row if it doesn't have a valid row number
+          }
 
+          // Log the row details being prepared for insertion
+          addLog(`📦 Preparing to insert row ${row} with title: ${data.title}`);
+
+          // Prepare the MongoDB document for insertion
           return {
             insertOne: {
               document: {
                 isBlocked: false,
-                kind: "inventory_laptops", // Adjust if necessary based on the kind
+                kind: `inventory_${data.productCategoryName.toLowerCase().replace(/\s+/g, "_")}`,
                 status: "draft", // Default status
                 isVariation: false, // Default value
                 isMultiBrand: false, // Default value
                 isTemplate: false, // Default value
                 isPart: false, // Default value
-                stocks: [], // Assuming empty initially
-                stockThreshold: 10, // Default value
+                stocks: [], // Assuming stocks are initially empty
+                stockThreshold: 10, // Default threshold
                 prodTechInfo: {
                   processor: data.processor || [],
                   model: data.model || [],
@@ -495,7 +552,7 @@ export const inventoryService = {
                   storageType: data.storageType || [],
                   features: data.features || [],
                   ssdCapacity: data.ssdCapacity || [],
-                  screenSize: data.screenSize || "14 px",
+                  screenSize: data.screenSize || "14 px", // Default screen size
                   gpu: data.gpu || "",
                   unitType: data.unitType || "box",
                   unitQuantity: data.unitQuantity || "1",
@@ -510,7 +567,6 @@ export const inventoryService = {
                   color: data.color || [],
                   maxResolution: data.maxResolution || "",
                   mostSuitableFor: data.mostSuitableFor || "",
-
                   graphicsProcessingType: data.graphicsProcessingType || "",
                   connectivity: data.connectivity || "",
                   manufacturerWarranty: data.manufacturerWarranty || "",
@@ -519,75 +575,83 @@ export const inventoryService = {
                   length: data.length || "",
                   weight: data.weight || "",
                   width: data.width || "",
-                  /* Default/Empty values for various tech fields */
+                  // Default/Empty values for various technical fields
                 },
                 productInfo: {
                   productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                  productSupplier: data.productSupplier, // Directly use the passed supplier _id
+                  productSupplier: data.productSupplier, // Use the passed supplier _id directly
                   title: data.title,
                   description: data.description,
-                  inventoryImages: data.images.map((url: string) => ({
+                  inventoryImages: (data.images || []).map((url: string) => ({
                     id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     size: 0, // Placeholder size
                     url,
-                    type: "image/jpeg",
+                    type: "image/jpeg", // Assuming the images are jpeg; can be adjusted
                   })),
-                  inventoryCondition: data.inventoryCondition || "new",
+                  inventoryCondition: data.inventoryCondition || "new", // Default condition
                   brand: data.brand || [],
                 },
               },
             },
           };
-        });
+        })
+        .filter(Boolean); // Remove any null entries (invalid rows without row number)
 
+      // If no bulk operations are prepared, exit early
       if (bulkOperations.length === 0) {
         addLog("✅ No new Inventory to insert.");
         return;
       }
 
-      // Perform Bulk Insert Operation
-      await Inventory.bulkWrite(bulkOperations);
+      // Perform the bulk insert operation
+      await Inventory.bulkWrite(bulkOperations.filter((operation) => operation !== null));
       addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
     }
   },
+
   //bulk Export inventory to CSV
-  exportInventory: async (): Promise<string> => {
-    try {
-      // Fetch all inventory from the database
-      const inventory = await Inventory.find({});
+  exportInventory: async (inventoryIds: string[]) => {
+    const cacheKey = generateCacheKey(inventoryIds);
 
-      // Format the inventory data for CSV export
-      const formattedData = inventory.map((inventory: any) => ({
-        InventoryID: inventory._id,
-        Title: inventory.title,
-        Description: inventory.description,
-        Price: inventory.price,
-        Category: inventory.category,
-        // ProductSupplier: inventory?.supplier?.name,
-        Stock: inventory.stock,
-        SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.productInfo),
-        EbayInfo: JSON.stringify(inventory.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.productInfo),
-      }));
-
-      // Convert the data to CSV format using Papa.unparse
-      const csv = Papa.unparse(formattedData);
-
-      // Generate a unique file path for the export
-      const filePath = `exports/inventory_${Date.now()}.csv`;
-
-      // Write the CSV data to a file
-      fs.writeFileSync(filePath, csv);
-
-      console.log("✅ Export completed successfully.");
-      return filePath;
-    } catch (error) {
-      console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export inventory.");
+    // Check cache first
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return { fromCache: true, file: JSON.parse(cachedData) };
     }
+
+    // Fetch inventory items from database
+    const items = await Inventory.find({ _id: { $in: inventoryIds } })
+      .populate("productInfo.productCategory", "name") // Only get the name field
+      .lean();
+    if (!items.length) throw new Error("No inventory items found");
+
+    // Process the inventory data into rows
+    const rows = items.map((item: any) => ({
+      id: item._id.toString().slice(-6),
+      brand: item.productInfo?.brand?.join(", "),
+      title: item.productInfo?.title,
+      description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
+      productCategory: item.productInfo?.productCategory?.name,
+      condition: item.productInfo?.inventoryCondition,
+      processor: item.prodTechInfo?.processor?.join(", "),
+      gpu: item.prodTechInfo?.gpu?.join(", "),
+      screenSize: item.prodTechInfo?.screenSize?.join(", "),
+      images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
+    }));
+
+    // Use json2csv to convert rows into CSV format
+    const parser = new Parser({ fields: Object.keys(rows[0]) });
+    const csv = parser.parse(rows);
+
+    // Convert CSV to base64 for easier transmission
+    const base64Csv = Buffer.from(csv, "utf-8").toString("base64");
+
+    // Cache the base64 CSV for 5 minutes
+    await setCacheWithTTL(cacheKey, base64Csv, 300);
+
+    return { fromCache: false, file: base64Csv };
   },
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
@@ -643,4 +707,144 @@ export const inventoryService = {
 
     return cartesianProduct(values);
   },
+  getAllOptions: async () => {
+    try {
+      // List of all top-level fields and subfields you want to get unique values for
+      const fields = [
+        // Top-level fields
+
+        // ProductInfo subfields
+        // "productInfo.productCategory",
+        // "productInfo.productSupplier",
+        // "productInfo.title",
+        // "productInfo.description",
+        // "productInfo.inventoryCondition",
+        "productInfo.brand",
+
+        // ProdTechInfo subfields
+        "prodTechInfo.processor",
+        "prodTechInfo.model",
+        "prodTechInfo.operatingSystem",
+        "prodTechInfo.storageType",
+        "prodTechInfo.features",
+        "prodTechInfo.ssdCapacity",
+        "prodTechInfo.gpu",
+        "prodTechInfo.unitType",
+        "prodTechInfo.unitQuantity",
+        "prodTechInfo.mpn",
+        "prodTechInfo.processorSpeed",
+        "prodTechInfo.series",
+        "prodTechInfo.ramSize",
+        "prodTechInfo.californiaProp65Warning",
+        "prodTechInfo.type",
+        "prodTechInfo.releaseYear",
+        "prodTechInfo.hardDriveCapacity",
+        "prodTechInfo.color",
+        "prodTechInfo.maxResolution",
+        "prodTechInfo.mostSuitableFor",
+        "prodTechInfo.screenSize",
+        "prodTechInfo.graphicsProcessingType",
+        "prodTechInfo.connectivity",
+        "prodTechInfo.manufacturerWarranty",
+        "prodTechInfo.regionOfManufacture",
+        "prodTechInfo.height",
+        "prodTechInfo.length",
+        "prodTechInfo.weight",
+        "prodTechInfo.width",
+        "prodTechInfo.motherboardModel",
+        "prodTechInfo.operatingSystemEdition",
+        "prodTechInfo.memory",
+        "prodTechInfo.maxRamCapacity",
+        "prodTechInfo.formFactor",
+        "prodTechInfo.ean",
+        "prodTechInfo.inventoryType",
+        "prodTechInfo.nonNewConditionDetails",
+        "prodTechInfo.numberOfLANPorts",
+        "prodTechInfo.maximumWirelessData",
+        "prodTechInfo.maximumLANDataRate",
+        "prodTechInfo.ports",
+        "prodTechInfo.toFit",
+        "prodTechInfo.displayType",
+        "prodTechInfo.aspectRatio",
+        "prodTechInfo.imageBrightness",
+        "prodTechInfo.throwRatio",
+        "prodTechInfo.compatibleOperatingSystem",
+        "prodTechInfo.compatibleFormat",
+        "prodTechInfo.lensMagnification",
+        "prodTechInfo.yearManufactured",
+        "prodTechInfo.nativeResolution",
+        "prodTechInfo.displayTechnology",
+        "prodTechInfo.energyEfficiencyRating",
+        "prodTechInfo.videoInputs",
+        "prodTechInfo.refreshRate",
+        "prodTechInfo.responseTime",
+        "prodTechInfo.brightness",
+        "prodTechInfo.contrastRatio",
+        "prodTechInfo.ecRange",
+        "prodTechInfo.productLine",
+        "prodTechInfo.customBundle",
+        "prodTechInfo.interface",
+        "prodTechInfo.networkConnectivity",
+        "prodTechInfo.networkManagementType",
+        "prodTechInfo.networkType",
+        "prodTechInfo.processorManufacturer",
+        "prodTechInfo.numberOfProcessors",
+        "prodTechInfo.numberOfVANPorts",
+        "prodTechInfo.processorType",
+        "prodTechInfo.raidLfevel",
+        "prodTechInfo.memoryType",
+        "prodTechInfo.deviceConnectivity",
+        "prodTechInfo.connectorType",
+        "prodTechInfo.supportedWirelessProtocol",
+      ];
+
+      // Create an object to store the distinct values for each field
+      const fetchPromises = fields.map((field) =>
+        Inventory.find({})
+          .distinct(field)
+          .then((distinctValues) => {
+            distinctValues = distinctValues
+              .filter((value) => value !== "" && value !== null && value !== undefined)
+              .map((value) => (typeof value === "string" ? value.trim() : value)); // <-- Trim spaces
+            return { field, distinctValues };
+          })
+      );
+
+      const results = await Promise.all(fetchPromises);
+
+      const allOptions: Record<string, any> = {};
+      results.forEach(({ field, distinctValues }) => {
+        if (distinctValues.length > 0) {
+          allOptions[field] = distinctValues;
+        }
+      });
+
+      // Separate into productInfo and prodTechInfo
+      const productInfo: Record<string, any> = {};
+      const prodTechInfo: Record<string, any> = {};
+
+      Object.entries(allOptions).forEach(([key, value]) => {
+        if (key.startsWith("productInfo.")) {
+          productInfo[key.replace("productInfo.", "")] = value;
+        } else if (key.startsWith("prodTechInfo.")) {
+          prodTechInfo[key.replace("prodTechInfo.", "")] = value;
+        }
+      });
+
+      return { productInfo, prodTechInfo };
+    } catch (error) {
+      console.error("Error fetching all options:", error);
+      throw new Error("Failed to fetch all options");
+    }
+  },
 };
+function generateCacheKey(inventoryIds: string[]) {
+  // Concatenate all IDs into a single string
+  const concatenatedIds = inventoryIds.join("");
+
+  // Create a hash of the concatenated IDs
+  const hash = crypto.createHash("sha256").update(concatenatedIds).digest("hex");
+
+  // The hash itself will be the file name (base16 format)
+  return hash; // This is the base16 string
+}

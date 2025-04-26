@@ -1,9 +1,7 @@
 // ebayHtmlTemplate.util.ets
 const ebayHtmlTemplate = (data: any) => {
-
-
   const generateSpecsRows = (specs: Record<string, any>) => {
-    let rows = '';
+    let rows = "";
 
     for (const [label, value] of Object.entries(specs)) {
       if (value) {
@@ -19,7 +17,6 @@ const ebayHtmlTemplate = (data: any) => {
   };
 
   const specs = {
-
     ITEMTITLE: data.title,
     IMAGE01: data.imageUrls[0],
     IMAGE02: data.imageUrls[1],
@@ -38,7 +35,6 @@ const ebayHtmlTemplate = (data: any) => {
     STORAGE: data.prodTechInfo?.storage,
     POWER: data.prodTechInfo?.power,
 
-
     PROCESSOR: data.prodTechInfo?.processor,
     MODEL: data.prodTechInfo?.model,
     OPERATINGSYSTEM: data.prodTechInfo?.operatingSystem,
@@ -48,15 +44,13 @@ const ebayHtmlTemplate = (data: any) => {
     TYPE: data.prodTechInfo?.type,
     RELEASEYEAR: data.prodTechInfo?.releaseYear,
 
-
-
     HARDDRIVECAPACITY: data.prodTechInfo?.hardDriveCapacity,
     COLOR: data.prodTechInfo?.color,
     MAXRESOLUTION: data.prodTechInfo?.maxResolution,
-    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor,
+    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor.map((mostSuitableFor: string) => mostSuitableFor.trim()),
     SCREENSIZE: data.prodTechInfo?.screenSize,
     GRAPHICSPROCESSINGTYPE: data.prodTechInfo?.graphicsProcessingType,
-    CONNECTIVITY: data.prodTechInfo?.connectivity,
+    CONNECTIVITY: data.prodTechInfo?.connectivity.map((connectivity: string) => connectivity.trim()),
     MOTHERBOARDMODEL: data.prodTechInfo?.motherboardModel,
     SERIES: data.prodTechInfo?.series,
     OPERATINGSYSTEMEDITION: data.prodTechInfo?.operatingSystemEdition,
@@ -82,7 +76,7 @@ const ebayHtmlTemplate = (data: any) => {
     MAXIMUMWIRELESSDATA: data.prodTechInfo?.maximumWirelessData,
     MAXIMUMLANDATARATE: data.prodTechInfo?.maximumLanDataRate,
     PORTS: data.prodTechInfo?.ports,
-    TOFIT: data.prodTechInfo?.toFit,
+    TOFIT: data.prodTechInfo?.toFit.map((toFit: string) => toFit.trim()),
     DISPLAYTYPE: data.prodTechInfo?.displayType,
     ASPECTRATIO: data.prodTechInfo?.aspectRatio,
     IMAGEBRIGHTNESS: data.prodTechInfo?.imageBrightness,
@@ -124,10 +118,6 @@ const ebayHtmlTemplate = (data: any) => {
     PACKAGEWEIGHT: data.prodDelivery?.packageWeight,
     PACKAGEDIMENSIONS: data.prodDelivery?.packageDimensions,
     IRREGULARPACKAGE: data.prodDelivery?.irregularPackage,
-
-
-
-
   };
   const specsHtml = generateSpecsRows(specs);
   const htmlData = `
@@ -1908,7 +1898,6 @@ const ebayHtmlTemplate = (data: any) => {
   `;
 
   const templateData = {
-
     ITEMTITLE: data.title,
     IMAGE01: data.imageUrls[0],
     IMAGE02: data.imageUrls[1],
@@ -1927,7 +1916,6 @@ const ebayHtmlTemplate = (data: any) => {
     STORAGE: data.prodTechInfo?.storage,
     POWER: data.prodTechInfo?.power,
 
-
     PROCESSOR: data.prodTechInfo?.processor,
     MODEL: data.prodTechInfo?.model,
     OPERATINGSYSTEM: data.prodTechInfo?.operatingSystem,
@@ -1937,15 +1925,13 @@ const ebayHtmlTemplate = (data: any) => {
     TYPE: data.prodTechInfo?.type,
     RELEASEYEAR: data.prodTechInfo?.releaseYear,
 
-
-
     HARDDRIVECAPACITY: data.prodTechInfo?.hardDriveCapacity,
     COLOR: data.prodTechInfo?.color,
     MAXRESOLUTION: data.prodTechInfo?.maxResolution,
-    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor,
+    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor.map((mostSuitableFor: string) => mostSuitableFor.trim()),
     SCREENSIZE: data.prodTechInfo?.screenSize,
     GRAPHICSPROCESSINGTYPE: data.prodTechInfo?.graphicsProcessingType,
-    CONNECTIVITY: data.prodTechInfo?.connectivity,
+    CONNECTIVITY: data.prodTechInfo?.connectivity.map((connectivity: string) => connectivity.trim()),
     MOTHERBOARDMODEL: data.prodTechInfo?.motherboardModel,
     SERIES: data.prodTechInfo?.series,
     OPERATINGSYSTEMEDITION: data.prodTechInfo?.operatingSystemEdition,
@@ -1971,7 +1957,7 @@ const ebayHtmlTemplate = (data: any) => {
     MAXIMUMWIRELESSDATA: data.prodTechInfo?.maximumWirelessData,
     MAXIMUMLANDATARATE: data.prodTechInfo?.maximumLanDataRate,
     PORTS: data.prodTechInfo?.ports,
-    TOFIT: data.prodTechInfo?.toFit,
+    TOFIT: data.prodTechInfo?.toFit.map((toFit: string) => toFit.trim()),
     DISPLAYTYPE: data.prodTechInfo?.displayType,
     ASPECTRATIO: data.prodTechInfo?.aspectRatio,
     IMAGEBRIGHTNESS: data.prodTechInfo?.imageBrightness,
@@ -2013,10 +1999,6 @@ const ebayHtmlTemplate = (data: any) => {
     PACKAGEWEIGHT: data.prodDelivery?.packageWeight,
     PACKAGEDIMENSIONS: data.prodDelivery?.packageDimensions,
     IRREGULARPACKAGE: data.prodDelivery?.irregularPackage,
-
-
-
-
   };
 
   // Replace placeholders in the HTML template with actual data

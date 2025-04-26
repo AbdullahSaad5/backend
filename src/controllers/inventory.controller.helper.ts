@@ -1,10 +1,16 @@
 import { Request, Response } from "express";
 import { inventoryService } from "@/services"; // Adjust import path as needed
 import { processZipFile } from "@/utils/bulkImport.util";
-import { addLog, getLogs } from "@/utils/bulkImportLogs.util"; // Adjust import path as needed
+import { Inventory } from "@/models";
+import { addLog, getLogs, clearLogs } from "@/utils/bulkImportLogs.util"; // Adjust import path as needed
+import { Parser } from "json2csv";
+import * as fs from "fs";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
 // Assuming you have the service imported
 
 export const handleBulkImport = async (req: Request, res: Response) => {
+  clearLogs();
   try {
     if (!req.file) {
       addLog("❌ No file uploaded");
@@ -29,18 +35,18 @@ export const handleBulkImport = async (req: Request, res: Response) => {
 };
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
-    const filePath = await inventoryService.exportInventory();
+    const { inventoryIds } = req.body;
+    if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
+      return res.status(400).json({ error: "inventoryIds must be a non-empty array" });
+    }
 
-    // Send the file as  download to the client
-    res.download(filePath, (err) => {
-      if (err) {
-        console.error("Error downloading file:", err);
-        res.status(500).json({ error: "Failed to download file" });
-      } else {
-        console.log("✅ File sent successfully.");
-      }
+    const { fromCache, file } = await inventoryService.exportInventory(inventoryIds);
+
+    res.status(200).json({
+      message: fromCache ? "Served from cache" : "Generated new CSV",
+      data: file, // base64-encoded CSV string
     });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 };
