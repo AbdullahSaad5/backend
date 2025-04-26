@@ -397,6 +397,7 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
+          response: rawResponse,
         });
       } else {
         // Failed listing, return full XML for investigation
