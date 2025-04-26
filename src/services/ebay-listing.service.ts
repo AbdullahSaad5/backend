@@ -362,6 +362,10 @@ export const ebayListingService = {
 
       console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
+
+
+
+
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
         method: "POST",
@@ -373,12 +377,41 @@ export const ebayListingService = {
         },
         body: listingBody,
       });
+      const rawResponse = await response.text();
 
-      return JSON.stringify({
-        status: response.status,
-        statusText: response.statusText,
-        response: await response.text(),
-      });
+      // Parse XML to check if ItemID exists
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(rawResponse, "text/xml");
+
+      const itemIdNode = xmlDoc.getElementsByTagName("ItemID")[0];
+
+      if (itemIdNode && itemIdNode.textContent) {
+        // Successful listing
+        const itemId = itemIdNode.textContent;
+        // Example eBay sandbox listing URL
+        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
+        const sandboxUrl = `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
+
+        return JSON.stringify({
+          status: 200,
+          statusText: "OK",
+          itemId,
+          sandboxUrl,
+        });
+      } else {
+        // Failed listing, return full XML for investigation
+        return JSON.stringify({
+          status: 400,
+          statusText: "Failed to create listing",
+          response: rawResponse,
+        });
+      }
+
+      // return JSON.stringify({
+      //   status: response.status,
+      //   statusText: response.statusText,
+      //   response: await response.text(),
+      // });
     } catch (error: any) {
       console.error("Error syncing product with eBay:", error.message);
 
