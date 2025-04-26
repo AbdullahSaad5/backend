@@ -630,13 +630,13 @@ export const inventoryService = {
     // Process the inventory data into rows
     const rows = items.map((item: any) => ({
       id: item._id.toString().slice(-6),
-      brand: item.productInfo?.brand?.join(", "),
+      brand: item.productInfo?.brand,
       title: item.productInfo?.title,
       description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
       productCategory: item.productInfo?.productCategory?.name,
       condition: item.productInfo?.inventoryCondition,
-      processor: item.prodTechInfo?.processor?.join(", "),
-      gpu: item.prodTechInfo?.gpu?.join(", "),
+      processor: item.prodTechInfo?.processor,
+      gpu: item.prodTechInfo?.gpu,
       screenSize: item.prodTechInfo?.screenSize,
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
     }));
