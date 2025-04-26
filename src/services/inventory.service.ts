@@ -635,8 +635,8 @@ export const inventoryService = {
       description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
       productCategory: item.productInfo?.productCategory?.name,
       condition: item.productInfo?.inventoryCondition,
-      processor: item.prodTechInfo?.processor?.join(", "),
-      gpu: item.prodTechInfo?.gpu?.join(", "),
+      processor: item.prodTechInfo?.processor,
+      gpu: item.prodTechInfo?.gpu,
       screenSize: item.prodTechInfo?.screenSize,
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
     }));
