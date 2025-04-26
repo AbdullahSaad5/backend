@@ -9,7 +9,7 @@ import {
 import e, { Router } from "express";
 // import ebayToken from "../../ebay_tokens.json";
 
-const baseURL = "https://api.ebay.com";
+const baseURL = "https://api.sandbox.ebay.com";
 
 export const ebay = (router: Router) => {
   router.get("/auth/initial", ebayListingService.getApplicationAuthToken);

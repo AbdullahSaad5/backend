@@ -502,58 +502,84 @@ export const listingService = {
           },
         };
 
-        // If retailPrice is provided, update it
+        // If retailPrice is provided, update it in the variations or the main listing
         if (retailPrice) {
           // Case 1: Listings with variations
           if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
             const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              const basePrice = variation.retailPrice || 0;
+              let newDiscountValue = 0;
+
+              // Calculate discount for each variation
+              if (basePrice === 0) {
+                newDiscountValue = 0;
+              } else {
+                // Calculate discount value based on discount type
+                if (discountType === "percentage") {
+                  const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
+                  newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
+                } else if (discountType === "fixed") {
+                  newDiscountValue = basePrice - discountValue; // Apply fixed discount
+                }
+              }
+
+              // Return updated variation object with new retail price and discount value
               return {
                 ...variation,
                 retailPrice: retailPrice, // Set retailPrice in each variation
+                discountValue: newDiscountValue, // Set the discounted price
               };
             });
 
             update.$set["prodPricing.selectedVariations"] = updatedVariations;
           }
-
-          // Case 2: Listings without variations
+          // Case 2: Listings without variations (already handled previously)
           else if (typeof prodPricing.retailPrice === "number") {
             update.$set["prodPricing.retailPrice"] = retailPrice;
           }
         }
 
-        // Case 1: Listings with variations (update discount based on discountType)
-        if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+        // Case 2: Listings without variations (update the variation inside selectedVariations)
+        else if (prodPricing.selectedVariations && prodPricing.selectedVariations.length > 0) {
           const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+            let newDiscountValue = 0;
             const basePrice = variation.retailPrice || 0;
-            let newDiscountValue = variation.discountValue || 0;
 
-            // Update discount value based on discount type
-            if (discountType === "percentage") {
-              const calculatedDiscount = +(basePrice * percent).toFixed(2);
-              newDiscountValue += calculatedDiscount;
-            } else if (discountType === "fixed") {
-              newDiscountValue += discountValue;
+            // If retailPrice is missing, discountValue will be set to 0
+            if (basePrice === 0) {
+              newDiscountValue = 0;
+            } else {
+              // Calculate discount value based on discount type
+              if (discountType === "percentage") {
+                const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
+                newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
+              } else if (discountType === "fixed") {
+                newDiscountValue = basePrice - discountValue; // Apply fixed discount
+              }
             }
 
             return {
               ...variation,
-              discountValue: newDiscountValue, // Final discounted value
+              retailPrice: retailPrice, // Set retailPrice in each variation
+              discountValue: newDiscountValue, // Set the discounted price
             };
           });
 
           update.$set["prodPricing.selectedVariations"] = updatedVariations;
         }
-
         // Case 2: Listings without variations (update discount)
         else if (typeof prodPricing.retailPrice === "number") {
-          let newDiscountValue = prodPricing.discountValue || 0;
+          let newDiscountValue = 0;
 
-          if (discountType === "percentage") {
-            const calculatedDiscount = +(prodPricing.retailPrice * percent).toFixed(2);
-            newDiscountValue += calculatedDiscount;
-          } else if (discountType === "fixed") {
-            newDiscountValue += discountValue;
+          if (prodPricing.retailPrice === 0) {
+            newDiscountValue = 0; // If retailPrice is missing or 0, no discount
+          } else {
+            if (discountType === "percentage") {
+              const discountAmount = (prodPricing.retailPrice * discountValue) / 100; // Calculate discount amount
+              newDiscountValue = prodPricing.retailPrice - discountAmount; // Apply discount to retail price
+            } else if (discountType === "fixed") {
+              newDiscountValue = prodPricing.retailPrice - discountValue; // Apply fixed discount
+            }
           }
 
           update.$set["prodPricing.discountValue"] = newDiscountValue;
@@ -565,7 +591,7 @@ export const listingService = {
         // Use updateDoc to update with $set
         return {
           updateOne: {
-            filter: { _id: listing._id, kind: listing.kind }, // Dynamically use listing.kind
+            filter: { _id: listing._id }, // Dynamically use listing.kind
             update: update,
           },
         };
@@ -577,8 +603,12 @@ export const listingService = {
       // Execute bulk update using bulkWrite
       const result = await Listing.bulkWrite(bulkOps);
       console.log("Bulk Write Result:", result);
-
-      return { status: 200, message: "Listing updates successful", result };
+      // await Promise.all(
+      //   bulkOps.map(
+      //     (op) => Listing.updateOne(op.updateOne.filter, op.updateOne.update, { new: true }) // Use updateOne for each operation
+      //   )
+      // );
+      return { status: 200, message: "Listing updates successful" };
     } catch (error: any) {
       console.error("Error during bulk update:", error);
       throw new Error(`Error during bulk update: ${error.message}`);
@@ -599,11 +629,13 @@ export const listingService = {
 
   getEbaySellerList: async () => {
     try {
-      const token = await getStoredEbayAccessToken();
+      // const token = await getStoredEbayAccessToken();
+      const token =
+        "v^1.1#i^1#p^3#I^3#r^0#f^0#t^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";
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
-      const ebayUrl = "https://api.ebay.com/ws/api.dll";
+      const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
 
       const listingBody = `
        <?xml version="1.0" encoding="utf-8"?>
@@ -612,8 +644,8 @@ export const listingService = {
 	<WarningLevel>High</WarningLevel>
 
   <GranularityLevel>Coarse</GranularityLevel>
-<StartTimeFrom>2025-01-01T00:00:00.000Z</StartTimeFrom>
-<StartTimeTo>2025-04-24T23:59:59.000Z</StartTimeTo>
+<StartTimeFrom>2025-02-01T00:00:00.000Z</StartTimeFrom>
+<StartTimeTo>2025-04-26T23:59:59.000Z</StartTimeTo>
   <IncludeWatchCount>true</IncludeWatchCount>
   <Pagination>
     <EntriesPerPage>2</EntriesPerPage>
@@ -629,6 +661,55 @@ export const listingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetSellerList",
+          "X-EBAY-API-IAF-TOKEN": token,
+          "Content-Type": "text/xml",
+        },
+        body: listingBody,
+      });
+
+      const responseBody = await response.text();
+      const parsedXML = await parseStringPromise(responseBody);
+      return JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        rawXML: responseBody,
+        parsed: parsedXML,
+      });
+    } catch (error: any) {
+      console.error("Error getting getSellerList from eBay:", error.message);
+
+      return JSON.stringify({
+        status: 500,
+        message: error.message,
+      });
+    }
+  },
+
+  getCategoryFeatures: async () => {
+    try {
+      const token =
+        "v^1.1#i^1#p^3#I^3#r^0#f^0#t^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";
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+      const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
+
+      const listingBody = `
+     <?xml version="1.0" encoding="utf-8"?>
+<GetCategoryFeaturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+	<ErrorLanguage>en_US</ErrorLanguage>
+	<WarningLevel>High</WarningLevel>
+  <AllFeaturesForCategory>true</AllFeaturesForCategory>
+</GetCategoryFeaturesRequest>
+      `;
+
+      console.log("Request Body For get seller List:", listingBody, null, 2);
+      const response = await fetch(ebayUrl, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetCategoryFeatures",
           "X-EBAY-API-IAF-TOKEN": token,
           "Content-Type": "text/xml",
         },

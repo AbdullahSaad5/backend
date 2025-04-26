@@ -162,6 +162,22 @@ export const listingController = {
     }
   },
 
+
+  getCategoryFeatures: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getCategoryFeatures();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Category Features", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching Categoory Features",
+      });
+    }
+  },
   getListingById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

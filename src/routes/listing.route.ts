@@ -12,6 +12,7 @@ export const listing = (router: Router) => {
   //new route for search and filter and pagination
   router.get("/search", listingController.searchAndFilterListing);
   router.get("/get-seller-list", listingController.getSellerList);
+  router.get("/get-category-features", listingController.getCategoryFeatures);
 
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
