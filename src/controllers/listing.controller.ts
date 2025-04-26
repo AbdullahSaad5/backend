@@ -83,11 +83,11 @@ export const listingController = {
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
       // if (stepData.publishToEbay) {
       // Sync product with eBay if it's marked for publishing
-      const ebayItemId = await ebayListingService.syncListingWithEbay(updatedListing);
+      const ebayResponse = await ebayListingService.syncListingWithEbay(updatedListing);
 
       // Update the product with the eBay Item ID
       await listingService.updateDraftListing(updatedListing._id, {
-        ebayItemId,
+        ebayResponse,
       });
 
       // Return success with the updated product
@@ -95,7 +95,7 @@ export const listingController = {
         success: true,
         message: "Draft product updated and synced with eBay successfully",
         data: updatedListing,
-        ebayItemId, // Include eBay Item ID in the response
+        ebayResponse, // Include eBay Item ID in the response
       });
       // }
       if (!updatedListing) {
@@ -146,6 +146,38 @@ export const listingController = {
     }
   },
 
+  getSellerList: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getEbaySellerList();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching listing:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching listing",
+      });
+    }
+  },
+
+
+  getCategoryFeatures: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getCategoryFeatures();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Category Features", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching Categoory Features",
+      });
+    }
+  },
   getListingById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -226,8 +258,11 @@ export const listingController = {
 
       // console.log("templates :: " , templates)
 
-      const templateList = templates.map((template, index) => {
+      const templateList = templates.map((template: any, index) => {
         const listingId = template._id;
+        const templateAlias = template?.alias;
+
+        // console.log("templateAlias : ", templateAlias);
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
         // ✅ Ensure correct access to prodTechInfo
@@ -266,9 +301,9 @@ export const listingController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `TEMP-${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, listingId };
+        return { templateName, listingId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -561,6 +596,41 @@ export const listingController = {
       });
     }
   },
+
+  toggleIsTemplate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTemplate } = req.body;
+
+      if (typeof isTemplate !== "boolean") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isTemplate must be a boolean value",
+        });
+      }
+
+      const updatedListing = await listingService.toggleIsTemplate(id, isTemplate);
+
+      if (!updatedListing) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Listing ${isTemplate ? "is" : "is not"} template now`,
+        data: updatedListing,
+      });
+    } catch (error: any) {
+      console.error("Error toggling listing tempalate status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling listing template status",
+      });
+    }
+  },
   getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();
@@ -614,7 +684,7 @@ export const listingController = {
       });
     }
   },
-  // Controller
+
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
       const { listingIds, discountType, discountValue, vat, retailPrice } = req.body;

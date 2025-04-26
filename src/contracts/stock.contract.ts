@@ -9,6 +9,11 @@ interface IStock extends Document {
     totalUnits: number;
     usableUnits: number;
   }[];
+  priceBreakdown: {
+    name: string;
+    value: any;
+    comment?: string;
+  }[];
   stockInvoice: typeof mediaSchema;
   totalUnits?: number;
   usableUnits?: number;

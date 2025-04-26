@@ -11,6 +11,8 @@ export const listing = (router: Router) => {
   router.patch("/bulk-update-vat-and-discount", listingController.bulkUpdateListingTaxDiscount);
   //new route for search and filter and pagination
   router.get("/search", listingController.searchAndFilterListing);
+  router.get("/get-seller-list", listingController.getSellerList);
+  router.get("/get-category-features", listingController.getCategoryFeatures);
 
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
@@ -46,6 +48,10 @@ export const listing = (router: Router) => {
 
   // route for toggle block status
   router.patch("/block/:id", listingController.toggleBlock);
+
+
+  // route for toggle block status
+  router.patch("/istemplate/:id", listingController.toggleIsTemplate);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);

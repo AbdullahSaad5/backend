@@ -4,7 +4,7 @@ import mongoose from "mongoose";
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
   // 1. Seed User Category (Super Admin Role)
-  const userCategoryData = {
+  const superAdminCategoryData = {
     _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
     role: "super admin",
     description: "This category is just for super admin usage.",
@@ -50,20 +50,20 @@ const seedData = async () => {
     updatedAt: new Date(),
   };
 
-  let userCategory = await UserCategory.findOne({ role: userCategoryData.role });
+  let userCategory = await UserCategory.findOne({ role: superAdminCategoryData.role });
 
   if (!userCategory) {
     // If not found, create the user category (role)
-    userCategory = new UserCategory(userCategoryData);
+    userCategory = new UserCategory(superAdminCategoryData);
     await userCategory.save();
     console.log("Super Admin User Category created.");
   } else {
     // If found, check for changes, if any, overwrite the data
     if (
-      userCategory.description !== userCategoryData.description ||
-      !userCategory.permissions.every((permission, index) => permission === userCategoryData.permissions[index])
+      userCategory.description !== superAdminCategoryData.description ||
+      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
     ) {
-      userCategory.set(userCategoryData);
+      userCategory.set(superAdminCategoryData);
       await userCategory.save();
       console.log("Super Admin User Category updated.");
     } else {
@@ -71,7 +71,56 @@ const seedData = async () => {
     }
   }
 
-  // 2. Seed SuperAdmin User
+  // 2. Seed Supplier User Category (New Category)
+  const supplierCategoryData = {
+    _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"), // Unique ID for supplier
+    role: "supplier",
+    description: "This is Supplier Category",
+    permissions: [
+      "DASHBOARD",
+      "SETTINGS",
+      "MANAGE_USERS",
+      "ADD_USERS",
+      "VIEW_USERS",
+      "MANAGE_SUPPLIERS",
+      "VIEW_SUPPLIERS_CATEGORY",
+      "VIEW_SUPPLIERS",
+      "MANAGE_INVENTORY",
+      "VIEW_INVENTORY",
+      "VIEW_INVENTORY_CATEGORY",
+      "MANAGE_TAXES_AND_DISCOUNTS",
+      "ADD_TAXES",
+      "VIEW_TAXES",
+      "ADD_DISCOUNTS",
+      "VIEW_DISCOUNTS",
+    ],
+    isBlocked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  let supplierCategory = await UserCategory.findOne({ role: supplierCategoryData.role });
+
+  if (!supplierCategory) {
+    // If not found, create the user category (role)
+    supplierCategory = new UserCategory(supplierCategoryData);
+    await supplierCategory.save();
+    console.log("Supplier User Category created.");
+  } else {
+    // If found, check for changes, if any, overwrite the data
+    if (
+      supplierCategory.description !== supplierCategoryData.description ||
+      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
+    ) {
+      supplierCategory.set(supplierCategoryData);
+      await supplierCategory.save();
+      console.log("Supplier User Category updated.");
+    } else {
+      console.log("Supplier User Category already exists and matches.");
+    }
+  }
+
+  // 3. Seed SuperAdmin User
   const superAdminData = {
     _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
     firstName: "SUPER",
@@ -117,16 +166,26 @@ const seedData = async () => {
     }
   }
 
-  // 3. Seed Product Categories
+  // 4. Seed Product Categories
   const productCategoryData = [
     {
       _id: "675ae44f9dfbe212be595dcc",
       name: "all in one pc",
       description:
-        "This Category deals in All In One PC This Category dfffffffffffffffffffffffffffffffffffffffffffffffffffffffffff123ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "This Category deals in All In One PC. This Category will auto seeded in the system even if usuer accidently delete it from the database.",
       image:
         "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fdownload%20(3).jpg?alt=media&token=74c4d1eb-b45c-46ff-985e-e900edd56e43",
       tags: ["pc", "system ", "all in one"],
+      isBlocked: false,
+    },
+    {
+      _id: "6808c108de660f64292ad7ed",
+      name: "mini pc",
+      description:
+        "This Category deals in Mini PCs. This Category will auto seeded in the system even if user accidently delete it from the database.",
+      image:
+        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FComputer%20PC%20Personal%20Computer%20Build.jpg?alt=media&token=85d5d4b7-3609-4e81-a742-e3ae4fd2db30",
+      tags: ["mini pc", "system ", "pc"],
       isBlocked: false,
     },
     {
@@ -193,7 +252,7 @@ const seedData = async () => {
   ];
 
   for (const category of productCategoryData) {
-    let productCategory: any = await ProductCategory.findOne({ _id: category._id }); // Check by _id instead of name
+    let productCategory: any = await ProductCategory.findOne({ _id: category._id });
 
     if (!productCategory) {
       // Create new product category if it doesn't exist
@@ -219,5 +278,6 @@ const seedData = async () => {
 
   console.log("Seeder completed.");
 };
+
 // Export the seeder function for use in other files
 export default seedData;
