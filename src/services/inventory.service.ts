@@ -803,7 +803,9 @@ export const inventoryService = {
         Inventory.find({})
           .distinct(field)
           .then((distinctValues) => {
-            distinctValues = distinctValues.filter((value) => value !== "" && value !== null && value !== undefined);
+            distinctValues = distinctValues
+              .filter((value) => value !== "" && value !== null && value !== undefined)
+              .map((value) => (typeof value === "string" ? value.trim() : value)); // <-- Trim spaces
             return { field, distinctValues };
           })
       );
