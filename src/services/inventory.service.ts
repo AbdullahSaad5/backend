@@ -805,7 +805,11 @@ export const inventoryService = {
           .then((distinctValues) => {
             distinctValues = distinctValues
               .filter((value) => value !== "" && value !== null && value !== undefined)
-              .map((value) => (typeof value === "string" ? value.trim() : value)); // <-- Trim spaces
+              .map((value) => (typeof value === "string" ? value.trim() : value));
+
+            // Remove duplicates
+            distinctValues = [...new Set(distinctValues)];
+
             return { field, distinctValues };
           })
       );
