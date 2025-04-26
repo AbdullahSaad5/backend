@@ -2,6 +2,7 @@
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
 import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
+import { XMLParser } from "fast-xml-parser";
 import {
   exchangeCodeForAccessToken,
   getEbayAuthURL,
@@ -9,6 +10,7 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
+import { strict } from "assert";
 
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
@@ -287,7 +289,6 @@ export const ebayListingService = {
       // const sku = listing._id?.toString();
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
 
-
       const listingBody = `
       <?xml version="1.0" encoding="UTF-8"?>
       <AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -313,58 +314,53 @@ export const ebayListingService = {
           <PostalCode>SW1A 1AA</PostalCode>
           <Quantity>23</Quantity>
             <!-- Dynamic ItemSpecifics -->
-              <ItemSpecifics>
+          <ItemSpecifics>
                 ${escapeXml(generateItemSpecifics(ebayData))}
               </ItemSpecifics>
-          <ItemSpecifics>
-            <NameValueList>
-    <Name>Model</Name>
-    <Value>xyz model</Value>
-  </NameValueList>
-
-   <NameValueList>
-    <Name>ScreenSize</Name>
-    <Value>14 inch</Value>
-  </NameValueList>
-   <NameValueList>
-    <Name>Processor</Name>
-    <Value>Intel Core i7</Value>
-  </NameValueList>
-    <NameValueList>
-    <Name>Brand</Name>
-    <Value>Lenovo</Value>
-  </NameValueList>
-    <NameValueList>
-    <Name>Type</Name>
-    <Value>Laptop</Value>
-  </NameValueList>
+              <ItemSpecifics>
+                <NameValueList>
+                     <Name>Model</Name>
+                     <Value>xyz model</Value>
+                </NameValueList>
+                <NameValueList>
+                     <Name>ScreenSize</Name>
+                     <Value>14 inch</Value>
+                </NameValueList>
+                <NameValueList>
+                      <Name>Processor</Name>
+                      <Value>Intel Core i7</Value>
+                 </NameValueList>
+                  <NameValueList>
+                       <Name>Brand</Name>
+                       <Value>Lenovo</Value>
+                   </NameValueList>
+                    <NameValueList>
+                        <Name>Type</Name>
+                        <Value>Laptop</Value>
+                    </NameValueList>
           </ItemSpecifics>
           <Location>London</Location>
- <ConditionID>1000</ConditionID>
+          <ConditionID>1000</ConditionID>
           <ReturnPolicy>
             <ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption>
 
             <ReturnsWithinOption>Days_30</ReturnsWithinOption>
             <ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption>
           </ReturnPolicy>
-<ShippingDetails>
-        <ShippingType>Flat</ShippingType>
-        <ShippingServiceOptions>
-          <ShippingServicePriority>1</ShippingServicePriority>
-         <ShippingService>UK_RoyalMailFirstClassStandard</ShippingService>
-          <ShippingServiceCost>2.50</ShippingServiceCost>
-        </ShippingServiceOptions>
-      </ShippingDetails>
+          <ShippingDetails>
+               <ShippingType>Flat</ShippingType>
+                   <ShippingServiceOptions>
+                        <ShippingServicePriority>1</ShippingServicePriority>
+                        <ShippingService>UK_RoyalMailFirstClassStandard</ShippingService>
+                        <ShippingServiceCost>2.50</ShippingServiceCost>
+                   </ShippingServiceOptions>
+          </ShippingDetails>
           <Site>UK</Site>
         </Item>
       </AddItemRequest>
     `;
 
       console.log("Request Body for Listing Creation:", listingBody, null, 2);
-
-
-
-
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -379,16 +375,15 @@ export const ebayListingService = {
       });
       const rawResponse = await response.text();
 
-      // Parse XML to check if ItemID exists
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(rawResponse, "text/xml");
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        trimValues: true,
+      });
+      const jsonObj = parser.parse(rawResponse);
 
-      const itemIdNode = xmlDoc.getElementsByTagName("ItemID")[0];
+      const itemId = jsonObj?.AddItemResponse?.ItemID;
 
-      if (itemIdNode && itemIdNode.textContent) {
-        // Successful listing
-        const itemId = itemIdNode.textContent;
-        // Example eBay sandbox listing URL
+      if (itemId) {
         const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
         const sandboxUrl = `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
 
@@ -397,14 +392,12 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
-          response: rawResponse,
         });
       } else {
-        // Failed listing, return full XML for investigation
         return JSON.stringify({
           status: 400,
           statusText: "Failed to create listing",
-          response: rawResponse,
+          response: jsonObj,
         });
       }
 
