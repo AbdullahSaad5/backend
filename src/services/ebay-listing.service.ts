@@ -12,7 +12,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { strict } from "assert";
 export const newToken =
-  "v^1.1#i^1#r^0#p^3#f^0#I^3#t^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";
+  "v^1.1#i^1#r^0#p^3#I^3#f^0#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -398,7 +398,121 @@ export const ebayListingService = {
       });
     }
   },
+  reviseItemOnEbay: async (listing: any): Promise<string> => {
+    try {
+      // const token = await getStoredEbayAccessToken();
+      if (!newToken) {
+        throw new Error("Missing or invalid eBay access token");
+      }
 
+      const ebayData = listing;
+
+      const retailPrice =
+        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+
+      const listingQuantity =
+        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
+
+      console.log("retailPrice", retailPrice);
+      const listingDescriptionData = generateListingDescription(ebayData);
+      if (!ebayData) {
+        throw new Error("Missing eBay listing details");
+      }
+      // Handle multiple image URLs dynamically
+      const pictureURLs =
+        ebayData.prodMedia?.images
+          ?.map((image: any) => `<PictureURL>${escapeXml(image.url)}</PictureURL>`)
+          .join("\n") || "<PictureURL>https://mysamplepicture.com/15.jpg</PictureURL>";
+
+      // Use listing._id as the SKU (or replace with the correct ID field)
+      // const sku = listing._id?.toString();
+      const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
+
+      const listingBody = `
+      <?xml version="1.0" encoding="utf-8"?>
+<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+        <ErrorLanguage>en_US</ErrorLanguage>
+        <WarningLevel>High</WarningLevel>
+        <Item>
+        <ItemID>${ebayData.ebayItemId}</ItemID>
+          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <PrimaryCategory>
+          </PrimaryCategory>
+        <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
+          <CategoryMappingAllowed>true</CategoryMappingAllowed>
+          <Country>GB</Country>
+          <Currency>GBP</Currency>
+          <DispatchTimeMax>3</DispatchTimeMax>
+          <ListingDuration>GTC</ListingDuration>
+          <ListingType>FixedPriceItem</ListingType>
+          <PictureDetails>
+          ${pictureURLs}
+          </PictureDetails>
+          <PostalCode>SW1A 1AA</PostalCode>
+          <Quantity>${listingQuantity}</Quantity>
+            <!-- Dynamic ItemSpecifics -->
+              <ItemSpecifics>
+              ${generateItemSpecifics(ebayData)}
+              </ItemSpecifics>
+          <Location>London</Location>
+          <ConditionID>1000</ConditionID>
+
+          <Site>UK</Site>
+        </Item>
+      </ReviseItemRequest>
+    `;
+
+      console.log("Request Body for revise Listin:", listingBody, null, 2);
+
+      // Step 1: Create Listing on eBay
+      const response = await fetch(ebayUrl, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "ReviseItem",
+          // "X-EBAY-API-IAF-TOKEN": token,
+          "X-EBAY-API-IAF-TOKEN": newToken,
+        },
+        body: listingBody,
+      });
+      const rawResponse = await response.text();
+
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        trimValues: true,
+      });
+      const jsonObj = parser.parse(rawResponse);
+
+      const itemId = jsonObj?.AddItemResponse?.ItemID;
+
+      if (itemId) {
+        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
+        const sandboxUrl = `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
+
+        return JSON.stringify({
+          status: 200,
+          statusText: "OK",
+          itemId,
+          sandboxUrl,
+        });
+      } else {
+        return JSON.stringify({
+          status: 400,
+          statusText: "Failed to update listing on Ebay",
+          response: jsonObj,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updatnng listinng On eBay:", error.message);
+
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error updating/revising eBay API",
+      });
+    }
+  },
   // Helper function to map eBay error codes to human-readable messages
   getEbayErrorMessage(errors: any[]): string {
     if (!errors || errors.length === 0) {
@@ -702,4 +816,12 @@ function generateItemSpecifics(ebayData: any) {
   }
 
   return itemSpecifics.join("");
+}
+function escapeXml(unsafe: any) {
+  return unsafe
+    ?.replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }

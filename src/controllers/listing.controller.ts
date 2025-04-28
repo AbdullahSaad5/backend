@@ -4,6 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Inventory } from "@/models";
+import { ebay } from "@/routes/ebay.route";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -75,38 +76,50 @@ export const listingController = {
         });
       }
 
+      // Step 1: Update the local draft first
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
 
-      // Sync with eBay
-      let ebayResponse: any = await ebayListingService.addItemOnEbay(updatedListing);
+      let ebayResponse: any;
+
+      // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
+      if (updatedListing.ebayItemId) {
+        // 🛠️ Listing already exists on eBay → Update it
+        ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
+      } else {
+        // 🆕 Listing not on eBay → Create it
+        ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
+      }
 
       if (typeof ebayResponse === "string") {
         ebayResponse = JSON.parse(ebayResponse);
       }
 
-      // If eBay listing creation failed, handle error
-      if (ebayResponse?.status !== 200 ) {
+      if (ebayResponse?.status !== 200) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: "Failed to publish to eBay",
-          ebayErrors: ebayResponse?.response?.AddItemResponse?.Errors || [],
+          message: "Failed to sync with eBay",
+          ebayResponse,
+          ebayErrors:
+            ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
         });
       }
 
-      // Successfully created listing, now update listing with ebayItemId, sandboxUrl
-      await listingService.updateDraftListing(updatedListing._id, {
-        ebayItemId: ebayResponse.itemId,
-        ebaySandboxUrl: ebayResponse.sandboxUrl,
-        ebayResponse, // optional: if you want full raw response saved
-      });
+      // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+      if (!updatedListing.ebayItemId && ebayResponse.itemId) {
+        await listingService.updateDraftListing(updatedListing._id, {
+          ebayItemId: ebayResponse.itemId,
+          ebaySandboxUrl: ebayResponse.sandboxUrl,
+          ebayResponse, // optional: store raw response
+        });
+      }
 
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated and synced with eBay successfully",
         data: {
           ...updatedListing.toObject(),
-          ebayItemId: ebayResponse.itemId,
-          ebaySandboxUrl: ebayResponse.sandboxUrl,
+          ebayItemId: ebayResponse.itemId ?? updatedListing.ebayItemId,
+          ebaySandboxUrl: ebayResponse.sandboxUrl ?? updatedListing.ebaySandboxUrl,
         },
         ebayResponse,
       });
