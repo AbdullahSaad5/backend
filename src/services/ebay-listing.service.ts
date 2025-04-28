@@ -317,31 +317,12 @@ export const ebayListingService = {
               ${generateItemSpecifics(ebayData)}
               </ItemSpecifics>
               <ItemSpecifics>
-                <NameValueList>
-                     <Name>Model</Name>
-                     <Value>xyz model</Value>
-                </NameValueList>
-                <NameValueList>
-                     <Name>ScreenSize</Name>
-                     <Value>14 inch</Value>
-                </NameValueList>
+
                 <NameValueList>
                       <Name>Processor</Name>
                       <Value>Intel Core i7</Value>
                  </NameValueList>
-                  <NameValueList>
-                       <Name>Brand</Name>
-                       <Value>Hard Coded</Value>
-                   </NameValueList>
 
-                     <NameValueList>
-                       <Name>Brand</Name>
-                       <Value>HP</Value>
-                   </NameValueList>
-                    <NameValueList>
-                        <Name>Type</Name>
-                        <Value>Laptop</Value>
-                    </NameValueList>
           </ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
@@ -611,15 +592,15 @@ function generateItemSpecifics(ebayData: any) {
     UPC: ebayData.prodTechInfo?.upc,
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
-    Model: ebayData.prodTechInfo?.model || "INTEL CORE I9",
-    // Brand: ebayData.prodTechInfo?.brand || "LENOVO",
+    Model: ebayData.prodTechInfo?.model || "Unknown",
+    Brand: ebayData.prodTechInfo?.brand || "Mix Brand",
     Storage: ebayData.prodTechInfo?.storageType,
-    Type: ebayData.prodTechInfo?.type || "Laptop",
+    Type: ebayData.prodTechInfo?.type || "Unknown",
     RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor,
+    Processor: ebayData.prodTechInfo?.processor|| "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
     GPU: ebayData.prodTechInfo?.gpu,
-    ScreenSize: ebayData.prodTechInfo?.screenSize,
+    ScreenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,
