@@ -319,14 +319,8 @@ export const ebayListingService = {
               <ItemSpecifics>
               ${generateItemSpecifics(ebayData)}
               </ItemSpecifics>
-              <ItemSpecifics>
 
-                <NameValueList>
-                      <Name>Processor</Name>
-                      <Value>Intel Core i7</Value>
-                 </NameValueList>
 
-          </ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
           <ReturnPolicy>
@@ -596,14 +590,20 @@ function generateItemSpecifics(ebayData: any) {
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
     Model: ebayData.prodTechInfo?.model || "Unknown",
-    Brand: ebayData.prodTechInfo?.brand || "Mix Brand",
+    Brand:
+      ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
+        ? ebayData.productInfo.brand.join(", ")
+        : ebayData.productInfo?.brand || "MixBrand",
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
     RAM: ebayData.prodTechInfo?.ramSize,
     Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
     GPU: ebayData.prodTechInfo?.gpu,
-    ScreenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
+    ScreenSize:
+      ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
+        ? ebayData.prodTechInfo.screenSize.join(", ")
+        : ebayData.prodTechInfo?.screenSize || 0,
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,

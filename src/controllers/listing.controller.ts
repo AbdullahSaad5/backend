@@ -61,9 +61,6 @@ export const listingController = {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // console.log("Received request to update draft Listing:", { listingId, stepData });
-
-      // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -71,7 +68,6 @@ export const listingController = {
         });
       }
 
-      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -84,41 +80,39 @@ export const listingController = {
       // Sync with eBay
       let ebayResponse: any = await ebayListingService.syncListingWithEbay(updatedListing);
 
-      // Parse if ebayResponse is a string
-      // if (typeof ebayResponse === "string") {
-      //   ebayResponse = JSON.parse(ebayResponse);
-      // }
+      if (typeof ebayResponse === "string") {
+        ebayResponse = JSON.parse(ebayResponse);
+      }
 
-      // // Then safely extract Ack
-      // const ebayAck = ebayResponse?.response?.AddItemResponse?.Ack;
+      // If eBay listing creation failed, handle error
+      if (ebayResponse?.status !== 200 ) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: "Failed to publish to eBay",
+          ebayErrors: ebayResponse?.response?.AddItemResponse?.Errors || [],
+        });
+      }
 
-      // // If not successful, stop and send error
-      // if (ebayAck !== "Success") {
-      //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      //     success: false,
-      //     message: `Failed to publish to eBay`,
-      //     ebayErrors: ebayResponse?.response?.AddItemResponse?.Errors || [],
-      //   });
-      // }
-
-      // If successful, update in DB
+      // Successfully created listing, now update listing with ebayItemId, sandboxUrl
       await listingService.updateDraftListing(updatedListing._id, {
-        ebayResponse,
+        ebayItemId: ebayResponse.itemId,
+        ebaySandboxUrl: ebayResponse.sandboxUrl,
+        ebayResponse, // optional: if you want full raw response saved
       });
 
-      // Send success
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated and synced with eBay successfully",
-        data: updatedListing,
+        data: {
+          ...updatedListing.toObject(),
+          ebayItemId: ebayResponse.itemId,
+          ebaySandboxUrl: ebayResponse.sandboxUrl,
+        },
         ebayResponse,
       });
-
-      // Include eBay Item ID in the response
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
 
-      // Check if the error is related to eBay synchronization
       if (error.message.includes("eBay")) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
@@ -126,7 +120,6 @@ export const listingController = {
         });
       }
 
-      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
