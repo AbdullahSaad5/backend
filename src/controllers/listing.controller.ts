@@ -79,38 +79,42 @@ export const listingController = {
         });
       }
 
-      // Update listing
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
-      // if (stepData.publishToEbay) {
-      // Sync product with eBay if it's marked for publishing
-      const ebayResponse = await ebayListingService.syncListingWithEbay(updatedListing);
 
-      // Update the product with the eBay Item ID
+      // Sync with eBay
+      let ebayResponse: any = await ebayListingService.syncListingWithEbay(updatedListing);
+
+      // Parse if ebayResponse is a string
+      // if (typeof ebayResponse === "string") {
+      //   ebayResponse = JSON.parse(ebayResponse);
+      // }
+
+      // // Then safely extract Ack
+      // const ebayAck = ebayResponse?.response?.AddItemResponse?.Ack;
+
+      // // If not successful, stop and send error
+      // if (ebayAck !== "Success") {
+      //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      //     success: false,
+      //     message: `Failed to publish to eBay`,
+      //     ebayErrors: ebayResponse?.response?.AddItemResponse?.Errors || [],
+      //   });
+      // }
+
+      // If successful, update in DB
       await listingService.updateDraftListing(updatedListing._id, {
         ebayResponse,
       });
 
-      // Return success with the updated product
+      // Send success
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated and synced with eBay successfully",
         data: updatedListing,
-        ebayResponse, // Include eBay Item ID in the response
+        ebayResponse,
       });
-      // }
-      if (!updatedListing) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Listing not found or could not be updated",
-        });
-      }
 
-      // If not marked for publishing, just return the updated product
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Draft Listing updated successfully",
-        data: updatedListing,
-      });
+      // Include eBay Item ID in the response
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
 
@@ -161,7 +165,6 @@ export const listingController = {
       });
     }
   },
-
 
   getCategoryFeatures: async (req: Request, res: Response) => {
     try {
