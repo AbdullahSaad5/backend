@@ -392,15 +392,15 @@ export const listingService = {
         query.isBlocked = isBlocked;
       }
       if (publishToAmazon !== undefined) {
-        query.publishToAmazon = isBlocked;
+        query.publishToAmazon = publishToAmazon;
       }
 
       if (publishToEbay !== undefined) {
-        query.publishToEbay = isBlocked;
+        query.publishToEbay = publishToEbay;
       }
 
       if (publishToWebsite !== undefined) {
-        query.publishToWebsite = isBlocked;
+        query.publishToWebsite = publishToWebsite;
       }
 
       if (isTemplate !== undefined) {

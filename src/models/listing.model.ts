@@ -389,9 +389,9 @@ const listingSchema = new Schema(
     ebayItemId: { type: String },
     offerId: { type: String },
     isBlocked: { type: Boolean, default: false },
-    publishToEbay: { type: Boolean },
-    publishToAmazon: { type: Boolean },
-    publishToWebsite: { type: Boolean },
+    publishToEbay: { type: Boolean, default: false },
+    publishToAmazon: { type: Boolean, default: false },
+    publishToWebsite: { type: Boolean, default: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
     alias: { type: String },
@@ -537,6 +537,6 @@ Listing.discriminator(
     options
   )
 );
-Listing.schema.index({ ean: 1 }, { unique:false });
+Listing.schema.index({ ean: 1 }, { unique: false });
 // Export the base Listing and its discriminators
 export { Listing };
