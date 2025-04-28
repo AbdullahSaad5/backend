@@ -51,7 +51,7 @@ export const laptopTechnicalSchema = {
   color: { type: [String] },
   maxResolution: { type: String },
   mostSuitableFor: { type: [String] },
-  screenSize: { type: String, required: true },
+  screenSize: { type: [String], required: true },
   graphicsProcessingType: { type: String },
   connectivity: { type: [String] },
   manufacturerWarranty: { type: String },
@@ -88,7 +88,7 @@ export const allInOnePCTechnicalSchema = {
   hardDriveCapacity: { type: [String] },
   color: { type: [String] },
   mostSuitableFor: { type: [String] },
-  screenSize: { type: String },
+  screenSize: { type: [String] },
   graphicsProcessingType: { type: String },
   connectivity: { type: [String] },
   manufacturerWarranty: { type: String },
@@ -120,7 +120,7 @@ export const miniPCTechnicalSchema = {
   gpu: { type: [String] },
   type: { type: String },
   releaseYear: { type: String },
-  inventoryType: { type: String, default: "All In One PC" },
+  inventoryType: { type: String, default: "Mini PC" },
   hardDriveCapacity: { type: [String] },
   color: { type: [String] },
   mostSuitableFor: { type: [String] },
@@ -202,7 +202,7 @@ export const partsTechnicalSchema = {
 
 export const projectorTechnicalSchema = {
   model: { type: [String] },
-  type: { type: String },
+  type: { type: [String] },
   features: { type: [String] },
   connectivity: { type: [String] },
   unitType: { type: String },
@@ -241,7 +241,7 @@ export const monitorTechnicalSchema = {
   displayType: { type: String },
   maxResolution: { type: String },
   mostSuitableFor: { type: [String] },
-  screenSize: { type: String },
+  screenSize: { type: [String] },
   regionOfManufacture: { type: String },
   manufacturerWarranty: { type: String },
   aspectRatio: { type: String },
@@ -272,7 +272,7 @@ export const gamingPCTechnicalSchema = {
   type: { type: String },
   processorSpeed: { type: [String] },
   ramSize: { type: [String] },
-  formFactor: { type: String },
+  formFactor: { type: [String] },
   motherboardModel: { type: String },
   ean: { type: String },
   series: { type: String },
@@ -315,6 +315,7 @@ export const networkEquipmentsTechnicalSchema = {
   networkType: { type: String },
   processorManufacturer: { type: String },
   numberOfProcessors: { type: [String] },
+  numberOfLANPorts: { type: [String] },
   numberOfVANPorts: { type: String },
   processorType: { type: String },
   raidLevel: { type: String },
@@ -348,7 +349,7 @@ const inventorySchema = new Schema(
   { ...options, collection: "inventory" }
 );
 // Compound Index to ensure unique alias across all documents in the 'inventory' collection
-inventorySchema.index({ alias: 1 }, { unique:false });
+inventorySchema.index({ alias: 1 }, { unique: false });
 // Base Inventory Model
 const Inventory = model("Inventory", inventorySchema);
 
