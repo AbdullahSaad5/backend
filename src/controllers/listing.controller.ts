@@ -93,8 +93,10 @@ export const listingController = {
       if (typeof ebayResponse === "string") {
         ebayResponse = JSON.parse(ebayResponse);
       }
+      // 🔵 Instead of checking status, check Ack
+      const ackValue = ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
 
-      if (ebayResponse?.status !== 200) {
+      if (ackValue !== "Success") {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
           message: "Failed to sync with eBay",
@@ -103,6 +105,16 @@ export const listingController = {
             ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
         });
       }
+
+      // if (ebayResponse?.status !== 200) {
+      //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      //     success: false,
+      //     message: "Failed to sync with eBay",
+      //     ebayResponse,
+      //     ebayErrors:
+      //       ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+      //   });
+      // }
 
       // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
       if (!updatedListing.ebayItemId && ebayResponse.itemId) {
