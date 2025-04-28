@@ -78,7 +78,7 @@ export const listingController = {
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
 
       // Sync with eBay
-      let ebayResponse: any = await ebayListingService.syncListingWithEbay(updatedListing);
+      let ebayResponse: any = await ebayListingService.addItemOnEbay(updatedListing);
 
       if (typeof ebayResponse === "string") {
         ebayResponse = JSON.parse(ebayResponse);

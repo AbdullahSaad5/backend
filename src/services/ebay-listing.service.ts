@@ -231,7 +231,7 @@ export const ebayListingService = {
     }
   },
 
-  syncListingWithEbay: async (listing: any): Promise<string> => {
+  addItemOnEbay: async (listing: any): Promise<string> => {
     try {
       // const token = await getStoredEbayAccessToken();
       if (!newToken) {
@@ -390,7 +390,7 @@ export const ebayListingService = {
       //   response: await response.text(),
       // });
     } catch (error: any) {
-      console.error("Error syncing product with eBay:", error.message);
+      console.error("Error adding listinng On eBay:", error.message);
 
       return JSON.stringify({
         status: 500,
