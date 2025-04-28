@@ -12,7 +12,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { strict } from "assert";
 export const newToken =
-  "v^1.1#i^1#r^0#p^3#I^3#f^0#t^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";
+  "v^1.1#i^1#r^0#p^3#f^0#I^3#t^H4sIAAAAAAAA/+VZbWwbZx2P8wZl7YbGxgraOs9M09h29r347LujNlwSp3Ebx5mdpi9a8Z67e85+kvPd7Z67JG6nkoVSTWOCMaBo1TZ104SQAAEfylinBQRj0rZPILTyoqqsbFACXxhDfOBFPGcnqROUNvZNqgX35XTP/d9+/7fnjZ7v33LX8ZHjf98Wel/3qXl6vjsUYq6ht/T33X1tT/dH+7roJoLQqfnb53sXei7uxKBq2FIBYtsyMQzPVQ0TS/XBVMRzTMkCGGHJBFWIJVeVinJuVGKjtGQ7lmuplhEJZ4dSESXJM6qS0DnI00lB48iouSJzwkpFGF1gWEGkaQECFUCG/MfYg1kTu8B0UxGWZnmKjlOsMMFwEidKcS7KJ4WDkfAkdDCyTEISpSPpurlSnddpsvXypgKMoeMSIZF0Vh4u5uXsUGZsYmesSVZ62Q9FF7geXvs1aGkwPAkMD15eDa5TS0VPVSHGkVi6oWGtUEleMaYN8+uuTioJUdETLIR8HDJq8j1x5bDlVIF7eTv8EaRRep1UgqaL3NqVPEq8oUxB1V3+GiMiskNh/3WvBwykI+ikIpkB+cDeYqYQCRfHxx1rBmlQ85EyXDxOswxPjHUhJi6ETgkommcYoIIB0PhlhQ2py+5ep3HQMjXkOw+Hxyx3ABLr4XofsU0+IkR5M+/Iuutb1kzHr/qSOegHtxFNz62YfnxhlTgkXP+8ciRWUuNSMrxnyZHg4jxkOVHjBY4mnltJDr/WAyRI2o+RPD4e822BCqhRVeBMQ9c2gAoplbjXq0IHaRLH6ywn6JDSEqJOxUVdpxReS1CMDiENoaKoovD/mCeu6yDFc+Fqrqz/UQebihRVy4bjloHUWmQ9Sb0HLWfGHE5FKq5rS7HY7OxsdJaLWk45xtI0E9ufGy2qFVgFkVVadGViCtXTVoWECyPJrdnEmjmSgkS5WY6kOUcbB45bG/Bq5LsIDYO8VtJ4jYXp9aMbQB00EPHDBFHUWUhHLOxCLRA0Dc4gFZaQdlWQ+bW+ITqKCYTMsMrIzEG3Yl0dbBvi8htDdigQNtJHgdtZqJoaC51YaUCMSNFJiaYDgZVtO1utei5QDJjtsFjGuSSf4APBsz3vKlXfhqhA1bKcaXXaNaqBoPnTr4SALrnWNPRr3ey8HlrIDBcyxZHSRH5PZiwQ2gLUHYgrEwSr2Wl5Kt8rD8vkyQ0e3p00d1d31XLyrrncHjG5b1oYM7MZeyiODU3OaPkpPpGYssZU1mIPTzlDE7GpaaAVYpmkNbRfhrOpVCAnFaHqwA5rXSKaPFDEucL41OS+3W5hNDcWq1QYNVeuyJMj04PVqsPqsByfMZ0DwcDXU6PzSsBpJG7Jr1KzRL4CgcyUPeTXeodVQFLRGRUIkBETNFAFnaOB/xZ0/+Fg8Cmqw/AWa1CTydaCGgAz2YmcpVLFgf2UmEiwAlQSOsXQAi2qSTXg3PW/OnVhf3fTWdB8fkwEABtF/Zk1qlrVmAXIRt4fKtUtDm+GKKZ4NaJfg07UgUCzTKO2eb6yRzauDe4Gk1/rV2LEZBMWbezDCZQWta5lboEHmTNk22Y5tXYUrjK3wANU1fJMtx11y6wtcOieoSPD8Hfo7ShsYm/FTBMYNRepuP0Y1g9iiHsxKlfcVuWQsSp0CL8KXEB2eG0kMK5Ytu1noQqcTUKv14uuk3oBnlo/9GrNWKQ1ziDbBbvKT7oEMgJLsSuWCduS0tivX5IENI2sHNoO4qoc/7QwsJDGqXZbtYBMv+/iFlhsUKtXnoaw7c8aLTQWF1ajmgP0VurOZ2qB3IHEKLD5TF3H1G4oTMtFOlIbMrCnYNVBdhv1sqGcdoKLSRNvKbQNhlVVwQ5qoIYcqLolz0GdtZrw14clefnsuVSk1q0XqTKp9Q+WK3awk1Pfv514BjcuF4v78oVgp3BDcKbTVv2CxgicKOiUILK8f6kBKCCIIsVoSY7leIUDCTYQ5o47d2SScV6IJ3lh0zu4dQNN9xz/ddUVW3vnnO6qP8xC6DV6IfRKdyhED9EUczf98f6evb09WyOY9OkoBqamWHNRBPQoWeSYZFZyYHQa1myAnO4Pdf1i6bHigZ/t+cGJxcMPPBT95CtdW5quvk8dorevXn5v6WGuaboJp2++9KePue6mbSxPx1mB4Tgxzh2kP3bpby/z4d4bBG7w6U+kbnxy/kv3/PNftz324sJd1++it60ShUJ9Xb0Loa7nbozc8ty7v3k9ro4nJz+d/37swYfyPSd3vPbZpfv6njp5JHYo/MfjX+tb/N3z3zq9tf88ZIaZdOW3T3x1ZGnhC/I7519+++cXz+8YPPedf2RufnLvbZ/fuv172x/5w7Fzd+7beeKt6+Z/3H9k7596H3ncPnvyR4ulN948evQbOxJjd/7wy586dmbsb28fqS195uVXX7/lgfzs0ku3ovcP3PDC6d//Zevtr6rnwovi7hNPP/vdC5UdSuzhqb9Wnx889G3nzE8uKOmX7vniaP6b8ldOXnjmwVt/+lYCLd7/y9E3ds7ct/TM7Jvnf/3no8devP/Rx5PXDjz6gXj5sM7lC2b/E2b23eiv0h+RH/7cmchZ4eJN8I6LL3z99L/PvtOI6X8Aj3unXZQgAAA=";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -242,6 +242,9 @@ export const ebayListingService = {
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+
+      const listingQuantity =
+        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
       const escapeXml = (unsafe: any) =>
         unsafe
           ?.replace(/&/g, "&amp;")
@@ -300,7 +303,7 @@ export const ebayListingService = {
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
 
-        <StartPrice currencyID="GBP">10.00</StartPrice>
+        <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
           <Country>GB</Country>
           <Currency>GBP</Currency>
@@ -311,7 +314,7 @@ export const ebayListingService = {
           ${pictureURLs}
           </PictureDetails>
           <PostalCode>SW1A 1AA</PostalCode>
-          <Quantity>23</Quantity>
+          <Quantity>${listingQuantity}</Quantity>
             <!-- Dynamic ItemSpecifics -->
               <ItemSpecifics>
               ${generateItemSpecifics(ebayData)}
@@ -597,7 +600,7 @@ function generateItemSpecifics(ebayData: any) {
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
     RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor|| "Unknown",
+    Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
     GPU: ebayData.prodTechInfo?.gpu,
     ScreenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
