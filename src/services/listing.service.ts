@@ -310,7 +310,19 @@ export const listingService = {
   },
   searchAndFilterListings: async (filters: any) => {
     try {
-      const { searchQuery = "", isBlocked, isTemplate, status, startDate, endDate, page = 1, limit = 10 } = filters;
+      const {
+        searchQuery = "",
+        isBlocked,
+        isTemplate,
+        publishToAmazon,
+        publishToEbay,
+        publishToWebsite,
+        status,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 10,
+      } = filters;
 
       const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
       const limitNumber = parseInt(limit, 10) || 10;
@@ -378,6 +390,17 @@ export const listingService = {
 
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
+      }
+      if (publishToAmazon !== undefined) {
+        query.publishToAmazon = isBlocked;
+      }
+
+      if (publishToEbay !== undefined) {
+        query.publishToEbay = isBlocked;
+      }
+
+      if (publishToWebsite !== undefined) {
+        query.publishToWebsite = isBlocked;
       }
 
       if (isTemplate !== undefined) {
