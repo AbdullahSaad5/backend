@@ -10,9 +10,9 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
-import { strict } from "assert";
+import { Listing } from "@/models";
 export const newToken =
-  "v^1.1#i^1#p^3#I^3#r^0#f^0#t^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";
+  "v^1.1#i^1#f^0#p^3#r^0#I^3#t^H4sIAAAAAAAA/+VZW2zb1hm2fElq5OKga9dg6AZFK4otKSWSEiWSixVIvtRyLdsxHcUOEAhHPIcSbYqkeUjbaoLF9RZ3W4AsD6sXZA/10q7bHvoQDCj6sAYtWqRBMbQrFqzDWiDDUGBBVywvW5sV2LpDyVZkD04ssUCEjS8ED//b99/OjV7Y1rl/aWDp012+7a0rC/RCq8/H7KA7t3Uc2N3W+pWOFrqGwLey8MhC+2LbjYMYFDVTHEPYNHSM/PNFTcdiebA74Fi6aACsYlEHRYRFWxalRHpIZIO0aFqGbciGFvCnersDMRlCBdIRLkJDGrGIjOprMseN7gBi2RxkAadEBKCEGUj+Y+yglI5toNvdAZZmOYqOUKwwztIizYoRLihEo8cC/gyysGrohCRIB+Jlc8Uyr1Vj651NBRgjyyZCAvFUol8aSaR6+4bHD4ZqZMVX/SDZwHbw+q8eAyJ/BmgOurMaXKYWJUeWEcaBULyiYb1QMbFmTAPmV1xNRxkUYXlOiUZ5WYl9Ia7sN6wisO9shzuiQkopk4pIt1W7dDePEm/kppBsr34NExGpXr/7OuwATVVUZHUH+pKJySNS31jAL42OWsasChF0kTLhSIRmGY4YayNMXIisLMhBR9NAAQMAuVWFFamr7t6gscfQoeo6D/uHDTuJiPVonY8YQeRqfESIRvQRK6HYrmW1vmSrvqSPucGtRNOxC7obX1QkDvGXP+8eibXUuJ0MX1RyCNEwo8RkPszTdI7lhGpyuLXuIUHibowSo6Mh1xaUAyWqCKxpZJsakBElE/c6RWSpUAxzChvmFUTBqKBQEUFRqBwHoxSjIEQjlMvJAv//mCe2bak5x0bVXNn4owy2OyDJholGDU2VS4GNJOUetJoZ87g7ULBtUwyF5ubmgnPhoGHlQyxNM6GJ9JAkF1ARBKq06t2JKbWctjJp3YRetEsmsWaepCBRrucD8bAFR4Fll5JOiXxLSNPIay2N11kY3zi6CdQeTSV+GCeKmgvpgIFtBD1Bg2hWlVFWhfcEmVvrm6KjGE/INCOv6mlkF4x7g21TXG5jSPV6wkb6KLCbC1VtA2LXGhAdpuiYSNOewCZMM1UsOjbIaSjVZLGMhGNclPMEz3Sce1R9m6ICRcOwpuVpWyt6guZOv6IKFNE2ppFb63rz9dCxvv6xPmkgOz7yRN+wJ7RjSLEQLowTrHqz5WnicKI/QZ50/9H5XHSkH8Qe1+cmDAjHzMxkPlHkixPpw1OPa3C+J1OYOZJhpvX+mUnaich8X7I/mRxkuBSWZizlcHe3JydJSLZQk7UuQc1MSjg9NjqVOTpojw2lh0OFAiOn84VEZmC6p1i0WAXlI7O6NekNfDk1mq8ErEriZt0q1bPkyxPIvryjurXeZBXAs3wYsTmZIatdkGMENgwFFOVZhTxQjkQ8T1FNhlcqIZggWwsqCWZT42lDpqTkBEW2BCyPclGFYmieFuSY7HHu+l+durC7u2kuaC4/JgKAqQbdmTUoG8WQAchG3h3Kli32b4UolHNKRD9EVtBCABq6Vto6X94hG9cKd4XJrfW7MWKyCQtW9uEESp1a1zPXwaPqs2TbZlilRhRWmevgAbJsOLrdiLpV1jo4FEdTVE1zd+iNKKxhr8dMHWglW5Vx4zEsH8QQ92I1X7DrlUPGisgi/DKwAdnhNZDAuGCYppuFMrC2CL1cL4pC6gU4cvnQqz5jVVg5g2wUbJWfdAlV8yzFLBg6akhKZb9+WxKAkKwcGg5iVY57WuhZSOVUu6FaUHW37+I6WExQKlceVLHpzhp1NBYbFYPQAko9decy1UFuIWIU2HqmbmBqNBS6YauKKldkYCeHZUs1G6iXTeU0ElxMmnhdoa0wVFV5O6hBULWQbGcdS22u1YS7PswmVs+esxK1Yb1I5Umt78kXTG8np65/m/EMbjQhSUdHxrydwvWi2WZb9fOQ4cMCr1C8wHLupQagAC8IFANjYTbM5cIgynrC3HTnjkwswglcVIiGt4prw0DNPcd/XXWF1t85x1vKD7Poe4te9F1p9fnoXppiDtDf3NZ2pL1tZwCTPh3EQIc5Yz6oAiVIFjk6mZUsFJxGJROoVuuXWq59dE6afPeJl5cvPznzVPDQlZbOmqvvleP03urld2cbs6PmJpx++PafDqbroV0sR0dYgfiLjXDH6K/f/tvOfLn9geu+7DcmluHNb7/wyt8PHnl/aunW0Al6V5XI5+toaV/0tbxw7l/57//zRebZfRdfPLEcOPa7dO6Rs/bZH/4l9tQH//7jXjz4+wvLVy8++fH5JaF0df8bJ0//cvuD/IenH/zg/jPzyaHvXH3neytv7juze+/DbyPIvPvrn54bKMydeS36298c2H/qk5snX/28vWvP7kvmjlM3D3Vdfubg1MzFndL2f9za/7fr311+tfXajZavDnx0+UddpwdlcH7wF+ji+zuHf3Xq9Vs//gw+9+FPuPlLu07o+7bf/3ny+eOfdJ689VJm23zrfZb4+uLA048+etyKP/uDtz57KPPYha7odP7px/7w52eWDr18IX4t+86N92Lp8W+9B/aowY/5r93409ylt3/e/2nyrP9nHffNrVy/0nn+pfbzf429VonpfwDL76gRlCAAAA==";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -237,21 +237,21 @@ export const ebayListingService = {
       if (!newToken) {
         throw new Error("Missing or invalid eBay access token");
       }
+      const populatedListing: any = await Listing.findById(listing._id)
+        .populate("prodPricing.selectedVariations.variationId")
+        .lean();
 
-      const ebayData = listing;
+      if (!populatedListing) {
+        throw new Error("Listing not found or failed to populate");
+      }
+      const ebayData = populatedListing;
+      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
       const listingQuantity =
         ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
-      const escapeXml = (unsafe: any) =>
-        unsafe
-          ?.replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&apos;");
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
@@ -293,12 +293,12 @@ export const ebayListingService = {
 
       const listingBody = `
       <?xml version="1.0" encoding="UTF-8"?>
-      <AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+      <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -338,8 +338,12 @@ export const ebayListingService = {
                    </ShippingServiceOptions>
           </ShippingDetails>
           <Site>UK</Site>
+
+ ${variationXml}
+
+
         </Item>
-      </AddItemRequest>
+      </AddFixedPriceItemRequest>
     `;
 
       console.log("Request Body for Listing Creation:", listingBody, null, 2);
@@ -350,7 +354,7 @@ export const ebayListingService = {
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "AddItem",
+          "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
           // "X-EBAY-API-IAF-TOKEN": token,
           "X-EBAY-API-IAF-TOKEN": newToken,
         },
@@ -376,12 +380,14 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
+          response: response,
         });
       } else {
         return JSON.stringify({
           status: 400,
           statusText: "Failed to create listing",
-          response: jsonObj,
+          errorResponse: jsonObj,
+          response: response,
         });
       }
 
@@ -407,7 +413,7 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
-
+      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
@@ -415,6 +421,7 @@ export const ebayListingService = {
         ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
 
       console.log("retailPrice", retailPrice);
+
       const listingDescriptionData = generateListingDescription(ebayData);
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
@@ -437,8 +444,9 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
+            <CategoryID>${ebayData.categoryId}</CategoryID>
           </PrimaryCategory>
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -458,7 +466,7 @@ export const ebayListingService = {
               </ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
-
+ ${variationXml}
           <Site>UK</Site>
         </Item>
       </ReviseItemRequest>
@@ -692,8 +700,15 @@ function generateListingDescription(ebayData: any) {
 }
 function generateItemSpecifics(ebayData: any) {
   const itemSpecifics = [];
+  // Extract variation attribute names
 
-  // Define dynamic fields mapping
+  // Step 1: Extract variation attribute names into a Set
+  const variations = ebayData?.prodPricing?.selectedVariations || [];
+  const variationAttributeNames = new Set<string>();
+  variations.forEach((variation: any) => {
+    const attributes = variation?.variationId?.attributes || {};
+    Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+  });
   const dynamicFields = {
     // Handle features array as a singtle string with comma-separated values
     Feature:
@@ -704,17 +719,17 @@ function generateItemSpecifics(ebayData: any) {
     UPC: ebayData.prodTechInfo?.upc,
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
-    Model: ebayData.prodTechInfo?.model || "Unknown",
+    // Model: ebayData.prodTechInfo?.model || "Unknown",
     Brand:
       ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
         ? ebayData.productInfo.brand.join(", ")
         : ebayData.productInfo?.brand || "MixBrand",
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
-    RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor || "Unknown",
+    // RAM: ebayData.prodTechInfo?.ramSize,
+    // Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
-    GPU: ebayData.prodTechInfo?.gpu,
+    // GPU: ebayData.prodTechInfo?.gpu,
     ScreenSize:
       ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
         ? ebayData.prodTechInfo.screenSize.join(", ")
@@ -722,7 +737,7 @@ function generateItemSpecifics(ebayData: any) {
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,
-    Color: ebayData.prodTechInfo?.color,
+    // Color: ebayData.prodTechInfo?.color,
     ProductType: ebayData.prodTechInfo?.productType,
     ProductCondition: ebayData.prodTechInfo?.productCondition,
     NonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
@@ -734,8 +749,8 @@ function generateItemSpecifics(ebayData: any) {
     RegionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
     CustomBundle: ebayData.prodTechInfo?.customBundle,
     ReleaseYear: ebayData.prodTechInfo?.releaseYear,
-    HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
-    SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
+    // HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
+    // SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
     MostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
     GraphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
     MaximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
@@ -768,7 +783,7 @@ function generateItemSpecifics(ebayData: any) {
     ProductLine: ebayData.prodTechInfo?.productLine,
     WarrantyDuration: ebayData.prodPricing?.warrantyDuration,
     WarrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
-    WarrantyDocument: ebayData.prodPricing?.warrantyDocument,
+    // WarrantyDocument: ebayData.prodPricing?.warrantyDocument,
     PostagePolicy: ebayData.prodDelivery?.postagePolicy,
     PackageWeight: ebayData.prodDelivery?.packageWeight,
     PackageDimensions: ebayData.prodDelivery?.packageDimensions,
@@ -784,9 +799,9 @@ function generateItemSpecifics(ebayData: any) {
     UnitType: ebayData.prodTechInfo?.unitType,
     UnitQuantity: ebayData.prodTechInfo?.unitQuantity,
     HardDriveType: ebayData.prodTechInfo?.hardDriveType,
-    OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
+    // OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
     OperatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
-    Memory: ebayData.prodTechInfo?.memory,
+    // Memory: ebayData.prodTechInfo?.memory,
     MaxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
     MemoryType: ebayData.prodTechInfo?.memoryType,
     RaidLevel: ebayData.prodTechInfo?.raidLevel,
@@ -818,6 +833,7 @@ function generateItemSpecifics(ebayData: any) {
 
   return itemSpecifics.join("");
 }
+
 function escapeXml(unsafe: any) {
   return unsafe
     ?.replace(/&/g, "&amp;")
@@ -825,4 +841,95 @@ function escapeXml(unsafe: any) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+function generateVariationsXml(ebayData: any): string {
+  const variations = ebayData?.prodPricing?.selectedVariations || [];
+  if (!variations.length) return "";
+
+  const variationSpecificsSet: { [key: string]: Set<string> } = {};
+  const picturesByAttribute: { [value: string]: string[] } = {};
+  const pictureAttributeName = "ramSize"; // or set dynamically if needed
+
+  const usedKeys = new Set<string>();
+  const seenCombinations = new Set<string>();
+
+  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
+    const attrObj = variation?.variationId?.attributes || {};
+
+    // Keep only allowed 5 keys
+    Object.keys(attrObj).forEach((key) => {
+      if (!usedKeys.has(key) && usedKeys.size < 5) {
+        usedKeys.add(key);
+      }
+    });
+
+    const filteredAttrObj = Object.entries(attrObj).reduce(
+      (acc2, [key, value]: any) => {
+        if (usedKeys.has(key)) acc2[key] = value;
+        return acc2;
+      },
+      {} as Record<string, string>
+    );
+
+    // Serialize combination to string
+    const comboKey = JSON.stringify(filteredAttrObj);
+    if (seenCombinations.has(comboKey)) return acc; // Skip duplicate
+
+    seenCombinations.add(comboKey);
+
+    const nameValueXml = Object.entries(filteredAttrObj)
+      .map(([key, value]) => {
+        if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
+        variationSpecificsSet[key].add(value);
+        return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
+      })
+      .join("");
+
+    acc.push(`
+      <Variation>
+        <SKU>VARIATION-${acc.length + 1}</SKU>
+        <StartPrice>${variation.retailPrice}</StartPrice>
+        <Quantity>${variation.listingQuantity}</Quantity>
+        <VariationSpecifics>
+          ${nameValueXml}
+        </VariationSpecifics>
+      </Variation>
+    `);
+    return acc;
+  }, []);
+
+  // Build <VariationSpecificsSet>
+  const specificsXml = Object.entries(variationSpecificsSet)
+    .map(([name, values]) => {
+      const valueXml = Array.from(values)
+        .map((v) => `<Value>${escapeXml(v)}</Value>`)
+        .join("");
+      return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
+    })
+    .join("");
+
+  // Pictures block
+  const picturesXml = Object.keys(picturesByAttribute).length
+    ? `<Pictures>
+        <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>
+        ${Object.entries(picturesByAttribute)
+          .map(
+            ([value, urls]) => `
+          <VariationSpecificPictureSet>
+            <VariationSpecificValue>${escapeXml(value)}</VariationSpecificValue>
+            ${urls.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}
+          </VariationSpecificPictureSet>`
+          )
+          .join("\n")}
+      </Pictures>`
+    : "";
+
+  return `
+    <Variations>
+      <VariationSpecificsSet>
+        ${specificsXml}
+      </VariationSpecificsSet>
+      ${variationNodes.join("\n")}
+      ${picturesXml}
+    </Variations>`;
 }
