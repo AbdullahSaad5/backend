@@ -719,7 +719,7 @@ function generateItemSpecifics(ebayData: any) {
     UPC: ebayData.prodTechInfo?.upc,
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
-    Model: ebayData.prodTechInfo?.model || "Unknown",
+    // Model: ebayData.prodTechInfo?.model || "Unknown",
     Brand:
       ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
         ? ebayData.productInfo.brand.join(", ")
@@ -727,9 +727,9 @@ function generateItemSpecifics(ebayData: any) {
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
     // RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor || "Unknown",
+    // Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
-    GPU: ebayData.prodTechInfo?.gpu,
+    // GPU: ebayData.prodTechInfo?.gpu,
     ScreenSize:
       ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
         ? ebayData.prodTechInfo.screenSize.join(", ")
@@ -737,7 +737,7 @@ function generateItemSpecifics(ebayData: any) {
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,
-    Color: ebayData.prodTechInfo?.color,
+    // Color: ebayData.prodTechInfo?.color,
     ProductType: ebayData.prodTechInfo?.productType,
     ProductCondition: ebayData.prodTechInfo?.productCondition,
     NonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
@@ -749,8 +749,8 @@ function generateItemSpecifics(ebayData: any) {
     RegionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
     CustomBundle: ebayData.prodTechInfo?.customBundle,
     ReleaseYear: ebayData.prodTechInfo?.releaseYear,
-    HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
-    SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
+    // HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
+    // SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
     MostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
     GraphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
     MaximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
@@ -799,9 +799,9 @@ function generateItemSpecifics(ebayData: any) {
     UnitType: ebayData.prodTechInfo?.unitType,
     UnitQuantity: ebayData.prodTechInfo?.unitQuantity,
     HardDriveType: ebayData.prodTechInfo?.hardDriveType,
-    OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
+    // OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
     OperatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
-    Memory: ebayData.prodTechInfo?.memory,
+    // Memory: ebayData.prodTechInfo?.memory,
     MaxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
     MemoryType: ebayData.prodTechInfo?.memoryType,
     RaidLevel: ebayData.prodTechInfo?.raidLevel,
@@ -848,37 +848,57 @@ function generateVariationsXml(ebayData: any): string {
 
   const variationSpecificsSet: { [key: string]: Set<string> } = {};
   const picturesByAttribute: { [value: string]: string[] } = {};
-  const pictureAttributeName = "ramSize"; // Configurable attribute for pictures
+  const pictureAttributeName = "ramSize"; // or set dynamically if needed
 
-  const variationNodes = variations.map((variation: any, index: number) => {
+  const usedKeys = new Set<string>();
+  const seenCombinations = new Set<string>();
+
+  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     const attrObj = variation?.variationId?.attributes || {};
 
-    // Group images by specific attribute for <Pictures> tag
-    const pictureAttrValue = attrObj[pictureAttributeName];
-    if (pictureAttrValue && variation.images?.length) {
-      picturesByAttribute[pictureAttrValue] = variation.images.map((img: any) => img.url);
-    }
+    // Keep only allowed 5 keys
+    Object.keys(attrObj).forEach((key) => {
+      if (!usedKeys.has(key) && usedKeys.size < 5) {
+        usedKeys.add(key);
+      }
+    });
 
-    const nameValueXml = Object.entries(attrObj)
-      .map(([key, value]: any) => {
+    const filteredAttrObj = Object.entries(attrObj).reduce(
+      (acc2, [key, value]: any) => {
+        if (usedKeys.has(key)) acc2[key] = value;
+        return acc2;
+      },
+      {} as Record<string, string>
+    );
+
+    // Serialize combination to string
+    const comboKey = JSON.stringify(filteredAttrObj);
+    if (seenCombinations.has(comboKey)) return acc; // Skip duplicate
+
+    seenCombinations.add(comboKey);
+
+    const nameValueXml = Object.entries(filteredAttrObj)
+      .map(([key, value]) => {
         if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
         variationSpecificsSet[key].add(value);
         return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
       })
       .join("");
 
-    return `
+    acc.push(`
       <Variation>
-        <SKU>VARIATION-${index + 1}</SKU>
+        <SKU>VARIATION-${acc.length + 1}</SKU>
         <StartPrice>${variation.retailPrice}</StartPrice>
         <Quantity>${variation.listingQuantity}</Quantity>
         <VariationSpecifics>
           ${nameValueXml}
         </VariationSpecifics>
-      </Variation>`;
-  });
+      </Variation>
+    `);
+    return acc;
+  }, []);
 
-  // Build VariationSpecificsSet
+  // Build <VariationSpecificsSet>
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
       const valueXml = Array.from(values)
@@ -888,7 +908,7 @@ function generateVariationsXml(ebayData: any): string {
     })
     .join("");
 
-  // Build Pictures XML if images exist
+  // Pictures block
   const picturesXml = Object.keys(picturesByAttribute).length
     ? `<Pictures>
         <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>
@@ -898,8 +918,7 @@ function generateVariationsXml(ebayData: any): string {
           <VariationSpecificPictureSet>
             <VariationSpecificValue>${escapeXml(value)}</VariationSpecificValue>
             ${urls.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}
-          </VariationSpecificPictureSet>
-        `
+          </VariationSpecificPictureSet>`
           )
           .join("\n")}
       </Pictures>`
