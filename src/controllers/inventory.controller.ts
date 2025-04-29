@@ -297,7 +297,7 @@ export const inventoryController = {
             fields = ["UNKNOWN"];
         }
 
-        console.log("fields : " , fields)
+        console.log("fields : ", fields);
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
@@ -768,7 +768,7 @@ export const inventoryController = {
         }, {});
 
         // **Exclude 'brand' and 'features' from multi-select attributes**
-        const excludedAttributes = ["brand", "features", "model", "toFit", "connectivity", "mostSuitableFor"];
+        const excludedAttributes = ["brand", "features", "model", "toFit", "connectivity", "mostSuitableFor", "ports"];
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
           if (!excludedAttributes.includes(key)) {
             acc[key] = multiSelectAttributes[key];

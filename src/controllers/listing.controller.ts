@@ -4,6 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Inventory } from "@/models";
+import { ebay } from "@/routes/ebay.route";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -61,9 +62,6 @@ export const listingController = {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // console.log("Received request to update draft Listing:", { listingId, stepData });
-
-      // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -71,7 +69,6 @@ export const listingController = {
         });
       }
 
-      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -79,42 +76,68 @@ export const listingController = {
         });
       }
 
-      // Update listing
+      // Step 1: Update the local draft first
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
-      // if (stepData.publishToEbay) {
-      // Sync product with eBay if it's marked for publishing
-      const ebayResponse = await ebayListingService.syncListingWithEbay(updatedListing);
 
-      // Update the product with the eBay Item ID
-      await listingService.updateDraftListing(updatedListing._id, {
-        ebayResponse,
-      });
+      let ebayResponse: any;
 
-      // Return success with the updated product
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Draft product updated and synced with eBay successfully",
-        data: updatedListing,
-        ebayResponse, // Include eBay Item ID in the response
-      });
-      // }
-      if (!updatedListing) {
-        return res.status(StatusCodes.NOT_FOUND).json({
+      // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
+      if (updatedListing.ebayItemId) {
+        // 🛠️ Listing already exists on eBay → Update it
+        ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
+      } else {
+        // 🆕 Listing not on eBay → Create it
+        ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
+      }
+
+      if (typeof ebayResponse === "string") {
+        ebayResponse = JSON.parse(ebayResponse);
+      }
+      // 🔵 Instead of checking status, check Ack
+      const ackValue = ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
+
+      if (ackValue !== "Success") {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: "Listing not found or could not be updated",
+          message: "Failed to sync with eBay",
+          ebayResponse,
+          ebayErrors:
+            ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
         });
       }
 
-      // If not marked for publishing, just return the updated product
+      // if (ebayResponse?.status !== 200) {
+      //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      //     success: false,
+      //     message: "Failed to sync with eBay",
+      //     ebayResponse,
+      //     ebayErrors:
+      //       ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+      //   });
+      // }
+
+      // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+      if (!updatedListing.ebayItemId && ebayResponse.itemId) {
+        await listingService.updateDraftListing(updatedListing._id, {
+          ebayItemId: ebayResponse.itemId,
+          ebaySandboxUrl: ebayResponse.sandboxUrl,
+          ebayResponse, // optional: store raw response
+        });
+      }
+
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft Listing updated successfully",
-        data: updatedListing,
+        message: "Draft product updated and synced with eBay successfully",
+        data: {
+          ...updatedListing.toObject(),
+          ebayItemId: ebayResponse.itemId ?? updatedListing.ebayItemId,
+          ebaySandboxUrl: ebayResponse.sandboxUrl ?? updatedListing.ebaySandboxUrl,
+        },
+        ebayResponse,
       });
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
 
-      // Check if the error is related to eBay synchronization
       if (error.message.includes("eBay")) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
@@ -122,7 +145,6 @@ export const listingController = {
         });
       }
 
-      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
@@ -161,7 +183,6 @@ export const listingController = {
       });
     }
   },
-
 
   getCategoryFeatures: async (req: Request, res: Response) => {
     try {
@@ -648,6 +669,9 @@ export const listingController = {
         status, // Extract status properly
         isBlocked,
         isTemplate,
+        publishToEbay,
+        publishToAmazon,
+        publishToWebsite,
         startDate,
         endDate,
         page = "1",
@@ -660,6 +684,9 @@ export const listingController = {
         userType: userType ? userType.toString() : undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
+        publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
+        publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
+        publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
         isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,

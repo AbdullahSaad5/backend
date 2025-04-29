@@ -11,7 +11,8 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { strict } from "assert";
-
+export const newToken =
+  "v^1.1#i^1#r^0#p^3#I^3#f^0#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -230,19 +231,20 @@ export const ebayListingService = {
     }
   },
 
-  syncListingWithEbay: async (listing: any): Promise<string> => {
+  addItemOnEbay: async (listing: any): Promise<string> => {
     try {
       // const token = await getStoredEbayAccessToken();
-      const token =
-        "v^1.1#i^1#r^0#p^3#I^3#f^0#t^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";
-      if (!token) {
+      if (!newToken) {
         throw new Error("Missing or invalid eBay access token");
       }
 
       const ebayData = listing;
 
       const retailPrice =
-        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.00;
+        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+
+      const listingQuantity =
+        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
       const escapeXml = (unsafe: any) =>
         unsafe
           ?.replace(/&/g, "&amp;")
@@ -301,7 +303,7 @@ export const ebayListingService = {
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
 
-        <StartPrice currencyID="GBP">10.00</StartPrice>
+        <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
           <Country>GB</Country>
           <Currency>GBP</Currency>
@@ -312,31 +314,13 @@ export const ebayListingService = {
           ${pictureURLs}
           </PictureDetails>
           <PostalCode>SW1A 1AA</PostalCode>
-          <Quantity>23</Quantity>
+          <Quantity>${listingQuantity}</Quantity>
             <!-- Dynamic ItemSpecifics -->
-
               <ItemSpecifics>
-                <NameValueList>
-                     <Name>Model</Name>
-                     <Value>xyz model</Value>
-                </NameValueList>
-                <NameValueList>
-                     <Name>ScreenSize</Name>
-                     <Value>14 inch</Value>
-                </NameValueList>
-                <NameValueList>
-                      <Name>Processor</Name>
-                      <Value>Intel Core i7</Value>
-                 </NameValueList>
-                  <NameValueList>
-                       <Name>Brand</Name>
-                       <Value>Lenovo</Value>
-                   </NameValueList>
-                    <NameValueList>
-                        <Name>Type</Name>
-                        <Value>Laptop</Value>
-                    </NameValueList>
-          </ItemSpecifics>
+              ${generateItemSpecifics(ebayData)}
+              </ItemSpecifics>
+
+
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
           <ReturnPolicy>
@@ -367,7 +351,8 @@ export const ebayListingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "AddItem",
-          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": token,
+          "X-EBAY-API-IAF-TOKEN": newToken,
         },
         body: listingBody,
       });
@@ -405,7 +390,7 @@ export const ebayListingService = {
       //   response: await response.text(),
       // });
     } catch (error: any) {
-      console.error("Error syncing product with eBay:", error.message);
+      console.error("Error adding listinng On eBay:", error.message);
 
       return JSON.stringify({
         status: 500,
@@ -413,7 +398,121 @@ export const ebayListingService = {
       });
     }
   },
+  reviseItemOnEbay: async (listing: any): Promise<string> => {
+    try {
+      // const token = await getStoredEbayAccessToken();
+      if (!newToken) {
+        throw new Error("Missing or invalid eBay access token");
+      }
 
+      const ebayData = listing;
+
+      const retailPrice =
+        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+
+      const listingQuantity =
+        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
+
+      console.log("retailPrice", retailPrice);
+      const listingDescriptionData = generateListingDescription(ebayData);
+      if (!ebayData) {
+        throw new Error("Missing eBay listing details");
+      }
+      // Handle multiple image URLs dynamically
+      const pictureURLs =
+        ebayData.prodMedia?.images
+          ?.map((image: any) => `<PictureURL>${escapeXml(image.url)}</PictureURL>`)
+          .join("\n") || "<PictureURL>https://mysamplepicture.com/15.jpg</PictureURL>";
+
+      // Use listing._id as the SKU (or replace with the correct ID field)
+      // const sku = listing._id?.toString();
+      const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
+
+      const listingBody = `
+      <?xml version="1.0" encoding="utf-8"?>
+<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+        <ErrorLanguage>en_US</ErrorLanguage>
+        <WarningLevel>High</WarningLevel>
+        <Item>
+        <ItemID>${ebayData.ebayItemId}</ItemID>
+          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <PrimaryCategory>
+          </PrimaryCategory>
+        <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
+          <CategoryMappingAllowed>true</CategoryMappingAllowed>
+          <Country>GB</Country>
+          <Currency>GBP</Currency>
+          <DispatchTimeMax>3</DispatchTimeMax>
+          <ListingDuration>GTC</ListingDuration>
+          <ListingType>FixedPriceItem</ListingType>
+          <PictureDetails>
+          ${pictureURLs}
+          </PictureDetails>
+          <PostalCode>SW1A 1AA</PostalCode>
+          <Quantity>${listingQuantity}</Quantity>
+            <!-- Dynamic ItemSpecifics -->
+              <ItemSpecifics>
+              ${generateItemSpecifics(ebayData)}
+              </ItemSpecifics>
+          <Location>London</Location>
+          <ConditionID>1000</ConditionID>
+
+          <Site>UK</Site>
+        </Item>
+      </ReviseItemRequest>
+    `;
+
+      console.log("Request Body for revise Listin:", listingBody, null, 2);
+
+      // Step 1: Create Listing on eBay
+      const response = await fetch(ebayUrl, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "ReviseItem",
+          // "X-EBAY-API-IAF-TOKEN": token,
+          "X-EBAY-API-IAF-TOKEN": newToken,
+        },
+        body: listingBody,
+      });
+      const rawResponse = await response.text();
+
+      const parser = new XMLParser({
+        ignoreAttributes: false,
+        trimValues: true,
+      });
+      const jsonObj = parser.parse(rawResponse);
+
+      const itemId = jsonObj?.AddItemResponse?.ItemID;
+
+      if (itemId) {
+        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
+        const sandboxUrl = `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
+
+        return JSON.stringify({
+          status: 200,
+          statusText: "OK",
+          itemId,
+          sandboxUrl,
+        });
+      } else {
+        return JSON.stringify({
+          status: 400,
+          statusText: "Failed to update listing on Ebay",
+          response: jsonObj,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updatnng listinng On eBay:", error.message);
+
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error updating/revising eBay API",
+      });
+    }
+  },
   // Helper function to map eBay error codes to human-readable messages
   getEbayErrorMessage(errors: any[]): string {
     if (!errors || errors.length === 0) {
@@ -604,15 +703,21 @@ function generateItemSpecifics(ebayData: any) {
     UPC: ebayData.prodTechInfo?.upc,
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
-    Model: ebayData.prodTechInfo?.model || "INTEL CCORE I9",
-    Brand: ebayData.prodTechInfo?.brand || "LENOVO",
+    Model: ebayData.prodTechInfo?.model || "Unknown",
+    Brand:
+      ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
+        ? ebayData.productInfo.brand.join(", ")
+        : ebayData.productInfo?.brand || "MixBrand",
     Storage: ebayData.prodTechInfo?.storageType,
-    Type: ebayData.prodTechInfo?.type || "Laptop",
+    Type: ebayData.prodTechInfo?.type || "Unknown",
     RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor,
+    Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
     GPU: ebayData.prodTechInfo?.gpu,
-    ScreenSize: ebayData.prodTechInfo?.screenSize,
+    ScreenSize:
+      ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
+        ? ebayData.prodTechInfo.screenSize.join(", ")
+        : ebayData.prodTechInfo?.screenSize || 0,
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,
@@ -689,7 +794,7 @@ function generateItemSpecifics(ebayData: any) {
   // Loop through dynamic fields to create NameValueList for each one if it exists
   for (const [key, value] of Object.entries(dynamicFields)) {
     // Only add to itemSpecifics if the value is not empty, null, or undefined
-    if (value && (Array.isArray(value) ? value.length > 0 : value.trim())) {
+    if (value && (Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim() : true)) {
       // If value is an array, create multiple <Value> tags for each item
       if (Array.isArray(value)) {
         itemSpecifics.push(`
@@ -711,4 +816,12 @@ function generateItemSpecifics(ebayData: any) {
   }
 
   return itemSpecifics.join("");
+}
+function escapeXml(unsafe: any) {
+  return unsafe
+    ?.replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
