@@ -239,13 +239,13 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
+      const variationXml = ebayData.hasVariation ? generateVariationsXml(ebayData) : "";
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
       const listingQuantity =
         ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
-
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
@@ -333,159 +333,8 @@ export const ebayListingService = {
           </ShippingDetails>
           <Site>UK</Site>
 
+ ${variationXml}
 
-
-
-
-
-<Variations>
-      <VariationSpecificsSet>
-        <NameValueList>
-          <Name>RAM</Name>
-          <Value>4GB</Value>
-          <Value>8GB</Value>
-          <Value>16GB</Value>
-          <Value>32GB</Value>
-        </NameValueList>
-
-          <NameValueList>
-          <Name>RAM/CPU</Name>
-          <Value>abc</Value>
-          <Value>def</Value>
-          <Value>ghi</Value>
-          <Value>jkl</Value>
-        </NameValueList>
-        <NameValueList>
-          <Name>Size</Name>
-          <Value>13 inch</Value>
-          <Value>14 inch</Value>
-          <Value>15 inch</Value>
-          <Value>17 inch</Value>
-        </NameValueList>
-      </VariationSpecificsSet>
-      <Variation>
-        <SKU>LAPTOP-4GB-13</SKU>
-        <StartPrice>499.99</StartPrice>
-        <Quantity>10</Quantity>
-        <VariationSpecifics>
-          <NameValueList>
-            <Name>RAM</Name>
-            <Value>4GB</Value>
-          </NameValueList>
-          <NameValueList>
-
-            <Name>RAM/CPU</Name>
-            <Value>ghi</Value>
-          </NameValueList>
-          <NameValueList>
-            <Name>Size</Name>
-            <Value>13 inch</Value>
-          </NameValueList>
-        </VariationSpecifics>
-      </Variation>
-      <Variation>
-        <SKU>LAPTOP-8GB-14</SKU>
-        <StartPrice>599.99</StartPrice>
-        <Quantity>8</Quantity>
-        <VariationSpecifics>
-          <NameValueList>
-            <Name>RAM</Name>
-            <Value>8GB</Value>
-          </NameValueList>
-            <NameValueList>
-            <Name>RAM/CPU</Name>
-            <Value>def</Value>
-          </NameValueList>
-          <NameValueList>
-            <Name>Size</Name>
-            <Value>14 inch</Value>
-          </NameValueList>
-        </VariationSpecifics>
-      </Variation>
-
-
-
-       <Variation>
-        <SKU>LAPTOP-RAM/CPU-8GB-14</SKU>
-        <StartPrice>599.99</StartPrice>
-        <Quantity>8</Quantity>
-        <VariationSpecifics>
-          <NameValueList>
-            <Name>RAM</Name>
-            <Value>8GB</Value>
-          </NameValueList>
-
-           <NameValueList>
-            <Name>RAM/CPU</Name>
-            <Value>abc</Value>
-          </NameValueList>
-          <NameValueList>
-            <Name>Size</Name>
-            <Value>14 inch</Value>
-          </NameValueList>
-        </VariationSpecifics>
-      </Variation>
-
-
-
-      <Variation>
-        <SKU>LAPTOP-16GB-15</SKU>
-        <StartPrice>699.99</StartPrice>
-        <Quantity>5</Quantity>
-        <VariationSpecifics>
-          <NameValueList>
-            <Name>RAM</Name>
-            <Value>16GB</Value>
-          </NameValueList>
-           <NameValueList>
-            <Name>RAM/CPU</Name>
-            <Value>jkl</Value>
-          </NameValueList>
-          <NameValueList>
-            <Name>Size</Name>
-            <Value>15 inch</Value>
-          </NameValueList>
-        </VariationSpecifics>
-      </Variation>
-      <Variation>
-        <SKU>LAPTOP-32GB-17</SKU>
-        <StartPrice>799.99</StartPrice>
-        <Quantity>3</Quantity>
-        <VariationSpecifics>
-          <NameValueList>
-            <Name>RAM</Name>
-            <Value>32GB</Value>
-          </NameValueList>
-            <NameValueList>
-            <Name>RAM/CPU</Name>
-            <Value>jkl</Value>
-          </NameValueList>
-          <NameValueList>
-            <Name>Size</Name>
-            <Value>17 inch</Value>
-          </NameValueList>
-        </VariationSpecifics>
-      </Variation>
-      <Pictures>
-        <VariationSpecificName>RAM</VariationSpecificName>
-        <VariationSpecificPictureSet>
-          <VariationSpecificValue>4GB</VariationSpecificValue>
-          <PictureURL>https://example.com/images/laptop-4gb.jpg</PictureURL>
-        </VariationSpecificPictureSet>
-        <VariationSpecificPictureSet>
-          <VariationSpecificValue>8GB</VariationSpecificValue>
-          <PictureURL>https://example.com/images/laptop-8gb.jpg</PictureURL>
-        </VariationSpecificPictureSet>
-        <VariationSpecificPictureSet>
-          <VariationSpecificValue>16GB</VariationSpecificValue>
-          <PictureURL>https://example.com/images/laptop-16gb.jpg</PictureURL>
-        </VariationSpecificPictureSet>
-        <VariationSpecificPictureSet>
-          <VariationSpecificValue>32GB</VariationSpecificValue>
-          <PictureURL>https://example.com/images/laptop-32gb.jpg</PictureURL>
-        </VariationSpecificPictureSet>
-      </Pictures>
-</Variations>
 
         </Item>
       </AddFixedPriceItemRequest>
@@ -558,7 +407,7 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
-
+      const variationXml = ebayData.hasVariation ? generateVariationsXml(ebayData) : "";
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
@@ -611,7 +460,7 @@ export const ebayListingService = {
               </ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
-
+ ${variationXml}
           <Site>UK</Site>
         </Item>
       </ReviseItemRequest>
@@ -978,4 +827,47 @@ function escapeXml(unsafe: any) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+function generateVariationsXml(ebayData: any): string {
+  const variations = ebayData?.prodPricing?.selectedVariations || [];
+  if (!variations.length) return "";
+
+  const variationSpecificsSet: { [key: string]: Set<string> } = {};
+  const variationNodes = variations.map((variation: any, index: number) => {
+    const attrObj = variation?.variationId?.attributes || {};
+    const nameValueXml = Object.entries(attrObj)
+      .map(([key, value]: any) => {
+        if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
+        variationSpecificsSet[key].add(value);
+        return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
+      })
+      .join("");
+
+    return `
+      <Variation>
+        <SKU>VARIATION-${index + 1}</SKU>
+        <StartPrice>${variation.retailPrice}</StartPrice>
+        <Quantity>${variation.listingQuantity}</Quantity>
+        <VariationSpecifics>
+          ${nameValueXml}
+        </VariationSpecifics>
+      </Variation>`;
+  });
+
+  const specificsXml = Object.entries(variationSpecificsSet)
+    .map(([name, values]) => {
+      const valueXml = Array.from(values)
+        .map((v) => `<Value>${escapeXml(v)}</Value>`)
+        .join("");
+      return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
+    })
+    .join("");
+
+  return `
+    <Variations>
+      <VariationSpecificsSet>
+        ${specificsXml}
+      </VariationSpecificsSet>
+      ${variationNodes.join("\n")}
+    </Variations>`;
 }
