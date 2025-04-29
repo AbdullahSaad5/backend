@@ -97,7 +97,10 @@ export const listingController = {
         const ackValue =
           ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
 
-        if (ackValue !== "Success") {
+        const isAckSuccess = ackValue === "Success";
+        const isDirectSuccess = ebayResponse?.status === 200 && ebayResponse?.itemId;
+
+        if (!isAckSuccess && !isDirectSuccess) {
           return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             success: false,
             message: "Failed to sync with eBay",
@@ -106,6 +109,7 @@ export const listingController = {
               ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
           });
         }
+
         // if (ebayResponse?.status !== 200) {
         //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         //     success: false,
