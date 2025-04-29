@@ -10,9 +10,9 @@ import {
   getStoredEbayAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
-import { strict } from "assert";
+import { Listing } from "@/models";
 export const newToken =
-  "v^1.1#i^1#r^0#p^3#f^0#I^3#t^H4sIAAAAAAAA/+VZf2wbVx2Pk/RHVMoGg8G2sBnTP2Dl7Luz73x3LC7Ojy5p48S1k7QptNnzu3f2Jfcr994l8YAtjbYJTUh0Gr8EQ6vUbawSGmNsokJqB0jrOjS6wn78VUBMDE3b/kAIibANiXd26jpBaWPfpFpw/5zu3ffX5/vr/WIXN3fdet/gff/cHtrSfmyRXWwPhbhtbNfmTTs/3NF+46Y2to4gdGxxx2LnUsebt2FgGo6SQ9ixLYzCC6ZhYaUy2BPxXEuxAdaxYgETYYVAJZ/ODCt8lFUc1yY2tI1IeKi/J6IiSUIFLi6yMp+IaxIdtS7KHLN7IrycUBN8QoWqKhVkAOl/jD00ZGECLEL/s7zAsAmGl8e4pMKKSkKIcqx0MBKeQC7WbYuSRNlIqmKuUuF162y9vKkAY+QSKiSSGkrvzo+mh/oHRsZui9XJSq34IU8A8fDqrz5bReEJYHjo8mpwhVrJexAijCOxVFXDaqFK+qIxTZhfcbUAIStpIlClpAp4Sf1AXLnbdk1ALm+HP6KrjFYhVZBFdFK+kkepNwrTCJKVrxEqYqg/7L/2ecDQNR25PZGB3vTkeH4gFwnns1nXntNVpPpIuXgiwfKcQI0lCFMXIncKFFTPMEAJA6AKKwqrUlfcvUZjn22puu88HB6xSS+i1qPVPhIVoc5HlGjUGnXTGvEtq6eTa75kD/rBrUbTIyXLjy8yqUPClc8rR+JialxKhg8qOeIS4gVeRVBgC6IApVpy+LUeIEFSfozS2WzMtwUVQJkxgTuDiGMAiBhI3euZyNVVJS5ofFzSEKOKssYkZE1jCoIqMpyGEItQoQBl6f8xTwhx9YJHUC1X1v6ogO2J5KHtoKxt6LAcWUtS6UErmbGAeyIlQhwlFpufn4/Ox6O2W4zxLMvFDmSG87CETBCp0epXJmb0StpCRLmwrpCyQ61ZoClIlVvFSCruqlngknKvV6bfeWQY9HUxjVdZmFo7ug7UPkOnfhijiloL6aCNCVIDQVPRnA7RlK5eFWR+ra+LjuECITPsom5lECnZVwfburj8xjDUHwgb7aOAtBaqusbCyisNiOUSDEsbNxsIbNpxhkzTI6BgoKEWi2UinhREIRA8x/OuUvWtiwqYtu3OwBlimIGg+dOvogNNIfYM8mvdar0emhvYnRvID06Nje4dGAmENoc0F+HSGMVqtVqepveld6fpkxkwYvvYuAVN7vYsZ0zvxeOFeSmbxgvT/YY5W945nJvLZmfQoJAZRtOjvcOO1j8Zn/UmHc0ZIwfu7C/29ARyUh5BF7VY65L1ick8zuSy0xP795DccGYkVipxMFMspScGZ/pM0+U1VEzMWe5kMPCV1Gi9EnCriTvlV6k1Rb8CgRwoerpf6y1WAZJPLhRUThZZICIhyUIVyBrQ6MOLATH7U1SL4c2XkZqmWwumF8wNjWVsyOR7DzCyKPISKogaQzcHrAyTMODc9b86dWF/d9Na0Hx+TAUAR4/6M2sU2mbMBnQj7w9NVSwOb4QoVvDKVL+K3KiLgGpbRnnjfEWPblyr3FUmv9avxIjpJixa3YdTKA1qXc3cAI9uzdFtm+2Wm1FYY26AB0BoexZpRt0KawMcmmdoumH4O/RmFNaxN2KmBYwy0SFuPoaVgxjqXqwXS6RROXTMRC7lh4AAusNrIoFxyXYcPwshcDcIvVIvmkbrBXiwcujVmLG6Wj2DbBZsjZ92Cd0ILMUp2RZqSkp1v35JElBVunJoOog1Of5pYWAh1VPtpmpBt/y+ixtgcUC5Unmqjh1/1migsRBkRlUXaI3Unc/UALmLqFFg45m6hqnZUFg20TUdVmVgr4ChqztN1Mu6cpoJLqZNvKHQVhlqqoId1CBVdxEkU56rt9Zqwl8fTqVXzp6n8sya9SJTpLV+bbHkBDs59f3bimdw2XQ+v380F+wUrh/NtdqqX1I5KS5LGiPJvOBfagAGSLLMcGoyzseFQhyIfCDMLXfuyCUTgpwQE+yGca0ZqLvn+K+rrtjqO+dUW+XhlkK/YZdCZ9pDIbafZbid7Oc2d4x3dnwogmmfjmJgqQV7IaoDLUoXORadlVwUnUFlB+hu+3Vtr7x1ND/5u70nv3P6ztkj0V1n2rrqrr6PHWI/Wbv87urgttXdhLPdl/5s4q75xHZeYBO8zCVZMSEcZD9z6W8nd33nx97/9Pnuh49+XftV6vDpsUfE4/c/99A5dnuNKBTa1Na5FGr74al7zs4//oeje761/JB5Qji8C/aO3HFtd/fd52944P3hb7z08E3eqyf48Fnrb+LIF352/s3PC0/dYnBPLM9uPmW9cUA6+cUXf37jb4+9jsLF8TOjo3cL1330X2d/sHjXC+bpT104eeHtx9/NPeW8fvytb9/03WfNJ3eaD078cseL7936zI+uL4RI1+8/6/30H+/8/YHjr/7isaUjB1Mj93/pT09f85710oU73naimeTzW45v/aaWjN7b8de+1/b8Ovfou9ryM39ZfGXnR8a33rNVTZ174qt3De8PdR/98fJjs6y1a8eJm9vfefmGLeiFr3mnbv7JH7/87Lk2+7nDh7xHuOVbnvzzG9/b9vShj38/9dq/zxWPfOX56ZT86MvVmP4Hv3aNK5QgAAA=";
+  "v^1.1#i^1#f^0#p^3#r^0#I^3#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -237,9 +237,15 @@ export const ebayListingService = {
       if (!newToken) {
         throw new Error("Missing or invalid eBay access token");
       }
+      const populatedListing: any = await Listing.findById(listing._id)
+        .populate("prodPricing.selectedVariations.variationId")
+        .lean();
 
-      const ebayData = listing;
-      const variationXml = ebayData.hasVariation ? generateVariationsXml(ebayData) : "";
+      if (!populatedListing) {
+        throw new Error("Listing not found or failed to populate");
+      }
+      const ebayData = populatedListing;
+      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
@@ -407,7 +413,7 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
-      const variationXml = ebayData.hasVariation ? generateVariationsXml(ebayData) : "";
+      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
@@ -694,8 +700,15 @@ function generateListingDescription(ebayData: any) {
 }
 function generateItemSpecifics(ebayData: any) {
   const itemSpecifics = [];
+  // Extract variation attribute names
 
-  // Define dynamic fields mapping
+  // Step 1: Extract variation attribute names into a Set
+  const variations = ebayData?.prodPricing?.selectedVariations || [];
+  const variationAttributeNames = new Set<string>();
+  variations.forEach((variation: any) => {
+    const attributes = variation?.variationId?.attributes || {};
+    Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+  });
   const dynamicFields = {
     // Handle features array as a singtle string with comma-separated values
     Feature:
@@ -820,6 +833,7 @@ function generateItemSpecifics(ebayData: any) {
 
   return itemSpecifics.join("");
 }
+
 function escapeXml(unsafe: any) {
   return unsafe
     ?.replace(/&/g, "&amp;")
@@ -833,8 +847,18 @@ function generateVariationsXml(ebayData: any): string {
   if (!variations.length) return "";
 
   const variationSpecificsSet: { [key: string]: Set<string> } = {};
+  const picturesByAttribute: { [value: string]: string[] } = {};
+  const pictureAttributeName = "ramSize"; // Configurable attribute for pictures
+
   const variationNodes = variations.map((variation: any, index: number) => {
     const attrObj = variation?.variationId?.attributes || {};
+
+    // Group images by specific attribute for <Pictures> tag
+    const pictureAttrValue = attrObj[pictureAttributeName];
+    if (pictureAttrValue && variation.images?.length) {
+      picturesByAttribute[pictureAttrValue] = variation.images.map((img: any) => img.url);
+    }
+
     const nameValueXml = Object.entries(attrObj)
       .map(([key, value]: any) => {
         if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
@@ -854,6 +878,7 @@ function generateVariationsXml(ebayData: any): string {
       </Variation>`;
   });
 
+  // Build VariationSpecificsSet
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
       const valueXml = Array.from(values)
@@ -863,11 +888,29 @@ function generateVariationsXml(ebayData: any): string {
     })
     .join("");
 
+  // Build Pictures XML if images exist
+  const picturesXml = Object.keys(picturesByAttribute).length
+    ? `<Pictures>
+        <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>
+        ${Object.entries(picturesByAttribute)
+          .map(
+            ([value, urls]) => `
+          <VariationSpecificPictureSet>
+            <VariationSpecificValue>${escapeXml(value)}</VariationSpecificValue>
+            ${urls.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}
+          </VariationSpecificPictureSet>
+        `
+          )
+          .join("\n")}
+      </Pictures>`
+    : "";
+
   return `
     <Variations>
       <VariationSpecificsSet>
         ${specificsXml}
       </VariationSpecificsSet>
       ${variationNodes.join("\n")}
+      ${picturesXml}
     </Variations>`;
 }
