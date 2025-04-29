@@ -69,9 +69,23 @@ export const inventoryService = {
         throw new Error("Invalid or missing 'kind' (inventory type)");
       }
 
-      const categoryId = mongoose.isValidObjectId(productCategory)
-        ? new mongoose.Types.ObjectId(productCategory)
-        : null;
+      let categoryId;
+
+      // Handle productCategory based on isPart
+      if (isPart) {
+        // For parts, accept eBay category ID (string or number)
+        if (productCategory === undefined || productCategory === null || productCategory === "") {
+          throw new Error("Invalid or missing 'productCategory' for part");
+        }
+        categoryId = productCategory.toString(); // Convert to string
+      } else {
+        // For non-parts, validate as MongoDB ObjectId
+        if (!mongoose.isValidObjectId(productCategory)) {
+          throw new Error("Invalid or missing 'productCategory' for product");
+        }
+        categoryId = new mongoose.Types.ObjectId(productCategory);
+      }
+
       const supplierId = mongoose.isValidObjectId(productSupplier)
         ? new mongoose.Types.ObjectId(productSupplier)
         : null;
@@ -89,6 +103,8 @@ export const inventoryService = {
         inventoryCondition: inventoryCondition || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
+
+      // console.log("productInfo : " , productInfo)
 
       const draftInventoryData: any = {
         status: "draft",
@@ -280,9 +296,7 @@ export const inventoryService = {
   updateInventory: async (id: string, data: any) => {
     try {
       const updateQuery = { [`platformDetails.`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
-        new: true,
-      });
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -321,21 +335,11 @@ export const inventoryService = {
   getInventoryStats: async () => {
     try {
       const totalInventory = await Inventory.countDocuments({});
-      const activeInventory = await Inventory.countDocuments({
-        isBlocked: false,
-      });
-      const blockedInventory = await Inventory.countDocuments({
-        isBlocked: true,
-      });
-      const PublishedInventory = await Inventory.countDocuments({
-        status: "published",
-      });
-      const DraftInventory = await Inventory.countDocuments({
-        status: "draft",
-      });
-      const TemplateInventory = await Inventory.countDocuments({
-        isTemplate: true,
-      });
+      const activeInventory = await Inventory.countDocuments({ isBlocked: false });
+      const blockedInventory = await Inventory.countDocuments({ isBlocked: true });
+      const PublishedInventory = await Inventory.countDocuments({ status: "published" });
+      const DraftInventory = await Inventory.countDocuments({ status: "draft" });
+      const TemplateInventory = await Inventory.countDocuments({ isTemplate: true });
 
       return {
         totalInventory,
@@ -376,24 +380,9 @@ export const inventoryService = {
       // Search logic if searchQuery is provided
       if (searchQuery) {
         query.$or = [
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
         // Perform searches for productSupplier and productCategory in parallel using Promise.all
@@ -406,9 +395,7 @@ export const inventoryService = {
             ],
           }).select("_id"),
 
-          ProductCategory.find({
-            name: { $regex: searchQuery, $options: "i" },
-          }).select("_id"),
+          ProductCategory.find({ name: { $regex: searchQuery, $options: "i" } }).select("_id"),
         ]);
 
         // Check if search query contains both first and last name (e.g., "Asad Khan")
@@ -430,16 +417,8 @@ export const inventoryService = {
 
         // Add filters for productSupplier and productCategory ObjectIds to the query
         query.$or.push(
-          {
-            "productInfo.productSupplier": {
-              $in: productSuppliers.map((supplier) => supplier._id),
-            },
-          },
-          {
-            "productInfo.productCategory": {
-              $in: productCategories.map((category) => category._id),
-            },
-          }
+          { "productInfo.productSupplier": { $in: productSuppliers.map((supplier) => supplier._id) } },
+          { "productInfo.productCategory": { $in: productCategories.map((category) => category._id) } }
         );
       }
 
@@ -663,12 +642,7 @@ export const inventoryService = {
       // Perform bulk update with nested prodPricing field
       const result = await Inventory.updateMany(
         { _id: { $in: inventoryIds } }, // Filter valid inventory IDs
-        {
-          $set: {
-            "prodPricing.discountValue": discountValue,
-            "prodPricing.vat": vat,
-          },
-        }
+        { $set: { "prodPricing.discountValue": discountValue, "prodPricing.vat": vat } }
       );
 
       if (result.modifiedCount === 0) {
