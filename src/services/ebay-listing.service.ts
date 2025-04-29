@@ -12,7 +12,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { strict } from "assert";
 export const newToken =
-  "v^1.1#i^1#p^3#I^3#r^0#f^0#t^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";
+  "v^1.1#i^1#r^0#p^3#f^0#I^3#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -245,13 +245,7 @@ export const ebayListingService = {
 
       const listingQuantity =
         ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
-      const escapeXml = (unsafe: any) =>
-        unsafe
-          ?.replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&apos;");
+
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
@@ -293,12 +287,12 @@ export const ebayListingService = {
 
       const listingBody = `
       <?xml version="1.0" encoding="UTF-8"?>
-      <AddItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+      <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -338,8 +332,163 @@ export const ebayListingService = {
                    </ShippingServiceOptions>
           </ShippingDetails>
           <Site>UK</Site>
+
+
+
+
+
+
+<Variations>
+      <VariationSpecificsSet>
+        <NameValueList>
+          <Name>RAM</Name>
+          <Value>4GB</Value>
+          <Value>8GB</Value>
+          <Value>16GB</Value>
+          <Value>32GB</Value>
+        </NameValueList>
+
+          <NameValueList>
+          <Name>RAM/CPU</Name>
+          <Value>abc</Value>
+          <Value>def</Value>
+          <Value>ghi</Value>
+          <Value>jkl</Value>
+        </NameValueList>
+        <NameValueList>
+          <Name>Size</Name>
+          <Value>13 inch</Value>
+          <Value>14 inch</Value>
+          <Value>15 inch</Value>
+          <Value>17 inch</Value>
+        </NameValueList>
+      </VariationSpecificsSet>
+      <Variation>
+        <SKU>LAPTOP-4GB-13</SKU>
+        <StartPrice>499.99</StartPrice>
+        <Quantity>10</Quantity>
+        <VariationSpecifics>
+          <NameValueList>
+            <Name>RAM</Name>
+            <Value>4GB</Value>
+          </NameValueList>
+          <NameValueList>
+
+            <Name>RAM/CPU</Name>
+            <Value>ghi</Value>
+          </NameValueList>
+          <NameValueList>
+            <Name>Size</Name>
+            <Value>13 inch</Value>
+          </NameValueList>
+        </VariationSpecifics>
+      </Variation>
+      <Variation>
+        <SKU>LAPTOP-8GB-14</SKU>
+        <StartPrice>599.99</StartPrice>
+        <Quantity>8</Quantity>
+        <VariationSpecifics>
+          <NameValueList>
+            <Name>RAM</Name>
+            <Value>8GB</Value>
+          </NameValueList>
+            <NameValueList>
+            <Name>RAM/CPU</Name>
+            <Value>def</Value>
+          </NameValueList>
+          <NameValueList>
+            <Name>Size</Name>
+            <Value>14 inch</Value>
+          </NameValueList>
+        </VariationSpecifics>
+      </Variation>
+
+
+
+       <Variation>
+        <SKU>LAPTOP-RAM/CPU-8GB-14</SKU>
+        <StartPrice>599.99</StartPrice>
+        <Quantity>8</Quantity>
+        <VariationSpecifics>
+          <NameValueList>
+            <Name>RAM</Name>
+            <Value>8GB</Value>
+          </NameValueList>
+
+           <NameValueList>
+            <Name>RAM/CPU</Name>
+            <Value>abc</Value>
+          </NameValueList>
+          <NameValueList>
+            <Name>Size</Name>
+            <Value>14 inch</Value>
+          </NameValueList>
+        </VariationSpecifics>
+      </Variation>
+
+
+
+      <Variation>
+        <SKU>LAPTOP-16GB-15</SKU>
+        <StartPrice>699.99</StartPrice>
+        <Quantity>5</Quantity>
+        <VariationSpecifics>
+          <NameValueList>
+            <Name>RAM</Name>
+            <Value>16GB</Value>
+          </NameValueList>
+           <NameValueList>
+            <Name>RAM/CPU</Name>
+            <Value>jkl</Value>
+          </NameValueList>
+          <NameValueList>
+            <Name>Size</Name>
+            <Value>15 inch</Value>
+          </NameValueList>
+        </VariationSpecifics>
+      </Variation>
+      <Variation>
+        <SKU>LAPTOP-32GB-17</SKU>
+        <StartPrice>799.99</StartPrice>
+        <Quantity>3</Quantity>
+        <VariationSpecifics>
+          <NameValueList>
+            <Name>RAM</Name>
+            <Value>32GB</Value>
+          </NameValueList>
+            <NameValueList>
+            <Name>RAM/CPU</Name>
+            <Value>jkl</Value>
+          </NameValueList>
+          <NameValueList>
+            <Name>Size</Name>
+            <Value>17 inch</Value>
+          </NameValueList>
+        </VariationSpecifics>
+      </Variation>
+      <Pictures>
+        <VariationSpecificName>RAM</VariationSpecificName>
+        <VariationSpecificPictureSet>
+          <VariationSpecificValue>4GB</VariationSpecificValue>
+          <PictureURL>https://example.com/images/laptop-4gb.jpg</PictureURL>
+        </VariationSpecificPictureSet>
+        <VariationSpecificPictureSet>
+          <VariationSpecificValue>8GB</VariationSpecificValue>
+          <PictureURL>https://example.com/images/laptop-8gb.jpg</PictureURL>
+        </VariationSpecificPictureSet>
+        <VariationSpecificPictureSet>
+          <VariationSpecificValue>16GB</VariationSpecificValue>
+          <PictureURL>https://example.com/images/laptop-16gb.jpg</PictureURL>
+        </VariationSpecificPictureSet>
+        <VariationSpecificPictureSet>
+          <VariationSpecificValue>32GB</VariationSpecificValue>
+          <PictureURL>https://example.com/images/laptop-32gb.jpg</PictureURL>
+        </VariationSpecificPictureSet>
+      </Pictures>
+</Variations>
+
         </Item>
-      </AddItemRequest>
+      </AddFixedPriceItemRequest>
     `;
 
       console.log("Request Body for Listing Creation:", listingBody, null, 2);
@@ -350,7 +499,7 @@ export const ebayListingService = {
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "AddItem",
+          "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
           // "X-EBAY-API-IAF-TOKEN": token,
           "X-EBAY-API-IAF-TOKEN": newToken,
         },
@@ -376,12 +525,14 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
+          response: response,
         });
       } else {
         return JSON.stringify({
           status: 400,
           statusText: "Failed to create listing",
-          response: jsonObj,
+          errorResponse: jsonObj,
+          response: response,
         });
       }
 
@@ -415,6 +566,7 @@ export const ebayListingService = {
         ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
 
       console.log("retailPrice", retailPrice);
+
       const listingDescriptionData = generateListingDescription(ebayData);
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
@@ -437,8 +589,9 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
+            <CategoryID>${ebayData.categoryId}</CategoryID>
           </PrimaryCategory>
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -711,7 +864,7 @@ function generateItemSpecifics(ebayData: any) {
         : ebayData.productInfo?.brand || "MixBrand",
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
-    RAM: ebayData.prodTechInfo?.ramSize,
+    // RAM: ebayData.prodTechInfo?.ramSize,
     Processor: ebayData.prodTechInfo?.processor || "Unknown",
     FormFactor: ebayData.prodTechInfo?.formFactor,
     GPU: ebayData.prodTechInfo?.gpu,
@@ -768,7 +921,7 @@ function generateItemSpecifics(ebayData: any) {
     ProductLine: ebayData.prodTechInfo?.productLine,
     WarrantyDuration: ebayData.prodPricing?.warrantyDuration,
     WarrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
-    WarrantyDocument: ebayData.prodPricing?.warrantyDocument,
+    // WarrantyDocument: ebayData.prodPricing?.warrantyDocument,
     PostagePolicy: ebayData.prodDelivery?.postagePolicy,
     PackageWeight: ebayData.prodDelivery?.packageWeight,
     PackageDimensions: ebayData.prodDelivery?.packageDimensions,
