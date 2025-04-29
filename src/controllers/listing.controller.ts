@@ -83,55 +83,58 @@ export const listingController = {
 
       // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
       if (updatedListing.ebayItemId) {
-        // 🛠️ Listing already exists on eBay → Update it
+        // Listing already exists on eBay → Update it
         ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
-      } else {
-        // 🆕 Listing not on eBay → Create it
+      } else if (updatedListing.status === "published" && updatedListing.publishToEbay === true) {
+        // Listing is marked as 'published' → Create new item on eBay
         ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
       }
+      if (ebayResponse) {
+        if (typeof ebayResponse === "string") {
+          ebayResponse = JSON.parse(ebayResponse);
+        }
 
-      if (typeof ebayResponse === "string") {
-        ebayResponse = JSON.parse(ebayResponse);
-      }
-      // 🔵 Instead of checking status, check Ack
-      const ackValue = ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
+        const ackValue =
+          ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
 
-      if (ackValue !== "Success") {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          message: "Failed to sync with eBay",
-          ebayResponse,
-          ebayErrors:
-            ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
-        });
-      }
+        if (ackValue !== "Success") {
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Failed to sync with eBay",
+            ebayResponse,
+            ebayErrors:
+              ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+          });
+        }
+        // if (ebayResponse?.status !== 200) {
+        //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        //     success: false,
+        //     message: "Failed to sync with eBay",
+        //     ebayResponse,
+        //     ebayErrors:
+        //       ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+        //   });
+        // }
 
-      // if (ebayResponse?.status !== 200) {
-      //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      //     success: false,
-      //     message: "Failed to sync with eBay",
-      //     ebayResponse,
-      //     ebayErrors:
-      //       ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
-      //   });
-      // }
-
-      // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
-      if (!updatedListing.ebayItemId && ebayResponse.itemId) {
-        await listingService.updateDraftListing(updatedListing._id, {
-          ebayItemId: ebayResponse.itemId,
-          ebaySandboxUrl: ebayResponse.sandboxUrl,
-          ebayResponse, // optional: store raw response
-        });
+        // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+        if (ebayResponse && !updatedListing.ebayItemId && ebayResponse.itemId) {
+          await listingService.updateDraftListing(updatedListing._id, {
+            ebayItemId: ebayResponse.itemId,
+            ebaySandboxUrl: ebayResponse.sandboxUrl,
+            ebayResponse, // optional: store raw response
+          });
+        }
       }
 
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft product updated and synced with eBay successfully",
+        message: ebayResponse
+          ? "Draft product updated and synced with eBay successfully"
+          : "Draft product updated locally without syncing to eBay",
         data: {
           ...updatedListing.toObject(),
-          ebayItemId: ebayResponse.itemId ?? updatedListing.ebayItemId,
-          ebaySandboxUrl: ebayResponse.sandboxUrl ?? updatedListing.ebaySandboxUrl,
+          ebayItemId: ebayResponse?.itemId ?? updatedListing.ebayItemId,
+          ebaySandboxUrl: ebayResponse?.sandboxUrl ?? updatedListing.ebaySandboxUrl,
         },
         ebayResponse,
       });
