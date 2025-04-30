@@ -95,7 +95,7 @@ export const listingController = {
         }
 
         const ackValue =
-          ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddItemResponse?.Ack;
+          ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddFixedPriceItemResponse?.Ack;
 
         const isAckSuccess = ackValue === "Success";
         const isDirectSuccess = ebayResponse?.status === 200 && ebayResponse?.itemId;
@@ -106,7 +106,8 @@ export const listingController = {
             message: "Failed to sync with eBay",
             ebayResponse,
             ebayErrors:
-              ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+              ebayResponse?.response?.AddFixedPriceItemResponse?.Errors ||
+              ebayResponse?.response?.ReviseItemResponse?.Errors,
           });
         }
 
@@ -116,7 +117,7 @@ export const listingController = {
         //     message: "Failed to sync with eBay",
         //     ebayResponse,
         //     ebayErrors:
-        //       ebayResponse?.response?.AddItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
+        //       ebayResponse?.response?.AddFixedPriceItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
         //   });
         // }
 

@@ -368,7 +368,7 @@ export const ebayListingService = {
       });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.AddItemResponse?.ItemID;
+      const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
 
       if (itemId) {
         const rawTitle = ebayData.productInfo?.title || "item";
@@ -387,15 +387,9 @@ export const ebayListingService = {
           status: 400,
           statusText: "Failed to create listing",
           errorResponse: jsonObj,
-          response: response,
+          response: await response.text(),
         });
       }
-
-      // return JSON.stringify({
-      //   status: response.status,
-      //   statusText: response.statusText,
-      //   response: await response.text(),
-      // });
     } catch (error: any) {
       console.error("Error adding listinng On eBay:", error.message);
 
@@ -472,7 +466,7 @@ export const ebayListingService = {
       </ReviseItemRequest>
     `;
 
-      console.log("Request Body for revise Listin:", listingBody, null, 2);
+      console.log("Request Body for revise Listing:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -494,7 +488,7 @@ export const ebayListingService = {
       });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.AddItemResponse?.ItemID;
+      const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
 
       if (itemId) {
         const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
