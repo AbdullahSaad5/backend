@@ -13,7 +13,7 @@ export const listing = (router: Router) => {
   router.get("/search", listingController.searchAndFilterListing);
   router.get("/get-seller-list", listingController.getSellerList);
   router.get("/get-category-features", listingController.getCategoryFeatures);
-
+  router.get("/get-category-sub-tree/:id",listingController.transformAndSendDraftListing);
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
 

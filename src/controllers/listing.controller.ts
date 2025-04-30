@@ -474,6 +474,38 @@ export const listingController = {
       });
     }
   },
+
+  getCategorySubTree: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch listing from DB
+      const categorySubTree = await listingService.getFullListingById(id);
+
+      if (!categorySubTree) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "categrySubTree not found",
+        });
+      }
+
+      // Transform listing data using utility
+      const getCategorySubTree = listingService.getCategorySubTree(id);
+
+      // Send transformed Draft listing as response
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "category sub tree Fetched successfully",
+        data: getCategorySubTree,
+      });
+    } catch (error: any) {
+      console.error("Error getting sub tree", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error getting sub tree",
+      });
+    }
+  },
   //Selected transformed Template Listing
   transformAndSendTemplateListing: async (req: Request, res: Response) => {
     try {

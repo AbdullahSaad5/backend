@@ -4,13 +4,22 @@ import { ProductCategory } from "@/models";
 export const productCategoryService = {
   createCategory: (
     name: String,
+    ebayPartCategoryId: string,
     description: string,
     image: string,
     tags: string[],
     isBlocked: boolean,
     isPart: boolean
   ) => {
-    const newProductCategory = new ProductCategory({ name, description, image, tags, isBlocked, isPart });
+    const newProductCategory = new ProductCategory({
+      name,
+      ebayPartCategoryId,
+      description,
+      image,
+      tags,
+      isBlocked,
+      isPart,
+    });
     return newProductCategory.save();
   },
 

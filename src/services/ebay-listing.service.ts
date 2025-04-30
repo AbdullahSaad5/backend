@@ -594,6 +594,7 @@ export const ebayListingService = {
         };
     }
   },
+
 };
 function generateListingDescription(ebayData: any) {
   return ebayHtmlTemplate({

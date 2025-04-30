@@ -711,6 +711,37 @@ export const listingService = {
     }
   },
 
+  getCategorySubTree: async (categoryId: string) => {
+    try {
+      const response = await fetch(
+        `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/3/get_category_subtree?category_id=${categoryId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${newToken}`,
+            Accept: "application/json",
+            "Accept-Encoding": "gzip",
+          },
+        }
+      );
+
+      const jsonData = await response.json();
+
+      return JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        data: jsonData, // actual parsed data
+      });
+    } catch (error: any) {
+      console.error("Error getting getCategorySubTree from eBay:", error.message);
+
+      return JSON.stringify({
+        status: 500,
+        message: error.message,
+      });
+    }
+  },
+
   getCategoryFeatures: async () => {
     try {
       // const token = await getStoredEbayAccessToken();
