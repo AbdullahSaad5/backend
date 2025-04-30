@@ -1,3 +1,4 @@
+import { ebay } from "@/routes/ebay.route";
 import { productCategoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
@@ -5,10 +6,10 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const productCategoryController = {
   addCategory: async (req: Request, res: Response) => {
     try {
-      const { name, description, image, tags, isBlocked, isPart } = req.body;
-      //   console.log(name, description, image);
+      const { name, ebayPartCategoryId, description, image, tags, isBlocked, isPart } = req.body;
       const newProductCategory = await productCategoryService.createCategory(
         name,
+        ebayPartCategoryId,
         description,
         image,
         tags,
