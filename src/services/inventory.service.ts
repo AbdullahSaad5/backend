@@ -162,7 +162,7 @@ export const inventoryService = {
         throw new Error("Draft inventory not found");
       }
 
-      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
+      // console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
@@ -171,18 +171,49 @@ export const inventoryService = {
         draftInventory.alias = stepData.alias || "";
       }
 
-      // Update Nested Sections Dynamically
-      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
-      sectionsToUpdate.forEach((section) => {
-        if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
-          draftInventory[section] = {
-            ...(draftInventory[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
-          };
-          draftInventory.markModified(section);
+      if (draftInventory.isPart) {
+        // console.log("Handling part technical information:", stepData.prodTechInfo);
+
+        // For parts, we need to handle the different technical info structure
+        if (stepData.prodTechInfo) {
+          const transformedTechInfo: any = {};
+
+          Object.keys(stepData.prodTechInfo).forEach((key) => {
+            // Convert keys to camelCase
+            const newKey = key
+              // First replace slashes with "Or"
+              .replace(/\/+/g, "_")
+              // Split by spaces or special characters
+              .split(/[\s-]+/)
+              // Convert to camelCase (first word lowercase, rest capitalized)
+              .map((word, index) => {
+                if (index === 0) {
+                  return word.toLowerCase();
+                }
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+              })
+              .join("");
+
+            transformedTechInfo[newKey] = stepData.prodTechInfo[key];
+          });
+
+          draftInventory.prodTechInfo = transformedTechInfo;
+          draftInventory.markModified("prodTechInfo");
         }
-      });
+      } else {
+        // Update Nested Sections Dynamically
+        const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+        sectionsToUpdate.forEach((section) => {
+          if (stepData[section]) {
+            console.log(`Updating ${section} with:`, stepData[section]);
+            draftInventory[section] = {
+              ...(draftInventory[section] || {}), // Preserve existing data
+              ...stepData[section], // Merge new data
+            };
+            draftInventory.markModified(section);
+          }
+        });
+      }
 
       // Update Top-Level Fields
       const topLevelFields = [
@@ -211,7 +242,7 @@ export const inventoryService = {
       // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
 
-      console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
+      // console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
 
       return draftInventory;
     } catch (error: any) {

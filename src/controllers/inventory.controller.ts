@@ -43,12 +43,13 @@ export const inventoryController = {
       });
     }
   },
+
   updateDraftInventoryController: async (req: Request, res: Response) => {
     try {
       const inventoryId = req.params.id;
       const { stepData } = req.body;
 
-      console.log("Received request to update draft inventory:", { inventoryId, stepData });
+      // console.log("Received request to update draft inventory:", { inventoryId, stepData });
 
       // Validate inventory ID
       if (!mongoose.isValidObjectId(inventoryId)) {
@@ -90,6 +91,7 @@ export const inventoryController = {
       });
     }
   },
+
   getAllInventory: async (req: Request, res: Response) => {
     try {
       const inventory = await inventoryService.getAllInventory();
@@ -105,6 +107,7 @@ export const inventoryController = {
       });
     }
   },
+
   getInventoriesWithStock: async (req: Request, res: Response) => {
     try {
       const inventories = await inventoryService.getInventoriesWithStock();
@@ -131,6 +134,7 @@ export const inventoryController = {
       });
     }
   },
+
   getInventoryById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -156,6 +160,7 @@ export const inventoryController = {
       });
     }
   },
+
   getInventoryTemplateById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
