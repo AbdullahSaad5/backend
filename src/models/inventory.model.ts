@@ -217,6 +217,19 @@ export const monitorTechnicalSchema = {
   height: { type: String },
   length: { type: String },
   width: { type: String },
+  // Newly added fields to match front-end initialValues
+  energyStar: { type: String },
+  connectivity: { type: [String] },
+  californiaProp65Warning: { type: String },
+  imageBrightness: { type: String },
+  throwRatio: { type: String },
+  compatibleOperatingSystem: { type: String },
+  compatibleFormat: { type: String },
+  lensMagnification: { type: String },
+  yearManufactured: { type: String },
+  nativeResolution: { type: String },
+  displayTechnology: { type: String },
+  weight: { type: String },
 };
 
 export const gamingPCTechnicalSchema = {
@@ -297,17 +310,6 @@ export const prodInfoSchema = {
   brand: { type: [String], required: true },
 };
 
-// Product info schema for parts
-export const partProdInfoSchema = {
-  productCategory: { type: String, required: true },
-  productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  title: { type: String, required: true },
-  description: { type: String },
-  inventoryImages: { type: [mediaSchema], _id: false },
-  inventoryCondition: { type: String, enum: ["used", "new"] },
-  brand: { type: [String], required: true },
-};
-
 // Main Inventory Schema
 const inventorySchema = new Schema(
   {
@@ -335,7 +337,7 @@ const Inventory = model("Inventory", inventorySchema);
 // discriminator for part
 Inventory.discriminator(
   "part",
-  new mongoose.Schema({ prodTechInfo: partsTechnicalSchema, productInfo: partProdInfoSchema }, options)
+  new mongoose.Schema({ prodTechInfo: partsTechnicalSchema, productInfo: prodInfoSchema }, options)
 );
 
 // discriminator for laptops
