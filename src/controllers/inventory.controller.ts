@@ -249,6 +249,8 @@ export const inventoryController = {
         isTemplate: true,
       });
 
+      // console.log("templatestemplates : " , templates)
+
       if (!templates.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,

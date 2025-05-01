@@ -238,17 +238,17 @@ const seedData = async () => {
       tags: ["bike", "computer"],
       isBlocked: false,
     },
-    {
-      _id: "67da34cd1460c643b327a16e",
-      name: "part Category",
-      description:
-        "asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  ",
-      image:
-        "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fgaming-desktop-pc.jpg?alt=media&token=92e51bec-8f13-4009-8587-5d816ba53034",
-      tags: ["asd"],
-      isPart: true,
-      isBlocked: false,
-    },
+    // {
+    //   _id: "67da34cd1460c643b327a16e",
+    //   name: "part Category",
+    //   description:
+    //     "asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  asdasdasd sdf  ",
+    //   image:
+    //     "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2Fgaming-desktop-pc.jpg?alt=media&token=92e51bec-8f13-4009-8587-5d816ba53034",
+    //   tags: ["asd"],
+    //   isPart: true,
+    //   isBlocked: false,
+    // },
   ];
 
   for (const category of productCategoryData) {
@@ -264,7 +264,7 @@ const seedData = async () => {
       if (
         productCategory.description !== category.description ||
         productCategory.isBlocked !== category.isBlocked ||
-        productCategory.isPart !== category.isPart ||
+        // productCategory.isPart !== category.isPart ||
         !productCategory.tags.every((tag: any, index: any) => tag === category.tags[index])
       ) {
         productCategory.set(category);
