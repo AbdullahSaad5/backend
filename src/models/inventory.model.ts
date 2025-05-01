@@ -217,6 +217,19 @@ export const monitorTechnicalSchema = {
   height: { type: String },
   length: { type: String },
   width: { type: String },
+  // Newly added fields to match front-end initialValues
+  energyStar: { type: String },
+  connectivity: { type: [String] },
+  californiaProp65Warning: { type: String },
+  imageBrightness: { type: String },
+  throwRatio: { type: String },
+  compatibleOperatingSystem: { type: String },
+  compatibleFormat: { type: String },
+  lensMagnification: { type: String },
+  yearManufactured: { type: String },
+  nativeResolution: { type: String },
+  displayTechnology: { type: String },
+  weight: { type: String },
 };
 
 export const gamingPCTechnicalSchema = {
