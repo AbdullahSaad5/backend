@@ -360,12 +360,8 @@ export const ebayListingService = {
         },
         body: listingBody,
       });
-      const rawResponse = await response.text();
-
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        trimValues: true,
-      });
+      const rawResponse = await response.text(); // Read once
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
       const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
@@ -380,14 +376,14 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
-          response: response,
+          response: rawResponse, // Use the stored response
         });
       } else {
         return JSON.stringify({
           status: 400,
           statusText: "Failed to create listing",
           errorResponse: jsonObj,
-          response: await response.text(),
+          response: rawResponse, // Use the stored response
         });
       }
     } catch (error: any) {
