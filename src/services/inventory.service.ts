@@ -148,7 +148,7 @@ export const inventoryService = {
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { inventoryId, stepData });
+      console.log("Received update request:", { inventoryId, stepData });
 
       // Validate inventoryId
       if (!mongoose.isValidObjectId(inventoryId)) {
@@ -162,7 +162,7 @@ export const inventoryService = {
         throw new Error("Draft inventory not found");
       }
 
-      // console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
+      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
@@ -199,6 +199,19 @@ export const inventoryService = {
 
           draftInventory.prodTechInfo = transformedTechInfo;
           draftInventory.markModified("prodTechInfo");
+        } else {
+          // Update Nested Sections Dynamically
+          const sectionsToUpdate = ["productInfo",];
+          sectionsToUpdate.forEach((section) => {
+            if (stepData[section]) {
+              console.log(`Updating ${section} with:`, stepData[section]);
+              draftInventory[section] = {
+                ...(draftInventory[section] || {}), // Preserve existing data
+                ...stepData[section], // Merge new data
+              };
+              draftInventory.markModified(section);
+            }
+          });
         }
       } else {
         // Update Nested Sections Dynamically
@@ -649,7 +662,6 @@ export const inventoryService = {
       gpu: item.prodTechInfo?.gpu,
       screenSize: item.prodTechInfo?.screenSize,
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
-      
     }));
 
     // Use json2csv to convert rows into CSV format
