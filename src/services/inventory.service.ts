@@ -649,6 +649,7 @@ export const inventoryService = {
       gpu: item.prodTechInfo?.gpu,
       screenSize: item.prodTechInfo?.screenSize,
       images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
+      
     }));
 
     // Use json2csv to convert rows into CSV format

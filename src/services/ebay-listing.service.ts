@@ -12,7 +12,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
 export const newToken =
-  "v^1.1#i^1#r^0#p^3#I^3#f^0#t^H4sIAAAAAAAA/+VZf2wbVx2P86MsK+0q0bFRfkXHL63j7Hd39vl8WlIujUvc1XGaS5OmZbPe3b2zrznf3e69S+ypQJZCK/ZDGwW2gQBFiAIVU2EwplZoG4OqEiAhFVZ+/TEJGFrX/YE0iQ1tYuOdnaROUNrYnlQL/I91776/Pt9f777vgbkNvduPDh99bVPkHZ0Lc2CuMxLhNoLeDT23bu7q3NbTAeoIIgtzH57rnu+6eBuGJduTxxD2XAejvnLJdrBcXexnAt+RXYgtLDuwhLBMdFlVsntkPgpkz3eJq7s205cZ6mckQzB5SQQAIkOKJ0S66izJHHf7GTEJUCLJm6ZuaEZCT9L3GAco42ACHdLP8IBPsCDOCmCc42SQknkpyqf4A0zfBPKx5TqUJAqYgaq5cpXXr7P1yqZCjJFPqBBmIKPsUnNKZig9Mn5brE7WwKIfVAJJgFc+7XQN1DcB7QBdWQ2uUstqoOsIYyY2UNOwUqisLBnThPlVV+sC4pIA6gDGNSjw2tviyl2uX4LkynaEK5bBmlVSGTnEIpWreZR6QzuEdLL4NEJFZIb6wr+9AbQt00J+P5MeVKb2qekxpk8dHfXdGctARoiUE+JxwHMJaixBmLoQ+XmoGYFtwyKG0EgsKqxJXXT3Ko07XcewQufhvhGXDCJqPVrpIyAn6nxEiXJOzldMElpWTycs+VISD4TBrUUzIEUnjC8qUYf0VR+vHoml1LicDG9XciQkAJKSKcZTSOdNXV9OjrDWW0iQgTBGyuhoLLQFabDClqA/jYhnQx2xOnVvUEK+ZchCwuQFyUSsIaZMNp4yTVZLGCLLmQgBhDRNT0n/j3lCiG9pAUHLubL6RRVsP6PqrodGXdvSK8xqkmoPWsyMMu5nioR4ciw2OzsbnRWirl+I8QBwsf3ZPapeRCXILNNaVydmrWra6ohyYUsmFY9aU6YpSJU7BWZA8I1R6JPKYFChzyqybfq3lMYrLBxYvboG1J22Rf0wThW1F9JhFxNktATNQDOWjvKWcU2QhbW+JjqWawmZ7RYsJ4tI0b022NbEFTaGzFBL2GgfhaS9UNU1FiAsNSCBLiVlAFoCq3heplQKCNRslGmzWMaFZEJMtATPC4JrVH1rooIl1/Wn9Wlil1qCFm6/sgVNmbjTKKx1p/166Fh611haHc6P525Pj7SEdgyZPsLFcYrVabc8VfYquxT6yyoSXw4+aauxysxk9u5yZSQ964jJVELjJ9MWyE3kypMxvpizHS1h71ZJabeSPhQ/lKvgcdHU9irS3v7+lpykIt1Hbda6UtbElIqzY6OHJiZ3k7E92ZFYscjp2UJRmRie3lkq+byJCvEZx59qDXw1NdqvBPxa4ubDKnXy9KklkOlCYIW13mYVIAl8AkCR41IigAAmxJTGoTgdPUwT6WY81fIW1WZ41QoyFDpasINwJjOedXVWHdzPpkSRl5AmmiwHJJDSk3qLe9f/6taFw+mmvaCF/JgKgJ4VDXfWqO6WYi6kg3y4lK9a3LceopgWVKh+A/lRH0HDdezK+vkKAR1ca9w1prDWr8aI6RAWrc3hFEqDWlcyN8BjOTN0bHP9SjMKl5kb4IG67gYOaUbdImsDHGZgm5ZthxN6Mwrr2Bsx04F2hVg6bj6G1YMY6l5sFYqkUTl0rYR8yq9DAumE10QC46LreWEW6tBfJ/RqvdB9wo/CQK8eejVmrGXUziCbBbvMT7uEZbcsxSu6DmpKSm1evywJGgb9cmg6iMtywtPCloXUTrWbqgXLCfsuboDFg5Vq5RkW9sJdo4HGQlApavjQbKTuQqYGyH1EjYLrz9RVTM2GwnGJZVp6TQYONKz7ltdEvawpp5ngYtrEGwptjWFZVWsHNciwfKSTfOBb7fU1EX4f5pXFs+e8yq76XmQLtNa3FIpeayenoX/b8QxuVFHVydxYa6dwQ2im3b76JYOThJRkslKKT4SXGpCFUirFckZS4IWEJkCRbwlz2507csm4CDhOEMX14lq1UHfP8V9XXbGVd84DHdUfNx/5FZiPnOuMRMAQYLlbwS0buvZ1d72TwbRPRzF0DM0tRy1oRulHjkN3JR9Fp1HFg5bf+a6O5y49pE6dv/30w0/ffdc90R3nOnrrrr4X7gA3L19+93ZxG+tuwsH7Lr/p4W64aROdaOMCBQ9SvHQAfOjy227u3d1bA//O87mv/PL1L184NjH8nV8zwbZzDti0TBSJ9HR0z0c6tr/nIyOHP755xtu+8LHPPN31r79su+4h0PnPsX//9OyNBx84Nv2piyfeuBR9cv+Oyek78akvcY8cOR688cLvj8bJB+77kcP8Yag7d4Sc+uOWfxw5rV144nDykoCe9H/4/T0P3DB5/wXnpfsEp1zIzan77j37zB1fO3H8F49+l/nZyWNnjn/h7y+6HeWpkRvVL/72c0N/ezB9svL6eXv7Y7/78fXljT+YPngSDilfffSFp978yZ97eh+85/PPn/rEUy++tO+und/MHv76c8+e+OvLw5vnd0w+8d6bPvtM9KOfXvje/tPXP67cfF3PwccevvfbPz9z/9Y/nf7GVuuVN8VnK4/c8q1XH3/5g1sGzkw9/9bgb14bvQjeejXzytn8+4P+Wkz/A1fe9QqUIAAA";
+  "v^1.1#i^1#r^0#I^3#f^0#p^3#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -360,12 +360,8 @@ export const ebayListingService = {
         },
         body: listingBody,
       });
-      const rawResponse = await response.text();
-
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        trimValues: true,
-      });
+      const rawResponse = await response.text(); // Read once
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
       const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
@@ -380,14 +376,14 @@ export const ebayListingService = {
           statusText: "OK",
           itemId,
           sandboxUrl,
-          response: response,
+          response: rawResponse, // Use the stored response
         });
       } else {
         return JSON.stringify({
           status: 400,
           statusText: "Failed to create listing",
           errorResponse: jsonObj,
-          response: await response.text(),
+          response: rawResponse, // Use the stored response
         });
       }
     } catch (error: any) {
@@ -594,7 +590,6 @@ export const ebayListingService = {
         };
     }
   },
-
 };
 function generateListingDescription(ebayData: any) {
   return ebayHtmlTemplate({
