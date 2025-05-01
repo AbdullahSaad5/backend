@@ -34,7 +34,15 @@ const uploadToFirebase = async (filePath: string, destination: string): Promise<
 
 const validateCsvData = async (csvFilePath: string) => {
   addLog(`📂 Validating CSV file: ${csvFilePath}`);
-  const requiredColumns = ["brand", "title", "description", "productSupplierKey", "productCategory", "processor"];
+  const requiredColumns = [
+    "brand",
+    "title",
+    "description",
+    "productSupplierKey",
+    "productCategory",
+    "processor",
+    "screenSize",
+  ];
 
   const csvContent = fs.readFileSync(csvFilePath, "utf8");
   const parsedCSV = Papa.parse(csvContent, {
