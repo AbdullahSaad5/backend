@@ -39,6 +39,7 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        listingHasVariations: stepData.listingHasVariations || false,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
