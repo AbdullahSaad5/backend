@@ -176,7 +176,7 @@ export const stockService = {
   },
   //get stock by stockId
   async getStockById(stockId: string) {
-    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy");
+    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy").populate("productSupplier");
   },
   // 📌 Get Existing Stock Records
   async getExistingStocks(stockIds: string[]) {
@@ -352,7 +352,29 @@ export const stockService = {
           pipeline: [{ $project: { password: 0 } }],
         },
       },
-      { $unwind: { path: "$stocks.receivedBy", preserveNullAndEmptyArrays: true } },
+      {
+        $unwind: {
+          path: "$stocks.receivedBy",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // 3) lookup the product supplier
+      {
+        $lookup: {
+          from: "users",
+          localField: "stocks.productSupplier",
+          foreignField: "_id",
+          as: "stocks.productSupplier",
+          pipeline: [{ $project: { password: 0 } }],
+        },
+      },
+      {
+        $unwind: {
+          path: "$stocks.productSupplier",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
 
       // Add a field to indicate if receivedBy is invalid (non-existent user)
       {
