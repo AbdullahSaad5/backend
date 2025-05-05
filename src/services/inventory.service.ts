@@ -178,26 +178,26 @@ export const inventoryService = {
         if (stepData.prodTechInfo) {
           const transformedTechInfo: any = {};
 
-          Object.keys(stepData.prodTechInfo).forEach((key) => {
-            // Convert keys to camelCase
-            const newKey = key
-              // First replace slashes with "Or"
-              .replace(/\/+/g, "_")
-              // Split by spaces or special characters
-              .split(/[\s-]+/)
-              // Convert to camelCase (first word lowercase, rest capitalized)
-              .map((word, index) => {
-                if (index === 0) {
-                  return word.toLowerCase();
-                }
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-              })
-              .join("");
+          // Object.keys(stepData.prodTechInfo).forEach((key) => {
+          //   // Convert keys to camelCase
+          //   const newKey = key
+          //     // First replace slashes with "Or"
+          //     .replace(/\/+/g, "Or")
+          //     // Split by spaces or special characters
+          //     .split(/[\s-]+/)
+          //     // Convert to camelCase (first word lowercase, rest capitalized)
+          //     .map((word, index) => {
+          //       if (index === 0) {
+          //         return word.toLowerCase();
+          //       }
+          //       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          //     })
+          //     .join("");
 
-            transformedTechInfo[newKey] = stepData.prodTechInfo[key];
-          });
+          //   transformedTechInfo[newKey] = stepData.prodTechInfo[key];
+          // });
 
-          draftInventory.prodTechInfo = transformedTechInfo;
+          draftInventory.prodTechInfo = stepData.prodTechInfo;
           draftInventory.markModified("prodTechInfo");
         } else {
           // Update Nested Sections Dynamically
