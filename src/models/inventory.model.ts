@@ -302,7 +302,7 @@ export const networkEquipmentsTechnicalSchema = {
 // Product info schema for parts
 export const prodInfoSchema = {
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: true },
-  productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   description: { type: String },
   inventoryImages: { type: [mediaSchema], _id: false },
