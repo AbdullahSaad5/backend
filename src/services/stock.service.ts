@@ -1,5 +1,5 @@
 import { Stock } from "@/models/stock.model";
-import { Inventory, Variation } from "@/models";
+import { Inventory, User, Variation } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
 import mongoose from "mongoose";
 
@@ -8,6 +8,7 @@ export const stockService = {
   addStock: async (data: any) => {
     const {
       inventoryId,
+      productSupplier,
       variations,
       totalUnits,
       usableUnits,
@@ -26,7 +27,10 @@ export const stockService = {
     if (!inventoryExists) {
       throw new Error("Inventory not found. Please provide a valid inventoryId.");
     }
-
+    const supplierExists = await User.findById(productSupplier);
+    if (!supplierExists) {
+      throw new Error("Supplier not found. Please provide a valid inventoryId.");
+    }
     const { isVariation } = inventoryExists;
 
     // Ensure variations exist if isVariation is true
@@ -63,13 +67,14 @@ export const stockService = {
       // Create stock entry with variations
       const stock = new Stock({
         inventoryId,
+        productSupplier,
         selectedVariations,
         receivedDate,
         receivedBy,
         stockInvoice,
         purchaseDate,
         markAsStock,
-        priceBreakdown
+        priceBreakdown,
       });
 
       await stock.save();
@@ -90,6 +95,7 @@ export const stockService = {
       // Create stock entry without variations
       const stock = new Stock({
         inventoryId,
+        productSupplier,
         totalUnits,
         usableUnits,
         costPricePerUnit,
@@ -120,6 +126,21 @@ export const stockService = {
         .populate("receivedBy");
     } catch (error: any) {
       throw new Error(`Error fetching stock for inventoryId: ${inventoryId}. Error: ${error.message}`);
+    }
+  },
+
+  getStockBySupplierId: async (productSupplier: string) => {
+    try {
+      // Fetch stock records by productSupplier and where markAsStock is true
+      return await Stock.find({
+        productSupplier,
+        markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
+      })
+        .populate("productSupplier")
+        .populate("selectedVariations.variationId")
+        .populate("receivedBy");
+    } catch (error: any) {
+      throw new Error(`Error fetching stock for Supplier: ${productSupplier}. Error: ${error.message}`);
     }
   },
 

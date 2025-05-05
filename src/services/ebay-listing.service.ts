@@ -451,9 +451,13 @@ export const ebayListingService = {
           <PostalCode>SW1A 1AA</PostalCode>
           <Quantity>${listingQuantity}</Quantity>
             <!-- Dynamic ItemSpecifics -->
-              <ItemSpecifics>
-              ${generateItemSpecifics(ebayData)}
-              </ItemSpecifics>
+             <ItemSpecifics>
+  ${generateItemSpecifics(ebayData)}
+  <NameValueList>
+    <Name>ScreenSize</Name>
+    <Value>16inch</Value>
+  </NameValueList>
+</ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
  ${variationXml}
@@ -690,15 +694,15 @@ function generateListingDescription(ebayData: any) {
 }
 function generateItemSpecifics(ebayData: any) {
   const itemSpecifics = [];
-  // Extract variation attribute names
-
-  // Step 1: Extract variation attribute names into a Set
   const variations = ebayData?.prodPricing?.selectedVariations || [];
+
+  // Step 1: Extract variation-specific attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
   variations.forEach((variation: any) => {
     const attributes = variation?.variationId?.attributes || {};
     Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
   });
+
   const dynamicFields = {
     // Handle features array as a singtle string with comma-separated values
     Feature:
@@ -709,25 +713,25 @@ function generateItemSpecifics(ebayData: any) {
     UPC: ebayData.prodTechInfo?.upc,
     EAN: ebayData.prodTechInfo?.ean,
     MPN: ebayData.prodTechInfo?.mpn,
-    // Model: ebayData.prodTechInfo?.model || "Unknown",
+    Model: ebayData.prodTechInfo?.model || "Unknown",
     Brand:
       ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
         ? ebayData.productInfo.brand.join(", ")
         : ebayData.productInfo?.brand || "MixBrand",
     Storage: ebayData.prodTechInfo?.storageType,
     Type: ebayData.prodTechInfo?.type || "Unknown",
-    // RAM: ebayData.prodTechInfo?.ramSize,
-    // Processor: ebayData.prodTechInfo?.processor || "Unknown",
+    RAM: ebayData.prodTechInfo?.ramSize,
+    Processor: ebayData.prodTechInfo?.processor || "Unknown", //also in variiation specific
     FormFactor: ebayData.prodTechInfo?.formFactor,
-    // GPU: ebayData.prodTechInfo?.gpu,
+    GPU: ebayData.prodTechInfo?.gpu,
     ScreenSize:
       ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
         ? ebayData.prodTechInfo.screenSize.join(", ")
-        : ebayData.prodTechInfo?.screenSize || 0,
+        : ebayData.prodTechInfo?.screenSize || "16 inch",
     Resolution: ebayData.prodTechInfo?.resolution,
     Frequency: ebayData.prodTechInfo?.frequency,
     Connectivity: ebayData.prodTechInfo?.connectivity,
-    // Color: ebayData.prodTechInfo?.color,
+    Color: ebayData.prodTechInfo?.color,
     ProductType: ebayData.prodTechInfo?.productType,
     ProductCondition: ebayData.prodTechInfo?.productCondition,
     NonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
@@ -739,8 +743,8 @@ function generateItemSpecifics(ebayData: any) {
     RegionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
     CustomBundle: ebayData.prodTechInfo?.customBundle,
     ReleaseYear: ebayData.prodTechInfo?.releaseYear,
-    // HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
-    // SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
+    HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
+    SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
     MostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
     GraphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
     MaximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
@@ -773,7 +777,6 @@ function generateItemSpecifics(ebayData: any) {
     ProductLine: ebayData.prodTechInfo?.productLine,
     WarrantyDuration: ebayData.prodPricing?.warrantyDuration,
     WarrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
-    // WarrantyDocument: ebayData.prodPricing?.warrantyDocument,
     PostagePolicy: ebayData.prodDelivery?.postagePolicy,
     PackageWeight: ebayData.prodDelivery?.packageWeight,
     PackageDimensions: ebayData.prodDelivery?.packageDimensions,
@@ -789,19 +792,22 @@ function generateItemSpecifics(ebayData: any) {
     UnitType: ebayData.prodTechInfo?.unitType,
     UnitQuantity: ebayData.prodTechInfo?.unitQuantity,
     HardDriveType: ebayData.prodTechInfo?.hardDriveType,
-    // OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
+    OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
     OperatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
-    // Memory: ebayData.prodTechInfo?.memory,
+    Memory: ebayData.prodTechInfo?.memory,
     MaxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
     MemoryType: ebayData.prodTechInfo?.memoryType,
     RaidLevel: ebayData.prodTechInfo?.raidLevel,
   };
 
-  // Loop through dynamic fields to create NameValueList for each one if it exists
   for (const [key, value] of Object.entries(dynamicFields)) {
-    // Only add to itemSpecifics if the value is not empty, null, or undefined
+    // skip if it's a variation-specific key
+    if (variationAttributeNames.has(key.toLowerCase())) {
+      console.log(`Skipped from item specifics (exists in variation): ${key}`);
+      continue;
+    }
+
     if (value && (Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim() : true)) {
-      // If value is an array, create multiple <Value> tags for each item
       if (Array.isArray(value)) {
         itemSpecifics.push(`
                   <NameValueList>
