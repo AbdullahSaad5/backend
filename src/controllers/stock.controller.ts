@@ -11,6 +11,7 @@ export const stockController = {
     try {
       const {
         inventoryId,
+        productSupplier,
         stockInvoice,
         variations, // Only required if isVariation is true
         totalUnits,
@@ -71,6 +72,7 @@ export const stockController = {
       // Prepare data for stock creation
       const stockData = {
         inventoryId,
+        productSupplier,
         stockInvoice,
         receivedDate,
         receivedBy,
@@ -146,7 +148,37 @@ export const stockController = {
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
+  // Controller to get stock by supplierId and ensure `markAsStock` is true
+  getStockBySupplierId: async (req: Request, res: Response) => {
+    try {
+      const { supplierId } = req.params;
 
+      // Validate supplierId format
+      if (!mongoose.Types.ObjectId.isValid(supplierId)) {
+        return res.status(400).json({ message: "Invalid Supplier ID format" });
+      }
+
+      // Fetch stock records where markAsStock is true for the given supplierId
+      const { supplierId: productSupplier } = req.params;
+      const stocks = await stockService.getStockBySupplierId(productSupplier);
+      // const stocks = await stockService.getStockBySupplierId(supplierId);
+
+      if (stocks.length === 0) {
+        return res
+          .status(404)
+          .json({ message: "No stock records found for this suplier with markAsStock set to true" });
+      }
+
+      // Return the stock records found
+      res.status(200).json({
+        message: "Stock records retrieved successfully",
+        stocks,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching stock records:", error);
+      res.status(500).json({ message: "Internal Server Error", error });
+    }
+  },
   // 📌 Get Stock Summary
   getStockSummary: async (req: Request, res: Response) => {
     try {
