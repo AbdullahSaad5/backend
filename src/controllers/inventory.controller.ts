@@ -141,6 +141,8 @@ export const inventoryController = {
 
       const inventory = await inventoryService.getInventoryById(id);
 
+      console.log("Here is the inventory : " , inventory)
+
       if (!inventory) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,

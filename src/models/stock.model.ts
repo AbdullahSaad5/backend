@@ -22,6 +22,7 @@ const StockSchema = new Schema<IStockModel>(
       ref: "Inventory",
       required: true,
     },
+    productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
     // ✅ Store only selected variations if isVariation: true
     selectedVariations: [
