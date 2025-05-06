@@ -216,6 +216,20 @@ export const listingService = {
             model: "Variation", // Ensure this matches your Variation model name
           },
         })
+        .populate({
+          path: "selectedStockId",
+          populate: {
+            path: "productSupplier",
+            model: "User", // Ensure this matches your Variation model name
+          },
+        })
+        .populate({
+          path: "selectedStockId",
+          populate: {
+            path: "receivedBy",
+            model: "User", // Ensure this matches your Variation model name
+          },
+        })
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");

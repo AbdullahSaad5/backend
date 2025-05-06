@@ -2,6 +2,7 @@ import mongoose, { Document } from "mongoose";
 import { mediaSchema } from "@/models/listing.model";
 interface IStock extends Document {
   inventoryId: mongoose.Types.ObjectId;
+  productSupplier: mongoose.Types.ObjectId;
   selectedVariations?: {
     variationId: mongoose.Types.ObjectId;
     costPricePerUnit: number;

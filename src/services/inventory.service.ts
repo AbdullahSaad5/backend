@@ -62,7 +62,7 @@ export const inventoryService = {
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
       const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
-      const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
+      const { kind, productCategory, title, description, brand, inventoryImages, inventoryCondition } =
         stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
@@ -86,17 +86,17 @@ export const inventoryService = {
         categoryId = new mongoose.Types.ObjectId(productCategory);
       }
 
-      const supplierId = mongoose.isValidObjectId(productSupplier)
-        ? new mongoose.Types.ObjectId(productSupplier)
-        : null;
+      // const supplierId = mongoose.isValidObjectId(productSupplier)
+      //   ? new mongoose.Types.ObjectId(productSupplier)
+      //   : null;
 
       if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
-      if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
+      // if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
       // ✅ Ensure inventoryImages is correctly mapped inside productInfo
       const productInfo = {
         productCategory: categoryId,
-        productSupplier: supplierId,
+        // productSupplier: supplierId,
         title: title || "",
         description: description || "",
         brand: brand || "",
@@ -178,30 +178,30 @@ export const inventoryService = {
         if (stepData.prodTechInfo) {
           const transformedTechInfo: any = {};
 
-          Object.keys(stepData.prodTechInfo).forEach((key) => {
-            // Convert keys to camelCase
-            const newKey = key
-              // First replace slashes with "Or"
-              .replace(/\/+/g, "_")
-              // Split by spaces or special characters
-              .split(/[\s-]+/)
-              // Convert to camelCase (first word lowercase, rest capitalized)
-              .map((word, index) => {
-                if (index === 0) {
-                  return word.toLowerCase();
-                }
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-              })
-              .join("");
+          // Object.keys(stepData.prodTechInfo).forEach((key) => {
+          //   // Convert keys to camelCase
+          //   const newKey = key
+          //     // First replace slashes with "Or"
+          //     .replace(/\/+/g, "Or")
+          //     // Split by spaces or special characters
+          //     .split(/[\s-]+/)
+          //     // Convert to camelCase (first word lowercase, rest capitalized)
+          //     .map((word, index) => {
+          //       if (index === 0) {
+          //         return word.toLowerCase();
+          //       }
+          //       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+          //     })
+          //     .join("");
 
-            transformedTechInfo[newKey] = stepData.prodTechInfo[key];
-          });
+          //   transformedTechInfo[newKey] = stepData.prodTechInfo[key];
+          // });
 
-          draftInventory.prodTechInfo = transformedTechInfo;
+          draftInventory.prodTechInfo = stepData.prodTechInfo;
           draftInventory.markModified("prodTechInfo");
         } else {
           // Update Nested Sections Dynamically
-          const sectionsToUpdate = ["productInfo",];
+          const sectionsToUpdate = ["productInfo"];
           sectionsToUpdate.forEach((section) => {
             if (stepData[section]) {
               console.log(`Updating ${section} with:`, stepData[section]);
@@ -285,9 +285,8 @@ export const inventoryService = {
 
   getFullInventoryById: async (id: string) => {
     try {
-      const inventory = await Inventory.findById(id)
-        .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier");
+      const inventory = await Inventory.findById(id).populate("productInfo.productCategory");
+      // .populate("productInfo.productSupplier");
       // .lean();
 
       if (!inventory) throw new Error("Inventory not found");
@@ -302,7 +301,7 @@ export const inventoryService = {
     try {
       return await Inventory.find()
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
     } catch (error) {
       console.error("Error fetching all inventory:", error);
@@ -314,7 +313,7 @@ export const inventoryService = {
     try {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
@@ -327,7 +326,7 @@ export const inventoryService = {
     try {
       const inventory = await Inventory.findById(id)
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
       if (!inventory) throw new Error("Inventory not found");
       return inventory;
@@ -430,7 +429,7 @@ export const inventoryService = {
         ];
 
         // Perform searches for productSupplier and productCategory in parallel using Promise.all
-        const [productSuppliers, productCategories] = await Promise.all([
+        const [productCategories] = await Promise.all([
           User.find({
             $or: [
               { firstName: { $regex: searchQuery, $options: "i" } },
@@ -443,25 +442,25 @@ export const inventoryService = {
         ]);
 
         // Check if search query contains both first and last name (e.g., "Asad Khan")
-        if (searchQuery.includes(" ")) {
-          const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+        // if (searchQuery.includes(" ")) {
+        // const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
 
-          // Filter product suppliers based on both first name and last name
-          const supplierQuery = {
-            $or: [
-              { firstName: { $regex: firstNameQuery, $options: "i" } },
-              { lastName: { $regex: lastNameQuery, $options: "i" } },
-            ],
-          };
+        // Filter product suppliers based on both first name and last name
+        // const supplierQuery = {
+        //   $or: [
+        //     { firstName: { $regex: firstNameQuery, $options: "i" } },
+        //     { lastName: { $regex: lastNameQuery, $options: "i" } },
+        //   ],
+        // };
 
-          const suppliersWithFullName = await User.find(supplierQuery).select("_id");
-          // Combine both individual and full-name matches
-          productSuppliers.push(...suppliersWithFullName);
-        }
+        // const suppliersWithFullName = await User.find(supplierQuery).select("_id");
+        // Combine both individual and full-name matches
+        // productSuppliers.push(...suppliersWithFullName);
+        // }
 
         // Add filters for productSupplier and productCategory ObjectIds to the query
         query.$or.push(
-          { "productInfo.productSupplier": { $in: productSuppliers.map((supplier) => supplier._id) } },
+          // { "productInfo.productSupplier": { $in: productSuppliers.map((supplier) => supplier._id) } },
           { "productInfo.productCategory": { $in: productCategories.map((category) => category._id) } }
         );
       }
@@ -496,7 +495,7 @@ export const inventoryService = {
       const inventory = await Inventory.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .skip(skip)
         .limit(limitNumber);
 
@@ -602,7 +601,7 @@ export const inventoryService = {
                 },
                 productInfo: {
                   productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                  productSupplier: data.productSupplier, // Use the passed supplier _id directly
+                  // productSupplier: data.productSupplier, // Use the passed supplier _id directly
                   title: data.title,
                   description: data.description,
                   inventoryImages: (data.images || []).map((url: string) => ({
@@ -733,7 +732,6 @@ export const inventoryService = {
 
         // ProductInfo subfields
         // "productInfo.productCategory",
-        // "productInfo.productSupplier",
         // "productInfo.title",
         // "productInfo.description",
         // "productInfo.inventoryCondition",
