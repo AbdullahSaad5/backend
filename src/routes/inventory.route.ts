@@ -29,8 +29,10 @@ export const inventory = (router: Router) => {
   router.post("/bulk-export", handleBulkExport);
 
   router.get("/transform/:id", inventoryValidation.validateId, inventoryController.transformAndSendInventory);
+  
   // Fetch transformed template inventory by ID
   router.get("/templates/:id", inventoryValidation.validateId, inventoryController.transformAndSendTemplateInventory);
+  
   router.get("/drafts/:id", inventoryValidation.validateId, inventoryController.transformAndSendDraftInventory);
 
   // Fetch all template inventory  names

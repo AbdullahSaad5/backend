@@ -5,6 +5,7 @@ const productCategorySchema = new Schema<IProductCategory, ProductCategoryModel>
   {
     name: { type: String, required: true, lowercase: true },
     ebayPartCategoryId: { type: String },
+    ebayProductCategoryId: { type: String },
     description: { type: String, required: true },
     image: { type: String },
     tags: { type: [String] },
