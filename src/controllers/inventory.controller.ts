@@ -184,7 +184,7 @@ export const inventoryController = {
 
         isTemplate: false,
 
-        isVariation: false,
+        // isVariation: false,
         status: "draft",
       }; // Remove the _id to create a new one
       const createdInventory = await Inventory.create(newInventory);
