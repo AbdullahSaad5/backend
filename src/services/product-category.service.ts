@@ -5,6 +5,7 @@ export const productCategoryService = {
   createCategory: (
     name: String,
     ebayPartCategoryId: string,
+    ebayProductCategoryId:string,
     description: string,
     image: string,
     tags: string[],
@@ -14,6 +15,7 @@ export const productCategoryService = {
     const newProductCategory = new ProductCategory({
       name,
       ebayPartCategoryId,
+      ebayProductCategoryId,
       description,
       image,
       tags,

@@ -1,4 +1,5 @@
 export function transformInventoryData(data: any) {
+  
   const result: any = {
     stepData: {
       productInfo: {},
