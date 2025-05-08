@@ -29,7 +29,7 @@ export const inventoryService = {
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
       const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
-      const { kind, productCategory, title, description, brand, inventoryImages, inventoryCondition } =
+      const { kind, productCategory, title, description, brand, inventoryImages, inventoryCondition, ebayCategoryId } =
         stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
@@ -64,6 +64,7 @@ export const inventoryService = {
         description: description || "",
         brand: brand || "",
         inventoryCondition: inventoryCondition || "",
+        ebayCategoryId: ebayCategoryId || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
