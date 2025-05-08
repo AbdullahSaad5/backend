@@ -4,6 +4,7 @@ import { Document, Model, Types } from "mongoose";
 export interface IProductCategory extends Document {
   name: string;
   ebayPartCategoryId: string;
+  ebayProductCategoryId: string;
   description: string;
   image?: string[];
   tags?: string[];
