@@ -32,6 +32,7 @@ export const productsTechnicalSchema = {
 // prod info scema
 export const prodInfoSchema = {
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: true },
+  ebayCategoryId: { type: String },
   // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
   title: { type: String, required: true },
   description: { type: String },
@@ -54,6 +55,7 @@ const inventorySchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     alias: { type: String },
     isPart: { type: Boolean, default: false },
+
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
