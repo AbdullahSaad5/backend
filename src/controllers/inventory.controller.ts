@@ -184,7 +184,7 @@ export const inventoryController = {
 
         isTemplate: false,
 
-        isVariation: false,
+        // isVariation: false,
         status: "draft",
       }; // Remove the _id to create a new one
       const createdInventory = await Inventory.create(newInventory);
@@ -251,7 +251,7 @@ export const inventoryController = {
         isTemplate: true,
       });
 
-      // console.log("templatestemplates : " , templates)
+      console.log("templatestemplates : " , templates)
 
       if (!templates.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -260,8 +260,8 @@ export const inventoryController = {
         });
       }
 
-      const templateList = templates.map((template, index) => {
-        // console.log("templatetemplate : " , template)
+      const templateList = templates.map((template: any, index: number) => {
+        console.log("templatetemplate : " , template)
 
         const inventoryId = template._id;
         const templateAlias = template.alias;
@@ -270,14 +270,16 @@ export const inventoryController = {
 
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-        console.log("kinddd : ", kind);
+        const itemCategory = template.productInfo.productCategory?.name
+
+        console.log("kindiiii : ", kind);
 
         // ✅ Ensure correct access to prodTechInfo
         const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
 
-        switch (kind) {
-          case "inventory_laptops":
+        switch (itemCategory) {
+          case "laptopss":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -287,19 +289,20 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "inventory_all_in_one_pc":
+          case "all in one pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "inventory_projectors":
+          case "projectorss":
+            console.log("projectorss case run")
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "inventory_monitors":
+          case "monitorss":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "inventory_gaming_pc":
+          case "gaming pcc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "inventory_network_equipments":
+          case "network equipmentss":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -310,7 +313,9 @@ export const inventoryController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        const templateName = ` ${kind === 'part' ? "PART" :  "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+
+        console.log("templateNametemplateName : " , templateName)
 
         return { templateName, inventoryId, templateAlias };
       });

@@ -2,41 +2,8 @@ import { Inventory, ProductCategory, Stock, User } from "@/models";
 import { Parser } from "json2csv";
 import mongoose from "mongoose";
 import crypto from "crypto";
-import {
-  allInOnePCTechnicalSchema,
-  gamingPCTechnicalSchema,
-  laptopTechnicalSchema,
-  monitorTechnicalSchema,
-  networkEquipmentsTechnicalSchema,
-  projectorTechnicalSchema,
-} from "@/models/inventory.model";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
-
-// space
-
-// Define a type for the tech schemas
-type TechSchemas = {
-  laptops: typeof laptopTechnicalSchema;
-  all_in_one_pc: typeof allInOnePCTechnicalSchema;
-  projectors: typeof projectorTechnicalSchema;
-  monitors: typeof monitorTechnicalSchema;
-  gaming_pc: typeof gamingPCTechnicalSchema;
-  network_equipments: typeof networkEquipmentsTechnicalSchema;
-};
-
-// Helper function to get correct tech schema
-function getTechSchema(kind: keyof TechSchemas) {
-  const techSchemas: TechSchemas = {
-    laptops: laptopTechnicalSchema,
-    all_in_one_pc: allInOnePCTechnicalSchema,
-    projectors: projectorTechnicalSchema,
-    monitors: monitorTechnicalSchema,
-    gaming_pc: gamingPCTechnicalSchema,
-    network_equipments: networkEquipmentsTechnicalSchema,
-  };
-  return techSchemas[kind] || {};
-}
 
 // Utility function to pick allowed fields
 function pick(obj: any, keys: string[]) {
@@ -86,10 +53,6 @@ export const inventoryService = {
         categoryId = new mongoose.Types.ObjectId(productCategory);
       }
 
-      // const supplierId = mongoose.isValidObjectId(productSupplier)
-      //   ? new mongoose.Types.ObjectId(productSupplier)
-      //   : null;
-
       if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
       // if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
@@ -103,8 +66,6 @@ export const inventoryService = {
         inventoryCondition: inventoryCondition || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
-
-      // console.log("productInfo : " , productInfo)
 
       const draftInventoryData: any = {
         status: "draft",
@@ -171,32 +132,9 @@ export const inventoryService = {
         draftInventory.alias = stepData.alias || "";
       }
 
-      if (draftInventory.isPart) {
-        // console.log("Handling part technical information:", stepData.prodTechInfo);
-
+      // if (draftInventory.isPart) {
         // For parts, we need to handle the different technical info structure
         if (stepData.prodTechInfo) {
-          const transformedTechInfo: any = {};
-
-          // Object.keys(stepData.prodTechInfo).forEach((key) => {
-          //   // Convert keys to camelCase
-          //   const newKey = key
-          //     // First replace slashes with "Or"
-          //     .replace(/\/+/g, "Or")
-          //     // Split by spaces or special characters
-          //     .split(/[\s-]+/)
-          //     // Convert to camelCase (first word lowercase, rest capitalized)
-          //     .map((word, index) => {
-          //       if (index === 0) {
-          //         return word.toLowerCase();
-          //       }
-          //       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-          //     })
-          //     .join("");
-
-          //   transformedTechInfo[newKey] = stepData.prodTechInfo[key];
-          // });
-
           draftInventory.prodTechInfo = stepData.prodTechInfo;
           draftInventory.markModified("prodTechInfo");
         } else {
@@ -213,20 +151,20 @@ export const inventoryService = {
             }
           });
         }
-      } else {
+      // } else {
         // Update Nested Sections Dynamically
-        const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
-        sectionsToUpdate.forEach((section) => {
-          if (stepData[section]) {
-            console.log(`Updating ${section} with:`, stepData[section]);
-            draftInventory[section] = {
-              ...(draftInventory[section] || {}), // Preserve existing data
-              ...stepData[section], // Merge new data
-            };
-            draftInventory.markModified(section);
-          }
-        });
-      }
+        // const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+        // sectionsToUpdate.forEach((section) => {
+        //   if (stepData[section]) {
+        //     console.log(`Updating ${section} with:`, stepData[section]);
+        //     draftInventory[section] = {
+        //       ...(draftInventory[section] || {}), // Preserve existing data
+        //       ...stepData[section], // Merge new data
+        //     };
+        //     draftInventory.markModified(section);
+        //   }
+        // });
+      // }
 
       // Update Top-Level Fields
       const topLevelFields = [
@@ -308,6 +246,7 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
+  
   //getting all template inventory name and their id
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
