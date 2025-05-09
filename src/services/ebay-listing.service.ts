@@ -16,193 +16,225 @@ export const newToken =
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
-      const credentials = await getNormalAccessToken();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        credentials,
-      });
+      const type = req.query.type as "production" | "sandbox";
+      const credentials = await getNormalAccessToken(type);
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       // console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get application token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get application token",
+          details: error,
+        });
     }
   },
 
   getUserAuthorizationUrl: async (req: Request, res: Response) => {
     try {
-      const authUrl = getEbayAuthURL();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        authUrl,
-      });
+      const type = req.query.type as "production" | "sandbox";
+
+      const authUrl = getEbayAuthURL(type);
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, authUrl });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get user authorization URL",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get user authorization URL",
+          details: error,
+        });
     }
   },
 
   handleAuthorizationCallback: async (req: Request, res: Response) => {
     try {
       const { code } = req.query;
-      const accessToken = await exchangeCodeForAccessToken(code as string);
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        accessToken,
-      });
+
+      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "false");
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to exchange code for access token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to exchange code for access token",
+          details: error,
+        });
+    }
+  },
+
+  handleAuthorizationCallbackClient: async (req: Request, res: Response) => {
+    try {
+      const { code } = req.query;
+      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to handle authorization callback client",
+          details: error,
+        });
+    }
+  },
+
+  handleAuthorizationCallbackSandbox: async (req: Request, res: Response) => {
+    try {
+      const { code } = req.query;
+      const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "false");
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
+    } catch (error) {
+      console.log(error);
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to handle authorization callback sandbox",
+          details: error,
+        });
     }
   },
 
   handleFallbackCallback: async (req: Request, res: Response) => {
     try {
-      return res.status(StatusCodes.UNAUTHORIZED).json({
-        status: StatusCodes.UNAUTHORIZED,
-        message: ReasonPhrases.UNAUTHORIZED,
-        error: "User denied access to eBay account",
-      });
+      return res
+        .status(StatusCodes.UNAUTHORIZED)
+        .json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: ReasonPhrases.UNAUTHORIZED,
+          error: "User denied access to eBay account",
+        });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to handle fallback callback",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to handle fallback callback",
+          details: error,
+        });
     }
   },
 
   handleRefreshToken: async (req: Request, res: Response) => {
     try {
-      const credentials = await refreshEbayAccessToken();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        credentials,
-      });
+      const type = req.query.type as "production" | "sandbox";
+      const useClient = req.query.useClient as "true" | "false";
+      const credentials = await refreshEbayAccessToken(type, useClient);
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get application token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to refresh eBay access token",
+          details: error,
+        });
     }
   },
 
   getEbayCategories: async (req: Request, res: Response) => {
     try {
-      const token = await getStoredEbayAccessToken();
+      const type = req.query.type as "production" | "sandbox";
+      const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken(type, useClient);
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const CATEGORY_ID = 3;
       const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const categories = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: categories,
-      });
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: categories });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get eBay categories",
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get eBay categories",
+        });
     }
   },
 
   getEbaySubCategories: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      const token = await getStoredEbayAccessToken();
+      const type = req.query.type as "production" | "sandbox";
+      const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken(type, useClient);
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
 
       const CATEGORY_ID = 3;
       const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_category_subtree?category_id=${categoryId}`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const subCategories = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: subCategories,
-      });
+      return res
+        .status(StatusCodes.OK)
+        .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: subCategories });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get eBay subcategories",
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get eBay subcategories",
+        });
     }
   },
 
   getEbayCategorySuggestions: async (req: Request, res: Response) => {
     try {
       const { query } = req.query;
-      const token = await getStoredEbayAccessToken();
+      const type = req.query.type as "production" | "sandbox";
+      const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken(type, useClient);
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
 
       const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/0/get_category_suggestions?q=${query}`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const categorySuggestions = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: categorySuggestions,
-      });
+      return res
+        .status(StatusCodes.OK)
+        .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: categorySuggestions });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get eBay category suggestions",
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get eBay category suggestions",
+        });
     }
   },
 
   getEbayCategoryAspects: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      const token = await getStoredEbayAccessToken();
+      const type = req.query.type as "production" | "sandbox";
+      const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken(type, useClient);
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -210,24 +242,20 @@ export const ebayListingService = {
       const CATEGORY_ID = 3;
 
       const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/${CATEGORY_ID}/get_item_aspects_for_category?category_id=${categoryId}`;
-      const response = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const categoryAspects = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: categoryAspects,
-      });
+      return res
+        .status(StatusCodes.OK)
+        .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: categoryAspects });
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get eBay category aspects",
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get eBay category aspects",
+        });
     }
   },
 
@@ -389,10 +417,7 @@ export const ebayListingService = {
     } catch (error: any) {
       console.error("Error adding listinng On eBay:", error.message);
 
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error syncing with eBay API",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error syncing with eBay API" });
     }
   },
   reviseItemOnEbay: async (listing: any): Promise<string> => {
@@ -482,10 +507,7 @@ export const ebayListingService = {
       });
       const rawResponse = await response.text();
 
-      const parser = new XMLParser({
-        ignoreAttributes: false,
-        trimValues: true,
-      });
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
       const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
@@ -494,26 +516,14 @@ export const ebayListingService = {
         const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
         const sandboxUrl = `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
 
-        return JSON.stringify({
-          status: 200,
-          statusText: "OK",
-          itemId,
-          sandboxUrl,
-        });
+        return JSON.stringify({ status: 200, statusText: "OK", itemId, sandboxUrl });
       } else {
-        return JSON.stringify({
-          status: 400,
-          statusText: "Failed to update listing on Ebay",
-          response: jsonObj,
-        });
+        return JSON.stringify({ status: 400, statusText: "Failed to update listing on Ebay", response: jsonObj });
       }
     } catch (error: any) {
       console.error("Error updatnng listinng On eBay:", error.message);
 
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error updating/revising eBay API",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error updating/revising eBay API" });
     }
   },
   // Helper function to map eBay error codes to human-readable messages
@@ -589,9 +599,55 @@ export const ebayListingService = {
           Connectivity: [prodTechInfo?.connectivity || "Unknown"],
         };
       default:
-        return {
-          Brand: [prodTechInfo?.brand || "Unbranded"],
-        };
+        return { Brand: [prodTechInfo?.brand || "Unbranded"] };
+    }
+  },
+
+  getOrders: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const type = req.query.type as "production" | "sandbox";
+      const credentials = await getNormalAccessToken(type);
+      const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
+      const currentDate = Date.now();
+      const startDate = currentDate;
+      // 90 days ago
+      const endDate = currentDate - 90 * 24 * 60 * 60 * 1000;
+      const formattedStartDate = new Date(startDate).toISOString();
+      const formattedEndDate = new Date(endDate).toISOString();
+
+      const token = `v^1.1#i^1#f^0#I^3#p^3#r^0#t^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`;
+
+      console.log("formattedStartDate", formattedStartDate);
+      console.log("formattedEndDate", formattedEndDate);
+
+      const response = await fetch(ebayUrl, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetOrders",
+          "X-EBAY-API-IAF-TOKEN": credentials?.access_token || "",
+        },
+        body: `
+        <?xml version="1.0" encoding="utf-8"?>
+        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <CreateTimeFrom>${formattedEndDate}</CreateTimeFrom >
+          <CreateTimeTo>${formattedStartDate}</CreateTimeTo>
+          <OrderRole>Seller</OrderRole>
+          <OrderStatus>Active</OrderStatus>
+        </GetOrdersRequest>
+        `,
+      });
+      const rawResponse = await response.text();
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
+      const jsonObj = parser.parse(rawResponse);
+      console.log("jsonObj", jsonObj);
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: jsonObj });
+    } catch (error: any) {
+      console.error("Error fetching orders:", error.message);
+      throw new Error("Error fetching orders");
     }
   },
 };

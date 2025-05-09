@@ -5,9 +5,7 @@ import path from "path";
 import { ref } from "@firebase/storage";
 
 // Configure dotenv to use .env file like .env.dev or .env.prod
-dotenv.config({
-  path: `.env.${process.env.NODE_ENV || "dev"}`,
-});
+dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
 
 type EbayEnvironment = "SANDBOX" | "PRODUCTION";
 
@@ -20,16 +18,9 @@ type EbayAuthTokenOptions = {
   scope?: string[] | string;
 };
 
-type EbayToken = {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-};
+type EbayToken = { access_token: string; refresh_token: string; expires_in: number };
 
-type EbayAuthOptions = {
-  prompt?: "login" | "consent";
-  state?: string;
-};
+type EbayAuthOptions = { prompt?: "login" | "consent"; state?: string };
 
 // All scopes required for the application
 const scopes = [
@@ -52,12 +43,16 @@ const ebayAuthToken = new EbayAuthToken({
   redirectUri: process.env.EBAY_REDIRECT_URI!,
 });
 
-// Options for generating user authorization URL
-const options: EbayAuthOptions = {
-  prompt: "consent",
-};
+const ebayAuthTokenSandbox = new EbayAuthToken({
+  clientId: process.env.EBAY_CLIENT_ID_SANDBOX!,
+  clientSecret: process.env.EBAY_CLIENT_SECRET_SANDBOX!,
+  redirectUri: process.env.EBAY_REDIRECT_URI_SANDBOX!,
+});
 
-export const getStoredEbayAccessToken = async () => {
+// Options for generating user authorization URL
+const options: EbayAuthOptions = { prompt: "consent" };
+
+export const getStoredEbayAccessToken = async (type: "production" | "sandbox", useClient: "true" | "false") => {
   try {
     // const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
@@ -69,7 +64,15 @@ export const getStoredEbayAccessToken = async () => {
 
     let credentialsText;
     try {
-      credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+      if (useClient === "true") {
+        credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
+      } else {
+        if (type === "production") {
+          credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+        } else {
+          credentialsText = fs.readFileSync("ebay_tokens_sandbox.json", "utf-8");
+        }
+      }
     } catch (readError) {
       console.error("❌ Error reading token file:", readError);
       return null;
@@ -102,7 +105,7 @@ export const getStoredEbayAccessToken = async () => {
     if (currentTime > expiresAt) {
       console.error("❌ Token expired.");
       // Refresh the token when expired
-      const newToken = await refreshEbayAccessToken(); // Call your function to refresh token
+      const newToken = await refreshEbayAccessToken(type, useClient); // Call your function to refresh token
       if (newToken) {
         console.log("✅ Token refreshed.");
         return newToken; // Return the new token after refreshing
@@ -118,9 +121,14 @@ export const getStoredEbayAccessToken = async () => {
   }
 };
 
-export const getNormalAccessToken = async () => {
+export const getNormalAccessToken = async (type: "production" | "sandbox") => {
   // Get the new access token using the refresh token
-  const token = await ebayAuthToken.getApplicationToken("PRODUCTION");
+  let token;
+  if (type === "production") {
+    token = await ebayAuthToken.getApplicationToken("PRODUCTION");
+  } else {
+    token = await ebayAuthTokenSandbox.getApplicationToken("SANDBOX");
+  }
 
   if (!token) {
     console.log("Failed to get new access token");
@@ -134,9 +142,18 @@ export const getNormalAccessToken = async () => {
 };
 
 // Add required scopes for your use case
-export const refreshEbayAccessToken = async () => {
+export const refreshEbayAccessToken = async (type: "production" | "sandbox", useClient: "true" | "false") => {
   // Read the ebay_tokens.json file and parse the content
-  const credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+  let credentialsText;
+  if (useClient === "true") {
+    credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
+  } else {
+    if (type === "production") {
+      credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+    } else {
+      credentialsText = fs.readFileSync("ebay_tokens_sandbox.json", "utf-8");
+    }
+  }
   const credentials = JSON.parse(credentialsText);
 
   // Check if the credentials are present
@@ -170,7 +187,16 @@ export const refreshEbayAccessToken = async () => {
   }
 
   // Get the new access token using the refresh token
-  const token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+  let token;
+  if (useClient === "true") {
+    token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+  } else {
+    if (type === "production") {
+      token = await ebayAuthToken.getAccessToken("PRODUCTION", refreshToken, scopes);
+    } else {
+      token = await ebayAuthTokenSandbox.getAccessToken("SANDBOX", refreshToken, scopes);
+    }
+  }
   if (!token) {
     console.log("Failed to get new access token");
     return null;
@@ -178,31 +204,58 @@ export const refreshEbayAccessToken = async () => {
 
   // Parse the new token and update the ebay_tokens.json file
   const parsedToken: EbayToken = JSON.parse(token);
-  fs.writeFileSync(
-    "ebay_tokens.json",
-    JSON.stringify(
-      {
-        ...credentials,
-        ...parsedToken,
-        generated_at: Date.now(),
-      },
-      null,
-      2
-    )
-  );
-
+  if (useClient === "true") {
+    fs.writeFileSync(
+      "ebay_tokens_client.json",
+      JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
+    );
+  } else {
+    if (type === "production") {
+      fs.writeFileSync(
+        "ebay_tokens.json",
+        JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
+      );
+    } else {
+      fs.writeFileSync(
+        "ebay_tokens_sandbox.json",
+        JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
+      );
+    }
+  }
   return parsedToken;
 };
 
-export const getEbayAuthURL = () => {
-  return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
+export const getEbayAuthURL = (type: "production" | "sandbox") => {
+  if (type === "production") {
+    return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
+  } else {
+    return ebayAuthTokenSandbox.generateUserAuthorizationUrl("SANDBOX", scopes, options);
+  }
 };
 
-export const exchangeCodeForAccessToken = async (code: string) => {
-  const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
-  const parsedToken: EbayToken = JSON.parse(token);
+export const exchangeCodeForAccessToken = async (
+  code: string,
+  type: "production" | "sandbox",
+  useClient: "true" | "false"
+) => {
+  if (type === "production") {
+    const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
+    const parsedToken: EbayToken = JSON.parse(token);
 
-  // Store in a file
-  fs.writeFileSync("ebay_tokens.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
-  return parsedToken;
+    // Store in a file
+    if (useClient === "true") {
+      fs.writeFileSync(
+        "ebay_tokens_client.json",
+        JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
+      );
+    } else {
+      fs.writeFileSync("ebay_tokens.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
+    }
+    return parsedToken;
+  } else {
+    const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
+    const parsedToken: EbayToken = JSON.parse(token);
+    fs.writeFileSync("ebay_tokens_sandbox.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
+    return parsedToken;
+  }
 };
