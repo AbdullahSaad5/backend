@@ -141,7 +141,7 @@ export const inventoryController = {
 
       const inventory = await inventoryService.getInventoryById(id);
 
-      console.log("Here is the inventory : ", inventory);
+      // console.log("Here is the inventory : ", inventory);
 
       if (!inventory) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -251,7 +251,7 @@ export const inventoryController = {
         isTemplate: true,
       });
 
-      console.log("templatestemplates : ", templates);
+      // console.log("templatestemplates : ", templates);
 
       if (!templates.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -261,7 +261,7 @@ export const inventoryController = {
       }
 
       const templateList = templates.map((template: any, index: number) => {
-        console.log("templatetemplate : ", template);
+        // console.log("templatetemplate : ", template);
 
         const inventoryId = template._id;
         const templateAlias = template.alias;
@@ -272,14 +272,14 @@ export const inventoryController = {
 
         const itemCategory = template.productInfo.productCategory?.name;
 
-        console.log("kindiiii : ", kind);
+        // console.log("kindiiii : ", kind);
 
         // ✅ Ensure correct access to prodTechInfo
         const prodInfo = (template as any).prodTechInfo || {};
         let fields: string[] = [];
 
         switch (itemCategory) {
-          case "laptopss":
+          case "laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -289,20 +289,26 @@ export const inventoryController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "all in one":
+            fields = [prodInfo.Type, prodInfo.Memory, prodInfo.processor, prodInfo.operatingSystem];
+            break;
+
+          case "mini pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectorss":
-            console.log("projectorss case run");
+          case "computers":
+            fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+            break;
+          case "projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitorss":
+          case "monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pcc":
+          case "gaming pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipmentss":
+          case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -739,7 +745,6 @@ export const inventoryController = {
 
       // **Fetch inventory item first**
       const inventoryItem: any = await Inventory.findById(id).lean();
-      console.log("✅ Full inventoryItem.prodTechInfo:", inventoryItem.prodTechInfo);
 
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
@@ -779,19 +784,25 @@ export const inventoryController = {
         const attributes = inventoryItem.prodTechInfo?.toObject?.() || inventoryItem.prodTechInfo;
 
         if (!attributes || typeof attributes !== "object") {
-          console.log("❌ prodTechInfo is missing or not an object");
+          // console.log("❌ prodTechInfo is missing or not an object");
           return res.status(400).json({ message: "Invalid or missing prodTechInfo" });
         }
-        console.log("✅ prodTechInfo keys:", Object.keys(attributes));
+        // console.log("✅ prodTechInfo keys:", attributes);
 
         // 1. Normalize keys when building multi-select attributes
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
-          if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
-            acc[key.toLowerCase()] = attributes[key]; // normalize
+          const value = attributes[key];
+
+          // ✅ Include only arrays with more than one item
+          if (Array.isArray(value) && value.length > 1) {
+            acc[key.toLowerCase()] = value;
+          } else {
+            console.log(`❌ Skipped ${key}: Not array or array length <= 1`);
           }
+
           return acc;
         }, {});
-        console.log("multiSelectAttribures", multiSelectAttributes);
+
         // 2. Normalize excluded attributes
         const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
 
@@ -846,6 +857,7 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   // Controller to fetch selectable options for attributes
   getAllOptions: async (req: Request, res: Response) => {
     try {
