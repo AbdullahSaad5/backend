@@ -141,7 +141,7 @@ export const inventoryController = {
 
       const inventory = await inventoryService.getInventoryById(id);
 
-      console.log("Here is the inventory : " , inventory)
+      console.log("Here is the inventory : ", inventory);
 
       if (!inventory) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -251,7 +251,7 @@ export const inventoryController = {
         isTemplate: true,
       });
 
-      console.log("templatestemplates : " , templates)
+      console.log("templatestemplates : ", templates);
 
       if (!templates.length) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -261,7 +261,7 @@ export const inventoryController = {
       }
 
       const templateList = templates.map((template: any, index: number) => {
-        console.log("templatetemplate : " , template)
+        console.log("templatetemplate : ", template);
 
         const inventoryId = template._id;
         const templateAlias = template.alias;
@@ -270,7 +270,7 @@ export const inventoryController = {
 
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-        const itemCategory = template.productInfo.productCategory?.name
+        const itemCategory = template.productInfo.productCategory?.name;
 
         console.log("kindiiii : ", kind);
 
@@ -293,7 +293,7 @@ export const inventoryController = {
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
           case "projectorss":
-            console.log("projectorss case run")
+            console.log("projectorss case run");
             fields = [prodInfo.type, prodInfo.model];
             break;
           case "monitorss":
@@ -313,9 +313,10 @@ export const inventoryController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = ` ${kind === 'part' ? "PART" :  "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        const templateName =
+          ` ${kind === "part" ? "PART" : "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        console.log("templateNametemplateName : " , templateName)
+        console.log("templateNametemplateName : ", templateName);
 
         return { templateName, inventoryId, templateAlias };
       });
@@ -737,7 +738,9 @@ export const inventoryController = {
       const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
       // **Fetch inventory item first**
-      const inventoryItem: any = await Inventory.findById(id);
+      const inventoryItem: any = await Inventory.findById(id).lean();
+      console.log("✅ Full inventoryItem.prodTechInfo:", inventoryItem.prodTechInfo);
+
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
@@ -773,16 +776,26 @@ export const inventoryController = {
         console.log("Cache hit: Returning variations from cache.");
       } else {
         // **Extract multi-select attributes**
-        const attributes = inventoryItem.prodTechInfo;
+        const attributes = inventoryItem.prodTechInfo?.toObject?.() || inventoryItem.prodTechInfo;
+
+        if (!attributes || typeof attributes !== "object") {
+          console.log("❌ prodTechInfo is missing or not an object");
+          return res.status(400).json({ message: "Invalid or missing prodTechInfo" });
+        }
+        console.log("✅ prodTechInfo keys:", Object.keys(attributes));
+
+        // 1. Normalize keys when building multi-select attributes
         const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
           if (Array.isArray(attributes[key]) && attributes[key].length > 0) {
-            acc[key] = attributes[key];
+            acc[key.toLowerCase()] = attributes[key]; // normalize
           }
           return acc;
         }, {});
+        console.log("multiSelectAttribures", multiSelectAttributes);
+        // 2. Normalize excluded attributes
+        const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
 
-        // **Exclude 'brand' and 'features' from multi-select attributes**
-        const excludedAttributes = ["brand", "features", "model", "toFit", "connectivity", "mostSuitableFor", "ports"];
+        // 3. Filter out excluded keys
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
           if (!excludedAttributes.includes(key)) {
             acc[key] = multiSelectAttributes[key];
