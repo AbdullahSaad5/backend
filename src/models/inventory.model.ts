@@ -21,7 +21,7 @@ export const partsTechnicalSchema = {
   required: false,
 };
 
-// product tchnical schema
+// product technical schema
 export const productsTechnicalSchema = {
   // attributes: {
   type: Map,
