@@ -298,6 +298,7 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <SKU>${ebayData.productInfo?.sku}</SKU>
           <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
@@ -434,6 +435,7 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <SKU>${ebayData.productInfo?.sku}</SKU>
           <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
             <CategoryID>${ebayData.categoryId}</CategoryID>
@@ -598,6 +600,7 @@ export const ebayListingService = {
 function generateListingDescription(ebayData: any) {
   return ebayHtmlTemplate({
     title: ebayData.productInfo?.title ?? "A TEST product",
+    sku: ebayData.productInfo?.sku,
     brand: ebayData.productInfo?.brand || "LENOVO",
     processor: ebayData.prodTechInfo?.processor || "Core I9",
     ram: ebayData.prodTechInfo?.ramSize || "16 GB",
