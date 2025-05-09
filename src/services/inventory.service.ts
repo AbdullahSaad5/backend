@@ -134,37 +134,37 @@ export const inventoryService = {
       }
 
       // if (draftInventory.isPart) {
-        // For parts, we need to handle the different technical info structure
-        if (stepData.prodTechInfo) {
-          draftInventory.prodTechInfo = stepData.prodTechInfo;
-          draftInventory.markModified("prodTechInfo");
-        } else {
-          // Update Nested Sections Dynamically
-          const sectionsToUpdate = ["productInfo"];
-          sectionsToUpdate.forEach((section) => {
-            if (stepData[section]) {
-              console.log(`Updating ${section} with:`, stepData[section]);
-              draftInventory[section] = {
-                ...(draftInventory[section] || {}), // Preserve existing data
-                ...stepData[section], // Merge new data
-              };
-              draftInventory.markModified(section);
-            }
-          });
-        }
-      // } else {
+      // For parts, we need to handle the different technical info structure
+      if (stepData.prodTechInfo) {
+        draftInventory.prodTechInfo = stepData.prodTechInfo;
+        draftInventory.markModified("prodTechInfo");
+      } else {
         // Update Nested Sections Dynamically
-        // const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
-        // sectionsToUpdate.forEach((section) => {
-        //   if (stepData[section]) {
-        //     console.log(`Updating ${section} with:`, stepData[section]);
-        //     draftInventory[section] = {
-        //       ...(draftInventory[section] || {}), // Preserve existing data
-        //       ...stepData[section], // Merge new data
-        //     };
-        //     draftInventory.markModified(section);
-        //   }
-        // });
+        const sectionsToUpdate = ["productInfo"];
+        sectionsToUpdate.forEach((section) => {
+          if (stepData[section]) {
+            console.log(`Updating ${section} with:`, stepData[section]);
+            draftInventory[section] = {
+              ...(draftInventory[section] || {}), // Preserve existing data
+              ...stepData[section], // Merge new data
+            };
+            draftInventory.markModified(section);
+          }
+        });
+      }
+      // } else {
+      // Update Nested Sections Dynamically
+      // const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      // sectionsToUpdate.forEach((section) => {
+      //   if (stepData[section]) {
+      //     console.log(`Updating ${section} with:`, stepData[section]);
+      //     draftInventory[section] = {
+      //       ...(draftInventory[section] || {}), // Preserve existing data
+      //       ...stepData[section], // Merge new data
+      //     };
+      //     draftInventory.markModified(section);
+      //   }
+      // });
       // }
 
       // Update Top-Level Fields
@@ -247,7 +247,7 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
-  
+
   //getting all template inventory name and their id
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
