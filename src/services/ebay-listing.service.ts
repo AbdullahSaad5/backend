@@ -12,7 +12,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
 export const newToken =
-  "v^1.1#i^1#f^0#r^0#p^3#I^3#t^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";
+  "v^1.1#i^1#f^0#r^0#p^3#I^3#t^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";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -239,6 +239,7 @@ export const ebayListingService = {
       }
       const populatedListing: any = await Listing.findById(listing._id)
         .populate("prodPricing.selectedVariations.variationId")
+        .populate("productInfo.productCategory")
         .lean();
 
       if (!populatedListing) {
@@ -246,6 +247,7 @@ export const ebayListingService = {
       }
       const ebayData = populatedListing;
       const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
+      console.log("categoryId is", ebayData.productInfo.productCategory.ebayProductCategoryId);
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
@@ -263,32 +265,7 @@ export const ebayListingService = {
         ebayData.prodMedia?.images
           ?.map((image: any) => `<PictureURL>${escapeXml(image.url)}</PictureURL>`)
           .join("\n") || "<PictureURL>https://mysamplepicture.com/15.jpg</PictureURL>";
-      let categoryId;
 
-      switch (listing.kind) {
-        case "listing_laptops":
-          categoryId = 177;
-          break;
-        case "listing_all_in_one_pc":
-          categoryId = 179;
-          break;
-        case "listing_projectors":
-          categoryId = 25321;
-          break;
-        case "listing_monitors":
-          categoryId = 80053;
-          break;
-        case "listing_gaming_pc":
-          categoryId = 179;
-          break;
-        case "listing_network_equipments":
-          categoryId = 175709;
-          break;
-        default:
-          categoryId = 177;
-      }
-      // Use listing._id as the SKU (or replace with the correct ID field)
-      // const sku = listing._id?.toString();
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
 
       const listingBody = `
@@ -297,11 +274,11 @@ export const ebayListingService = {
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
-          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(ebayData.productInfo?.Title ?? "A TEST product")}</Title>
           <SKU>${ebayData.productInfo?.sku}</SKU>
           <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
-            <CategoryID>${categoryId}</CategoryID>
+              <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
           </PrimaryCategory>
 
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
@@ -438,7 +415,7 @@ export const ebayListingService = {
           <SKU>${ebayData.productInfo?.sku}</SKU>
           <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
           <PrimaryCategory>
-            <CategoryID>${ebayData.categoryId}</CategoryID>
+            <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
           </PrimaryCategory>
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -699,133 +676,44 @@ function generateItemSpecifics(ebayData: any) {
   const itemSpecifics = [];
   const variations = ebayData?.prodPricing?.selectedVariations || [];
 
-  // Step 1: Extract variation-specific attribute names (case-insensitive)
+  // 1. Get all variation attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
   variations.forEach((variation: any) => {
     const attributes = variation?.variationId?.attributes || {};
     Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
   });
 
-  const dynamicFields = {
-    // Handle features array as a singtle string with comma-separated values
-    Feature:
-      ebayData.prodTechInfo?.features && Array.isArray(ebayData.prodTechInfo.features)
-        ? ebayData.prodTechInfo.features.join(", ") // Join array elements into a string
-        : null,
-    CPU: ebayData.prodTechInfo?.cpu,
-    UPC: ebayData.prodTechInfo?.upc,
-    EAN: ebayData.prodTechInfo?.ean,
-    MPN: ebayData.prodTechInfo?.mpn,
-    Model: ebayData.prodTechInfo?.model || "Unknown",
-    Brand:
-      ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
-        ? ebayData.productInfo.brand.join(", ")
-        : ebayData.productInfo?.brand || "MixBrand",
-    Storage: ebayData.prodTechInfo?.storageType,
-    Type: ebayData.prodTechInfo?.type || "Unknown",
-    RAM: ebayData.prodTechInfo?.ramSize,
-    Processor: ebayData.prodTechInfo?.processor || "Unknown", //also in variiation specific
-    FormFactor: ebayData.prodTechInfo?.formFactor,
-    GPU: ebayData.prodTechInfo?.gpu,
-    ScreenSize:
-      ebayData.prodTechInfo?.screenSize && Array.isArray(ebayData.prodTechInfo.screenSize)
-        ? ebayData.prodTechInfo.screenSize.join(", ")
-        : ebayData.prodTechInfo?.screenSize || "16 inch",
-    Resolution: ebayData.prodTechInfo?.resolution,
-    Frequency: ebayData.prodTechInfo?.frequency,
-    Connectivity: ebayData.prodTechInfo?.connectivity,
-    Color: ebayData.prodTechInfo?.color,
-    ProductType: ebayData.prodTechInfo?.productType,
-    ProductCondition: ebayData.prodTechInfo?.productCondition,
-    NonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
-    Height: ebayData.prodTechInfo?.height,
-    Length: ebayData.prodTechInfo?.length,
-    Width: ebayData.prodTechInfo?.width,
-    Weight: ebayData.prodTechInfo?.weight,
-    ManufacturerWarranty: ebayData.prodPricing?.manufacturerWarranty,
-    RegionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
-    CustomBundle: ebayData.prodTechInfo?.customBundle,
-    ReleaseYear: ebayData.prodTechInfo?.releaseYear,
-    HardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
-    SSDCapacity: ebayData.prodTechInfo?.ssdCapacity,
-    MostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
-    GraphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
-    MaximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
-    MaximumLANDataRate: ebayData.prodTechInfo?.maximumLANDataRate,
-    NumberOfLANPorts: ebayData.prodTechInfo?.numberOfLANPorts,
-    NumberOfVANPorts: ebayData.prodTechInfo?.numberOfVANPorts,
-    NumberOfProcessors: ebayData.prodTechInfo?.numberOfProcessors,
-    ProcessorManufacturer: ebayData.prodTechInfo?.processorManufacturer,
-    ProcessorSpeed: ebayData.prodTechInfo?.processorSpeed,
-    ProcessorType: ebayData.prodTechInfo?.processorType,
-    NetworkType: ebayData.prodTechInfo?.networkType,
-    NetworkManagementType: ebayData.prodTechInfo?.networkManagementType,
-    NetworkConnectivity: ebayData.prodTechInfo?.networkConnectivity,
-    DeviceConnectivity: ebayData.prodTechInfo?.deviceConnectivity,
-    ConnectorType: ebayData.prodTechInfo?.connectorType,
-    SupportedWirelessProtocol: ebayData.prodTechInfo?.supportedWirelessProtocol,
-    CompatibleOperatingSystems: ebayData.prodTechInfo?.compatibleOperatingSystems,
-    CompatibleOperatingSystem: ebayData.prodTechInfo?.compatibleOperatingSystem,
-    CompatibleFormat: ebayData.prodTechInfo?.compatibleFormat,
-    LensMagnification: ebayData.prodTechInfo?.lensMagnification,
-    NativeResolution: ebayData.prodTechInfo?.nativeResolution,
-    DisplayTechnology: ebayData.prodTechInfo?.displayTechnology,
-    EnergyEfficiencyRating: ebayData.prodTechInfo?.energyEfficiencyRating,
-    VideoInputs: ebayData.prodTechInfo?.videoInputs,
-    RefreshRate: ebayData.prodTechInfo?.refreshRate,
-    ResponseTime: ebayData.prodTechInfo?.responseTime,
-    Brightness: ebayData.prodTechInfo?.brightness,
-    ContrastRatio: ebayData.prodTechInfo?.contrastRatio,
-    EcRange: ebayData.prodTechInfo?.ecRange,
-    ProductLine: ebayData.prodTechInfo?.productLine,
-    WarrantyDuration: ebayData.prodPricing?.warrantyDuration,
-    WarrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
-    PostagePolicy: ebayData.prodDelivery?.postagePolicy,
-    PackageWeight: ebayData.prodDelivery?.packageWeight,
-    PackageDimensions: ebayData.prodDelivery?.packageDimensions,
-    IrregularPackage: ebayData.prodDelivery?.irregularPackage,
-    ToFit: ebayData.prodTechInfo?.toFit,
-    DisplayType: ebayData.prodTechInfo?.displayType,
-    AspectRatio: ebayData.prodTechInfo?.aspectRatio,
-    ImageBrightness: ebayData.prodTechInfo?.imageBrightness,
-    ThrowRatio: ebayData.prodTechInfo?.throwRatio,
-    CaliforniaProp65Warning: ebayData.prodTechInfo?.californiaProp65Warning,
-    YearManufactured: ebayData.prodTechInfo?.yearManufactured,
-    DeviceType: ebayData.prodTechInfo?.deviceType,
-    UnitType: ebayData.prodTechInfo?.unitType,
-    UnitQuantity: ebayData.prodTechInfo?.unitQuantity,
-    HardDriveType: ebayData.prodTechInfo?.hardDriveType,
-    OperatingSystem: ebayData.prodTechInfo?.operatingSystem,
-    OperatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
-    Memory: ebayData.prodTechInfo?.memory,
-    MaxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
-    MemoryType: ebayData.prodTechInfo?.memoryType,
-    RaidLevel: ebayData.prodTechInfo?.raidLevel,
-  };
+  // 2. Define sections to extract fields from
+  const sections = ["prodTechInfo", "prodPricing", "prodDelivery", "productInfo"];
 
-  for (const [key, value] of Object.entries(dynamicFields)) {
-    // skip if it's a variation-specific key
-    if (variationAttributeNames.has(key.toLowerCase())) {
-      console.log(`Skipped from item specifics (exists in variation): ${key}`);
-      continue;
-    }
+  // 3. Loop over each section
+  for (const section of sections) {
+    const data = ebayData[section];
+    if (!data || typeof data !== "object") continue;
 
-    if (value && (Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim() : true)) {
-      if (Array.isArray(value)) {
-        itemSpecifics.push(`
-                  <NameValueList>
-                      <Name>${key}</Name>
-                      ${value.map((val) => `<Value>${val}</Value>`).join("")}
-                  </NameValueList>
-              `);
-      } else {
-        // If value is not an array, just add a single <Value> tag
-        itemSpecifics.push(`
-                  <NameValueList>
-                      <Name>${key}</Name>
-                      <Value>${value}</Value>
-                  </NameValueList>
-              `);
+    for (const [key, value] of Object.entries(data)) {
+      const formattedKey = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize for XML
+      if (variationAttributeNames.has(key.toLowerCase())) {
+        console.log(`⛔ Skipped from item specifics (exists in variation): ${formattedKey}`);
+        continue;
+      }
+
+      if (value && (Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim() : true)) {
+        if (Array.isArray(value)) {
+          itemSpecifics.push(`
+            <NameValueList>
+              <Name>${formattedKey}</Name>
+              ${value.map((val) => `<Value>${val}</Value>`).join("")}
+            </NameValueList>
+          `);
+        } else {
+          itemSpecifics.push(`
+            <NameValueList>
+              <Name>${formattedKey}</Name>
+              <Value>${value}</Value>
+            </NameValueList>
+          `);
+        }
       }
     }
   }
