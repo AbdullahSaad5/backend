@@ -19,7 +19,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, description, brand, productCategory } = stepData.productInfo;
+      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
       const { inventoryId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
@@ -29,6 +29,7 @@ export const listingService = {
       const productInfo = {
         kind,
         title: title || "",
+        sku: sku || "",
         description: description || "",
         brand: brand || "",
         productCategory: productCategory || "",
@@ -473,6 +474,7 @@ export const listingService = {
       const formattedData = listing.map((listing: any) => ({
         ListingID: listing._id,
         Title: listing.title,
+        SKU: listing.sku,
         Description: listing.description,
         Price: listing.price,
         Category: listing.category,
