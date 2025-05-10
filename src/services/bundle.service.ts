@@ -17,21 +17,32 @@ export const bundleService = {
   // Get all bundles
   getAllBundles: async () => {
     try {
-      return await Bundle.find(); // Fetch all bundles from the database
+      return await Bundle.find().populate({
+        path: "items",
+        populate: [
+          { path: "productId", model: "Inventory" },
+          { path: "variationId", model: "Variation" },
+          { path: "stockId", model: "Stock" },
+        ],
+      });
     } catch (error) {
       console.error("Error fetching bundles:", error);
       throw new Error("Failed to retrieve bundles from the database");
     }
   },
 
-  // Get a bundle by ID
   getBundleById: async (bundleId: string) => {
     try {
-      const bundle = await Bundle.findById(bundleId); // Fetch a specific bundle by its ID
+      const bundle = await Bundle.findById(bundleId)
+        .populate("items.productId")
+        .populate("items.variationId")
+        .populate("items.stockId");
+
       if (!bundle) {
         throw new Error("Bundle not found");
       }
-      return bundle; // Return the found bundle
+
+      return bundle;
     } catch (error) {
       console.error("Error fetching bundle:", error);
       throw new Error("Failed to retrieve the bundle");

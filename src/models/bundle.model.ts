@@ -1,119 +1,82 @@
 import { Schema, model, Types } from "mongoose";
-import { IProduct } from "@/contracts/listing.contract";
-import { IProductCategory } from "@/contracts/product-category.contract";
-import { IProductBrand } from "@/contracts/product-brand.contract";
 
-// Schema for Bundle
-const bundleSchema = new Schema(
+export const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+  filename: { type: String },
+};
+
+const bundleSchema = new Schema( 
   {
     // Bundle Name
-    bundleName: {
+    name: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // Bundle Description
-    description: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    // Promotional images with alt text
+    images: { type: [mediaSchema], _id: false },
 
-    // Promotional images or material for the bundle
-    imageUrls: {
-      type: [String], // Array of URLs to images or promotional material
-      required: false,
-    },
 
-    // Products included in the Bundle (Referencing Product Model)
-    products: [
+    // Items in the bundle
+    items: [
       {
-        product: {
+        productId: {
           type: Types.ObjectId,
-          ref: "Product", // Reference to the Product model
+          ref: "Inventory",
+          required: true,
+        },
+        variationId: {
+          type: Types.ObjectId,
+          ref: "Variation",
+          required: false,
+        },
+        stockId: {
+          type: Types.ObjectId,
+          ref: "Stock",
           required: true,
         },
         quantity: {
           type: Number,
           required: true,
-          min: 1, // Ensuring at least one unit of product
+          min: 1,
         },
-        //todo fix
-        price: {
+        customPrice: {
           type: Number,
           required: true,
         },
-        discount: {
-          type: Number,
-          default: 0, // Discount on individual product in the bundle
-        },
+        _id: false 
       },
+      
     ],
 
-    // Total cost of the bundle after considering product prices and discounts
-    //TODO fix
-    totalCost: {
-      type: Number,
-      required: true,
-      min: 0, // Ensuring non-negative value
-    },
-
-    // Bundle-wide discount
+    // Bundle discount structure
     discount: {
-      type: Number,
-      default: 0, // Discount applied to the entire bundle
-      min: 0, // Discount cannot be negative
-    },
-
-    // Validity period for the bundle's pricing and discount
-    validityPeriod: {
-      startDate: {
-        type: Date,
-        required: false,
+      type: {
+        type: String,
+        enum: ["percentage", "fixed" , "none"],
+        required: true,
       },
-      endDate: {
-        type: Date,
-        required: false,
+      value: {
+        type: Number,
+        required: true,
+        min: 0,
       },
     },
 
-    // Status of the bundle (draft or published)
-    status: {
-      type: String,
-      enum: ["draft", "published"], // Draft for unapproved bundles, published for active ones
-      default: "draft", // Default to draft when created
-    },
-
-    // Bundle Category - Can help group bundles by category (e.g., Gaming, Office)
-    category: {
-      type: Types.ObjectId,
-      ref: "ProductCategory", // Reference to Category Model
+    // Bundle expiration date
+    validity: {
+      type: Date,
       required: true,
-    },
-
-    // Bundle Brand (Optional - You may want to group bundles by a brand)
-    brand: {
-      type: Types.ObjectId,
-      ref: "ProductBrand", // Reference to ProductBrand Model
-      required: false, // Optional field, not required
-    },
-
-    // Total Quantity of the bundle available (Inventory Tracking)
-    bundleQuantity: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0, // Number of bundles in stock
-    },
-
-    // Additional fields for stock management
-    stockNotificationLevel: {
-      type: Number,
-      default: 5, // Level at which you want to be notified about low stock
     },
   },
-  { timestamps: true } // Automatically manage createdAt and updatedAt fields
+  { timestamps: true }
 );
 
 // Model for the Bundle
