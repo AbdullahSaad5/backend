@@ -672,48 +672,64 @@ function generateListingDescription(ebayData: any) {
     irregularPackage: ebayData.prodDelivery?.irregularPackage,
   });
 }
-function generateItemSpecifics(ebayData: any) {
+
+// Brand:
+//     ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
+//       ? ebayData.productInfo.brand.join(", ")
+//       : ebayData.productInfo?.brand || "MixBrand",
+function generateItemSpecifics(
+  ebayData: any,
+  forceInclude: Record<string, string[]> = {
+    productInfo: ["brand"], // force include 'brand' from productInfo
+  }
+) {
   const itemSpecifics = [];
   const variations = ebayData?.prodPricing?.selectedVariations || [];
 
-  // 1. Get all variation attribute names (case-insensitive)
+  // Step 1: Extract variation-specific attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
   variations.forEach((variation: any) => {
     const attributes = variation?.variationId?.attributes || {};
     Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
   });
 
-  // 2. Define sections to extract fields from
+  // Step 2: Define which sections to scan
   const sections = ["prodTechInfo", "prodPricing", "prodDelivery", "productInfo"];
 
-  // 3. Loop over each section
   for (const section of sections) {
     const data = ebayData[section];
     if (!data || typeof data !== "object") continue;
 
+    const sectionForceInclude = (forceInclude[section] || []).map((k) => k.toLowerCase());
+
     for (const [key, value] of Object.entries(data)) {
-      const formattedKey = key.charAt(0).toUpperCase() + key.slice(1); // Capitalize for XML
-      if (variationAttributeNames.has(key.toLowerCase())) {
-        console.log(`⛔ Skipped from item specifics (exists in variation): ${formattedKey}`);
+      const lowerKey = key.toLowerCase();
+      const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
+
+      const isVariationAttr = variationAttributeNames.has(lowerKey);
+      const isForced = sectionForceInclude.includes(lowerKey);
+
+      if (isVariationAttr && !isForced) {
+        console.log(`⛔ Skipped (in variation): ${formattedKey}`);
         continue;
       }
 
-      if (value && (Array.isArray(value) ? value.length > 0 : typeof value === "string" ? value.trim() : true)) {
+      if (value != null) {
+        let finalValue = value;
+
+        // If it's an array (e.g., brand), convert to comma-separated string
         if (Array.isArray(value)) {
-          itemSpecifics.push(`
-            <NameValueList>
-              <Name>${formattedKey}</Name>
-              ${value.map((val) => `<Value>${val}</Value>`).join("")}
-            </NameValueList>
-          `);
-        } else {
-          itemSpecifics.push(`
-            <NameValueList>
-              <Name>${formattedKey}</Name>
-              <Value>${value}</Value>
-            </NameValueList>
-          `);
+          finalValue = value.join(", ");
         }
+
+        if (typeof finalValue === "string" && finalValue.trim() === "") continue;
+
+        itemSpecifics.push(`
+          <NameValueList>
+            <Name>${formattedKey}</Name>
+            <Value>${finalValue}</Value>
+          </NameValueList>
+        `);
       }
     }
   }
