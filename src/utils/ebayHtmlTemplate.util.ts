@@ -1100,61 +1100,25 @@ const ebayHtmlTemplate = (data: any) => {
                   </div>
                 </div>
 
-                <label for="tab-control-3" class="mobile-label">Warranty</label>
-                <div id="tab-content-3" class="tab-content">
-                  <!-- Warranty Tab Content -->
-                  <link
-                    type="text/css"
-                    rel="stylesheet"
-                    href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/warranty.css"
-                  />
-                  <div class="warranty">
-                  <table>
-                      <tr data-spec="{{ WARRANTYDURATION }}">
+               <label for="tab-control-3" class="mobile-label">Warranty</label>
+								<div id="tab-content-3" class="tab-content">
+									<!-- Warranty Tab Content -->
+									<link type="text/css" rel="stylesheet" href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/warranty.css" />
+									<div class="warranty">
+										<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+										<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+									</div>
+								</div>
 
-                        <td>warranty duration</td>
-                      </tr>
-                      <tr data-spec="{{ WARRANTYCOVERAGE }}">
-
-                        <td>warranty coverage</td>
-                      </tr>
-                      <tr data-spec="{{ WARRANTYDOCUMENT }}">
-
-                        <td>warranty document</td>
-                      </tr>
-                  </table>
-                  </div>
-                </div>
-
-                <label for="tab-control-4" class="mobile-label">Delivery</label>
-                <div id="tab-content-4" class="tab-content">
-                  <!-- Delivery Tab Content -->
-                  <link
-                    type="text/css"
-                    rel="stylesheet"
-                    href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/delivery.css"
-                  />
-                  <div class="delivery">
-                  <table>
-                      <tr data-spec="{{ POSTAGEPOLICY }}">
-
-                        <td>postage policy</td>
-                      </tr>
-                      <tr data-spec="{{ PACKAGEWEIGHT }}">
-
-                          <td>package weight</td>
-                      </tr>
-                      <tr data-spec="{{ PACKAGEDIMENSIONS }}">
-
-                        <td>package dimensions</td>
-                      </tr>
-                      <tr data-spec="{{ IRREGULARPACKAGE }}">
-
-                        <td>irregular package</td>
-                      </tr>
-                   </table>
-                  </div>
-                </div>
+								<label for="tab-control-4" class="mobile-label">Delivery</label>
+								<div id="tab-content-4" class="tab-content">
+									<!-- Delivery Tab Content -->
+									<link type="text/css" rel="stylesheet" href="https://ebaydesigns-studioworx.elist.store/clients/0449birminghamva/listing/content/delivery.css" />
+									<div class="delivery">
+										<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+										<div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+									</div>
+								</div>
 
                 <label for="tab-control-5" class="mobile-label">Feedback</label>
                 <div id="tab-content-5" class="tab-content">
