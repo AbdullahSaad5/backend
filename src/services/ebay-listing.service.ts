@@ -221,6 +221,32 @@ export const ebayListingService = {
     }
   },
 
+  getShopCategories: async (req: Request, res: Response) => {
+    try {
+      const { query } = req.query;
+
+      const token = await getStoredEbayAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid eBay access token");
+      }
+
+      const url = `https://api.ebay.com/commerce/taxonomy/v1/category_tree/0/get_category_suggestions?q=${query}`;
+
+      const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const categorySuggestions = await response.json();
+      return res
+        .status(StatusCodes.OK)
+        .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: categorySuggestions });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get eBay category suggestions",
+      });
+    }
+  },
+
   getEbayCategoryAspects: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
