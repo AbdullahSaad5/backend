@@ -13,7 +13,7 @@ const ebayHtmlTemplate = (data: any) => {
       rows += `
         <tr data-spec="${cleanValue}">
           <td><strong>${label}</strong></td>
-          <td>${cleanValue}</td>
+       
         </tr>
       `;
     }
@@ -545,7 +545,7 @@ const ebayHtmlTemplate = (data: any) => {
 
                   <div class="item-description-icons">
                     <table>
-                     ${xFrameOptions(dynamicAttributes)}
+                     ${generateSpecsRows(dynamicAttributes)}
                       </table>
                   </div>
                 </div>

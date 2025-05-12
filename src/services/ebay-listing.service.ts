@@ -307,7 +307,7 @@ export const ebayListingService = {
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
-      console.log("LishtingDescription", listingDescriptionData);
+      // console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
@@ -449,6 +449,8 @@ export const ebayListingService = {
       console.log("retailPrice", retailPrice);
 
       const listingDescriptionData = generateListingDescription(ebayData);
+      // console.log("LishtingDescription", listingDescriptionData);
+
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
       }
