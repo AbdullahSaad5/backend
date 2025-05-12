@@ -672,6 +672,8 @@ function generateListingDescription(ebayData: any) {
     title: ebayData?.productInfo?.title ?? "A TEST product",
     description: ebayData?.productInfo?.description ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
+    retailPrice:
+      ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0,
   };
 
   // Collect dynamic attributes from various sections

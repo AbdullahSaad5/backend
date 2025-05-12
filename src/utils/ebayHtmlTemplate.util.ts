@@ -1323,7 +1323,7 @@ const ebayHtmlTemplate = (data: any) => {
     IMAGE08: data.imageUrls[7],
     ITEMDESCRIPTION: data.description,
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
-    STOREFRONTPRICE: data?.prodPricing?.retailPrice ?? data?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0,
+    STOREFRONTPRICE: data.retailPrice,
   };
 
   // Replace placeholders in the HTML template with actual data

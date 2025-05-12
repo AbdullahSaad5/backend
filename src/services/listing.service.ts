@@ -13,7 +13,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data in listing : ", stepData);
+      // console.log("step Data in listing : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -82,7 +82,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      console.log("Received update request:", { listingId, stepData });
+      // console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -145,7 +145,7 @@ export const listingService = {
         }
       });
 
-      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
@@ -197,7 +197,7 @@ export const listingService = {
         // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
 
-      console.log("templateListing in service : ", templateListing);
+      // console.log("templateListing in service : ", templateListing);
 
       return templateListing;
     } catch (error) {
