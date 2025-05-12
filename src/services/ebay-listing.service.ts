@@ -12,12 +12,14 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
-export const newToken =
-  "v^1.1#i^1#f^0#r^0#p^3#I^3#t^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";
+
+const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+const useClient =
+  process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
-      const type = req.query.type as "production" | "sandbox";
+      // const type = req.query.type as "production" | "sandbox";
       const credentials = await getNormalAccessToken(type);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
@@ -33,7 +35,7 @@ export const ebayListingService = {
 
   getUserAuthorizationUrl: async (req: Request, res: Response) => {
     try {
-      const type = req.query.type as "production" | "sandbox";
+      // const type = req.query.type as "production" | "sandbox";
 
       const authUrl = getEbayAuthURL(type);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, authUrl });
@@ -118,8 +120,8 @@ export const ebayListingService = {
 
   handleRefreshToken: async (req: Request, res: Response) => {
     try {
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
 
       const credentials = await refreshEbayAccessToken(type, useClient);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
@@ -136,9 +138,9 @@ export const ebayListingService = {
 
   getEbayCategories: async (req: Request, res: Response) => {
     try {
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayAccessToken(type, useClient);
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -163,9 +165,9 @@ export const ebayListingService = {
   getEbaySubCategories: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayAccessToken(type, useClient);
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -193,9 +195,9 @@ export const ebayListingService = {
   getEbayCategorySuggestions: async (req: Request, res: Response) => {
     try {
       const { query } = req.query;
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayAccessToken(type, useClient);
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -222,9 +224,9 @@ export const ebayListingService = {
   getEbayCategoryAspects: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayAccessToken(type, useClient);
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -251,10 +253,12 @@ export const ebayListingService = {
     }
   },
 
-  addItemOnEbay: async (listing: any, type: "production" | "sandbox"): Promise<string> => {
+  addItemOnEbay: async (listing: any): Promise<string> => {
+    // const useClient = req.query.useClient as "true" | "false";
+    const token = await getStoredEbayAccessToken();
     try {
       // const token = await getStoredEbayAccessToken();
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const populatedListing: any = await Listing.findById(listing._id)
@@ -379,8 +383,8 @@ export const ebayListingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
-          // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": newToken,
         },
         body: listingBody,
       });
@@ -419,10 +423,13 @@ export const ebayListingService = {
       return JSON.stringify({ status: 500, message: error.message || "Error syncing with eBay API" });
     }
   },
-  reviseItemOnEbay: async (listing: any, type: "production" | "sandbox"): Promise<string> => {
+  reviseItemOnEbay: async (listing: any): Promise<string> => {
     try {
+      //   const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayAccessToken();
       // const token = await getStoredEbayAccessToken();
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
 
@@ -502,7 +509,7 @@ export const ebayListingService = {
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "ReviseItem",
           // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
         },
         body: listingBody,
       });
@@ -609,9 +616,9 @@ export const ebayListingService = {
 
   getOrders: async (req: Request, res: Response): Promise<any> => {
     try {
-      const type = req.query.type as "production" | "sandbox";
-      const useClient = req.query.useClient as "true" | "false";
-      const credentials = await getStoredEbayAccessToken(type, useClient);
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const credentials = await getStoredEbayAccessToken();
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
       const ebayUrl =
         type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
