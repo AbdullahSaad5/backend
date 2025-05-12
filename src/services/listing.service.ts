@@ -2,7 +2,7 @@ import { Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
-import { newToken } from "./ebay-listing.service";
+// import { newToken } from "./ebay-listing.service";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 import { parseStringPromise } from "xml2js";
 export const listingService = {
@@ -671,10 +671,9 @@ export const listingService = {
   },
 
   getEbaySellerList: async () => {
+    const token = await getStoredEbayAccessToken();
     try {
-      // const token = await getStoredEbayAccessToken();
-
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
@@ -703,8 +702,8 @@ export const listingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetSellerList",
-          // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": newToken,
           "Content-Type": "text/xml",
         },
         body: listingBody,
@@ -729,13 +728,14 @@ export const listingService = {
   },
 
   getCategorySubTree: async (categoryId: string) => {
+    const token = getStoredEbayAccessToken();
     try {
       const response = await fetch(
         `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/3/get_category_subtree?category_id=${categoryId}`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${newToken}`,
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
             "Accept-Encoding": "gzip",
           },
@@ -761,9 +761,9 @@ export const listingService = {
 
   getCategoryFeatures: async () => {
     try {
-      // const token = await getStoredEbayAccessToken();
+      const token = await getStoredEbayAccessToken();
 
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
@@ -784,8 +784,8 @@ export const listingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetCategoryFeatures",
-          // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": newToken,
           "Content-Type": "text/xml",
         },
         body: listingBody,
