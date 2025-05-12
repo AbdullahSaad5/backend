@@ -86,7 +86,7 @@ export const ebayListingService = {
   handleAuthorizationCallbackSandbox: async (req: Request, res: Response) => {
     try {
       const { code } = req.query;
-      console.log("code", code);
+
       const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "false");
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
@@ -307,6 +307,7 @@ export const ebayListingService = {
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
+      console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
@@ -328,7 +329,7 @@ export const ebayListingService = {
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
-          <Title>${escapeXml(ebayData.productInfo?.Title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
@@ -378,7 +379,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -504,7 +505,7 @@ export const ebayListingService = {
       </ReviseItemRequest>
     `;
 
-      console.log("Request Body for revise Listing:", listingBody, null, 2);
+      // console.log("Request Body for revise Listing:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -632,8 +633,8 @@ export const ebayListingService = {
       const formattedStartDate = new Date(startDate).toISOString();
       const formattedEndDate = new Date(endDate).toISOString();
 
-      console.log("formattedStartDate", formattedStartDate);
-      console.log("formattedEndDate", formattedEndDate);
+      // console.log("formattedStartDate", formattedStartDate);
+      // console.log("formattedEndDate", formattedEndDate);
 
       const response = await fetch(ebayUrl, {
         method: "POST",
@@ -658,7 +659,7 @@ export const ebayListingService = {
       const rawResponse = await response.text();
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
-      console.log("jsonObj", jsonObj);
+      // console.log("jsonObj", jsonObj);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: jsonObj });
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);

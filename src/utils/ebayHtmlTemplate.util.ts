@@ -1,3 +1,5 @@
+import { xFrameOptions } from "helmet";
+
 // ebayHtmlTemplate.util.ets
 const ebayHtmlTemplate = (data: any) => {
   const generateSpecsRows = (specs: Record<string, any>) => {
@@ -543,7 +545,7 @@ const ebayHtmlTemplate = (data: any) => {
 
                   <div class="item-description-icons">
                     <table>
-                     ${generateSpecsRows(dynamicAttributes)}
+                     ${xFrameOptions(dynamicAttributes)}
                       </table>
                   </div>
                 </div>
