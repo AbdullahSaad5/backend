@@ -352,7 +352,7 @@ export const ebayListingService = {
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.Title ?? "A TEST product")}</Title>
           <SKU>${ebayData.productInfo?.sku}</SKU>
-          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
+          <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
           </PrimaryCategory>
@@ -493,7 +493,7 @@ export const ebayListingService = {
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           <SKU>${ebayData.productInfo?.sku}</SKU>
-          <Description>test descripption for now to tesst the variation thing correctly, if it works then we will move forward</Description>
+          <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
           </PrimaryCategory>
@@ -642,8 +642,6 @@ export const ebayListingService = {
 
   getOrders: async (req: Request, res: Response): Promise<any> => {
     try {
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
       const credentials = await getStoredEbayAccessToken();
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
       const ebayUrl =
@@ -690,108 +688,32 @@ export const ebayListingService = {
   },
 };
 function generateListingDescription(ebayData: any) {
+  const defaultData = {
+    title: ebayData?.productInfo?.title ?? "A TEST product",
+    description: ebayData?.productInfo?.description ?? "No description available.",
+    imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
+
+  };
+
+  // Collect dynamic attributes from various sections
+  const dynamicAttributes = {
+    ...(ebayData.prodTechInfo || {}),
+    // ...(ebayData.prodPricing || {}),
+    // ...(ebayData.prodDelivery || {}),
+  };
+
+  // This will create an array of { name, value } objects for rendering
+  const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
+    name: key,
+    value: value ?? "Not specified",
+  }));
+
   return ebayHtmlTemplate({
-    title: ebayData.productInfo?.title ?? "A TEST product",
-    sku: ebayData.productInfo?.sku,
-    brand: ebayData.productInfo?.brand || "LENOVO",
-    processor: ebayData.prodTechInfo?.processor || "Core I9",
-    ram: ebayData.prodTechInfo?.ramSize || "16 GB",
-    storage: ebayData.prodTechInfo?.storageType || "SSD",
-    formFactor: ebayData.prodTechInfo?.formFactor || "Unknown",
-    gpu: ebayData.prodTechInfo?.gpu || "Nvidia RTX 3060",
-    screenSize: ebayData.prodTechInfo?.screenSize || "Unknown",
-    resolution: ebayData.prodTechInfo?.resolution || "Unknown",
-    frequency: ebayData.prodTechInfo?.frequency || "Unknown",
-    connectivity: ebayData.prodTechInfo?.connectivity || "Unknown",
-    description: ebayData.productInfo?.description || "No description available.",
-    imageUrls: ebayData.prodMedia?.images?.map((img: any) => img.url) ?? [],
-    weightUnit: "POUND",
-    ean: ebayData.prodTechInfo?.ean,
-    mpn: ebayData.prodTechInfo?.mpn,
-    upc: ebayData.prodTechInfo?.upc,
-    model: ebayData.prodTechInfo?.model,
-    operatingSystem: ebayData.prodTechInfo?.operatingSystem,
-    storageType: ebayData.prodTechInfo?.storageType,
-    features: ebayData.prodTechInfo?.features,
-    ssdCapacity: ebayData.prodTechInfo?.ssdCapacity,
-    type: ebayData.prodTechInfo?.type,
-    releaseYear: ebayData.prodTechInfo?.releaseYear,
-    hardDriveCapacity: ebayData.prodTechInfo?.hardDriveCapacity,
-    color: ebayData.prodTechInfo?.color,
-    maxResolution: ebayData.prodTechInfo?.maxResolution,
-    mostSuitableFor: ebayData.prodTechInfo?.mostSuitableFor,
-    graphicsProcessingType: ebayData.prodTechInfo?.graphicsProcessingType,
-    motherboardModel: ebayData.prodTechInfo?.motherboardModel,
-    series: ebayData.prodTechInfo?.series,
-    operatingSystemEdition: ebayData.prodTechInfo?.operatingSystemEdition,
-    memory: ebayData.prodTechInfo?.memory,
-    maxRamCapacity: ebayData.prodTechInfo?.maxRamCapacity,
-    unitType: ebayData.prodTechInfo?.unitType,
-    unitQuantity: ebayData.prodTechInfo?.unitQuantity,
-    processorSpeed: ebayData.prodTechInfo?.processorSpeed,
-    ramSize: ebayData.prodTechInfo?.ramSize,
-    productType: ebayData.prodTechInfo?.productType,
-    manufacturerWarranty: ebayData.prodPricing?.manufacturerWarranty,
-    regionOfManufacture: ebayData.prodTechInfo?.regionOfManufacture,
-    height: ebayData.prodTechInfo?.height || "Unknown",
-    length: ebayData.prodTechInfo?.length || "Unknown",
-    width: ebayData.prodTechInfo?.width || "Unknown",
-    weight: ebayData.prodTechInfo?.weight || "Unknown",
-    nonNewConditionDetails: ebayData.prodTechInfo?.nonNewConditionDetails,
-    productCondition: ebayData.prodTechInfo?.productCondition,
-    numberOfLANPorts: ebayData.prodTechInfo?.numberOfLANPorts,
-    maximumWirelessData: ebayData.prodTechInfo?.maximumWirelessData,
-    maximumLANDataRate: ebayData.prodTechInfo?.maximumLANDataRate,
-    ports: ebayData.prodTechInfo?.ports,
-    toFit: ebayData.prodTechInfo?.toFit,
-    displayType: ebayData.prodTechInfo?.displayType,
-    aspectRatio: ebayData.prodTechInfo?.aspectRatio,
-    imageBrightness: ebayData.prodTechInfo?.imageBrightness,
-    throwRatio: ebayData.prodTechInfo?.throwRatio,
-    compatibleOperatingSystem: ebayData.prodTechInfo?.compatibleOperatingSystem,
-    compatibleFormat: ebayData.prodTechInfo?.compatibleFormat,
-    lensMagnification: ebayData.prodTechInfo?.lensMagnification,
-    nativeResolution: ebayData.prodTechInfo?.nativeResolution,
-    displayTechnology: ebayData.prodTechInfo?.displayTechnology,
-    energyEfficiencyRating: ebayData.prodTechInfo?.energyEfficiencyRating,
-    videoInputs: ebayData.prodTechInfo?.videoInputs,
-    refreshRate: ebayData.prodTechInfo?.refreshRate,
-    responseTime: ebayData.prodTechInfo?.responseTime,
-    brightness: ebayData.prodTechInfo?.brightness,
-    contrastRatio: ebayData.prodTechInfo?.contrastRatio,
-    ecRange: ebayData.prodTechInfo?.ecRange,
-    productLine: ebayData.prodTechInfo?.productLine,
-    customBundle: ebayData.prodTechInfo?.customBundle,
-    interface: ebayData.prodTechInfo?.interface,
-    networkConnectivity: ebayData.prodTechInfo?.networkConnectivity,
-    networkManagementType: ebayData.prodTechInfo?.networkManagementType,
-    networkType: ebayData.prodTechInfo?.networkType,
-    processorManufacturer: ebayData.prodTechInfo?.processorManufacturer,
-    numberOfProcessors: ebayData.prodTechInfo?.numberOfProcessors,
-    numberOfVANPorts: ebayData.prodTechInfo?.numberOfVANPorts,
-    processorType: ebayData.prodTechInfo?.processorType,
-    raidLevel: ebayData.prodTechInfo?.raidLevel,
-    memoryType: ebayData.prodTechInfo?.memoryType,
-    deviceConnectivity: ebayData.prodTechInfo?.deviceConnectivity,
-    connectorType: ebayData.prodTechInfo?.connectorType,
-    supportedWirelessProtocol: ebayData.prodTechInfo?.supportedWirelessProtocol,
-    compatibleOperatingSystems: ebayData.prodTechInfo?.compatibleOperatingSystems,
-    californiaProp65Warning: ebayData.prodTechInfo?.californiaProp65Warning,
-    yearManufactured: ebayData.prodTechInfo?.yearManufactured,
-    warrantyDuration: ebayData.prodPricing?.warrantyDuration,
-    warrantyCoverage: ebayData.prodPricing?.warrantyCoverage,
-    warrantyDocument: ebayData.prodPricing?.warrantyDocument,
-    postagePolicy: ebayData.prodDelivery?.postagePolicy,
-    packageWeight: ebayData.prodDelivery?.packageWeight,
-    packageDimensions: ebayData.prodDelivery?.packageDimensions,
-    irregularPackage: ebayData.prodDelivery?.irregularPackage,
+    ...defaultData,
+    attributes: attributeList, // pass this list to the template
   });
 }
 
-// Brand:
-//     ebayData.productInfo?.brand && Array.isArray(ebayData.productInfo.brand)
-//       ? ebayData.productInfo.brand.join(", ")
-//       : ebayData.productInfo?.brand || "MixBrand",
 function generateItemSpecifics(
   ebayData: any,
   forceInclude: Record<string, string[]> = {
