@@ -6,7 +6,6 @@ const ebayHtmlTemplate = (data: any) => {
     for (const [label, value] of Object.entries(specs)) {
       if (!value) continue;
 
-      // Normalize array values to comma-separated string
       const cleanValue = Array.isArray(value) ? value.join(", ") : value;
 
       rows += `
@@ -20,12 +19,12 @@ const ebayHtmlTemplate = (data: any) => {
     return rows;
   };
 
-  // Merge all dynamic sources into one object
-  const mergedSpecs: Record<string, any> = {
+  // Collect dynamic attributes
+  const dynamicAttributes: Record<string, any> = {
     ...(data.productInfo || {}),
     ...(data.prodTechInfo || {}),
-    ...(data.prodPricing || {}),
-    ...(data.prodDelivery || {}),
+    // ...(data.prodPricing || {}),
+    // ...(data.prodDelivery || {}),
   };
 
   const htmlData = `
@@ -531,7 +530,7 @@ const ebayHtmlTemplate = (data: any) => {
                   <div class="item-description">{{ ITEMDESCRIPTION }}</div>
                   <div class="item-description-icons">
                     <table>
-  ${generateSpecsRows(mergedSpecs)}
+  ${generateSpecsRows(dynamicAttributes)}
                     </table>
                   </div>
                   <div class="item-description-suffix">{{ ITEMDESCRIPTION - SUFFIX }}</div>
@@ -544,7 +543,7 @@ const ebayHtmlTemplate = (data: any) => {
 
                   <div class="item-description-icons">
                     <table>
-                     ${generateSpecsRows(mergedSpecs)}
+                     ${generateSpecsRows(dynamicAttributes)}
                       </table>
                   </div>
                 </div>
@@ -1323,95 +1322,6 @@ const ebayHtmlTemplate = (data: any) => {
     ITEMDESCRIPTION: data.description,
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
     STOREFRONTPRICE: data?.prodPricing?.retailPrice ?? data?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 0,
-    CPU: data.prodTechInfo?.cpu,
-    GPU: data.prodTechInfo?.gpu,
-    RAM: data.prodTechInfo?.ram,
-    STORAGE: data.prodTechInfo?.storage,
-    POWER: data.prodTechInfo?.power,
-
-    PROCESSOR: data.prodTechInfo?.processor,
-    MODEL: data.prodTechInfo?.model,
-    OPERATINGSYSTEM: data.prodTechInfo?.operatingSystem,
-    STORAGETYPE: data.prodTechInfo?.storageType,
-    FEATURES: data.prodTechInfo?.features,
-    SSDCAPACITY: data.prodTechInfo?.ssdCapacity,
-    TYPE: data.prodTechInfo?.type,
-    RELEASEYEAR: data.prodTechInfo?.releaseYear,
-
-    HARDDRIVECAPACITY: data.prodTechInfo?.hardDriveCapacity,
-    COLOR: data.prodTechInfo?.color,
-    MAXRESOLUTION: data.prodTechInfo?.maxResolution,
-    MOSTSUITABLEFOR: data.prodTechInfo?.mostSuitableFor.map((mostSuitableFor: string) => mostSuitableFor.trim()),
-    SCREENSIZE: data.prodTechInfo?.screenSize,
-    GRAPHICSPROCESSINGTYPE: data.prodTechInfo?.graphicsProcessingType,
-    CONNECTIVITY: data.prodTechInfo?.connectivity.map((connectivity: string) => connectivity.trim()),
-    MOTHERBOARDMODEL: data.prodTechInfo?.motherboardModel,
-    SERIES: data.prodTechInfo?.series,
-    OPERATINGSYSTEMEDITION: data.prodTechInfo?.operatingSystemEdition,
-    MEMORY: data.prodTechInfo?.memory,
-    MAXRAMCAPACITY: data.prodTechInfo?.maxRamCapacity,
-    UNITTYPE: data.prodTechInfo?.unitType,
-    UNITQUANTITY: data.prodTechInfo?.unitQuantity,
-    MPN: data.prodTechInfo?.mpn,
-    PROCESSORSPEED: data.prodTechInfo?.processorSpeed,
-    RAMSIZE: data.prodTechInfo?.ramSize,
-    FORMFACTOR: data.prodTechInfo?.formFactor,
-    EAN: data.prodTechInfo?.ean,
-    PRODUCTTYPE: data.prodTechInfo?.productType,
-    MANUFACTURERWARRANTY: data.prodTechInfo?.manufacturerWarranty,
-    REGIONOFMANUFACTURE: data.prodTechInfo?.regionOfManufacture,
-    HEIGHT: data.prodTechInfo?.height,
-    LENGTH: data.prodTechInfo?.length,
-    WIDTH: data.prodTechInfo?.width,
-    WEIGHT: data.prodTechInfo?.weight,
-    NONNEWCONDITIONDETAILS: data.prodTechInfo?.nonNewConditionDetails,
-    PRODUCTCONDITION: data.prodTechInfo?.productCondition,
-    NUMBEROFLANPORTS: data.prodTechInfo?.numberOfLanPorts,
-    MAXIMUMWIRELESSDATA: data.prodTechInfo?.maximumWirelessData,
-    MAXIMUMLANDATARATE: data.prodTechInfo?.maximumLanDataRate,
-    PORTS: data.prodTechInfo?.ports,
-    TOFIT: data.prodTechInfo?.toFit.map((toFit: string) => toFit.trim()),
-    DISPLAYTYPE: data.prodTechInfo?.displayType,
-    ASPECTRATIO: data.prodTechInfo?.aspectRatio,
-    IMAGEBRIGHTNESS: data.prodTechInfo?.imageBrightness,
-    THROWRATIO: data.prodTechInfo?.throwRatio,
-    COMPATIBLEOPERATINGSYSTEM: data.prodTechInfo?.compatibleOperatingSystem,
-    COMPATIBLEFORMAT: data.prodTechInfo?.compatibleFormat,
-    LENSMAGNIFICATION: data.prodTechInfo?.lensMagnification,
-    YEARMANUFACTURED: data.prodTechInfo?.yearManufactured,
-    NATIVERESOLUTION: data.prodTechInfo?.nativeResolution,
-    DISPLAYTECHNOLOGY: data.prodTechInfo?.displayTechnology,
-    ENERGYEFFICIENCYRATING: data.prodTechInfo?.energyEfficiencyRating,
-    VIDEOINPUTS: data.prodTechInfo?.videoInputs,
-    REFRESHRATE: data.prodTechInfo?.refreshRate,
-    RESPONSETIME: data.prodTechInfo?.responseTime,
-    BRIGHTNESS: data.prodTechInfo?.brightness,
-    CONTRASTRATIO: data.prodTechInfo?.contrastRatio,
-    ECRANGE: data.prodTechInfo?.ecRange,
-    PRODUCTLINE: data.prodTechInfo?.productLine,
-    CUSTOMBUNDLE: data.prodTechInfo?.customBundle,
-    INTERFACE: data.prodTechInfo?.interface,
-    NETWORKCONNECTIVITY: data.prodTechInfo?.networkConnectivity,
-    NETWORKMANAGEMENTTYPE: data.prodTechInfo?.networkManagementType,
-    NETWORKTYPE: data.prodTechInfo?.networkType,
-    PROCESSORMANUFACTURER: data.prodTechInfo?.processorManufacturer,
-    NUMBEROFPROCESSORS: data.prodTechInfo?.numberOfProcessors,
-    NUMBEROFVANPORTS: data.prodTechInfo?.numberOfVanPorts,
-    PROCESSORTYPE: data.prodTechInfo?.processorType,
-    RAIDLEVEL: data.prodTechInfo?.raidLevel,
-    MEMORYTYPE: data.prodTechInfo?.memoryType,
-    DEVICECONNECTIVITY: data.prodTechInfo?.deviceConnectivity,
-    CONNECTORTYPE: data.prodTechInfo?.connectorType,
-    SUPPORTEDWIRELESSPROTOCOL: data.prodTechInfo?.supportedWirelessProtocol,
-    COMPATIBLEOPERATINGSYSTEMS: data.prodTechInfo?.compatibleOperatingSystems,
-    CALIFORNIAPROP65WARNING: data.prodTechInfo?.californiaProp65Warning,
-    WARRANTYDURATION: data.prodPricing?.warrantyDuration,
-    WARRANTYCOVERAGE: data.prodPricing?.warrantyCoverage,
-    WARRANTYDOCUMENT: data.prodPricing?.warrantyDocument,
-    POSTAGEPOLICY: data.prodDelivery?.postagePolicy,
-    PACKAGEWEIGHT: data.prodDelivery?.packageWeight,
-    PACKAGEDIMENSIONS: data.prodDelivery?.packageDimensions,
-    IRREGULARPACKAGE: data.prodDelivery?.irregularPackage,
   };
 
   // Replace placeholders in the HTML template with actual data

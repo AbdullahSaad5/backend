@@ -307,6 +307,7 @@ export const ebayListingService = {
 
       console.log("retailPrice", retailPrice);
       const listingDescriptionData = generateListingDescription(ebayData);
+
       if (!ebayData) {
         throw new Error("Missing eBay listing details");
       }
@@ -315,30 +316,7 @@ export const ebayListingService = {
         ebayData.prodMedia?.images
           ?.map((image: any) => `<PictureURL>${escapeXml(image.url)}</PictureURL>`)
           .join("\n") || "<PictureURL>https://mysamplepicture.com/15.jpg</PictureURL>";
-      let categoryId;
 
-      switch (listing.kind) {
-        case "listing_laptops":
-          categoryId = 177;
-          break;
-        case "listing_all_in_one_pc":
-          categoryId = 179;
-          break;
-        case "listing_projectors":
-          categoryId = 25321;
-          break;
-        case "listing_monitors":
-          categoryId = 80053;
-          break;
-        case "listing_gaming_pc":
-          categoryId = 179;
-          break;
-        case "listing_network_equipments":
-          categoryId = 175709;
-          break;
-        default:
-          categoryId = 177;
-      }
       // Use listing._id as the SKU (or replace with the correct ID field)
       // const sku = listing._id?.toString();
       const ebayUrl =
@@ -351,7 +329,7 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.Title ?? "A TEST product")}</Title>
-          <SKU>${ebayData.productInfo?.sku}</SKU>
+          <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
@@ -492,7 +470,8 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <SKU>${ebayData.productInfo?.sku}</SKU>
+       <SKU>${escapeXml(ebayData.productInfo?.sku || "1234344343")}</SKU>
+
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
@@ -692,7 +671,6 @@ function generateListingDescription(ebayData: any) {
     title: ebayData?.productInfo?.title ?? "A TEST product",
     description: ebayData?.productInfo?.description ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
-
   };
 
   // Collect dynamic attributes from various sections
@@ -718,6 +696,9 @@ function generateItemSpecifics(
   ebayData: any,
   forceInclude: Record<string, string[]> = {
     productInfo: ["brand"], // force include 'brand' from productInfo
+  },
+  exclude: Record<string, string[]> = {
+    productInfo: ["ProductCategory", "Title", "Description"], // specify which attributes to exclude (e.g., productCategory from productInfo)
   }
 ) {
   const itemSpecifics = [];
@@ -731,13 +712,14 @@ function generateItemSpecifics(
   });
 
   // Step 2: Define which sections to scan
-  const sections = ["prodTechInfo", "prodPricing", "prodDelivery", "productInfo"];
+  const sections = ["prodTechInfo"];
 
   for (const section of sections) {
     const data = ebayData[section];
     if (!data || typeof data !== "object") continue;
 
     const sectionForceInclude = (forceInclude[section] || []).map((k) => k.toLowerCase());
+    const sectionExclude = (exclude[section] || []).map((k) => k.toLowerCase());
 
     for (const [key, value] of Object.entries(data)) {
       const lowerKey = key.toLowerCase();
@@ -745,9 +727,16 @@ function generateItemSpecifics(
 
       const isVariationAttr = variationAttributeNames.has(lowerKey);
       const isForced = sectionForceInclude.includes(lowerKey);
+      const isExcluded = sectionExclude.includes(lowerKey);
 
       if (isVariationAttr && !isForced) {
         console.log(`⛔ Skipped (in variation): ${formattedKey}`);
+        continue;
+      }
+
+      // Skip attributes that are in the exclude list
+      if (isExcluded) {
+        console.log(`⛔ Excluded: ${formattedKey}`);
         continue;
       }
 
