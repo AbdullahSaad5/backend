@@ -56,7 +56,7 @@ const ebayAuthTokenSandbox = new EbayAuthToken({
 // Options for generating user authorization URL
 const options: EbayAuthOptions = { prompt: "consent" };
 
-export const getStoredEbayAccessToken = async (type: "production" | "sandbox", useClient: "true" | "false") => {
+export const getStoredEbayAccessToken = async () => {
   try {
     // const filePath = path.resolve(__dirname, "ebay_tokens.json");
 
@@ -65,7 +65,9 @@ export const getStoredEbayAccessToken = async (type: "production" | "sandbox", u
     //   console.error("❌ Token file not found.");
     //   return null;
     // }
-
+    const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+    const useClient =
+      process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
     let credentialsText;
     try {
       if (useClient === "true") {
