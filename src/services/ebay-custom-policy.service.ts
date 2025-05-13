@@ -4,7 +4,6 @@ import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 
 const baseURL = "https://api.ebay.com"; // Replace with actual base URL if different
-
 export const ebayCustomPolicyService = {
   async createCustomPolicy(body: any): Promise<any> {
     try {
