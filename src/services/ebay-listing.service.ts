@@ -703,7 +703,7 @@ const generateListingDescription = (ebayData: any) => {
 
   // Get raw attributes (prodTechInfo)
   const rawAttributes = ebayData?.prodTechInfo ?? {};
-  console.log("Raw Attributes:", rawAttributes);
+  // console.log("Raw Attributes:", rawAttributes);
 
   // Build dynamic attributes
   const dynamicAttributes: Record<string, string> = {};
@@ -716,7 +716,7 @@ const generateListingDescription = (ebayData: any) => {
     }
   }
 
-  console.log("Dynamic Attributes Received:", dynamicAttributes);
+  // console.log("Dynamic Attributes Received:", dynamicAttributes);
 
   // Format for template
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
