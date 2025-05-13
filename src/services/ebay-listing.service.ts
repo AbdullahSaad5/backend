@@ -2,7 +2,7 @@ import { ebay } from "@/routes/ebay.route";
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
-import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
+import testEbayHtmlTemplate from "@/utils/testEbayHtmlTemplate.util";
 import { XMLParser } from "fast-xml-parser";
 import {
   exchangeCodeForAccessToken,
@@ -250,8 +250,7 @@ export const ebayListingService = {
   getEbayCategoryAspects: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
+
       const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -279,6 +278,30 @@ export const ebayListingService = {
     }
   },
 
+  fetchEbayCategoryAspects: async (categoryId: string) => {
+    try {
+      const token = await getStoredEbayAccessToken();
+      if (!token) throw new Error("Missing or invalid eBay access token");
+
+      const CATEGORY_TREE_ID = 3;
+      const baseUrl = type === "production" ? "https://api.ebay.com" : "https://api.sandbox.ebay.com";
+
+      const url = `${baseUrl}/commerce/taxonomy/v1/category_tree/${CATEGORY_TREE_ID}/get_item_aspects_for_category?category_id=${categoryId}`;
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch category aspects from eBay");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error in fetchEbayCategoryAspects:", error);
+      throw error;
+    }
+  },
   addItemOnEbay: async (listing: any): Promise<string> => {
     // const useClient = req.query.useClient as "true" | "false";
     const token = await getStoredEbayAccessToken();
@@ -669,7 +692,7 @@ export const ebayListingService = {
     }
   },
 };
-function generateListingDescription(ebayData: any) {
+const generateListingDescription = (ebayData: any) => {
   const defaultData = {
     title: ebayData?.productInfo?.title ?? "A TEST product",
     description: ebayData?.productInfo?.description ?? "No description available.",
@@ -678,24 +701,36 @@ function generateListingDescription(ebayData: any) {
       ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0,
   };
 
-  // Collect dynamic attributes from various sections
-  const dynamicAttributes = {
-    ...(ebayData.prodTechInfo || {}),
-    // ...(ebayData.prodPricing || {}),
-    // ...(ebayData.prodDelivery || {}),
-  };
+  // Log the full data to check the structure
+  console.log("Full ebayData:", ebayData);
 
-  // This will create an array of { name, value } objects for rendering
+  // Collect dynamic attributes from various sections
+  const dynamicAttributes: Record<string, any> = {};
+
+  // Handle missing or undefined prodTechInfo
+  const rawAttributes = ebayData?.prodTechInfo || new Map();
+  console.log("Raw Attributes:", rawAttributes);
+
+  // Ensure prodTechInfo is a Map and iterate through its entries
+  if (rawAttributes instanceof Map) {
+    rawAttributes.forEach((value, key) => {
+      // If the value is an array, join the values; otherwise, leave it as-is
+      dynamicAttributes[key] = Array.isArray(value) ? value.join(", ") : value;
+    });
+  }
+
+  console.log("Dynamic Attributes Received:", dynamicAttributes);
+
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
     name: key,
     value: value ?? "Not specified",
   }));
 
-  return ebayHtmlTemplate({
+  return testEbayHtmlTemplate({
     ...defaultData,
-    attributes: attributeList, // pass this list to the template
+    attributes: attributeList,
   });
-}
+};
 
 function generateItemSpecifics(
   ebayData: any,
