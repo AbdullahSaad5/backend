@@ -3,6 +3,7 @@ import { inventoryValidation } from "@/validations";
 import { Router } from "express";
 import { handleBulkImport, handleBulkExport } from "@/controllers/inventory.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
+import { bulkImportUtility } from "@/utils/bulkImport.util";
 
 export const inventory = (router: Router) => {
   // TODO: inventoryValidation.addInventory
@@ -64,6 +65,7 @@ export const inventory = (router: Router) => {
   router.post("/:id/generate-variations", inventoryController.generateAndStoreVariations);
 
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
+  router.get("/fetch-all-categories", bulkImportUtility.fetchAspectsForAllCategories);
 
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);

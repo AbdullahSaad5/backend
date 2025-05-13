@@ -5,8 +5,7 @@ import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
-import { setCacheWithTTL } from "@/datasources/redis.datasource";
-import { validateCsvData } from "@/utils/bulkImport.util";
+
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -973,6 +972,4 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
- 
 };
