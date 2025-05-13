@@ -13,7 +13,7 @@ export const listing = (router: Router) => {
   router.get("/search", listingController.searchAndFilterListing);
   router.get("/get-seller-list", listingController.getSellerList);
   router.get("/get-category-features", listingController.getCategoryFeatures);
-  router.get("/get-category-sub-tree/:id",listingController.transformAndSendDraftListing);
+  router.get("/get-category-sub-tree/:id", listingController.transformAndSendDraftListing);
   // New route for fetching listing stats/ Widgets
   router.get("/stats", listingController.getListingStats);
 
@@ -49,13 +49,13 @@ export const listing = (router: Router) => {
   // route for toggle block status
   router.patch("/block/:id", listingController.toggleBlock);
 
-
   // route for toggle block status
   router.patch("/istemplate/:id", listingController.toggleIsTemplate);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);
 
+  router.get("/:id/get-all-attributes", listingController.getAllAttributesById);
   // Get selected variations for listing
   router.get("/:id/selected-parts", listingController.getSelectedListingParts);
 };

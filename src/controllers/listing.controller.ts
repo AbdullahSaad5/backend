@@ -3,8 +3,9 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
-import { Inventory } from "@/models";
+import { Inventory, Listing } from "@/models";
 import { ebay } from "@/routes/ebay.route";
+import { productCategory } from "@/routes/product-category.route";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -809,6 +810,49 @@ export const listingController = {
       res.status(200).json({ selectedVariations: listing.selectedVariations });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  },
+  // get all attribute combinations from ebay aspects  for creating variationsin listing which are without stock getting using listingId
+  getAllAttributesById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch listing and populate productInfo.productCategory
+      const listingItem: any = await Listing.findById(id).populate("productInfo.productCategory").lean();
+
+      if (!listingItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Try to get either ebayProductCategoryId or ebayPartCategoryId
+      const productCategory = listingItem?.productInfo?.productCategory;
+      const ebayCategoryId = productCategory?.ebayProductCategoryId || productCategory?.ebayPartCategoryId;
+
+      if (!ebayCategoryId) {
+        return res.status(400).json({ message: "No eBay category ID found in product category" });
+      }
+
+      // Get eBay aspects using the provided function
+      const ebayAspects = await ebayListingService.fetchEbayCategoryAspects(ebayCategoryId);
+
+      // Extract and filter aspects enabled for variations
+      const variationAspects = (ebayAspects?.aspects || []).filter(
+        (aspect: any) => aspect?.aspectConstraint?.aspectEnabledForVariations === true
+      );
+
+      // Format for response: name + full aspectValues array
+      const formattedVariationAspects = variationAspects.map((aspect: any) => ({
+        name: aspect.localizedAspectName,
+        values: aspect.aspectValues || [],
+      }));
+
+      return res.status(200).json({
+        message: "eBay aspects with enabled variations fetched successfully",
+        attributes: formattedVariationAspects,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching data:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   },
 };
