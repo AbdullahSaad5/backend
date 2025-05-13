@@ -41,6 +41,7 @@ export const listingService = {
         kind,
         inventoryId,
         listingHasVariations: stepData.listingHasVariations || false,
+        listingwithStock: stepData.listingwithStock ,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -52,6 +53,9 @@ export const listingService = {
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      console.log("listing has variatio  check : ", stepData.listingwithStock);
+      console.log("draftListingData here there : ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
@@ -68,6 +72,8 @@ export const listingService = {
           });
         }
       });
+
+      console.log("draftListingData before save : ", draftListingData);
 
       const draftListing = new Listing.discriminators[kind](draftListingData);
       await draftListing.save({ validateBeforeSave: false });
