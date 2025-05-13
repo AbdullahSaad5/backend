@@ -1,4 +1,4 @@
-import { inventoryService } from "@/services";
+import { ebayListingService, inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
@@ -804,13 +804,13 @@ export const inventoryController = {
         }, {});
 
         // 2. Normalize excluded attributes
-        const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
+        // const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
 
         // 3. Filter out excluded keys
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
-          if (!excludedAttributes.includes(key)) {
-            acc[key] = multiSelectAttributes[key];
-          }
+          // if (!excludedAttributes.includes(key)) {
+          acc[key] = multiSelectAttributes[key];
+          // }
           return acc;
         }, {});
 
@@ -971,6 +971,48 @@ export const inventoryController = {
     } catch (error) {
       console.error("❌ Error updating variations:", error);
       res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // get all attribute combinations from ebay aspects  for creating variationsin listing which are without stock getting using inventoryId
+  getAllAttributesById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch inventory and populate productInfo.productCategory
+      const inventoryItem: any = await Inventory.findById(id).populate("productInfo.productCategory").lean();
+
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Get eBay product category ID from the inventory item
+      const ebayProductCategoryId = inventoryItem?.productInfo?.ebayCategoryId;
+      if (!ebayProductCategoryId) {
+        return res.status(400).json({ message: "eBay product category ID not found" });
+      }
+
+      // Get eBay aspects using the provided function
+      const ebayAspects = await ebayListingService.fetchEbayCategoryAspects(ebayProductCategoryId);
+
+      // Extract and filter aspects enabled for variations
+      const variationAspects = (ebayAspects?.aspects || []).filter(
+        (aspect: any) => aspect?.aspectConstraint?.aspectEnabledForVariations === true
+      );
+
+      // Format for response: name + full aspectValues array
+      const formattedVariationAspects = variationAspects.map((aspect: any) => ({
+        name: aspect.localizedAspectName,
+        values: aspect.aspectValues || [],
+      }));
+
+      return res.status(200).json({
+        message: "eBay aspects with enabled variations fetched successfully",
+        attributes: formattedVariationAspects,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching data:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   },
 };
