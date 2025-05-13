@@ -29,10 +29,10 @@ export const inventory = (router: Router) => {
   router.post("/bulk-export", handleBulkExport);
 
   router.get("/transform/:id", inventoryValidation.validateId, inventoryController.transformAndSendInventory);
-  
+
   // Fetch transformed template inventory by ID
   router.get("/templates/:id", inventoryValidation.validateId, inventoryController.transformAndSendTemplateInventory);
-  
+
   router.get("/drafts/:id", inventoryValidation.validateId, inventoryController.transformAndSendDraftInventory);
 
   // Fetch all template inventory  names
@@ -62,6 +62,7 @@ export const inventory = (router: Router) => {
   router.post("/:id/selected-parts", inventoryController.upsertInventoryParts);
 
   router.post("/:id/generate-variations", inventoryController.generateAndStoreVariations);
+  router.get("/:id/get-all-attributes", inventoryController.getAllAttributesById);
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
 
   // Get selected variations for a inventory

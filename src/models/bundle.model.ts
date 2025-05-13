@@ -32,11 +32,11 @@ const bundleSchema = new Schema(
           ref: "Inventory",
           required: true,
         },
-        variationId: {
+        variationId: [{
           type: Types.ObjectId,
           ref: "Variation",
           required: false,
-        },
+        }],
         stockId: {
           type: Types.ObjectId,
           ref: "Stock",

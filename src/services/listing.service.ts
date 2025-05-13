@@ -2,7 +2,7 @@ import { Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
-import { newToken } from "./ebay-listing.service";
+// import { newToken } from "./ebay-listing.service";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 import { parseStringPromise } from "xml2js";
 export const listingService = {
@@ -13,7 +13,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data in listing : ", stepData);
+      // console.log("step Data in listing : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -41,6 +41,7 @@ export const listingService = {
         kind,
         inventoryId,
         listingHasVariations: stepData.listingHasVariations || false,
+        listingwithStock: stepData.listingwithStock ,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -52,6 +53,9 @@ export const listingService = {
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
+
+      console.log("listing has variatio  check : ", stepData.listingwithStock);
+      console.log("draftListingData here there : ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
@@ -69,6 +73,8 @@ export const listingService = {
         }
       });
 
+      console.log("draftListingData before save : ", draftListingData);
+
       const draftListing = new Listing.discriminators[kind](draftListingData);
       await draftListing.save({ validateBeforeSave: false });
 
@@ -82,7 +88,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      console.log("Received update request:", { listingId, stepData });
+      // console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -145,7 +151,7 @@ export const listingService = {
         }
       });
 
-      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
@@ -197,7 +203,7 @@ export const listingService = {
         // .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
 
-      console.log("templateListing in service : ", templateListing);
+      // console.log("templateListing in service : ", templateListing);
 
       return templateListing;
     } catch (error) {
@@ -671,10 +677,9 @@ export const listingService = {
   },
 
   getEbaySellerList: async () => {
+    const token = await getStoredEbayAccessToken();
     try {
-      // const token = await getStoredEbayAccessToken();
-
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
@@ -703,8 +708,8 @@ export const listingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetSellerList",
-          // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": newToken,
           "Content-Type": "text/xml",
         },
         body: listingBody,
@@ -729,13 +734,14 @@ export const listingService = {
   },
 
   getCategorySubTree: async (categoryId: string) => {
+    const token = getStoredEbayAccessToken();
     try {
       const response = await fetch(
         `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/3/get_category_subtree?category_id=${categoryId}`,
         {
           method: "GET",
           headers: {
-            Authorization: `Bearer ${newToken}`,
+            Authorization: `Bearer ${token}`,
             Accept: "application/json",
             "Accept-Encoding": "gzip",
           },
@@ -761,9 +767,9 @@ export const listingService = {
 
   getCategoryFeatures: async () => {
     try {
-      // const token = await getStoredEbayAccessToken();
+      const token = await getStoredEbayAccessToken();
 
-      if (!newToken) {
+      if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
       const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
@@ -784,8 +790,8 @@ export const listingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetCategoryFeatures",
-          // "X-EBAY-API-IAF-TOKEN": token,
-          "X-EBAY-API-IAF-TOKEN": newToken,
+          "X-EBAY-API-IAF-TOKEN": token,
+          // "X-EBAY-API-IAF-TOKEN": newToken,
           "Content-Type": "text/xml",
         },
         body: listingBody,
