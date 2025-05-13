@@ -804,13 +804,13 @@ export const inventoryController = {
         }, {});
 
         // 2. Normalize excluded attributes
-        const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
+        // const excludedAttributes = ["brand", "features", "model", "tofit", "connectivity", "mostsuitablefor", "ports"];
 
         // 3. Filter out excluded keys
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
-          if (!excludedAttributes.includes(key)) {
-            acc[key] = multiSelectAttributes[key];
-          }
+          // if (!excludedAttributes.includes(key)) {
+          acc[key] = multiSelectAttributes[key];
+          // }
           return acc;
         }, {});
 
