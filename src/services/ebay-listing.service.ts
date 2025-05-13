@@ -2,7 +2,7 @@ import { ebay } from "@/routes/ebay.route";
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
-import testEbayHtmlTemplate from "@/utils/testEbayHtmlTemplate.util";
+import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
 import { XMLParser } from "fast-xml-parser";
 import {
   exchangeCodeForAccessToken,
@@ -701,32 +701,30 @@ const generateListingDescription = (ebayData: any) => {
       ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0,
   };
 
-  // Log the full data to check the structure
-  console.log("Full ebayData:", ebayData);
+  // Get raw attributes (prodTechInfo)
+  const rawAttributes = ebayData?.prodTechInfo ?? {};
+  // console.log("Raw Attributes:", rawAttributes);
 
-  // Collect dynamic attributes from various sections
-  const dynamicAttributes: Record<string, any> = {};
+  // Build dynamic attributes
+  const dynamicAttributes: Record<string, string> = {};
 
-  // Handle missing or undefined prodTechInfo
-  const rawAttributes = ebayData?.prodTechInfo || new Map();
-  console.log("Raw Attributes:", rawAttributes);
-
-  // Ensure prodTechInfo is a Map and iterate through its entries
-  if (rawAttributes instanceof Map) {
-    rawAttributes.forEach((value, key) => {
-      // If the value is an array, join the values; otherwise, leave it as-is
-      dynamicAttributes[key] = Array.isArray(value) ? value.join(", ") : value;
-    });
+  for (const [key, value] of Object.entries(rawAttributes)) {
+    if (Array.isArray(value) && value.length > 0) {
+      dynamicAttributes[key] = value.join(", ");
+    } else if (typeof value === "string" && value.trim() !== "") {
+      dynamicAttributes[key] = value.trim();
+    }
   }
 
-  console.log("Dynamic Attributes Received:", dynamicAttributes);
+  // console.log("Dynamic Attributes Received:", dynamicAttributes);
 
+  // Format for template
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
     name: key,
-    value: value ?? "Not specified",
+    value,
   }));
 
-  return testEbayHtmlTemplate({
+  return ebayHtmlTemplate({
     ...defaultData,
     attributes: attributeList,
   });

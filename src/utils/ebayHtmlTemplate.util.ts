@@ -1,33 +1,23 @@
-import { xFrameOptions } from "helmet";
-
 // ebayHtmlTemplate.util.ets
 const ebayHtmlTemplate = (data: any) => {
-  const generateSpecsRows = (specs: Record<string, any>) => {
-    let rows = "";
-
-    for (const [label, value] of Object.entries(specs)) {
-      if (!value) continue;
-
-      const cleanValue = Array.isArray(value) ? value.join(", ") : value;
-
-      rows += `
-        <tr data-spec="${cleanValue}">
-          <td><strong>${label}</strong></td>
-       
-        </tr>
-      `;
-    }
-
-    return rows;
+  // Function to create table rows from attribute list
+  const generateSpecsRows = (specs: { name: string; value: any }[]) => {
+    return specs
+      .map(
+        ({ name, value }) => `
+      <tr data-spec="${name}">
+        <td><strong>${name}</strong></td>
+        <td>${value}</td>
+      </tr>`
+      )
+      .join("");
   };
 
-  // Collect dynamic attributes
-  const dynamicAttributes: Record<string, any> = {
-    ...(data.productInfo || {}),
-    ...(data.prodTechInfo || {}),
-    // ...(data.prodPricing || {}),
-    // ...(data.prodDelivery || {}),
-  };
+  // Use pre-processed attributes passed in
+  const attributeList = Array.isArray(data.attributes) ? data.attributes : [];
+
+  // Generate the HTML table rows from the passed attributes
+  const specsRows = generateSpecsRows(attributeList);
 
   const htmlData = `
 
@@ -532,7 +522,7 @@ const ebayHtmlTemplate = (data: any) => {
                   <div class="item-description">{{ ITEMDESCRIPTION }}</div>
                   <div class="item-description-icons">
                     <table>
-  ${generateSpecsRows(dynamicAttributes)}
+                        ${specsRows}
                     </table>
                   </div>
                   <div class="item-description-suffix">{{ ITEMDESCRIPTION - SUFFIX }}</div>
@@ -545,8 +535,8 @@ const ebayHtmlTemplate = (data: any) => {
 
                   <div class="item-description-icons">
                     <table>
-                     ${generateSpecsRows(dynamicAttributes)}
-                      </table>
+                      ${specsRows}
+                     </table>
                   </div>
                 </div>
 
@@ -1326,17 +1316,19 @@ const ebayHtmlTemplate = (data: any) => {
     STOREFRONTPRICE: data.retailPrice,
   };
 
-  // Replace placeholders in the HTML template with actual data
+
+
+
+
+
+
+  // Replace all placeholders in the HTML
   let populatedHtml = htmlData;
-
-  // Loop over the template data and replace the placeholders
   for (const [key, value] of Object.entries(templateData)) {
-    const placeholder = `{{ ${key} }}`;
-    populatedHtml = populatedHtml.replace(new RegExp(placeholder, "g"), value);
+    populatedHtml = populatedHtml.replace(new RegExp(`{{ ${key} }}`, "g"), value);
   }
-
-  // Return the populated HTML
   return populatedHtml;
+
 };
 
 export default ebayHtmlTemplate;

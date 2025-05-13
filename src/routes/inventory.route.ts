@@ -62,7 +62,7 @@ export const inventory = (router: Router) => {
   router.post("/:id/selected-parts", inventoryController.upsertInventoryParts);
 
   router.post("/:id/generate-variations", inventoryController.generateAndStoreVariations);
-  router.get("/:id/get-all-attributes", inventoryController.getAllAttributesById);
+
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
 
   // Get selected variations for a inventory
