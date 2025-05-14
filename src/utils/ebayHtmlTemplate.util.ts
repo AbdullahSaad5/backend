@@ -1301,34 +1301,24 @@ const ebayHtmlTemplate = (data: any) => {
 </html>
   `;
 
-  const templateData = {
+  const templateData: any = {
     ITEMTITLE: data.title,
-    IMAGE01: data.imageUrls[0],
-    IMAGE02: data.imageUrls[1],
-    IMAGE03: data.imageUrls[2],
-    IMAGE04: data.imageUrls[3],
-    IMAGE05: data.imageUrls[4],
-    IMAGE06: data.imageUrls[5],
-    IMAGE07: data.imageUrls[6],
-    IMAGE08: data.imageUrls[7],
+
     ITEMDESCRIPTION: data.description,
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
     STOREFRONTPRICE: data.retailPrice,
   };
-
-
-
-
-
-
+  (data.imageUrls || []).forEach((url: string, index: number) => {
+    const imageKey = `IMAGE0${index + 1}`; // IMAGE01, IMAGE02, ...
+    templateData[imageKey] = url;
+  });
 
   // Replace all placeholders in the HTML
   let populatedHtml = htmlData;
   for (const [key, value] of Object.entries(templateData)) {
-    populatedHtml = populatedHtml.replace(new RegExp(`{{ ${key} }}`, "g"), value);
+    populatedHtml = populatedHtml.replace(new RegExp(`{{ ${key} }}`, "g"), String(value));
   }
   return populatedHtml;
-
 };
 
 export default ebayHtmlTemplate;
