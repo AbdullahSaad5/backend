@@ -751,8 +751,10 @@ function generateItemSpecifics(
   }
 ) {
   const itemSpecifics = [];
-  const variations = ebayData?.prodPricing?.selectedVariations || [];
-
+  // const variations = ebayData?.prodPricing?.selectedVariations || [];
+  const variations = ebayData?.listingWithStock
+    ? ebayData?.prodPricing?.selectedVariations || []
+    : ebayData?.prodPricing?.listingWithoutStockVariations || [];
   // Step 1: Extract variation-specific attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
   variations.forEach((variation: any) => {
@@ -919,16 +921,24 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
 
   const variationSpecificsSet: { [key: string]: Set<string> } = {};
   const picturesByAttribute: { [value: string]: string[] } = {};
-  const pictureAttributeName = "Model"; // or set dynamically if needed
+  const pictureAttributeName = "Model"; // You can change this if needed
 
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
 
-  // Keys to ignore for variation specifics
-  const staticKeys = new Set(["retailPrice", "listingQuantity", "discountValue", "images", "_id"]);
+  const staticKeys = new Set([
+    "retailPrice",
+    "listingQuantity",
+    "discountValue",
+    "images",
+    "_id",
+    "price",
+    "quantity", // explicitly skip
+  ]);
 
-  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
-    // Get only dynamic attributes
+  const variationNodes = variations.reduce((acc: string[], variation: any) => {
+    if (variation.listingQuantity <= 0) return acc; // skip zero quantity
+
     const attrObj: Record<string, string> = {};
     for (const key in variation) {
       if (!staticKeys.has(key)) {
@@ -936,7 +946,6 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
       }
     }
 
-    // Limit to 5 unique keys max (eBay restriction)
     Object.keys(attrObj).forEach((key) => {
       if (!usedKeys.has(key) && usedKeys.size < 5) {
         usedKeys.add(key);
@@ -951,12 +960,10 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
       {} as Record<string, string>
     );
 
-    // Skip duplicate combinations
     const comboKey = JSON.stringify(filteredAttrObj);
     if (seenCombinations.has(comboKey)) return acc;
     seenCombinations.add(comboKey);
 
-    // Build <NameValueList> XML
     const nameValueXml = Object.entries(filteredAttrObj)
       .map(([key, value]) => {
         if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
@@ -978,7 +985,8 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
     return acc;
   }, []);
 
-  // Build <VariationSpecificsSet> XML
+  if (!variationNodes.length) return ""; // All variations were skipped
+
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
       const valueXml = Array.from(values)
@@ -988,7 +996,6 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
     })
     .join("");
 
-  // Optional: Build <Pictures> block if needed
   const picturesXml = Object.keys(picturesByAttribute).length
     ? `<Pictures>
         <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>
