@@ -4,8 +4,6 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Inventory, Listing } from "@/models";
-import { ebay } from "@/routes/ebay.route";
-import { productCategory } from "@/routes/product-category.route";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -111,16 +109,6 @@ export const listingController = {
               ebayResponse?.response?.ReviseItemResponse?.Errors,
           });
         }
-
-        // if (ebayResponse?.status !== 200) {
-        //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        //     success: false,
-        //     message: "Failed to sync with eBay",
-        //     ebayResponse,
-        //     ebayErrors:
-        //       ebayResponse?.response?.AddFixedPriceItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
-        //   });
-        // }
 
         // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
         if (ebayResponse && !updatedListing.ebayItemId && ebayResponse.itemId) {
@@ -761,16 +749,6 @@ export const listingController = {
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return res.status(400).json({ message: "listingIds array is required" });
       }
-
-      // Validate discountType
-      // if (!["fixed", "percentage"].includes(discountType)) {
-      //   return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
-      // }
-
-      // Validate discountValue and vat
-      // if (typeof discountValue !== "number") {
-      //   return res.status(400).json({ message: "discountValue must be numbers" });
-      // }
 
       // Call the service to perform the bulk update
       const result = await listingService.bulkUpdateListingTaxDiscount(

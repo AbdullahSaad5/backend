@@ -402,7 +402,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -733,7 +733,7 @@ const generateListingDescription = (ebayData: any) => {
 function generateItemSpecifics(
   ebayData: any,
   forceInclude: Record<string, string[]> = {
-    productInfo: ["brand"], // force include 'brand' from productInfo
+    productInfo: ["Brand"], // force include 'brand' from productInfo
   },
   exclude: Record<string, string[]> = {
     productInfo: ["ProductCategory", "Title", "Description"], // specify which attributes to exclude (e.g., productCategory from productInfo)
@@ -750,7 +750,7 @@ function generateItemSpecifics(
   });
 
   // Step 2: Define which sections to scan
-  const sections = ["prodTechInfo"];
+  const sections = ["prodTechInfo", "productInfo"];
 
   for (const section of sections) {
     const data = ebayData[section];
@@ -809,6 +809,7 @@ function escapeXml(unsafe: any) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
+
 function generateVariationsXml(ebayData: any): string {
   const variations = ebayData?.prodPricing?.selectedVariations || [];
   if (!variations.length) return "";
