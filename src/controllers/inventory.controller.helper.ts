@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { inventoryService } from "@/services"; // Adjust import path as needed
-import { processZipFile } from "@/utils/bulkImport.util";
+import { bulkImportUtility } from "@/utils/bulkImport.util";
 import { addLog, getLogs, clearLogs } from "@/utils/bulkImportLogs.util"; // Adjust import path as needed
 
 // Assuming you have the service imported
@@ -15,7 +15,7 @@ export const handleBulkImport = async (req: Request, res: Response) => {
     addLog("📂 File uploaded, processing started...");
     const zipFilePath = req.file.path;
 
-    await processZipFile(zipFilePath);
+    await bulkImportUtility.processZipFile(zipFilePath);
 
     // Send back detailed logs and status
     res.status(200).json({

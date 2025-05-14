@@ -205,7 +205,7 @@ const seedData = async () => {
   // 3. Seed admin User
   const adminData = {
     _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
-    firstName: "Mr",
+    firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
     password: "$2b$10$3BgdiUfdTySwQ6AEYTJemO/kzENfDUXU6h2oDG.zEFR7HaapCA9gu", // Already hashed
