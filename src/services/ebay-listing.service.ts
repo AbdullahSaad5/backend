@@ -319,7 +319,13 @@ export const ebayListingService = {
         throw new Error("Listing not found or failed to populate");
       }
       const ebayData = populatedListing;
-      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
+      // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
+
+      const variationXml = ebayData.listingHasVariations
+        ? ebayData.listingWithStock
+          ? generateVariationsXml(ebayData)
+          : generateVariationsForListingWithoutStockXml(ebayData)
+        : "";
       console.log("categoryId is", ebayData.productInfo.productCategory.ebayProductCategoryId);
 
       const retailPrice =
@@ -462,7 +468,12 @@ export const ebayListingService = {
       }
 
       const ebayData = listing;
-      const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
+      // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
+      const variationXml = ebayData.listingHasVariations
+        ? ebayData.listingWithStock
+          ? generateVariationsXml(ebayData)
+          : generateVariationsForListingWithoutStockXml(ebayData)
+        : "";
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
@@ -697,7 +708,8 @@ const generateListingDescription = (ebayData: any) => {
     title: ebayData?.productInfo?.title ?? "A TEST product",
     description: ebayData?.productInfo?.description ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
-    retailPrice: (ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice) ?? 10.0,
+    retailPrice:
+      (ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice) ?? 10.0,
   };
 
   // Get raw attributes (prodTechInfo)
@@ -732,23 +744,36 @@ const generateListingDescription = (ebayData: any) => {
 function generateItemSpecifics(
   ebayData: any,
   forceInclude: Record<string, string[]> = {
-    productInfo: ["Brand"], // force include 'brand' from productInfo
+    productInfo: ["Brand"],
   },
   exclude: Record<string, string[]> = {
-    productInfo: ["ProductCategory", "Title", "Description"], // specify which attributes to exclude (e.g., productCategory from productInfo)
+    productInfo: ["ProductCategory", "Title", "Description"],
   }
 ) {
   const itemSpecifics = [];
-  const variations = ebayData?.prodPricing?.selectedVariations || [];
 
-  // Step 1: Extract variation-specific attribute names (case-insensitive)
+  // ✅ Step 1: Choose correct variation source
+  const variations = ebayData?.listingWithStock
+    ? ebayData?.prodPricing?.selectedVariations || []
+    : ebayData?.prodPricing?.listingWithoutStockVariations || [];
+
+  // ✅ Step 2: Extract variation attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
+
   variations.forEach((variation: any) => {
-    const attributes = variation?.variationId?.attributes || {};
-    Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    if (ebayData?.listingWithStock) {
+      // Stock variation: read from variationId.attributes
+      const attributes = variation?.variationId?.attributes || {};
+      Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    } else {
+      // Non-stock variation: dynamic keys (exclude known static fields)
+      const { retailPrice, listingQuantity, discountValue, images, ...dynamicAttrs } = variation || {};
+
+      Object.keys(dynamicAttrs).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    }
   });
 
-  // Step 2: Define which sections to scan
+  // ✅ Step 3: Define sections to extract from
   const sections = ["prodTechInfo", "productInfo"];
 
   for (const section of sections) {
@@ -771,7 +796,6 @@ function generateItemSpecifics(
         continue;
       }
 
-      // Skip attributes that are in the exclude list
       if (isExcluded) {
         console.log(`⛔ Excluded: ${formattedKey}`);
         continue;
@@ -780,7 +804,6 @@ function generateItemSpecifics(
       if (value != null) {
         let finalValue = value;
 
-        // If it's an array (e.g., brand), convert to comma-separated string
         if (Array.isArray(value)) {
           finalValue = value.join(", ");
         }
@@ -800,9 +823,10 @@ function generateItemSpecifics(
   return itemSpecifics.join("");
 }
 
-function escapeXml(unsafe: any) {
-  return unsafe
-    ?.replace(/&/g, "&amp;")
+function escapeXml(unsafe: any): string {
+  if (unsafe == null) return "";
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
@@ -876,6 +900,111 @@ function generateVariationsXml(ebayData: any): string {
     .join("");
 
   // Pictures block
+  const picturesXml = Object.keys(picturesByAttribute).length
+    ? `<Pictures>
+        <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>
+        ${Object.entries(picturesByAttribute)
+          .map(
+            ([value, urls]) => `
+          <VariationSpecificPictureSet>
+            <VariationSpecificValue>${escapeXml(value)}</VariationSpecificValue>
+            ${urls.map((url) => `<PictureURL>${escapeXml(url)}</PictureURL>`).join("")}
+          </VariationSpecificPictureSet>`
+          )
+          .join("\n")}
+      </Pictures>`
+    : "";
+
+  return `
+    <Variations>
+      <VariationSpecificsSet>
+        ${specificsXml}
+      </VariationSpecificsSet>
+      ${variationNodes.join("\n")}
+      ${picturesXml}
+    </Variations>`;
+}
+function generateVariationsForListingWithoutStockXml(ebayData: any): string {
+  const variations = ebayData?.prodPricing?.listingWithoutStockVariations || [];
+  if (!variations.length) return "";
+
+  const variationSpecificsSet: { [key: string]: Set<string> } = {};
+  const picturesByAttribute: { [value: string]: string[] } = {};
+  const pictureAttributeName = "Model"; // You can change this if needed
+
+  const usedKeys = new Set<string>();
+  const seenCombinations = new Set<string>();
+
+  const staticKeys = new Set([
+    "retailPrice",
+    "listingQuantity",
+    "discountValue",
+    "images",
+    "_id",
+    "price",
+    "quantity", // explicitly skip
+  ]);
+
+  const variationNodes = variations.reduce((acc: string[], variation: any) => {
+    if (variation.listingQuantity <= 0) return acc; // skip zero quantity
+
+    const attrObj: Record<string, string> = {};
+    for (const key in variation) {
+      if (!staticKeys.has(key)) {
+        attrObj[key] = variation[key];
+      }
+    }
+
+    Object.keys(attrObj).forEach((key) => {
+      if (!usedKeys.has(key) && usedKeys.size < 5) {
+        usedKeys.add(key);
+      }
+    });
+
+    const filteredAttrObj = Object.entries(attrObj).reduce(
+      (acc2, [key, value]) => {
+        if (usedKeys.has(key)) acc2[key] = value;
+        return acc2;
+      },
+      {} as Record<string, string>
+    );
+
+    const comboKey = JSON.stringify(filteredAttrObj);
+    if (seenCombinations.has(comboKey)) return acc;
+    seenCombinations.add(comboKey);
+
+    const nameValueXml = Object.entries(filteredAttrObj)
+      .map(([key, value]) => {
+        if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
+        variationSpecificsSet[key].add(value);
+        return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
+      })
+      .join("");
+
+    acc.push(`
+      <Variation>
+        <SKU>VARIATION-${acc.length + 1}</SKU>
+        <StartPrice>${variation.retailPrice}</StartPrice>
+        <Quantity>${variation.listingQuantity}</Quantity>
+        <VariationSpecifics>
+          ${nameValueXml}
+        </VariationSpecifics>
+      </Variation>
+    `);
+    return acc;
+  }, []);
+
+  if (!variationNodes.length) return ""; // All variations were skipped
+
+  const specificsXml = Object.entries(variationSpecificsSet)
+    .map(([name, values]) => {
+      const valueXml = Array.from(values)
+        .map((v) => `<Value>${escapeXml(v)}</Value>`)
+        .join("");
+      return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
+    })
+    .join("");
+
   const picturesXml = Object.keys(picturesByAttribute).length
     ? `<Pictures>
         <VariationSpecificName>${escapeXml(pictureAttributeName)}</VariationSpecificName>

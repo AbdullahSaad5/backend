@@ -20,25 +20,23 @@ const ebayHtmlTemplate = (data: any) => {
         const prevIndex = index - 1;
 
         return `
-        <div class="image" data-image="{{ IMAGE${nextIndex} }}">
+        <div class="image" data-image="{{ IMAGE0${nextIndex} }}">
           <input id="thumbnail-control-${nextIndex}" type="radio" name="thumbnails" class="thumbnails-control" ${index === 0 ? "checked" : ""} />
-          <label for="thumbnail-control-${nextIndex}" id="thumbnail-${nextIndex}" class="thumbnail" data-checkimage2="{{ IMAGE${nextIndex + 1} }}">
-            <img src="{{ IMAGE${nextIndex} }}" alt="Thumbnail ${nextIndex}" class="img-center" />
+          <label for="thumbnail-control-${nextIndex}" id="thumbnail-${nextIndex}" class="thumbnail" data-checkimage2="{{ IMAGE0${nextIndex + 1} }}">
+            <img src="{{ IMAGE0${nextIndex} }}" alt="Thumbnail ${nextIndex}" class="img-center" />
           </label>
 
           <input id="image-control-${nextIndex}" type="checkbox" class="main-control" />
           <label for="image-control-${nextIndex}" id="image-${nextIndex}" class="main transition">
             <div class="main-content">
-              <img src="{{ IMAGE${nextIndex} }}" alt="{{ ITEMTITLE }}" class="img-center" />
-              <label for="thumbnail-control-${prevIndex + 1}" data-prev="{{ IMAGE${prevIndex} }}" class="prev"></label>
-              <label for="thumbnail-control-${nextIndex + 1}" data-next="{{ IMAGE${nextIndex + 1} }}" class="next"></label>
+              <img src="{{ IMAGE0${nextIndex} }}" alt="{{ ITEMTITLE }}" class="img-center" />
+              <label for="thumbnail-control-${prevIndex + 1}" data-prev="{{ IMAGE0${prevIndex} }}" class="prev"></label>
+              <label for="thumbnail-control-${nextIndex + 1}" data-next="{{ IMAGE0${nextIndex + 1} }}" class="next"></label>
             </div>
           </label>
         </div>
-
       `;
       })
-
       .join("");
   };
   // Generate image HTML dynamically
@@ -1148,9 +1146,10 @@ const ebayHtmlTemplate = (data: any) => {
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
     STOREFRONTPRICE: data.retailPrice,
   };
+
   (data.imageUrls || []).forEach((url: string, index: number) => {
-    const imageKey = `IMAGE0${index + 1}`; // IMAGE01, IMAGE02, ...
-    templateData[imageKey] = url;
+    const key = `IMAGE0${index + 1}`;
+    templateData[key] = url;
   });
 
   // Replace all placeholders in the HTML
