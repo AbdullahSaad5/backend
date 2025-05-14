@@ -40,6 +40,24 @@ const prodPricingSchema = {
   buy3andSave: { type: String },
   buy4andSave: { type: String },
   paymentPolicy: { type: String },
+  selectedAttributes: {
+    type: Map,
+    of: [String], // each value is an array of strings
+    required: false,
+  },
+  listingWithoutStockVariations: [
+    new Schema(
+      {
+        retailPrice: { type: Number, required: true, default: 0 },
+        images: { type: [mediaSchema], _id: false },
+        listingQuantity: { type: Number, required: true, default: 0 },
+        discountValue: { type: Number },
+
+        // Allow any extra dynamic keys
+      },
+      { _id: true, strict: false } // 👈 this line allows undefined fields (dynamic attributes)
+    ),
+  ],
   selectedVariations: [
     {
       _id: false,
