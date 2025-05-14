@@ -69,7 +69,6 @@ const seedData = async () => {
       "VIEW_SUPPLIERS_CATEGORY",
       "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
-      "VIEW_INVENTORY_CATEGORY",
       "ADD_INVENTORY",
       "VIEW_INVENTORY",
       "VIEW_GAMERS_COMMUNITY",

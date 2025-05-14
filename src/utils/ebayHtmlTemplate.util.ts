@@ -12,7 +12,36 @@ const ebayHtmlTemplate = (data: any) => {
       )
       .join("");
   };
+  // Function to generate image section HTML dynamically
+  const generateImageSection = (imageUrls: string[]) => {
+    return imageUrls
+      .map((imageUrl, index) => {
+        const nextIndex = index + 1;
+        const prevIndex = index - 1;
 
+        return `
+        <div class="image" data-image="{{ IMAGE0${nextIndex} }}">
+          <input id="thumbnail-control-${nextIndex}" type="radio" name="thumbnails" class="thumbnails-control" ${index === 0 ? "checked" : ""} />
+          <label for="thumbnail-control-${nextIndex}" id="thumbnail-${nextIndex}" class="thumbnail" data-checkimage2="{{ IMAGE0${nextIndex + 1} }}">
+            <img src="{{ IMAGE0${nextIndex} }}" alt="Thumbnail ${nextIndex}" class="img-center" />
+          </label>
+
+          <input id="image-control-${nextIndex}" type="checkbox" class="main-control" />
+          <label for="image-control-${nextIndex}" id="image-${nextIndex}" class="main transition">
+            <div class="main-content">
+              <img src="{{ IMAGE0${nextIndex} }}" alt="{{ ITEMTITLE }}" class="img-center" />
+              <label for="thumbnail-control-${prevIndex + 1}" data-prev="{{ IMAGE0${prevIndex} }}" class="prev"></label>
+              <label for="thumbnail-control-${nextIndex + 1}" data-next="{{ IMAGE0${nextIndex + 1} }}" class="next"></label>
+            </div>
+          </label>
+        </div>
+      `;
+      })
+      .join("");
+  };
+  // Generate image HTML dynamically
+  const imageSection = generateImageSection(data.imageUrls || []);
+  console.log("imageSection", imageSection);
   // Use pre-processed attributes passed in
   const attributeList = Array.isArray(data.attributes) ? data.attributes : [];
 
@@ -222,198 +251,7 @@ const ebayHtmlTemplate = (data: any) => {
 
                     <div class="image-container">
                       <div class="image-scroll clearfix">
-                        <div class="image" data-image="{{ IMAGE01 }}">
-                          <input
-                            id="thumbnail-control-1"
-                            type="radio"
-                            name="thumbnails"
-                            class="thumbnails-control"
-                            checked
-                          />
-
-                          <label
-                            for="thumbnail-control-1"
-                            id="thumbnail-1"
-                            class="thumbnail"
-                            data-checkimage2="{{ IMAGE02 }}"
-                          >
-                            <img src="{{ IMAGE01 }}" alt="Thumbnail 1" class="img-center" />
-                          </label>
-
-                          <input id="image-control-1" type="checkbox" class="main-control" />
-                          <label for="image-control-1" id="image-1" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE01 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-video" data-prev="" class="prev"></label>
-                              <label for="thumbnail-control-2" data-next="{{ IMAGE02 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE02 }}">
-                          <input id="thumbnail-control-2" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-2" id="thumbnail-2" class="thumbnail">
-                            <img src="{{ IMAGE02 }}" alt="Thumbnail 2" class="img-center" />
-                          </label>
-
-                          <input id="image-control-2" type="checkbox" class="main-control" />
-                          <label for="image-control-2" id="image-2" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE02 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-1" data-prev="{{ IMAGE01 }}" class="prev"></label>
-                              <label for="thumbnail-control-3" data-next="{{ IMAGE03 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE03 }}">
-                          <input id="thumbnail-control-3" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-3" id="thumbnail-3" class="thumbnail">
-                            <img src="{{ IMAGE03 }}" alt="Thumbnail 3" class="img-center" />
-                          </label>
-
-                          <input id="image-control-3" type="checkbox" class="main-control" />
-                          <label for="image-control-3" id="image-3" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE03 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-2" data-prev="{{ IMAGE02 }}" class="prev"></label>
-                              <label for="thumbnail-control-4" data-next="{{ IMAGE04 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE04 }}">
-                          <input id="thumbnail-control-4" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-4" id="thumbnail-4" class="thumbnail">
-                            <img src="{{ IMAGE04 }}" alt="Thumbnail 4" class="img-center" />
-                          </label>
-
-                          <input id="image-control-4" type="checkbox" class="main-control" />
-                          <label for="image-control-4" id="image-4" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE04 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-3" data-prev="{{ IMAGE03 }}" class="prev"></label>
-                              <label for="thumbnail-control-5" data-next="{{ IMAGE05 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE05 }}">
-                          <input id="thumbnail-control-5" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-5" id="thumbnail-5" class="thumbnail">
-                            <img src="{{ IMAGE05 }}" alt="Thumbnail 5" class="img-center" />
-                          </label>
-
-                          <input id="image-control-5" type="checkbox" class="main-control" />
-                          <label for="image-control-5" id="image-5" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE05 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-4" data-prev="{{ IMAGE04 }}" class="prev"></label>
-                              <label for="thumbnail-control-6" data-next="{{ IMAGE06 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE06 }}">
-                          <input id="thumbnail-control-6" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-6" id="thumbnail-6" class="thumbnail">
-                            <img src="{{ IMAGE06 }}" alt="Thumbnail 6" class="img-center" />
-                          </label>
-
-                          <input id="image-control-6" type="checkbox" class="main-control" />
-                          <label for="image-control-6" id="image-6" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE06 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-5" data-prev="{{ IMAGE05 }}" class="prev"></label>
-                              <label for="thumbnail-control-7" data-next="{{ IMAGE07 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE07 }}">
-                          <input id="thumbnail-control-7" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-7" id="thumbnail-7" class="thumbnail">
-                            <img src="{{ IMAGE07 }}" alt="Thumbnail 7" class="img-center" />
-                          </label>
-
-                          <input id="image-control-7" type="checkbox" class="main-control" />
-                          <label for="image-control-7" id="image-7" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE07 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-6" data-prev="{{ IMAGE06 }}" class="prev"></label>
-                              <label for="thumbnail-control-8" data-next="{{ IMAGE08 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE08 }}">
-                          <input id="thumbnail-control-8" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-8" id="thumbnail-8" class="thumbnail">
-                            <img src="{{ IMAGE08 }}" alt="Thumbnail 8" class="img-center" />
-                          </label>
-
-                          <input id="image-control-8" type="checkbox" class="main-control" />
-                          <label for="image-control-8" id="image-8" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE08 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-7" data-prev="{{ IMAGE07 }}" class="prev"></label>
-                              <label for="thumbnail-control-9" data-next="{{ IMAGE09 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE09 }}">
-                          <input id="thumbnail-control-9" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-9" id="thumbnail-9" class="thumbnail">
-                            <img src="{{ IMAGE09 }}" alt="Thumbnail 9" class="img-center" />
-                          </label>
-
-                          <input id="image-control-9" type="checkbox" class="main-control" />
-                          <label for="image-control-9" id="image-9" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE09 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-8" data-prev="{{ IMAGE08 }}" class="prev"></label>
-                              <label for="thumbnail-control-10" data-next="{{ IMAGE10 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE10 }}">
-                          <input id="thumbnail-control-10" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-10" id="thumbnail-10" class="thumbnail">
-                            <img src="{{ IMAGE10 }}" alt="Thumbnail 10" class="img-center" />
-                          </label>
-
-                          <input id="image-control-10" type="checkbox" class="main-control" />
-                          <label for="image-control-10" id="image-10" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE10 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-9" data-prev="{{ IMAGE09 }}" class="prev"></label>
-                              <label for="thumbnail-control-11" data-next="" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE11 }}">
-                          <input id="thumbnail-control-11" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-11" id="thumbnail-11" class="thumbnail">
-                            <img src="{{ IMAGE11 }}" alt="Thumbnail 11" class="img-center" />
-                          </label>
-
-                          <input id="image-control-11" type="checkbox" class="main-control" />
-                          <label for="image-control-11" id="image-11" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE11 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-10" data-prev="{{ IMAGE10 }}" class="prev"></label>
-                              <label for="thumbnail-control-12" data-next="{{ IMAGE12 }}" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
-                        <div class="image" data-image="{{ IMAGE12 }}">
-                          <input id="thumbnail-control-12" type="radio" name="thumbnails" class="thumbnails-control" />
-                          <label for="thumbnail-control-12" id="thumbnail-12" class="thumbnail">
-                            <img src="{{ IMAGE12 }}" alt="Thumbnail 12" class="img-center" />
-                          </label>
-
-                          <input id="image-control-12" type="checkbox" class="main-control" />
-                          <label for="image-control-12" id="image-12" class="main transition">
-                            <div class="main-content">
-                              <img src="{{ IMAGE12 }}" alt="{{ ITEMTITLE }}" class="img-center" />
-                              <label for="thumbnail-control-11" data-prev="{{ IMAGE11 }}" class="prev"></label>
-                              <label for="thumbnail-control-13" data-next="" class="next"></label>
-                            </div>
-                          </label>
-                        </div>
+                       ${imageSection}
                       </div>
                     </div>
                   </div>
@@ -1301,34 +1139,25 @@ const ebayHtmlTemplate = (data: any) => {
 </html>
   `;
 
-  const templateData = {
+  const templateData: any = {
     ITEMTITLE: data.title,
-    IMAGE01: data.imageUrls[0],
-    IMAGE02: data.imageUrls[1],
-    IMAGE03: data.imageUrls[2],
-    IMAGE04: data.imageUrls[3],
-    IMAGE05: data.imageUrls[4],
-    IMAGE06: data.imageUrls[5],
-    IMAGE07: data.imageUrls[6],
-    IMAGE08: data.imageUrls[7],
+
     ITEMDESCRIPTION: data.description,
     DEFAULTEBAYSTORECATEGORYID: data.categoryId,
     STOREFRONTPRICE: data.retailPrice,
   };
 
-
-
-
-
-
+  (data.imageUrls || []).forEach((url: string, index: number) => {
+    const key = `IMAGE0${index + 1}`;
+    templateData[key] = url;
+  });
 
   // Replace all placeholders in the HTML
   let populatedHtml = htmlData;
   for (const [key, value] of Object.entries(templateData)) {
-    populatedHtml = populatedHtml.replace(new RegExp(`{{ ${key} }}`, "g"), value);
+    populatedHtml = populatedHtml.replace(new RegExp(`{{ ${key} }}`, "g"), String(value));
   }
   return populatedHtml;
-
 };
 
 export default ebayHtmlTemplate;
