@@ -697,13 +697,12 @@ const generateListingDescription = (ebayData: any) => {
     title: ebayData?.productInfo?.title ?? "A TEST product",
     description: ebayData?.productInfo?.description ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
-    retailPrice:
-      ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0,
+    retailPrice: (ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice) ?? 10.0,
   };
 
   // Get raw attributes (prodTechInfo)
   const rawAttributes = ebayData?.prodTechInfo ?? {};
-  // console.log("Raw Attributes:", rawAttributes);
+  console.log("Raw Attributes:", rawAttributes);
 
   // Build dynamic attributes
   const dynamicAttributes: Record<string, string> = {};
@@ -716,7 +715,7 @@ const generateListingDescription = (ebayData: any) => {
     }
   }
 
-  // console.log("Dynamic Attributes Received:", dynamicAttributes);
+  console.log("Dynamic Attributes Received:", dynamicAttributes);
 
   // Format for template
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
