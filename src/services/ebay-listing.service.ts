@@ -744,25 +744,36 @@ const generateListingDescription = (ebayData: any) => {
 function generateItemSpecifics(
   ebayData: any,
   forceInclude: Record<string, string[]> = {
-    productInfo: ["Brand"], // force include 'brand' from productInfo
+    productInfo: ["Brand"],
   },
   exclude: Record<string, string[]> = {
-    productInfo: ["ProductCategory", "Title", "Description"], // specify which attributes to exclude (e.g., productCategory from productInfo)
+    productInfo: ["ProductCategory", "Title", "Description"],
   }
 ) {
   const itemSpecifics = [];
-  // const variations = ebayData?.prodPricing?.selectedVariations || [];
+
+  // ✅ Step 1: Choose correct variation source
   const variations = ebayData?.listingWithStock
     ? ebayData?.prodPricing?.selectedVariations || []
     : ebayData?.prodPricing?.listingWithoutStockVariations || [];
-  // Step 1: Extract variation-specific attribute names (case-insensitive)
+
+  // ✅ Step 2: Extract variation attribute names (case-insensitive)
   const variationAttributeNames = new Set<string>();
+
   variations.forEach((variation: any) => {
-    const attributes = variation?.variationId?.attributes || {};
-    Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    if (ebayData?.listingWithStock) {
+      // Stock variation: read from variationId.attributes
+      const attributes = variation?.variationId?.attributes || {};
+      Object.keys(attributes).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    } else {
+      // Non-stock variation: dynamic keys (exclude known static fields)
+      const { retailPrice, listingQuantity, discountValue, images, ...dynamicAttrs } = variation || {};
+
+      Object.keys(dynamicAttrs).forEach((key) => variationAttributeNames.add(key.toLowerCase()));
+    }
   });
 
-  // Step 2: Define which sections to scan
+  // ✅ Step 3: Define sections to extract from
   const sections = ["prodTechInfo", "productInfo"];
 
   for (const section of sections) {
@@ -785,7 +796,6 @@ function generateItemSpecifics(
         continue;
       }
 
-      // Skip attributes that are in the exclude list
       if (isExcluded) {
         console.log(`⛔ Excluded: ${formattedKey}`);
         continue;
@@ -794,7 +804,6 @@ function generateItemSpecifics(
       if (value != null) {
         let finalValue = value;
 
-        // If it's an array (e.g., brand), convert to comma-separated string
         if (Array.isArray(value)) {
           finalValue = value.join(", ");
         }
