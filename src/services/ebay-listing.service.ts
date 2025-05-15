@@ -326,7 +326,11 @@ export const ebayListingService = {
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
-      console.log("categoryId is", ebayData.productInfo.productCategory.ebayProductCategoryId);
+
+      const categoryId =
+        ebayData.productInfo.productCategory.ebayProductCategoryId ||
+        ebayData.productInfo.productCategory.ebayPartCategoryId;
+      console.log("categoryId is", categoryId);
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
@@ -408,7 +412,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -474,6 +478,11 @@ export const ebayListingService = {
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
+
+      const categoryId =
+        ebayData.productInfo.productCategory.ebayProductCategoryId ||
+        ebayData.productInfo.productCategory.ebayPartCategoryId;
+      console.log("categoryId is", categoryId);
       const retailPrice =
         ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
