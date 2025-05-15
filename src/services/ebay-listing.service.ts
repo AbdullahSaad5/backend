@@ -333,7 +333,7 @@ export const ebayListingService = {
       console.log("categoryId is", categoryId);
 
       const retailPrice =
-        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+        ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
         ebayData?.prodPricing?.listingQuantity ||
         ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
@@ -493,7 +493,7 @@ export const ebayListingService = {
       console.log("categoryId is", categoryId);
 
       const retailPrice =
-        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
+        ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
         ebayData?.prodPricing?.listingQuantity ||
         ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
