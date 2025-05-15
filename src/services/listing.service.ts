@@ -338,7 +338,7 @@ export const listingService = {
       const {
         searchQuery = "",
         isBlocked,
-        listingWithStock,
+        listingwithStock,
         isTemplate,
         publishToAmazon,
         publishToEbay,
@@ -418,8 +418,8 @@ export const listingService = {
         query.isBlocked = isBlocked;
       }
 
-      if (listingWithStock !== undefined) {
-        query.listingWithStock = listingWithStock;
+      if (listingwithStock !== undefined) {
+        query.listingWithStock = listingwithStock;
       }
 
       if (publishToAmazon !== undefined) {
