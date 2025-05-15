@@ -4,14 +4,16 @@ import { Request, Response } from "express";
 export const taxesController = {
   createOrUpdateTax: async (req: Request, res: Response) => {
     try {
-      const { vatPercentage } = req.body;
+      const { vatPercentage, profitPercentage } = req.body;
 
-      // Check if a tax rule already exists
+      // Find existing tax rule
       let tax = await Taxes.findOne();
 
       if (tax) {
-        // If exists, update it
-        tax.vatPercentage = vatPercentage;
+        // Update only provided fields
+        if (vatPercentage !== undefined) tax.vatPercentage = vatPercentage;
+        if (profitPercentage !== undefined) tax.profitPercentage = profitPercentage;
+
         await tax.save();
 
         return res.status(200).json({
@@ -20,8 +22,8 @@ export const taxesController = {
         });
       }
 
-      // Create a new tax rule if none exists
-      tax = new Taxes({ vatPercentage });
+      // Create new tax rule (requires at least one of the fields)
+      tax = new Taxes({ vatPercentage, profitPercentage });
       await tax.save();
 
       return res.status(201).json({
@@ -52,13 +54,18 @@ export const taxesController = {
 
   updateTax: async (req: Request, res: Response) => {
     try {
-      const { vatPercentage } = req.body;
+      const updateData: any = {};
 
-      const updatedTax = await Taxes.findOneAndUpdate(
-        {},
-        { vatPercentage },
-        { new: true }
-      );
+      if (req.body.vatPercentage !== undefined) {
+        updateData.vatPercentage = req.body.vatPercentage;
+      }
+      if (req.body.profitPercentage !== undefined) {
+        updateData.profitPercentage = req.body.profitPercentage;
+      }
+
+      const updatedTax = await Taxes.findOneAndUpdate({}, updateData, {
+        new: true,
+      });
 
       if (!updatedTax) {
         return res.status(404).json({ message: "Tax rule not found" });
