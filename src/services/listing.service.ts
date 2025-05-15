@@ -41,7 +41,7 @@ export const listingService = {
         kind,
         inventoryId,
         listingHasVariations: stepData.listingHasVariations || false,
-        listingwithStock: stepData.listingwithStock ,
+        listingwithStock: stepData.listingwithStock,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -96,7 +96,7 @@ export const listingService = {
       }
 
       // Find listing
-      const draftListing: any = await Listing.findById(listingId);
+      const draftListing: any = await Listing.findById(listingId).populate("productInfo.productCategory");
       if (!draftListing) {
         console.error("Draft Listing not found:", listingId);
         throw new Error("Draft Listing not found");
