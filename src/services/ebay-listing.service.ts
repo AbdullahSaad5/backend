@@ -333,12 +333,13 @@ export const ebayListingService = {
       console.log("categoryId is", categoryId);
 
       const retailPrice =
-        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
-
+        ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
-        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
+        ebayData?.prodPricing?.listingQuantity ||
+        ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
+        "10";
 
-      console.log("retailPrice", retailPrice);
+      console.log("listingQuantity", listingQuantity);
       const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
@@ -366,7 +367,7 @@ export const ebayListingService = {
           <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
-              <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
+              <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
 
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
@@ -470,8 +471,15 @@ export const ebayListingService = {
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
+      const populatedListing: any = await Listing.findById(listing._id)
+        .populate("prodPricing.selectedVariations.variationId")
+        .populate("productInfo.productCategory")
+        .lean();
 
-      const ebayData = listing;
+      if (!populatedListing) {
+        throw new Error("Listing not found or failed to populate");
+      }
+      const ebayData = populatedListing;
       // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
       const variationXml = ebayData.listingHasVariations
         ? ebayData.listingWithStock
@@ -483,11 +491,13 @@ export const ebayListingService = {
         ebayData.productInfo.productCategory.ebayProductCategoryId ||
         ebayData.productInfo.productCategory.ebayPartCategoryId;
       console.log("categoryId is", categoryId);
-      const retailPrice =
-        ebayData?.prodPricing?.retailPrice ?? ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice ?? 10.0;
 
+      const retailPrice =
+        ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
-        ebayData?.prodPricing?.listingQuantity ?? ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ?? 10;
+        ebayData?.prodPricing?.listingQuantity ||
+        ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
+        "10";
 
       console.log("retailPrice", retailPrice);
 
@@ -510,7 +520,7 @@ export const ebayListingService = {
 
       const listingBody = `
       <?xml version="1.0" encoding="utf-8"?>
-<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+      <ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
@@ -520,7 +530,7 @@ export const ebayListingService = {
 
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
-            <CategoryID>${ebayData.productInfo.productCategory.ebayProductCategoryId || ebayData.productInfo.productCategory.ebayPartCategoryId}</CategoryID>
+            <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
         <StartPrice currencyID="GBP">${retailPrice}</StartPrice>
           <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -536,18 +546,15 @@ export const ebayListingService = {
           <Quantity>${listingQuantity}</Quantity>
             <!-- Dynamic ItemSpecifics -->
              <ItemSpecifics>
-  ${generateItemSpecifics(ebayData)}
-  <NameValueList>
-    <Name>ScreenSize</Name>
-    <Value>16inch</Value>
-  </NameValueList>
-</ItemSpecifics>
+              ${generateItemSpecifics(ebayData)}
+
+             </ItemSpecifics>
           <Location>London</Location>
           <ConditionID>1000</ConditionID>
- ${variationXml}
+               ${variationXml}
           <Site>UK</Site>
         </Item>
-      </ReviseItemRequest>
+      </ReviseFixedPriceItemRequest>
     `;
 
       // console.log("Request Body for revise Listing:", listingBody, null, 2);
@@ -558,7 +565,7 @@ export const ebayListingService = {
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "ReviseItem",
+          "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
           // "X-EBAY-API-IAF-TOKEN": token,
           "X-EBAY-API-IAF-TOKEN": token,
         },
@@ -569,16 +576,10 @@ export const ebayListingService = {
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
+      const itemId = jsonObj?.ReviseItemResponse?.ItemID || jsonObj?.ReviseFixedPriceItemResponse?.Ack == "Success";
 
       if (itemId) {
-        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
-        const sandboxUrl =
-          type === "production"
-            ? `https://www.ebay.com/itm/${itemTitle}/${itemId}`
-            : `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
-
-        return JSON.stringify({ status: 200, statusText: "OK", itemId, sandboxUrl });
+        return JSON.stringify({ status: 200, statusText: "OK", itemId });
       } else {
         return JSON.stringify({ status: 400, statusText: "Failed to update listing on Ebay", response: jsonObj });
       }
@@ -722,19 +723,37 @@ const generateListingDescription = (ebayData: any) => {
   };
 
   // Get raw attributes (prodTechInfo)
-  const rawAttributes = ebayData?.prodTechInfo ?? {};
+  // const rawAttributes = ebayData?.prodTechInfo ?? {};
+  const rawAttributes =
+    ebayData?.prodTechInfo?.toObject?.() || JSON.parse(JSON.stringify(ebayData?.prodTechInfo || {}));
   console.log("Raw Attributes:", rawAttributes);
 
   // Build dynamic attributes
   const dynamicAttributes: Record<string, string> = {};
-
-  for (const [key, value] of Object.entries(rawAttributes)) {
-    if (Array.isArray(value) && value.length > 0) {
-      dynamicAttributes[key] = value.join(", ");
-    } else if (typeof value === "string" && value.trim() !== "") {
-      dynamicAttributes[key] = value.trim();
+  if (rawAttributes instanceof Map) {
+    for (const [key, value] of rawAttributes.entries()) {
+      if (Array.isArray(value) && value.length > 0) {
+        dynamicAttributes[key] = value.join(", ");
+      } else if (typeof value === "string" && value.trim() !== "") {
+        dynamicAttributes[key] = value.trim();
+      }
+    }
+  } else if (typeof rawAttributes === "object" && rawAttributes !== null) {
+    for (const [key, value] of Object.entries(rawAttributes)) {
+      if (Array.isArray(value) && value.length > 0) {
+        dynamicAttributes[key] = value.join(", ");
+      } else if (typeof value === "string" && value.trim() !== "") {
+        dynamicAttributes[key] = value.trim();
+      }
     }
   }
+  // for (const [key, value] of Object.entries(rawAttributes)) {
+  //   if (Array.isArray(value) && value.length > 0) {
+  //     dynamicAttributes[key] = value.join(", ");
+  //   } else if (typeof value === "string" && value.trim() !== "") {
+  //     dynamicAttributes[key] = value.trim();
+  //   }
+  // }
 
   console.log("Dynamic Attributes Received:", dynamicAttributes);
 
