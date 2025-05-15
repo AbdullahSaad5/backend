@@ -41,7 +41,7 @@ const ebayHtmlTemplate = (data: any) => {
   };
   // Generate image HTML dynamically
   const imageSection = generateImageSection(data.imageUrls || []);
-  console.log("imageSection", imageSection);
+  // console.log("imageSection", imageSection);
   // Use pre-processed attributes passed in
   const attributeList = Array.isArray(data.attributes) ? data.attributes : [];
 
