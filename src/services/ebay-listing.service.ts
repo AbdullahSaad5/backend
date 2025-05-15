@@ -576,16 +576,10 @@ export const ebayListingService = {
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
+      const itemId = jsonObj?.ReviseItemResponse?.ItemID || jsonObj?.ReviseItemResponse?.Ack == "Success";
 
       if (itemId) {
-        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
-        const sandboxUrl =
-          type === "production"
-            ? `https://www.ebay.com/itm/${itemTitle}/${itemId}`
-            : `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
-
-        return JSON.stringify({ status: 200, statusText: "OK", itemId, sandboxUrl });
+        return JSON.stringify({ status: 200, statusText: "OK", itemId });
       } else {
         return JSON.stringify({ status: 400, statusText: "Failed to update listing on Ebay", response: jsonObj });
       }
