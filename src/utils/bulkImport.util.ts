@@ -285,7 +285,6 @@ export const bulkImportUtility = {
     try {
       // Get all category IDs
       const categoryIds = await bulkImportUtility.fetchAllCategoryIds();
-      console.log("categoryIDs", categoryIds);
       if (categoryIds.length === 0) {
         console.log("No category IDs found.");
         return;
