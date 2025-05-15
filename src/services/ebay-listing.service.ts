@@ -576,7 +576,10 @@ export const ebayListingService = {
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.ReviseItemResponse?.ItemID || jsonObj?.ReviseFixedPriceItemResponse?.Ack == "Success";
+      const itemId =
+        jsonObj?.ReviseItemResponse?.ItemID ||
+        jsonObj?.ReviseFixedPriceItemResponse?.Ack == "Success" ||
+        jsonObj?.ReviseFixedPriceItemResponse?.Ack == "Warning";
 
       if (itemId) {
         return JSON.stringify({ status: 200, statusText: "OK", itemId });
@@ -747,13 +750,6 @@ const generateListingDescription = (ebayData: any) => {
       }
     }
   }
-  // for (const [key, value] of Object.entries(rawAttributes)) {
-  //   if (Array.isArray(value) && value.length > 0) {
-  //     dynamicAttributes[key] = value.join(", ");
-  //   } else if (typeof value === "string" && value.trim() !== "") {
-  //     dynamicAttributes[key] = value.trim();
-  //   }
-  // }
 
   console.log("Dynamic Attributes Received:", dynamicAttributes);
 
