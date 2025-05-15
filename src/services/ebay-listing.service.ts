@@ -520,7 +520,7 @@ export const ebayListingService = {
 
       const listingBody = `
       <?xml version="1.0" encoding="utf-8"?>
-<ReviseItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+      <ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
@@ -554,7 +554,7 @@ export const ebayListingService = {
                ${variationXml}
           <Site>UK</Site>
         </Item>
-      </ReviseItemRequest>
+      </ReviseFixedPriceItemRequest>
     `;
 
       // console.log("Request Body for revise Listing:", listingBody, null, 2);
@@ -565,7 +565,7 @@ export const ebayListingService = {
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "ReviseItem",
+          "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
           // "X-EBAY-API-IAF-TOKEN": token,
           "X-EBAY-API-IAF-TOKEN": token,
         },
@@ -576,16 +576,10 @@ export const ebayListingService = {
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
 
-      const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
+      const itemId = jsonObj?.ReviseItemResponse?.ItemID || jsonObj?.ReviseFixedPriceItemResponse?.Ack == "Success";
 
       if (itemId) {
-        const itemTitle = ebayData.productInfo?.title?.split(" ").join("-") || "item";
-        const sandboxUrl =
-          type === "production"
-            ? `https://www.ebay.com/itm/${itemTitle}/${itemId}`
-            : `https://sandbox.ebay.com/itm/${itemTitle}/${itemId}`;
-
-        return JSON.stringify({ status: 200, statusText: "OK", itemId, sandboxUrl });
+        return JSON.stringify({ status: 200, statusText: "OK", itemId });
       } else {
         return JSON.stringify({ status: 400, statusText: "Failed to update listing on Ebay", response: jsonObj });
       }
