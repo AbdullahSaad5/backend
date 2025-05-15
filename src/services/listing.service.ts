@@ -419,7 +419,7 @@ export const listingService = {
       }
 
       if (listingwithStock !== undefined) {
-        query.listingWithStock = listingwithStock;
+        query.listingwithStock = listingwithStock;
       }
 
       if (publishToAmazon !== undefined) {
