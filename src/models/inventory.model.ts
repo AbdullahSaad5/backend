@@ -37,7 +37,7 @@ export const prodInfoSchema = {
   title: { type: String, required: true },
   description: { type: String },
   inventoryImages: { type: [mediaSchema], _id: false },
-  inventoryCondition: { type: String, enum: ["used", "new"] },
+  inventoryCondition: { type: String, enum: ["used", "new" , "refurbished"] },
   brand: { type: [String], required: true },
 };
 
