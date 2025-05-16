@@ -315,10 +315,22 @@ export const bulkImportUtility = {
     const workbook = XLSX.utils.book_new();
 
     allCategoryAspects.forEach(({ categoryId, aspects }) => {
-      const aspectNames = aspects?.aspects?.map((aspect: any) => aspect.localizedAspectName) || [];
+      const aspectList = aspects?.aspects || [];
 
-      // Create one row: aspect names as column headers
-      const data = [aspectNames];
+      // Build headers with required and variation flags
+      const headers = aspectList.map((aspect: any) => {
+        let title = aspect.localizedAspectName || "Unknown";
+        const isRequired = aspect.aspectConstraint?.aspectRequired;
+        const isVariation = aspect.aspectConstraint?.aspectEnabledForVariations;
+
+        if (isRequired) title += "*";
+        if (isVariation) title += " (variation allowed)";
+
+        return title;
+      });
+
+      // One row only with column headers
+      const data = [headers];
 
       const worksheet = XLSX.utils.aoa_to_sheet(data);
       XLSX.utils.book_append_sheet(workbook, worksheet, categoryId.toString());
