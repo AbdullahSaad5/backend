@@ -64,6 +64,7 @@ export const bulkImportUtility = {
         // Inject category name and ID from sheet
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
+        rowObj.ebayCategoryId = categoryId;
 
         // Validate supplier
         const supplierKey = rowObj["productSupplierKey"];
@@ -201,6 +202,9 @@ export const bulkImportUtility = {
       // Use validRows as needed (e.g., for database upload)
       console.log("✅ Valid Rows Ready:", validRows.length);
       console.log("❌ Invalid Rows:", invalidRows.length);
+
+      await inventoryService.bulkImportInventory(validRows);
+      addLog("✅ Bulk import completed.");
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
