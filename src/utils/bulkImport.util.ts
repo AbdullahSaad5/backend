@@ -1,4 +1,5 @@
 import fs from "fs";
+import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
@@ -9,11 +10,9 @@ import Papa from "papaparse";
 import dotenv from "dotenv";
 import { ebayListingService, inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
-
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
-
 export const bulkImportUtility = {
   uploadToFirebase: async (filePath: string, destination: string): Promise<string | null> => {
     if (!filePath) throw new Error("No file provided!");
@@ -302,12 +301,30 @@ export const bulkImportUtility = {
       // Wait for all promises to resolve
       const allCategoryAspects = await Promise.all(categoryAspectsPromises);
 
-      // Return the result with aspects for each category
-      console.log("All Category Aspects:", allCategoryAspects);
+      // Export the data to Excel
+      bulkImportUtility.exportCategoryAspectsToExcel(allCategoryAspects);
+
       return allCategoryAspects;
     } catch (error) {
       console.error("Error fetching aspects for all categories:", error);
       throw error;
     }
+  },
+
+  exportCategoryAspectsToExcel: async (allCategoryAspects: any[], filePath: string = "CategoryAspects.xlsx") => {
+    const workbook = XLSX.utils.book_new();
+
+    allCategoryAspects.forEach(({ categoryId, aspects }) => {
+      const aspectNames = aspects?.aspects?.map((aspect: any) => aspect.localizedAspectName) || [];
+
+      // Create one row: aspect names as column headers
+      const data = [aspectNames];
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(workbook, worksheet, categoryId.toString());
+    });
+
+    XLSX.writeFile(workbook, filePath);
+    console.log(`✅ Excel file generated: ${filePath}`);
   },
 };
