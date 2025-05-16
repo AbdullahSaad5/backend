@@ -23,12 +23,12 @@ export const bulkImportUtility = {
     for (const sheetName of sheetNames) {
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
       if (data.length < 2) continue;
 
       const [headerRow, ...rows]: any = data;
       const requiredIndexes: number[] = [];
 
-      // Extract required fields
       const cleanedHeaders = headerRow.map((h: string, idx: number) => {
         if (typeof h === "string" && h.trim().endsWith("*")) {
           requiredIndexes.push(idx);
@@ -54,34 +54,35 @@ export const bulkImportUtility = {
           rowObj[key] = row[idx];
         });
 
+        // Validate supplier
         const supplierKey = rowObj["productSupplierKey"];
-        const categoryName = rowObj["productCategory"];
-
-        if (!rowObj.costPrice || isNaN(parseFloat(rowObj.costPrice))) {
-          errors.push("Price must be a valid number");
-        }
-
         if (!supplierKey) {
           errors.push("productSupplierKey is required");
         } else {
           const supplier = await User.findOne({ supplierKey }).select("_id");
           if (!supplier) {
-            errors.push(`supplierKey ${supplierKey} does not exist in the database`);
+            errors.push(`supplierKey ${supplierKey} does not exist in DB`);
           } else {
             rowObj.productSupplier = supplier._id;
           }
         }
 
+        // Validate category
+        const categoryName = rowObj["productCategory"];
         if (!categoryName) {
           errors.push("productCategory is required");
         } else {
           const category = await ProductCategory.findOne({ name: categoryName }).select("_id");
           if (!category) {
-            errors.push(`Product category '${categoryName}' does not exist in the database`);
+            errors.push(`Product category '${categoryName}' does not exist in DB`);
           } else {
-            rowObj.productCategoryName = categoryName;
             rowObj.productCategory = category._id;
+            rowObj.productCategoryName = categoryName;
           }
+        }
+
+        if (!rowObj.costPrice || isNaN(parseFloat(rowObj.costPrice))) {
+          errors.push("Price must be a valid number");
         }
 
         if (rowObj.productSupplier && !mongoose.isValidObjectId(rowObj.productSupplier)) {
@@ -94,38 +95,37 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
-          // 🔍 Media folder path: media/{sheetName}/{globalRowIndex}/images, videos
-          const mediaBase = path.join(mediaFolderPath, sheetName, String(globalRowIndex));
-          const imageFolder = path.join(mediaBase, "images");
-          const videoFolder = path.join(mediaBase, "videos");
+          // ✅ Handle media upload for valid rows
+          const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
 
-          const imageLinks: string[] = [];
-          const videoLinks: string[] = [];
+          const imageFolderPath = path.join(mediaBasePath, "images");
+          const videoFolderPath = path.join(mediaBasePath, "videos");
 
-          if (fs.existsSync(imageFolder)) {
-            const images = fs.readdirSync(imageFolder);
-            for (const file of images) {
-              const url = await uploadToFirebase(
-                path.join(imageFolder, file),
-                `media/${sheetName}/${globalRowIndex}/images/${file}`
-              );
-              imageLinks.push(url);
+          const uploadedImages: string[] = [];
+          const uploadedVideos: string[] = [];
+
+          if (fs.existsSync(imageFolderPath)) {
+            const imageFiles = fs.readdirSync(imageFolderPath);
+            for (const file of imageFiles) {
+              const filePath = path.join(imageFolderPath, file);
+              const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
+              const url = await uploadFileToFirebase(filePath, destination);
+              uploadedImages.push(url);
             }
           }
 
-          if (fs.existsSync(videoFolder)) {
-            const videos = fs.readdirSync(videoFolder);
-            for (const file of videos) {
-              const url = await uploadToFirebase(
-                path.join(videoFolder, file),
-                `media/${sheetName}/${globalRowIndex}/videos/${file}`
-              );
-              videoLinks.push(url);
+          if (fs.existsSync(videoFolderPath)) {
+            const videoFiles = fs.readdirSync(videoFolderPath);
+            for (const file of videoFiles) {
+              const filePath = path.join(videoFolderPath, file);
+              const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
+              const url = await uploadFileToFirebase(filePath, destination);
+              uploadedVideos.push(url);
             }
           }
 
-          rowObj.images = imageLinks;
-          rowObj.videos = videoLinks;
+          rowObj.images = uploadedImages;
+          rowObj.videos = uploadedVideos;
 
           validRows.push({ row: globalRowIndex, data: rowObj });
           validIndexes.add(globalRowIndex);
@@ -134,19 +134,16 @@ export const bulkImportUtility = {
       }
 
       if (sheetValidCount > 0 || sheetInvalidCount > 0) {
-        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid rows, ❌ ${sheetInvalidCount} invalid rows`);
-        if (sheetInvalidCount > 0) {
-          invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
-            addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
-          });
-        }
+        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
+        invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
+          addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+        });
       }
     }
 
-    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid rows, ❌ ${invalidRows.length} invalid rows`);
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
-
   processZipFile: async (zipFilePath: string) => {
     const extractPath = path.join(process.cwd(), "extracted");
 
