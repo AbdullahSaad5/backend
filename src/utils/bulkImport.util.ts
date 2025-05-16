@@ -34,13 +34,29 @@ export const bulkImportUtility = {
       if (data.length < 2) continue;
 
       const [headerRow, ...rows]: any = data;
+
       const requiredIndexes: number[] = [];
+      const variationAllowedIndexes: number[] = [];
+      const requiredFields = new Set<string>();
+      const variationFields = new Set<string>();
 
       const cleanedHeaders = headerRow.map((h: string, idx: number) => {
-        if (typeof h === "string" && h.trim().endsWith("*")) {
+        if (typeof h !== "string") return h;
+
+        let clean = h.trim();
+        if (clean.endsWith("*")) {
+          clean = clean.replace("*", "").trim();
           requiredIndexes.push(idx);
+          requiredFields.add(clean);
         }
-        return typeof h === "string" ? h.replace("*", "").trim() : h;
+
+        if (/\(variation allowed\)/i.test(clean)) {
+          clean = clean.replace(/\(variation allowed\)/i, "").trim();
+          variationAllowedIndexes.push(idx);
+          variationFields.add(clean);
+        }
+
+        return clean;
       });
 
       let sheetValidCount = 0;
@@ -49,6 +65,7 @@ export const bulkImportUtility = {
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
+        // Check required fields
         requiredIndexes.forEach((reqIdx) => {
           const val = (row[reqIdx] ?? "").toString().trim();
           if (!val) {
@@ -57,11 +74,25 @@ export const bulkImportUtility = {
         });
 
         const rowObj: Record<string, any> = {};
-        cleanedHeaders.forEach((key: any, idx: any) => {
-          rowObj[key] = row[idx];
+
+        cleanedHeaders.forEach((key: string, idx: number) => {
+          const rawValue = row[idx];
+
+          if (variationFields.has(key)) {
+            if (typeof rawValue === "string" && rawValue.trim()) {
+              rowObj[key] = rawValue
+                .split(",")
+                .map((v) => v.trim())
+                .filter(Boolean);
+            } else {
+              rowObj[key] = [];
+            }
+          } else {
+            rowObj[key] = rawValue?.toString().trim() ?? "";
+          }
         });
 
-        // Inject category name and ID from sheet
+        // Inject category metadata
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
         rowObj.ebayCategoryId = categoryId;
@@ -89,9 +120,8 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
-          // ✅ Handle media upload for valid rows
+          // Upload media if available
           const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
-
           const imageFolderPath = path.join(mediaBasePath, "images");
           const videoFolderPath = path.join(mediaBasePath, "videos");
 
@@ -138,6 +168,7 @@ export const bulkImportUtility = {
     addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
+
   processZipFile: async (zipFilePath: string) => {
     const extractPath = path.join(process.cwd(), "extracted");
 
