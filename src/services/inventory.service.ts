@@ -484,63 +484,77 @@ export const inventoryService = {
         "productSupplierKey",
       ]);
 
-      const bulkOperations: any = validRows
-        .filter(({ data }) => {
-          if (!data || !data.title) {
-            console.log(`❌ Missing title or invalid data for row ${data?.row}`);
-            return false;
-          }
-          return true;
-        })
-        .map(({ row, data }) => {
-          if (row === undefined) {
-            console.log("❌ Missing row number.");
-            return null;
-          }
+      const bulkOperations: any = (
+        await Promise.all(
+          validRows
+            .filter(({ data }) => data && data.title)
+            .map(async ({ row, data }) => {
+              if (row === undefined || !data || !data.title) return null;
 
-          addLog(`📦 Preparing to insert row ${row} with title: ${data.title}`);
+              addLog(`📦 Preparing to insert row ${row} with title: ${data.title}`);
 
-          // Separate productInfo and prodTechInfo
-          const productInfo: any = {
-            productCategory: new mongoose.Types.ObjectId(data.productCategory),
-            title: data.title,
-            description: data.description,
-            inventoryImages: (data.images || []).map((url: string) => ({
-              id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              size: 0,
-              url,
-              type: "image/jpeg", // default type
-            })),
-            inventoryCondition: data.inventoryCondition || "new",
-            brand: data.brand || [],
-          };
+              const matchedCategory = await ProductCategory.findOne({
+                $or: [{ ebayProductCategoryId: data.ebayCategoryId }, { ebayPartCategoryId: data.ebayCategoryId }],
+              }).select("_id");
 
-          const prodTechInfo: Record<string, any> = {};
-          for (const key in data) {
-            if (!knownProductFields.has(key)) {
-              prodTechInfo[key] = data[key]; // Preserve type: string or array
-            }
-          }
+              if (!matchedCategory) {
+                addLog(`❌ No matching product category for eBay ID: ${data.ebayCategoryId}`);
+                return null;
+              }
 
-          return {
-            insertOne: {
-              document: {
-                isBlocked: false,
-                kind: `inventory_${data.productCategoryName.toLowerCase().replace(/\s+/g, "_")}`,
-                status: "draft",
-                isVariation: false,
-                isMultiBrand: false,
-                isTemplate: false,
-                isPart: false,
-                stocks: [],
-                stockThreshold: 10,
-                prodTechInfo,
-                productInfo,
-              },
-            },
-          };
-        })
-        .filter(Boolean);
+              const productInfo: any = {
+                productCategory: matchedCategory._id,
+                title: data.title,
+                description: data.description,
+                inventoryImages: (data.images || []).map((url: string) => ({
+                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  size: 0,
+                  url,
+                  type: "image/jpeg",
+                })),
+                inventoryCondition: data.inventoryCondition || "new",
+                brand: data.brand || [],
+              };
+
+              const prodTechInfo: Record<string, any> = {};
+              const knownProductFields = new Set([
+                "title",
+                "description",
+                "brand",
+                "images",
+                "videos",
+                "inventoryCondition",
+                "productSupplier",
+                "productSupplierKey",
+                "productCategoryName",
+                "ebayCategoryId",
+              ]);
+              for (const key in data) {
+                if (!knownProductFields.has(key)) {
+                  prodTechInfo[key] = data[key];
+                }
+              }
+
+              return {
+                insertOne: {
+                  document: {
+                    isBlocked: false,
+                    kind: `inventory_${data.productCategoryName.toLowerCase().replace(/\s+/g, "_")}`,
+                    status: "draft",
+                    isVariation: false,
+                    isMultiBrand: false,
+                    isTemplate: false,
+                    isPart: false,
+                    stocks: [],
+                    stockThreshold: 10,
+                    prodTechInfo,
+                    productInfo,
+                  },
+                },
+              };
+            })
+        )
+      ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
         addLog("✅ No new Inventory to insert.");
