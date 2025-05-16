@@ -139,13 +139,66 @@ export const bulkImportUtility = {
       }
 
       addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
+      // Step 1: Identify non-empty sheets and validate rows
+      const validRowsPerSheet: Record<string, any[]> = {};
+      const invalidRowsPerSheet: Record<string, any[]> = {};
 
-      // TO DO: Iterate each worksheet (category) and validate/process data
-      // Each sheet's name is like: "Category Name (12345)"
-      // Later we will match it with media path: mediaFolder/Category Name (12345)/1/images
+      sheetNames.forEach((sheetName) => {
+        const sheet = workbook.Sheets[sheetName];
+        const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
-      // Next step: validate rows from each worksheet
-      // Wait for next instructions before continuing...
+        if (data.length < 2) {
+          // Less than header + 1 row = skip
+          return;
+        }
+
+        const [headerRowRaw, ...rows] = data;
+        const headerRow = headerRowRaw as (string | undefined)[];
+        const requiredIndexes: number[] = [];
+
+        // Identify required headers (with *)
+        const cleanedHeaders = headerRow.map((h: string | undefined, idx: number) => {
+          if (typeof h === "string" && h.trim().endsWith("*")) {
+            requiredIndexes.push(idx);
+          }
+          return typeof h === "string" ? h.replace("*", "").trim() : h;
+        });
+
+        const validRows: any = [];
+        const invalidRows: any = [];
+
+        rows.forEach((row: any, rowIndex) => {
+          const errors: any = [];
+
+          requiredIndexes.forEach((reqIdx) => {
+            const fieldValue = row[reqIdx];
+            if (!fieldValue || String(fieldValue).trim() === "") {
+              errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
+            }
+          });
+
+          if (errors.length === 0) {
+            const rowObj: Record<string, any> = {};
+            cleanedHeaders.forEach((key: any, idx) => {
+              rowObj[key] = row[idx];
+            });
+            validRows.push({ row: rowIndex + 2, data: rowObj }); // +2 = 1-based row + header
+          } else {
+            invalidRows.push({ row: rowIndex + 2, errors });
+          }
+        });
+
+        if (validRows.length || invalidRows.length) {
+          addLog(`📄 Sheet "${sheetName}": ✅ ${validRows.length} valid rows, ❌ ${invalidRows.length} invalid rows`);
+
+          invalidRows.forEach((rowInfo: any) => {
+            addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+          });
+
+          validRowsPerSheet[sheetName] = validRows;
+          invalidRowsPerSheet[sheetName] = invalidRows;
+        }
+      });
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
