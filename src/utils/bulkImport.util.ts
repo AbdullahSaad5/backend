@@ -14,80 +14,111 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  validateCsvData: async (csvFilePath: string) => {
-    addLog(`📂 Validating CSV file: ${csvFilePath}`);
-    const requiredColumns = [
-      "brand",
-      "title",
-      "description",
-      "productSupplierKey",
-      "productCategory",
-      "processor",
-      "screenSize",
-    ];
-
-    const csvContent = fs.readFileSync(csvFilePath, "utf8");
-    const parsedCSV = Papa.parse(csvContent, {
-      header: true,
-      skipEmptyLines: true,
-    });
-
-    if (parsedCSV.errors.length > 0) throw new Error(`CSV Parsing Errors: ${JSON.stringify(parsedCSV.errors)}`);
-
+  validateXLSXData: async (workbook: XLSX.WorkBook) => {
+    const sheetNames = workbook.SheetNames;
     const validRows: { row: number; data: any }[] = [];
     const invalidRows: { row: number; errors: string[] }[] = [];
     const validIndexes = new Set<number>();
-    // console.log("📂 Parsed CSV Data:", parsedCSV.data);
 
-    for (const [index, row] of (parsedCSV.data as any[]).entries()) {
-      const errors: string[] = [];
+    for (const sheetName of sheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
-      requiredColumns.forEach((col) => {
-        if (!row[col]?.trim()) errors.push(`${col} is missing or empty`);
+      if (data.length < 2) continue; // Skip empty sheets
+
+      const [headerRow, ...rows]: any = data;
+      const requiredIndexes: number[] = [];
+
+      // Extract required fields
+      const cleanedHeaders = headerRow.map((h: string, idx: number) => {
+        if (typeof h === "string" && h.trim().endsWith("*")) {
+          requiredIndexes.push(idx);
+        }
+        return typeof h === "string" ? h.replace("*", "").trim() : h;
       });
 
-      if (!row.costPrice || isNaN(parseFloat(row.costPrice))) errors.push("Price must be a valid number");
+      let sheetValidCount = 0;
+      let sheetInvalidCount = 0;
 
-      if (row.productSupplierKey) {
-        const supplier = await User.findOne({
-          supplierKey: row.productSupplierKey,
-        }).select("_id");
-        if (!supplier) {
-          errors.push(`supplierKey ${row.productSupplierKey} does not exist in the database`);
-        } else {
-          row.productSupplier = supplier._id;
+      for (const [index, row] of rows.entries()) {
+        const errors: string[] = [];
+
+        // Validate required fields
+        requiredIndexes.forEach((reqIdx) => {
+          const val = (row[reqIdx] ?? "").toString().trim();
+          if (!val) {
+            errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
+          }
+        });
+
+        // Map row into object
+        const rowObj: Record<string, any> = {};
+        cleanedHeaders.forEach((key: any, idx: any) => {
+          rowObj[key] = row[idx];
+        });
+
+        // Additional validations
+        const supplierKey = rowObj["productSupplierKey"];
+        const categoryName = rowObj["productCategory"];
+
+        if (!rowObj.costPrice || isNaN(parseFloat(rowObj.costPrice))) {
+          errors.push("Price must be a valid number");
         }
-      } else {
-        errors.push("productSupplierKey is required");
+
+        if (!supplierKey) {
+          errors.push("productSupplierKey is required");
+        } else {
+          const supplier = await User.findOne({ supplierKey }).select("_id");
+          if (!supplier) {
+            errors.push(`supplierKey ${supplierKey} does not exist in the database`);
+          } else {
+            rowObj.productSupplier = supplier._id;
+          }
+        }
+
+        if (!categoryName) {
+          errors.push("productCategory is required");
+        } else {
+          const category = await ProductCategory.findOne({ name: categoryName }).select("_id");
+          if (!category) {
+            errors.push(`Product category '${categoryName}' does not exist in the database`);
+          } else {
+            rowObj.productCategoryName = categoryName;
+            rowObj.productCategory = category._id;
+          }
+        }
+
+        if (rowObj.productSupplier && !mongoose.isValidObjectId(rowObj.productSupplier)) {
+          errors.push("productSupplier must be a valid MongoDB ObjectId");
+        }
+
+        const globalRowIndex = validRows.length + invalidRows.length + 1;
+
+        if (errors.length > 0) {
+          invalidRows.push({ row: globalRowIndex, errors });
+          sheetInvalidCount++;
+        } else {
+          validRows.push({ row: globalRowIndex, data: rowObj });
+          validIndexes.add(globalRowIndex);
+          sheetValidCount++;
+        }
       }
 
-      if (row.productCategory) {
-        const category = await ProductCategory.findOne({ name: row.productCategory }).select("_id");
-        if (!category) {
-          errors.push(`Product category '${row.productCategory}' does not exist in the database`);
-        } else {
-          row.productCategoryName = row.productCategory;
-          row.productCategory = category._id;
-          // Replace name with its ObjectId
+      // Log per sheet summary
+      if (sheetValidCount > 0 || sheetInvalidCount > 0) {
+        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid rows, ❌ ${sheetInvalidCount} invalid rows`);
+        if (sheetInvalidCount > 0) {
+          const startIdx = validRows.length + 1;
+          invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
+            addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+          });
         }
-      } else {
-        errors.push("productCategory is required");
-      }
-
-      if (row.productSupplier && !mongoose.isValidObjectId(row.productSupplier))
-        errors.push("productSupplier must be a valid MongoDB ObjectId");
-      if (errors.length > 0) {
-        invalidRows.push({ row: index + 1, errors });
-      } else {
-        validRows.push({ row: index + 1, data: row });
-        validIndexes.add(index + 1);
       }
     }
 
-    addLog(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid rows, ❌ ${invalidRows.length} invalid rows`);
     return { validRows, invalidRows, validIndexes };
   },
-
   processZipFile: async (zipFilePath: string) => {
     const extractPath = path.join(process.cwd(), "extracted");
 
@@ -139,66 +170,11 @@ export const bulkImportUtility = {
       }
 
       addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
-      // Step 1: Identify non-empty sheets and validate rows
-      const validRowsPerSheet: Record<string, any[]> = {};
-      const invalidRowsPerSheet: Record<string, any[]> = {};
 
-      sheetNames.forEach((sheetName) => {
-        const sheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+      // ✅ Call validation function with workbook
+      const { validRows, invalidRows, validIndexes } = await bulkImportUtility.validateXLSXData(workbook);
 
-        if (data.length < 2) {
-          // Less than header + 1 row = skip
-          return;
-        }
-
-        const [headerRowRaw, ...rows] = data;
-        const headerRow = headerRowRaw as (string | undefined)[];
-        const requiredIndexes: number[] = [];
-
-        // Identify required headers (with *)
-        const cleanedHeaders = headerRow.map((h: string | undefined, idx: number) => {
-          if (typeof h === "string" && h.trim().endsWith("*")) {
-            requiredIndexes.push(idx);
-          }
-          return typeof h === "string" ? h.replace("*", "").trim() : h;
-        });
-
-        const validRows: any = [];
-        const invalidRows: any = [];
-
-        rows.forEach((row: any, rowIndex) => {
-          const errors: any = [];
-
-          requiredIndexes.forEach((reqIdx) => {
-            const fieldValue = row[reqIdx];
-            if (!fieldValue || String(fieldValue).trim() === "") {
-              errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
-            }
-          });
-
-          if (errors.length === 0) {
-            const rowObj: Record<string, any> = {};
-            cleanedHeaders.forEach((key: any, idx) => {
-              rowObj[key] = row[idx];
-            });
-            validRows.push({ row: rowIndex + 2, data: rowObj }); // +2 = 1-based row + header
-          } else {
-            invalidRows.push({ row: rowIndex + 2, errors });
-          }
-        });
-
-        if (validRows.length || invalidRows.length) {
-          addLog(`📄 Sheet "${sheetName}": ✅ ${validRows.length} valid rows, ❌ ${invalidRows.length} invalid rows`);
-
-          invalidRows.forEach((rowInfo: any) => {
-            addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
-          });
-
-          validRowsPerSheet[sheetName] = validRows;
-          invalidRowsPerSheet[sheetName] = invalidRows;
-        }
-      });
+      // Optionally do something with validRows / invalidRows...
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
