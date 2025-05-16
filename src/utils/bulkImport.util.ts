@@ -14,7 +14,7 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  validateXLSXData: async (workbook: XLSX.WorkBook) => {
+  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
     const sheetNames = workbook.SheetNames;
     const validRows: { row: number; data: any }[] = [];
     const invalidRows: { row: number; errors: string[] }[] = [];
@@ -23,8 +23,7 @@ export const bulkImportUtility = {
     for (const sheetName of sheetNames) {
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
-
-      if (data.length < 2) continue; // Skip empty sheets
+      if (data.length < 2) continue;
 
       const [headerRow, ...rows]: any = data;
       const requiredIndexes: number[] = [];
@@ -43,7 +42,6 @@ export const bulkImportUtility = {
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
-        // Validate required fields
         requiredIndexes.forEach((reqIdx) => {
           const val = (row[reqIdx] ?? "").toString().trim();
           if (!val) {
@@ -51,13 +49,11 @@ export const bulkImportUtility = {
           }
         });
 
-        // Map row into object
         const rowObj: Record<string, any> = {};
         cleanedHeaders.forEach((key: any, idx: any) => {
           rowObj[key] = row[idx];
         });
 
-        // Additional validations
         const supplierKey = rowObj["productSupplierKey"];
         const categoryName = rowObj["productCategory"];
 
@@ -98,17 +94,48 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
+          // 🔍 Media folder path: media/{sheetName}/{globalRowIndex}/images, videos
+          const mediaBase = path.join(mediaFolderPath, sheetName, String(globalRowIndex));
+          const imageFolder = path.join(mediaBase, "images");
+          const videoFolder = path.join(mediaBase, "videos");
+
+          const imageLinks: string[] = [];
+          const videoLinks: string[] = [];
+
+          if (fs.existsSync(imageFolder)) {
+            const images = fs.readdirSync(imageFolder);
+            for (const file of images) {
+              const url = await uploadToFirebase(
+                path.join(imageFolder, file),
+                `media/${sheetName}/${globalRowIndex}/images/${file}`
+              );
+              imageLinks.push(url);
+            }
+          }
+
+          if (fs.existsSync(videoFolder)) {
+            const videos = fs.readdirSync(videoFolder);
+            for (const file of videos) {
+              const url = await uploadToFirebase(
+                path.join(videoFolder, file),
+                `media/${sheetName}/${globalRowIndex}/videos/${file}`
+              );
+              videoLinks.push(url);
+            }
+          }
+
+          rowObj.images = imageLinks;
+          rowObj.videos = videoLinks;
+
           validRows.push({ row: globalRowIndex, data: rowObj });
           validIndexes.add(globalRowIndex);
           sheetValidCount++;
         }
       }
 
-      // Log per sheet summary
       if (sheetValidCount > 0 || sheetInvalidCount > 0) {
         addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid rows, ❌ ${sheetInvalidCount} invalid rows`);
         if (sheetInvalidCount > 0) {
-          const startIdx = validRows.length + 1;
           invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
             addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
           });
@@ -119,11 +146,13 @@ export const bulkImportUtility = {
     addLog(`🧪 Final Validation: ✅ ${validRows.length} valid rows, ❌ ${invalidRows.length} invalid rows`);
     return { validRows, invalidRows, validIndexes };
   },
+
   processZipFile: async (zipFilePath: string) => {
     const extractPath = path.join(process.cwd(), "extracted");
 
     try {
       addLog(`📂 Processing ZIP file: ${zipFilePath}`);
+
       if (!fs.existsSync(zipFilePath)) {
         addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
         throw new Error(`ZIP file does not exist: ${zipFilePath}`);
@@ -133,6 +162,7 @@ export const bulkImportUtility = {
       if (!fs.existsSync(extractPath)) {
         fs.mkdirSync(extractPath, { recursive: true });
       }
+
       zip.extractAllTo(extractPath, true);
 
       const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
@@ -146,21 +176,22 @@ export const bulkImportUtility = {
       const files = fs.readdirSync(mainFolder);
       addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
 
-      // Find the .xlsx file and the media folder
       const xlsxFile = files.find((f) => f.endsWith(".xlsx"));
-      const mediaFolder = files.find((f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory());
+      const mediaFolder = files.find(
+        (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
+      );
 
       if (!xlsxFile || !mediaFolder) {
         addLog("❌ Invalid ZIP structure. Missing XLSX or media folder.");
         throw new Error("Invalid ZIP structure. Missing XLSX or media folder.");
       }
 
+      const xlsxPath = path.join(mainFolder, xlsxFile);
+      const mediaFolderPath = path.join(mainFolder, mediaFolder);
+
       addLog(`✅ XLSX File: ${xlsxFile}`);
       addLog(`✅ Media Folder: ${mediaFolder}`);
 
-      const xlsxPath = path.join(mainFolder, xlsxFile);
-
-      // 🧠 Read Excel workbook with all sheets
       const workbook = XLSX.readFile(xlsxPath);
       const sheetNames = workbook.SheetNames;
 
@@ -171,10 +202,15 @@ export const bulkImportUtility = {
 
       addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
-      // ✅ Call validation function with workbook
-      const { validRows, invalidRows, validIndexes } = await bulkImportUtility.validateXLSXData(workbook);
+      // ✅ Pass workbook and media folder to validator
+      const { validRows, invalidRows, validIndexes } = await bulkImportUtility.validateXLSXData(
+        workbook,
+        mediaFolderPath
+      );
 
-      // Optionally do something with validRows / invalidRows...
+      // Use validRows as needed (e.g., for database upload)
+      console.log("✅ Valid Rows Ready:", validRows.length);
+      console.log("❌ Invalid Rows:", invalidRows.length);
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
@@ -193,6 +229,7 @@ export const bulkImportUtility = {
       }
     }
   },
+
   fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
     try {
       const result = await ProductCategory.aggregate([
