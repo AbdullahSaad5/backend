@@ -321,29 +321,32 @@ export const bulkImportUtility = {
     allCategoryAspects.forEach(({ categoryId, categoryName, aspects }) => {
       const aspectList = aspects?.aspects || [];
 
-      // Static required fields
-      const staticHeaders = ["Title*", "Description*", "Inventory Condition*", "Brand*"];
+      const uniqueHeaders = new Set<string>();
 
-      // Build dynamic headers with required and variation flags
-      const dynamicHeaders = aspectList.map((aspect: any) => {
+      // Add static required fields first
+      const staticHeaders = ["Title*", "Description*", "inventoryCondition*", "Brand*"];
+      staticHeaders.forEach((header) => uniqueHeaders.add(header));
+
+      // Add dynamic headers with required & variation flags
+      aspectList.forEach((aspect: any) => {
         let title = aspect.localizedAspectName || "Unknown";
         const isRequired = aspect.aspectConstraint?.aspectRequired;
         const isVariation = aspect.aspectConstraint?.aspectEnabledForVariations;
 
         if (isRequired) title += "*";
         if (isVariation) title += " (variation allowed)";
-        return title;
+
+        uniqueHeaders.add(title);
       });
 
-      // Combine static + dynamic headers
-      const headers = [...staticHeaders, ...dynamicHeaders];
-      const data = [headers]; // first row is headers only
+      const headers = Array.from(uniqueHeaders);
+      const data = [headers]; // first row is header
 
       const worksheet = XLSX.utils.aoa_to_sheet(data);
 
-      // Sheet name with categoryName + ID (cleaned and max 31 chars)
+      // Safe Excel sheet name: CategoryName (CategoryId)
       let sheetName = `${categoryName} (${categoryId})`;
-      sheetName = sheetName.replace(/[\\/?*[\]:]/g, "").slice(0, 31);
+      sheetName = sheetName.replace(/[\\/?*[\]:]/g, "").slice(0, 31); // Excel sheet name rules
 
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
