@@ -115,95 +115,37 @@ export const bulkImportUtility = {
       const files = fs.readdirSync(mainFolder);
       addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
 
-      const csvFile = files.find((f) => f.endsWith(".csv"));
+      // Find the .xlsx file and the media folder
+      const xlsxFile = files.find((f) => f.endsWith(".xlsx"));
       const mediaFolder = files.find((f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory());
 
-      if (!csvFile || !mediaFolder) {
-        addLog("❌ Invalid ZIP structure. Missing CSV or media folder.");
-        throw new Error("Invalid ZIP structure. Missing CSV or media folder.");
+      if (!xlsxFile || !mediaFolder) {
+        addLog("❌ Invalid ZIP structure. Missing XLSX or media folder.");
+        throw new Error("Invalid ZIP structure. Missing XLSX or media folder.");
       }
 
-      addLog(`✅ CSV File: ${csvFile}`);
+      addLog(`✅ XLSX File: ${xlsxFile}`);
       addLog(`✅ Media Folder: ${mediaFolder}`);
 
-      // Proceed with CSV validation and bulk import
-      const { validRows, validIndexes, invalidRows } = await bulkImportUtility.validateCsvData(
-        path.join(mainFolder, csvFile)
-      );
+      const xlsxPath = path.join(mainFolder, xlsxFile);
 
-      // Log invalid rows
-      if (invalidRows.length > 0) {
-        addLog(`❌ Invalid Rows Found: ${invalidRows.length}`);
-        invalidRows.forEach((row) => {
-          addLog(`Row ${row.row} failed: ${row.errors.join(", ")}`);
-        });
+      // 🧠 Read Excel workbook with all sheets
+      const workbook = XLSX.readFile(xlsxPath);
+      const sheetNames = workbook.SheetNames;
+
+      if (sheetNames.length === 0) {
+        addLog("❌ XLSX file has no sheets.");
+        throw new Error("XLSX file has no sheets.");
       }
 
-      if (validRows.length === 0) {
-        addLog("❌ No valid rows found in CSV. Exiting.");
-        return;
-      }
+      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
-      // Log the valid rows before processing
-      addLog(`✅ Valid rows: ${validRows.length}`);
-      validRows.forEach((row, index) => {
-        addLog(`Row ${index + 1}: ${JSON.stringify(row.data)}`);
-      });
+      // TO DO: Iterate each worksheet (category) and validate/process data
+      // Each sheet's name is like: "Category Name (12345)"
+      // Later we will match it with media path: mediaFolder/Category Name (12345)/1/images
 
-      // Process media and files for valid rows
-      for (const [index, { data }] of validRows.entries()) {
-        const folderIndex = (index + 1).toString();
-        if (!validIndexes.has(index + 1)) continue;
-
-        addLog(`📂 Processing media for row: ${folderIndex}`);
-        const productMediaPath = path.join(mainFolder, mediaFolder, folderIndex);
-        if (!fs.existsSync(productMediaPath)) {
-          addLog(`❌ No media found for row: ${folderIndex}`);
-          continue;
-        }
-
-        const uploadFiles = async (files: string[], destination: string) => {
-          if (!files || files.length === 0) {
-            console.log(`❌ No files to upload for ${destination}`);
-            return [];
-          }
-          try {
-            const uploads = files.map((file) => uploadFileToFirebase(file, `${destination}/${uuidv4()}`));
-            const results = await Promise.allSettled(uploads);
-            return results
-              .filter((res) => res.status === "fulfilled")
-              .map((res) => (res as PromiseFulfilledResult<string>).value);
-          } catch (error) {
-            console.error("❌ Error uploading files:", error);
-            return [];
-          }
-        };
-
-        const imagesFolder = path.join(productMediaPath, "images");
-        data.images = fs.existsSync(imagesFolder)
-          ? await uploadFiles(
-              fs.readdirSync(imagesFolder).map((f) => path.join(imagesFolder, f)),
-              `products/${folderIndex}/images`
-            )
-          : [];
-
-        // Log the images for each row
-        console.log("Images for row:", data.images);
-      }
-
-      addLog("🚀 Starting bulk import...");
-
-      // Validate the structure of validRows before bulk import
-      validRows.forEach((row, index) => {
-        if (!row.data || !row.data.brand || !row.data.title) {
-          console.error(`❌ Missing essential data in row ${index + 1}:`, row);
-          addLog(`❌ Missing essential data in row ${index + 1}`);
-        }
-      });
-
-      // Bulk import valid rows
-      await inventoryService.bulkImportInventory(validRows);
-      addLog("✅ Bulk import completed.");
+      // Next step: validate rows from each worksheet
+      // Wait for next instructions before continuing...
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
