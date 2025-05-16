@@ -233,7 +233,7 @@ export const bulkImportUtility = {
       // Use validRows as needed (e.g., for database upload)
       console.log("✅ Valid Rows Ready:", validRows.length);
       console.log("❌ Invalid Rows:", invalidRows.length);
-
+      addLog("🚀 Starting bulk import...");
       await inventoryService.bulkImportInventory(validRows);
       addLog("✅ Bulk import completed.");
     } catch (error: any) {
