@@ -242,7 +242,7 @@ export const bulkImportUtility = {
   },
   fetchAllCategoryIds: async (): Promise<string[]> => {
     try {
-      // Execute the aggregation query
+      // Step 1: Get category documents
       const result = await ProductCategory.aggregate([
         {
           $match: {
@@ -253,27 +253,24 @@ export const bulkImportUtility = {
           },
         },
         {
-          $group: {
-            _id: null,
-            ebayPartCategoryIds: { $addToSet: "$ebayPartCategoryId" },
-            ebayProductCategoryIds: { $addToSet: "$ebayProductCategoryId" },
-          },
-        },
-        {
           $project: {
             _id: 0,
-            allCategoryIds: { $setUnion: ["$ebayPartCategoryIds", "$ebayProductCategoryIds"] },
+            name: 1,
+            ebayPartCategoryId: 1,
+            ebayProductCategoryId: 1,
           },
         },
       ]);
 
-      // If the result is empty, return an empty array
-      if (result.length === 0) {
-        return [];
-      }
+      // Step 2: Extract all category IDs
+      const allCategoryIds = result.flatMap((item) => {
+        const ids = [];
+        if (item.ebayPartCategoryId) ids.push(item.ebayPartCategoryId.toString());
+        if (item.ebayProductCategoryId) ids.push(item.ebayProductCategoryId.toString());
+        return ids;
+      });
 
-      // Return the array of all unique category IDs
-      return result[0].allCategoryIds;
+      return allCategoryIds;
     } catch (error) {
       console.error("Error fetching category IDs:", error);
       throw new Error("Failed to fetch category IDs");
