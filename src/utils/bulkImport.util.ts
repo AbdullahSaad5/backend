@@ -14,24 +14,6 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  uploadToFirebase: async (filePath: string, destination: string): Promise<string | null> => {
-    if (!filePath) throw new Error("No file provided!");
-    try {
-      const storageFile = adminStorage.file(destination);
-      await storageFile.save(filePath, {
-        metadata: {
-          contentType: destination.includes("videos") ? "video/mp4" : "image/jpeg",
-        },
-        public: true,
-      });
-      console.log(`✅ Uploaded file to Firebase: ${destination}`);
-      return `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${destination}`;
-    } catch (error) {
-      console.error("❌ Error uploading file:", error);
-      return null;
-    }
-  },
-
   validateCsvData: async (csvFilePath: string) => {
     addLog(`📂 Validating CSV file: ${csvFilePath}`);
     const requiredColumns = [
