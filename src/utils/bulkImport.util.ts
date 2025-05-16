@@ -21,6 +21,13 @@ export const bulkImportUtility = {
     const validIndexes = new Set<number>();
 
     for (const sheetName of sheetNames) {
+      const sheetMatch = sheetName.match(/^(.*)\s+\((\d+)\)$/);
+      if (!sheetMatch) {
+        addLog(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
+        continue;
+      }
+
+      const [_, categoryName, categoryId] = sheetMatch;
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
@@ -54,6 +61,10 @@ export const bulkImportUtility = {
           rowObj[key] = row[idx];
         });
 
+        // Inject category name and ID from sheet
+        rowObj.productCategoryName = categoryName.trim();
+        rowObj.productCategory = categoryId;
+
         // Validate supplier
         const supplierKey = rowObj["productSupplierKey"];
         if (!supplierKey) {
@@ -67,26 +78,8 @@ export const bulkImportUtility = {
           }
         }
 
-        // Validate category
-        const categoryName = rowObj["productCategory"];
-        if (!categoryName) {
-          errors.push("productCategory is required");
-        } else {
-          const category = await ProductCategory.findOne({ name: categoryName }).select("_id");
-          if (!category) {
-            errors.push(`Product category '${categoryName}' does not exist in DB`);
-          } else {
-            rowObj.productCategory = category._id;
-            rowObj.productCategoryName = categoryName;
-          }
-        }
-
         if (!rowObj.costPrice || isNaN(parseFloat(rowObj.costPrice))) {
           errors.push("Price must be a valid number");
-        }
-
-        if (rowObj.productSupplier && !mongoose.isValidObjectId(rowObj.productSupplier)) {
-          errors.push("productSupplier must be a valid MongoDB ObjectId");
         }
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
