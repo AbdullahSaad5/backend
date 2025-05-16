@@ -289,22 +289,36 @@ export const bulkImportUtility = {
         return;
       }
 
-      // Fetch aspects for each category
-      const categoryAspectsPromises = categoryIds.map(async (categoryId) => {
-        const aspects = await ebayListingService.fetchEbayCategoryAspects(categoryId);
-        return {
-          categoryId,
-          aspects,
-        };
-      });
+      // Fetch aspects for each category using Promise.allSettled
+      const results = await Promise.allSettled(
+        categoryIds.map(async (categoryId) => {
+          const aspects = await ebayListingService.fetchEbayCategoryAspects(categoryId);
+          return { categoryId, aspects };
+        })
+      );
 
-      // Wait for all promises to resolve
-      const allCategoryAspects = await Promise.all(categoryAspectsPromises);
+      // Filter only fulfilled results with valid categoryId
+      const fulfilledResults = results
+        .filter(
+          (result): result is PromiseFulfilledResult<{ categoryId: string; aspects: any }> =>
+            result.status === "fulfilled" && !!result.value?.categoryId
+        )
+        .map((result) => result.value);
 
-      // Export the data to Excel
-      bulkImportUtility.exportCategoryAspectsToExcel(allCategoryAspects);
+      // Log rejected category IDs if needed
+      const failedCategories = results
+        .map((res, index) => ({ res, index }))
+        .filter(({ res }) => res.status === "rejected")
+        .map(({ index }) => categoryIds[index]);
 
-      return allCategoryAspects;
+      if (failedCategories.length > 0) {
+        console.warn("Some categories failed to fetch aspects:", failedCategories);
+      }
+
+      // Export the successful ones to Excel
+      bulkImportUtility.exportCategoryAspectsToExcel(fulfilledResults);
+
+      return fulfilledResults;
     } catch (error) {
       console.error("Error fetching aspects for all categories:", error);
       throw error;
