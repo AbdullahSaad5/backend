@@ -44,6 +44,7 @@ export const prodInfoSchema = {
 // Main Inventory Schema
 const inventorySchema = new Schema(
   {
+    
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
