@@ -240,9 +240,8 @@ export const bulkImportUtility = {
       }
     }
   },
-  fetchAllCategoryIds: async (): Promise<string[]> => {
+  fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
     try {
-      // Step 1: Get category documents
       const result = await ProductCategory.aggregate([
         {
           $match: {
@@ -262,15 +261,19 @@ export const bulkImportUtility = {
         },
       ]);
 
-      // Step 2: Extract all category IDs
-      const allCategoryIds = result.flatMap((item) => {
-        const ids = [];
-        if (item.ebayPartCategoryId) ids.push(item.ebayPartCategoryId.toString());
-        if (item.ebayProductCategoryId) ids.push(item.ebayProductCategoryId.toString());
-        return ids;
+      // Build array of { id, name } from both possible ID fields
+      const allCategories = result.flatMap((item) => {
+        const categories: { id: string; name: string }[] = [];
+        if (item.ebayPartCategoryId) {
+          categories.push({ id: item.ebayPartCategoryId.toString(), name: item.name });
+        }
+        if (item.ebayProductCategoryId) {
+          categories.push({ id: item.ebayProductCategoryId.toString(), name: item.name });
+        }
+        return categories;
       });
 
-      return allCategoryIds;
+      return allCategories;
     } catch (error) {
       console.error("Error fetching category IDs:", error);
       throw new Error("Failed to fetch category IDs");
@@ -279,40 +282,45 @@ export const bulkImportUtility = {
 
   fetchAspectsForAllCategories: async () => {
     try {
-      // Get all category IDs
-      const categoryIds = await bulkImportUtility.fetchAllCategoryIds();
-      if (categoryIds.length === 0) {
+      // Step 1: Get all category ID-name pairs
+      const categoryIdNamePairs = await bulkImportUtility.fetchAllCategoryIds(); // [{ id, name }]
+      if (categoryIdNamePairs.length === 0) {
         console.log("No category IDs found.");
         return;
       }
 
-      // Fetch aspects for each category using Promise.allSettled
+      // Step 2: Fetch aspects for each category using Promise.allSettled
       const results = await Promise.allSettled(
-        categoryIds.map(async (categoryId) => {
-          const aspects = await ebayListingService.fetchEbayCategoryAspects(categoryId);
-          return { categoryId, aspects };
+        categoryIdNamePairs.map(async ({ id, name }) => {
+          const aspects = await ebayListingService.fetchEbayCategoryAspects(id);
+          return { categoryId: id, categoryName: name, aspects };
         })
       );
 
-      // Filter only fulfilled results with valid categoryId
+      // Step 3: Filter fulfilled
       const fulfilledResults = results
         .filter(
-          (result): result is PromiseFulfilledResult<{ categoryId: string; aspects: any }> =>
-            result.status === "fulfilled" && !!result.value?.categoryId
+          (
+            result
+          ): result is PromiseFulfilledResult<{
+            categoryId: string;
+            categoryName: string;
+            aspects: any;
+          }> => result.status === "fulfilled" && !!result.value?.categoryId
         )
         .map((result) => result.value);
 
-      // Log rejected category IDs if needed
+      // Step 4: Log rejected ones
       const failedCategories = results
         .map((res, index) => ({ res, index }))
         .filter(({ res }) => res.status === "rejected")
-        .map(({ index }) => categoryIds[index]);
+        .map(({ index }) => categoryIdNamePairs[index].id);
 
       if (failedCategories.length > 0) {
         console.warn("Some categories failed to fetch aspects:", failedCategories);
       }
 
-      // Export the successful ones to Excel
+      // Step 5: Export to Excel with names and aspects
       bulkImportUtility.exportCategoryAspectsToExcel(fulfilledResults);
 
       return fulfilledResults;
@@ -322,10 +330,13 @@ export const bulkImportUtility = {
     }
   },
 
-  exportCategoryAspectsToExcel: async (allCategoryAspects: any[], filePath: string = "CategoryAspects.xlsx") => {
+  exportCategoryAspectsToExcel: async (
+    allCategoryAspects: { categoryId: string; categoryName: string; aspects: any }[],
+    filePath: string = "CategoryAspects.xlsx"
+  ) => {
     const workbook = XLSX.utils.book_new();
 
-    allCategoryAspects.forEach(({ categoryId, aspects }) => {
+    allCategoryAspects.forEach(({ categoryId, categoryName, aspects }) => {
       const aspectList = aspects?.aspects || [];
 
       // Build headers with required and variation flags
@@ -336,15 +347,23 @@ export const bulkImportUtility = {
 
         if (isRequired) title += "*";
         if (isVariation) title += " (variation allowed)";
-
         return title;
       });
 
       // One row only with column headers
       const data = [headers];
 
+      // Create worksheet from data
       const worksheet = XLSX.utils.aoa_to_sheet(data);
-      XLSX.utils.book_append_sheet(workbook, worksheet, categoryId.toString());
+
+      // Sanitize and create sheet name with category name and ID
+      let sheetName = `${categoryName} (${categoryId})`;
+
+      // Excel sheet name must be <= 31 chars, sanitize special characters
+      sheetName = sheetName.replace(/[\\/?*[\]:]/g, "").slice(0, 31);
+
+      // Add to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
 
     XLSX.writeFile(workbook, filePath);
