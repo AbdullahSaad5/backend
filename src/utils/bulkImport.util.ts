@@ -21,13 +21,24 @@ export const bulkImportUtility = {
     const validIndexes = new Set<number>();
 
     for (const sheetName of sheetNames) {
-      const sheetMatch = sheetName.match(/^(.*)\s+\((\d+)\)$/);
-      if (!sheetMatch) {
+      let match = sheetName.trim().match(/^(.+?)\s*\((\d+)\)\s*$/);
+
+      // Optional auto-correct fallback
+      if (!match && sheetName.includes("(")) {
+        const parts = sheetName.split("(");
+        if (parts.length === 2 && /^\d+\)?$/.test(parts[1].trim())) {
+          const correctedName = `${parts[0].trim()} (${parts[1].replace(/\)/g, "").trim()})`;
+          addLog(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
+          match = correctedName.match(/^(.+?)\s*\((\d+)\)\s*$/);
+        }
+      }
+
+      if (!match) {
         addLog(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
         continue;
       }
 
-      const [_, categoryName, categoryId] = sheetMatch;
+      const [_, categoryName, categoryId] = match;
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
@@ -65,7 +76,6 @@ export const bulkImportUtility = {
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
-        // Check required fields
         requiredIndexes.forEach((reqIdx) => {
           const val = (row[reqIdx] ?? "").toString().trim();
           if (!val) {
@@ -92,27 +102,9 @@ export const bulkImportUtility = {
           }
         });
 
-        // Inject category metadata
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
         rowObj.ebayCategoryId = categoryId;
-
-        // Validate supplier
-        const supplierKey = rowObj["productSupplierKey"];
-        if (!supplierKey) {
-          errors.push("productSupplierKey is required");
-        } else {
-          const supplier = await User.findOne({ supplierKey }).select("_id");
-          if (!supplier) {
-            errors.push(`supplierKey ${supplierKey} does not exist in DB`);
-          } else {
-            rowObj.productSupplier = supplier._id;
-          }
-        }
-
-        if (!rowObj.costPrice || isNaN(parseFloat(rowObj.costPrice))) {
-          errors.push("Price must be a valid number");
-        }
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -120,7 +112,6 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
-          // Upload media if available
           const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
           const imageFolderPath = path.join(mediaBasePath, "images");
           const videoFolderPath = path.join(mediaBasePath, "videos");
@@ -197,8 +188,19 @@ export const bulkImportUtility = {
 
       const files = fs.readdirSync(mainFolder);
       addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
+      const isValidExcel = (filename: string) => {
+        return (
+          filename.endsWith(".xlsx") &&
+          !filename.startsWith("._") && // macOS metadata
+          !filename.startsWith(".~") && // Excel temp file
+          !filename.startsWith(".") // Hidden files like .DS_Store
+        );
+      };
 
-      const xlsxFile = files.find((f) => f.endsWith(".xlsx"));
+      const xlsxFile = files.find(isValidExcel);
+
+      // const xlsxFile = files.find((f) => f.endsWith(".xlsx") && !f.startsWith("._"));
+
       const mediaFolder = files.find(
         (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
       );
@@ -214,15 +216,34 @@ export const bulkImportUtility = {
       addLog(`✅ XLSX File: ${xlsxFile}`);
       addLog(`✅ Media Folder: ${mediaFolder}`);
 
-      const workbook = XLSX.readFile(xlsxPath);
+      const workbook = XLSX.readFile(xlsxPath, {
+        type: "file",
+        cellDates: true,
+        raw: false,
+        WTF: true, // helps log unexpected formats
+      });
+      console.log("✅ Sheet Names Extracted:", workbook.SheetNames);
+
       const sheetNames = workbook.SheetNames;
+      sheetNames.forEach((name) => {
+        console.log(
+          `Sheet name: "${name}" →`,
+          [...name].map((c) => c.charCodeAt(0))
+        );
+      });
+      console.log(
+        "Sheet visibility states:",
+        workbook.Workbook?.Sheets?.map((s) => s.Hidden)
+      );
 
       if (sheetNames.length === 0) {
         addLog("❌ XLSX file has no sheets.");
         throw new Error("XLSX file has no sheets.");
       }
+      const laptopSheet = workbook.Sheets["Laptops"];
+      console.log("Rows in Laptops sheet:", XLSX.utils.sheet_to_json(laptopSheet).length);
 
-      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
+      console.log(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
       // ✅ Pass workbook and media folder to validator
       const { validRows, invalidRows, validIndexes } = await bulkImportUtility.validateXLSXData(
