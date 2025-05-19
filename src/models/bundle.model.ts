@@ -23,7 +23,6 @@ const bundleSchema = new Schema(
     // Promotional images with alt text
     images: { type: [mediaSchema], _id: false },
 
-
     // Items in the bundle
     items: [
       {
@@ -32,43 +31,56 @@ const bundleSchema = new Schema(
           ref: "Inventory",
           required: true,
         },
-        variationId: [{
-          type: Types.ObjectId,
-          ref: "Variation",
-          required: false,
-        }],
+        // variationId: [{
+        //   type: Types.ObjectId,
+        //   ref: "Variation",
+        //   required: false,
+        // }],
         stockId: {
           type: Types.ObjectId,
           ref: "Stock",
           required: true,
         },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1,
+        isSimpleProduct: {
+          type: Boolean,
+          default: false
         },
-        customPrice: {
-          type: Number,
-          required: true,
-        },
+        selectedVariations: [
+          {
+            variationId: {
+              type: String,
+              required: true
+            },
+            quantity: {
+              type: Number,
+              required: true,
+              min: 1
+            },
+            customPrice: {
+              type: Number,
+              required: true,
+              min: 0
+            },
+            _id: false
+          }
+        ],
         _id: false 
       },
-      
     ],
 
     // Bundle discount structure
-    discount: {
-      type: {
-        type: String,
-        enum: ["percentage", "fixed" , "none"],
-        required: true,
-      },
-      value: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-    },
+    // discount: {
+    //   type: {
+    //     type: String,
+    //     enum: ["percentage", "fixed" , "none"],
+    //     required: true,
+    //   },
+    //   value: {
+    //     type: Number,
+    //     required: true,
+    //     min: 0,
+    //   },
+    // },
 
     // Bundle expiration date
     validity: {
