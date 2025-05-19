@@ -4,7 +4,8 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
-
+import fs from "fs";
+import * as XLSX from "xlsx";
 // Utility function to pick allowed fields
 function pick(obj: any, keys: string[]) {
   return keys.reduce((acc: { [key: string]: any }, key) => {
@@ -599,47 +600,79 @@ export const inventoryService = {
     }
   },
 
-  //bulk Export inventory to CSV
-  exportInventory: async (inventoryIds: string[]) => {
+  exportInventory: async (inventoryIds: string[]): Promise<{ fromCache: boolean; file: string }> => {
     const cacheKey = generateCacheKey(inventoryIds);
 
-    // Check cache first
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
-      return { fromCache: true, file: JSON.parse(cachedData) };
+      return { fromCache: true, file: cachedData };
     }
 
-    // Fetch inventory items from database
-    const items = await Inventory.find({ _id: { $in: inventoryIds } })
-      .populate("productInfo.productCategory", "name") // Only get the name field
+    const items: any[] = await Inventory.find({ _id: { $in: inventoryIds } })
+      .populate("productInfo.productCategory", "name")
       .lean();
+
     if (!items.length) throw new Error("No inventory items found");
 
-    // Process the inventory data into rows
-    const rows = items.map((item: any) => ({
-      id: item._id.toString().slice(-6),
-      brand: item.productInfo?.brand,
-      title: item.productInfo?.title,
-      description: item.productInfo?.description?.replace(/<[^>]*>?/gm, ""),
-      productCategory: item.productInfo?.productCategory?.name,
-      condition: item.productInfo?.inventoryCondition,
-      processor: item.prodTechInfo?.processor,
-      gpu: item.prodTechInfo?.gpu,
-      screenSize: item.prodTechInfo?.screenSize,
-      images: item.productInfo?.inventoryImages?.map((img: any) => img.url).join(", "),
-    }));
+    const categoryMap: Record<string, any[]> = {};
 
-    // Use json2csv to convert rows into CSV format
-    const parser = new Parser({ fields: Object.keys(rows[0]) });
-    const csv = parser.parse(rows);
+    for (const item of items) {
+      const ebayId = item.productInfo?.ebayCategoryId || "unknown";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
 
-    // Convert CSV to base64 for easier transmission
-    const base64Csv = Buffer.from(csv, "utf-8").toString("base64");
+      const rawSheetKey = `${categoryName} (${ebayId})`;
+      const sheetKey = sanitizeSheetName(rawSheetKey);
+      const flatRow: Record<string, any> = {
+        Title: item.productInfo?.title || "",
+        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
+        Brand: Array.isArray(item.productInfo?.brand)
+          ? item.productInfo.brand.join(", ")
+          : item.productInfo?.brand || "",
+        InventoryCondition: item.productInfo?.inventoryCondition || "",
+        "Allow Variations": item.isVariation ? "yes" : "no",
+        Images: Array.isArray(item.productInfo?.inventoryImages)
+          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
+          : "",
+      };
 
-    // Cache the base64 CSV for 5 minutes
-    await setCacheWithTTL(cacheKey, base64Csv, 300);
+      // Add dynamic attributes
+      for (const [key, value] of Object.entries(item.prodTechInfo || {})) {
+        flatRow[key] = Array.isArray(value) ? value.join(", ") : value;
+      }
 
-    return { fromCache: false, file: base64Csv };
+      if (!categoryMap[sheetKey]) categoryMap[sheetKey] = [];
+      categoryMap[sheetKey].push(flatRow);
+    }
+
+    // Create workbook with multiple sheets
+    const wb = XLSX.utils.book_new();
+
+    for (const [sheetName, rows] of Object.entries(categoryMap)) {
+      if (rows.length === 0) continue;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max length is 31 chars
+    }
+
+    // Write workbook to binary string
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
+
+    // Helper function: convert binary string to ArrayBuffer
+    function s2ab(s: string) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < s.length; i++) {
+        view[i] = s.charCodeAt(i) & 0xff;
+      }
+      return buf;
+    }
+
+    // Convert to base64
+    const base64Excel = Buffer.from(s2ab(wbout)).toString("base64");
+
+    // Cache the base64 encoded excel file
+    await setCacheWithTTL(cacheKey, base64Excel, 300); // Cache 5 min
+
+    return { fromCache: false, file: base64Excel };
   },
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
@@ -833,4 +866,8 @@ function generateCacheKey(inventoryIds: string[]) {
 
   // The hash itself will be the file name (base16 format)
   return hash; // This is the base16 string
+}
+
+function sanitizeSheetName(name: string): string {
+  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31); // Excel limits sheet names to 31 chars
 }
