@@ -46,7 +46,7 @@ export const inventory = (router: Router) => {
 
   router.get("/", inventoryController.getAllInventory);
   //
-  router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
+
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
   router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
@@ -65,8 +65,8 @@ export const inventory = (router: Router) => {
   router.post("/:id/generate-variations", inventoryController.generateAndStoreVariations);
 
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
-  router.get("/fetch-all-categories", bulkImportUtility.fetchAspectsForAllCategories);
-
+  // router.get("/fetch-all-categories", bulkImportUtility.fetchAspectsForAllCategories); only usable route to get all gategories from ebay and to create bulk import template
+  router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);
 };
