@@ -466,9 +466,17 @@ export const inventoryService = {
       }
 
       addLog("🔹 Valid Rows Received for Bulk Import:");
-      validRows.forEach(({ row, data }) => {
-        console.log(`Row: ${row}`);
-        console.log("Data:", data);
+      validRows.forEach(({ row, data }, i) => {
+        try {
+          addLog(`Row [${i}] => #${row}`);
+          if (!data || typeof data !== "object") {
+            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
+          } else {
+            console.log(`Data: ${JSON.stringify(data)}`);
+          }
+        } catch (err) {
+          console.log(`❌ Error while printing row ${row}:`, err);
+        }
       });
 
       const knownProductFields = new Set([
@@ -480,44 +488,62 @@ export const inventoryService = {
         "inventoryCondition",
         "productCategory",
         "productCategoryName",
-        "productSupplier",
-        "productSupplierKey",
+        "ebayCategoryId",
       ]);
 
       const bulkOperations: any = (
         await Promise.all(
           validRows
+            .map(({ row, data }) => {
+              const normalizedData: any = {};
+              for (const key in data) {
+                normalizedData[key.toLowerCase()] = data[key];
+              }
+              return { row, data: normalizedData };
+            })
             .filter(({ data }) => data && data.title)
-            .map(async ({ row, data }) => {
-              if (row === undefined || !data || !data.title) return null;
-
-              addLog(`📦 Preparing to insert row ${row} with title: ${data.title}`);
-
+            .map(async ({ row, data: normalizedData }) => {
               const matchedCategory = await ProductCategory.findOne({
-                $or: [{ ebayProductCategoryId: data.ebayCategoryId }, { ebayPartCategoryId: data.ebayCategoryId }],
+                $or: [
+                  { ebayProductCategoryId: normalizedData.ebaycategoryid },
+                  { ebayPartCategoryId: normalizedData.ebaycategoryid },
+                ],
               }).select("_id");
 
               if (!matchedCategory) {
-                addLog(`❌ No matching product category for eBay ID: ${data.ebayCategoryId}`);
+                addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
                 return null;
               }
 
+              // Normalize brand
+              let brandList = normalizedData.brand;
+              if (typeof brandList === "string") {
+                brandList = brandList
+                  .split(",")
+                  .map((b: string) => b.trim())
+                  .filter(Boolean);
+              } else if (!Array.isArray(brandList)) {
+                brandList = [brandList];
+              }
+
+              const isMultiBrand = brandList.length > 1;
+
               const productInfo: any = {
                 productCategory: matchedCategory._id,
-                title: data.title,
-                description: data.description,
-                inventoryImages: (data.images || []).map((url: string) => ({
+                title: normalizedData.title,
+                description: normalizedData.description,
+                inventoryImages: (normalizedData.images || []).map((url: string) => ({
                   id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   size: 0,
                   url,
                   type: "image/jpeg",
                 })),
-                inventoryCondition: data.inventoryCondition || "new",
-                brand: data.brand || [],
+                inventoryCondition: normalizedData.inventoryCondition || "new",
+                brand: brandList,
               };
 
               const prodTechInfo: Record<string, any> = {};
-              const knownProductFields = new Set([
+              const knownFields = new Set([
                 "title",
                 "description",
                 "brand",
@@ -529,27 +555,44 @@ export const inventoryService = {
                 "productCategoryName",
                 "ebayCategoryId",
               ]);
-              for (const key in data) {
-                if (!knownProductFields.has(key)) {
-                  prodTechInfo[key] = data[key];
+
+              for (const key in normalizedData) {
+                if (!knownFields.has(key)) {
+                  prodTechInfo[key] = normalizedData[key];
                 }
               }
 
+              // Set kind based on eBay ID
+              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
+
+              // Set isPart based on kind
+              const isPart = kindType === "part";
+
+              // Set isVariation based on prodTechInfo["allow variations"]
+              const allowVar = prodTechInfo["allow variations"];
+              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
+              delete prodTechInfo["allow variations"]; // optional cleanup
+
+              const docToInsert = {
+                isBlocked: false,
+                kind: kindType,
+                status: "draft",
+                isVariation,
+                isMultiBrand,
+                isTemplate: false,
+                isPart,
+                stocks: [],
+                stockThreshold: 10,
+                prodTechInfo,
+                productInfo,
+              };
+
+              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
+
               return {
                 insertOne: {
-                  document: {
-                    isBlocked: false,
-                    kind: `inventory_${data.productCategoryName.toLowerCase().replace(/\s+/g, "_")}`,
-                    status: "draft",
-                    isVariation: false,
-                    isMultiBrand: false,
-                    isTemplate: false,
-                    isPart: false,
-                    stocks: [],
-                    stockThreshold: 10,
-                    prodTechInfo,
-                    productInfo,
-                  },
+                  document: docToInsert,
                 },
               };
             })
