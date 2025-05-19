@@ -11,7 +11,7 @@ export const mediaSchema = {
   filename: { type: String },
 };
 
-const bundleSchema = new Schema( 
+const bundleSchema = new Schema(
   {
     // Bundle Name
     name: {
@@ -43,30 +43,38 @@ const bundleSchema = new Schema(
         },
         isSimpleProduct: {
           type: Boolean,
-          default: false
+          default: false,
         },
         selectedVariations: [
           {
             variationId: {
-              type: String,
-              required: true
+              type: Types.ObjectId,
+              ref: "Variation",
+              required: true,
             },
             quantity: {
               type: Number,
               required: true,
-              min: 1
+              min: 1,
             },
             customPrice: {
               type: Number,
               required: true,
-              min: 0
+              min: 0,
             },
-            _id: false
-          }
+            _id: false,
+          },
         ],
-        _id: false 
+        _id: false,
       },
     ],
+
+    // Total possible combinations in the bundle
+    totalCombinations: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
 
     // Bundle discount structure
     // discount: {
