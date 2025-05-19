@@ -1,83 +1,68 @@
 import mongoose, { Schema, model } from "mongoose";
 
-export const mediaSchema = {
-  id: { type: String },
-  originalname: { type: String },
-  encoding: { type: String },
-  mimetype: { type: String },
-  size: { type: Number },
-  url: { type: String },
-  type: { type: String },
-  filename: { type: String },
-};
+// Media Schema
+const mediaSchema = new Schema(
+  {
+    id: { type: String },
+    originalname: { type: String },
+    encoding: { type: String },
+    mimetype: { type: String },
+    size: { type: Number },
+    url: { type: String },
+    type: { type: String },
+    filename: { type: String },
+  },
+  { _id: false }
+);
 
-const options = { timestamps: true, discriminatorKey: "kind" };
-
-// part tchnical schema
-export const partsTechnicalSchema = {
-  // attributes: {
-  type: Map,
-  of: Schema.Types.Mixed,
-  required: false,
-};
-
-// product technical schema
-export const productsTechnicalSchema = {
-  // attributes: {
-  type: Map,
-  of: Schema.Types.Mixed,
-  required: false,
-};
-
-// prod info scema
-export const prodInfoSchema = {
-  productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: true },
-  ebayCategoryId: { type: String },
-  // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  title: { type: String, required: true },
-  description: { type: String },
-  inventoryImages: { type: [mediaSchema], _id: false },
-  inventoryCondition: { type: String, enum: ["used", "new" , "refurbished"] },
-  brand: { type: [String], required: true },
-};
-
-// Main Inventory Schema
+// Combined Inventory Schema
 const inventorySchema = new Schema(
   {
-    
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean },
     publishToAmazon: { type: Boolean },
     publishToWebsite: { type: Boolean },
-    kind: { type: String },
+    kind: { type: String }, // Optional: you can remove if not used
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isVariation: { type: Boolean, default: false },
     isMultiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
     alias: { type: String },
     isPart: { type: Boolean, default: false },
-
-    stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
+    stocks: [{ type: Schema.Types.ObjectId, ref: "Stock" }],
+
+    // Optional technical info (product or part)
+    prodTechInfo: {
+      type: Map,
+      of: Schema.Types.Mixed,
+      required: false,
+    },
+
+    // Product Info
+    productInfo: {
+      productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: false },
+      ebayCategoryId: { type: String },
+      title: { type: String },
+      description: { type: String },
+      inventoryImages: { type: [mediaSchema], default: [] },
+      inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
+      brand: { type: [String], required: false },
+    },
   },
-  { ...options, collection: "inventory" }
+  {
+    timestamps: true,
+    collection: "inventory",
+  }
 );
-// Compound Index to ensure unique alias across all documents in the 'inventory' collection
+
+// Indexes
 inventorySchema.index({ alias: 1 }, { unique: false });
-// Base Inventory Model
+inventorySchema.index({ ean: 1 }, { unique: false });
+
+// Model
 const Inventory = model("Inventory", inventorySchema);
-
-// discriminator for part
-Inventory.discriminator(
-  "part",
-  new mongoose.Schema({ prodTechInfo: partsTechnicalSchema, productInfo: prodInfoSchema }, options)
-);
-
-// discriminator for product
-Inventory.discriminator(
-  "product",
-  new mongoose.Schema({ prodTechInfo: productsTechnicalSchema, productInfo: prodInfoSchema }, options)
-);
+export { Inventory };
 
 // old schemas for each product category
 // export const laptopTechnicalSchema = {
@@ -371,5 +356,5 @@ Inventory.discriminator(
 // );
 
 // Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
-Inventory.schema.index({ ean: 1 }, { unique: false });
-export { Inventory };
+// Inventory.schema.index({ ean: 1 }, { unique: false });
+// export { Inventory };
