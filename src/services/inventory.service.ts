@@ -459,9 +459,6 @@ export const inventoryService = {
 
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
-    // const validRowsConsole = validRows.length;
-    // addLog(`DEBUG validRows.length: ${validRowsConsole}`);
-
     try {
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
@@ -517,10 +514,20 @@ export const inventoryService = {
                 addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
                 return null;
               }
-              const brandList = Array.isArray(normalizedData.brand) ? normalizedData.brand : [normalizedData.brand];
 
-              // Determine isMultiBrand
+              // Normalize brand
+              let brandList = normalizedData.brand;
+              if (typeof brandList === "string") {
+                brandList = brandList
+                  .split(",")
+                  .map((b: string) => b.trim())
+                  .filter(Boolean);
+              } else if (!Array.isArray(brandList)) {
+                brandList = [brandList];
+              }
+
               const isMultiBrand = brandList.length > 1;
+
               const productInfo: any = {
                 productCategory: matchedCategory._id,
                 title: normalizedData.title,
@@ -536,10 +543,7 @@ export const inventoryService = {
               };
 
               const prodTechInfo: Record<string, any> = {};
-              const allowedAttributesValue = prodTechInfo["allow variations"];
-              const isVariation =
-                typeof allowedAttributesValue === "string" && allowedAttributesValue.toLowerCase() === "yes";
-              const knownProductFields = new Set([
+              const knownFields = new Set([
                 "title",
                 "description",
                 "brand",
@@ -551,15 +555,24 @@ export const inventoryService = {
                 "productCategoryName",
                 "ebayCategoryId",
               ]);
+
               for (const key in normalizedData) {
-                if (!knownProductFields.has(key)) {
+                if (!knownFields.has(key)) {
                   prodTechInfo[key] = normalizedData[key];
                 }
               }
-              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
 
-              // Decide kind based on eBay category ID
+              // Set kind based on eBay ID
+              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
               const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
+
+              // Set isPart based on kind
+              const isPart = kindType === "part";
+
+              // Set isVariation based on prodTechInfo["allow variations"]
+              const allowVar = prodTechInfo["allow variations"];
+              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
+              delete prodTechInfo["allow variations"]; // optional cleanup
 
               const docToInsert = {
                 isBlocked: false,
@@ -568,7 +581,7 @@ export const inventoryService = {
                 isVariation,
                 isMultiBrand,
                 isTemplate: false,
-                isPart: false,
+                isPart,
                 stocks: [],
                 stockThreshold: 10,
                 prodTechInfo,
