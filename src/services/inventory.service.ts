@@ -517,7 +517,10 @@ export const inventoryService = {
                 addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
                 return null;
               }
+              const brandList = Array.isArray(normalizedData.brand) ? normalizedData.brand : [normalizedData.brand];
 
+              // Determine isMultiBrand
+              const isMultiBrand = brandList.length > 1;
               const productInfo: any = {
                 productCategory: matchedCategory._id,
                 title: normalizedData.title,
@@ -529,10 +532,13 @@ export const inventoryService = {
                   type: "image/jpeg",
                 })),
                 inventoryCondition: normalizedData.inventoryCondition || "new",
-                brand: normalizedData.brand || [],
+                brand: brandList,
               };
 
               const prodTechInfo: Record<string, any> = {};
+              const allowedAttributesValue = prodTechInfo["allow variations"];
+              const isVariation =
+                typeof allowedAttributesValue === "string" && allowedAttributesValue.toLowerCase() === "yes";
               const knownProductFields = new Set([
                 "title",
                 "description",
@@ -550,13 +556,17 @@ export const inventoryService = {
                   prodTechInfo[key] = normalizedData[key];
                 }
               }
+              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+
+              // Decide kind based on eBay category ID
+              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
 
               const docToInsert = {
                 isBlocked: false,
-                kind: `inventory_${normalizedData.productcategoryname?.toLowerCase().replace(/\s+/g, "_")}`,
+                kind: kindType,
                 status: "draft",
-                isVariation: false,
-                isMultiBrand: false,
+                isVariation,
+                isMultiBrand,
                 isTemplate: false,
                 isPart: false,
                 stocks: [],
