@@ -478,19 +478,6 @@ export const inventoryService = {
           console.log(`❌ Error while printing row ${row}:`, err);
         }
       });
-
-      const knownProductFields = new Set([
-        "title",
-        "description",
-        "brand",
-        "images",
-        "videos",
-        "inventoryCondition",
-        "productCategory",
-        "productCategoryName",
-        "ebayCategoryId",
-      ]);
-
       const bulkOperations: any = (
         await Promise.all(
           validRows
@@ -530,6 +517,7 @@ export const inventoryService = {
 
               const productInfo: any = {
                 productCategory: matchedCategory._id,
+                ebayCategoryId: normalizedData.ebaycategoryid,
                 title: normalizedData.title,
                 description: normalizedData.description,
                 inventoryImages: (normalizedData.images || []).map((url: string) => ({
