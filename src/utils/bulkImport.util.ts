@@ -112,7 +112,21 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
-          const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
+          // const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
+          // const imageFolderPath = path.join(mediaBasePath, "images");
+          // const videoFolderPath = path.join(mediaBasePath, "videos");
+
+          const categoryIdStr = String(categoryId);
+
+          // Find the folder that includes exactly this category ID
+          const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
+
+          if (!matchingFolder) {
+            console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
+            continue;
+          }
+
+          const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
           const imageFolderPath = path.join(mediaBasePath, "images");
           const videoFolderPath = path.join(mediaBasePath, "videos");
 
@@ -378,7 +392,7 @@ export const bulkImportUtility = {
       const uniqueHeaders = new Set<string>();
 
       // Add static required fields first
-      const staticHeaders = ["Title*", "Description*", "inventoryCondition*", "Brand*"];
+      const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
       staticHeaders.forEach((header) => uniqueHeaders.add(header));
 
       // Add dynamic headers with required & variation flags
@@ -398,10 +412,15 @@ export const bulkImportUtility = {
 
       const worksheet = XLSX.utils.aoa_to_sheet(data);
 
-      // Safe Excel sheet name: CategoryName (CategoryId)
-      let sheetName = `${categoryName} (${categoryId})`;
-      sheetName = sheetName.replace(/[\\/?*[\]:]/g, "").slice(0, 31); // Excel sheet name rules
+      const idPart = ` (${categoryId})`;
+      let safeName = categoryName.replace(/[\\/?*[\]:]/g, ""); // clean illegal chars
 
+      const maxNameLength = 31 - idPart.length;
+      if (safeName.length > maxNameLength) {
+        safeName = safeName.slice(0, maxNameLength); // trim name only
+      }
+
+      const sheetName = `${safeName}${idPart}`;
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     });
 
