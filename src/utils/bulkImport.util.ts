@@ -28,13 +28,13 @@ export const bulkImportUtility = {
         const parts = sheetName.split("(");
         if (parts.length === 2 && /^\d+\)?$/.test(parts[1].trim())) {
           const correctedName = `${parts[0].trim()} (${parts[1].replace(/\)/g, "").trim()})`;
-          addLog(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
+          console.log(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
           match = correctedName.match(/^(.+?)\s*\((\d+)\)\s*$/);
         }
       }
 
       if (!match) {
-        addLog(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
+        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
         continue;
       }
 

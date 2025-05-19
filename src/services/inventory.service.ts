@@ -459,8 +459,8 @@ export const inventoryService = {
 
   //bulk import inventory as CSV
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
-    const validRowsConsole = validRows.length;
-    addLog(`DEBUG validRows.length: ${validRowsConsole}`);
+    // const validRowsConsole = validRows.length;
+    // addLog(`DEBUG validRows.length: ${validRowsConsole}`);
 
     try {
       if (validRows.length === 0) {
@@ -565,7 +565,7 @@ export const inventoryService = {
                 productInfo,
               };
 
-              addLog(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
+              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
 
               return {
                 insertOne: {
