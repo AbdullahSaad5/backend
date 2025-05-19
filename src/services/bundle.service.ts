@@ -17,14 +17,10 @@ export const bundleService = {
   // Get all bundles
   getAllBundles: async () => {
     try {
-      return await Bundle.find().populate({
-        path: "items",
-        populate: [
-          { path: "productId", model: "Inventory" },
-          { path: "variationId", model: "Variation" },
-          { path: "stockId", model: "Stock" },
-        ],
-      });
+      return await Bundle.find()
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
     } catch (error) {
       console.error("Error fetching bundles:", error);
       throw new Error("Failed to retrieve bundles from the database");
@@ -35,8 +31,8 @@ export const bundleService = {
     try {
       const bundle = await Bundle.findById(bundleId)
         .populate("items.productId")
-        .populate("items.variationId")
-        .populate("items.stockId");
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
 
       if (!bundle) {
         throw new Error("Bundle not found");
