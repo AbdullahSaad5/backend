@@ -153,7 +153,7 @@ const listingSchema = new Schema(
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: false },
     listingHasVariations: { type: Boolean, default: false },
-    listingwithStock: { type: Boolean, default: true },
+    listingWithStock: { type: Boolean, default: true },
     ebayItemId: { type: String },
     ebaySandboxUrl: { type: String },
     offerId: { type: String },

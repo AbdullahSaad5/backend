@@ -322,7 +322,7 @@ export const ebayListingService = {
       // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
 
       const variationXml = ebayData.listingHasVariations
-        ? ebayData.listingwithStock
+        ? ebayData.listingWithStock
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
@@ -366,7 +366,7 @@ export const ebayListingService = {
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -483,7 +483,7 @@ export const ebayListingService = {
       const ebayData = populatedListing;
       // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
       const variationXml = ebayData.listingHasVariations
-        ? ebayData.listingwithStock
+        ? ebayData.listingWithStock
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
@@ -531,7 +531,7 @@ export const ebayListingService = {
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
 
-          <Description>${"atest desc for now"}</Description>
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -906,16 +906,24 @@ function generateVariationsXml(ebayData: any): string {
       })
       .join("");
 
+    // ✅ Generate unique SKU based on attribute values
+    const skuParts = Object.entries(filteredAttrObj)
+      .sort(([k1], [k2]) => k1.localeCompare(k2))
+      .map(([key, val]) => val.replace(/\s+/g, "").toLowerCase());
+
+    const uniqueSku = skuParts.join("-");
+
     acc.push(`
-      <Variation>
-        <SKU>VARIATION-${acc.length + 1}</SKU>
-        <StartPrice>${variation.retailPrice}</StartPrice>
-        <Quantity>${variation.listingQuantity}</Quantity>
-        <VariationSpecifics>
-          ${nameValueXml}
-        </VariationSpecifics>
-      </Variation>
-    `);
+  <Variation>
+    <SKU>${escapeXml(uniqueSku)}</SKU>
+    <StartPrice>${variation.retailPrice}</StartPrice>
+    <Quantity>${variation.listingQuantity}</Quantity>
+    <VariationSpecifics>
+      ${nameValueXml}
+    </VariationSpecifics>
+  </Variation>
+`);
+
     return acc;
   }, []);
   // Build <VariationSpecificsSet>

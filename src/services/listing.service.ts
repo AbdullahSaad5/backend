@@ -41,7 +41,7 @@ export const listingService = {
         kind,
         inventoryId,
         listingHasVariations: stepData.listingHasVariations || false,
-        listingwithStock: stepData.listingwithStock,
+        listingWithStock: stepData.listingWithStock,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -54,7 +54,7 @@ export const listingService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variatio  check : ", stepData.listingwithStock);
+      console.log("listing has variatio  check : ", stepData.listingWithStock);
       console.log("draftListingData here there : ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
@@ -338,7 +338,7 @@ export const listingService = {
       const {
         searchQuery = "",
         isBlocked,
-        listingwithStock,
+        listingWithStock,
         isTemplate,
         publishToAmazon,
         publishToEbay,
@@ -418,8 +418,8 @@ export const listingService = {
         query.isBlocked = isBlocked;
       }
 
-      if (listingwithStock !== undefined) {
-        query.listingwithStock = listingwithStock;
+      if (listingWithStock !== undefined) {
+        query.listingWithStock = listingWithStock;
       }
 
       if (publishToAmazon !== undefined) {
