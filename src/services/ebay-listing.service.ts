@@ -326,7 +326,7 @@ export const ebayListingService = {
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
-
+      console.log("variationXml", variationXml);
       const categoryId =
         ebayData.productInfo.productCategory.ebayProductCategoryId ||
         ebayData.productInfo.productCategory.ebayPartCategoryId;
@@ -364,8 +364,9 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
+
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -413,7 +414,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -486,6 +487,7 @@ export const ebayListingService = {
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
+      console.log("variationXml", variationXml);
 
       const categoryId =
         ebayData.productInfo.productCategory.ebayProductCategoryId ||
@@ -526,9 +528,10 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-       <SKU>${escapeXml(ebayData.productInfo?.sku || "1234344343")}</SKU>
+          ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -557,7 +560,7 @@ export const ebayListingService = {
       </ReviseFixedPriceItemRequest>
     `;
 
-      // console.log("Request Body for revise Listing:", listingBody, null, 2);
+      console.log("Request Body for revise Listing:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -729,7 +732,7 @@ const generateListingDescription = (ebayData: any) => {
   // const rawAttributes = ebayData?.prodTechInfo ?? {};
   const rawAttributes =
     ebayData?.prodTechInfo?.toObject?.() || JSON.parse(JSON.stringify(ebayData?.prodTechInfo || {}));
-  console.log("Raw Attributes:", rawAttributes);
+  // console.log("Raw Attributes:", rawAttributes);
 
   // Build dynamic attributes
   const dynamicAttributes: Record<string, string> = {};
@@ -751,7 +754,7 @@ const generateListingDescription = (ebayData: any) => {
     }
   }
 
-  console.log("Dynamic Attributes Received:", dynamicAttributes);
+  // console.log("Dynamic Attributes Received:", dynamicAttributes);
 
   // Format for template
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
@@ -771,7 +774,7 @@ function generateItemSpecifics(
     productInfo: ["Brand"],
   },
   exclude: Record<string, string[]> = {
-    productInfo: ["ProductCategory", "Title", "Description"],
+    productInfo: ["ProductCategory", "Title", "Description", "Sku"],
   }
 ) {
   const itemSpecifics = [];
@@ -858,6 +861,7 @@ function escapeXml(unsafe: any): string {
 }
 
 function generateVariationsXml(ebayData: any): string {
+  // console.log("im in variation xml");
   const variations = ebayData?.prodPricing?.selectedVariations || [];
   if (!variations.length) return "";
 
@@ -868,7 +872,10 @@ function generateVariationsXml(ebayData: any): string {
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
 
-  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
+  const variationNodes = variations.reduce((acc: string[], variation: any) => {
+    // ✅ Only include variations with enableEbayListing === true
+    // if (!variation?.enableEbayListing) return acc;
+
     const attrObj = variation?.variationId?.attributes || {};
 
     // Keep only allowed 5 keys
@@ -885,10 +892,9 @@ function generateVariationsXml(ebayData: any): string {
       },
       {} as Record<string, string>
     );
-
     // Serialize combination to string
     const comboKey = JSON.stringify(filteredAttrObj);
-    if (seenCombinations.has(comboKey)) return acc; // Skip duplicate
+    if (seenCombinations.has(comboKey)) return acc;
 
     seenCombinations.add(comboKey);
 
@@ -900,19 +906,26 @@ function generateVariationsXml(ebayData: any): string {
       })
       .join("");
 
+    // ✅ Generate unique SKU based on attribute values
+    const skuParts = Object.entries(filteredAttrObj)
+      .sort(([k1], [k2]) => k1.localeCompare(k2))
+      .map(([key, val]) => val.replace(/\s+/g, "").toLowerCase());
+
+    const uniqueSku = skuParts.join("-");
+
     acc.push(`
-      <Variation>
-        <SKU>VARIATION-${acc.length + 1}</SKU>
-        <StartPrice>${variation.retailPrice}</StartPrice>
-        <Quantity>${variation.listingQuantity}</Quantity>
-        <VariationSpecifics>
-          ${nameValueXml}
-        </VariationSpecifics>
-      </Variation>
-    `);
+  <Variation>
+    <SKU>${escapeXml(uniqueSku)}</SKU>
+    <StartPrice>${variation.retailPrice}</StartPrice>
+    <Quantity>${variation.listingQuantity}</Quantity>
+    <VariationSpecifics>
+      ${nameValueXml}
+    </VariationSpecifics>
+  </Variation>
+`);
+
     return acc;
   }, []);
-
   // Build <VariationSpecificsSet>
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
@@ -922,7 +935,6 @@ function generateVariationsXml(ebayData: any): string {
       return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
     })
     .join("");
-
   // Pictures block
   const picturesXml = Object.keys(picturesByAttribute).length
     ? `<Pictures>
@@ -948,6 +960,7 @@ function generateVariationsXml(ebayData: any): string {
       ${picturesXml}
     </Variations>`;
 }
+
 function generateVariationsForListingWithoutStockXml(ebayData: any): string {
   const variations = ebayData?.prodPricing?.listingWithoutStockVariations || [];
   if (!variations.length) return "";
