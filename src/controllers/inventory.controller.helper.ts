@@ -31,6 +31,7 @@ export const handleBulkImport = async (req: Request, res: Response) => {
 export const handleBulkExport = async (req: Request, res: Response) => {
   try {
     const { inventoryIds } = req.body;
+
     if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
       return res.status(400).json({ error: "inventoryIds must be a non-empty array" });
     }
@@ -38,8 +39,8 @@ export const handleBulkExport = async (req: Request, res: Response) => {
     const { fromCache, file } = await inventoryService.exportInventory(inventoryIds);
 
     res.status(200).json({
-      message: fromCache ? "Served from cache" : "Generated new CSV",
-      data: file, // base64-encoded CSV string
+      message: fromCache ? "Served from cache" : "Generated new Excel file",
+      file, // single base64 encoded Excel file string
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
