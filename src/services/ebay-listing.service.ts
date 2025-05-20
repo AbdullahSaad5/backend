@@ -1037,13 +1037,20 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
   return finalXml;
 }
 
-function generateVariationsForListingWithoutStockXml(ebayData: any): string {
+async function generateVariationsForListingWithoutStockXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.listingWithoutStockVariations || [];
   if (!variations.length) return "";
 
+  // Normalize previous SKUs from DB
+  const previousSkusSet: any = new Set(
+    (ebayData?.prodPricing?.currentEbayVariationsSKU || []).map((s: string) => s.trim().toLowerCase())
+  );
+  const newSkusSet = new Set<string>();
+  const deleteSkus: string[] = [];
+
   const variationSpecificsSet: { [key: string]: Set<string> } = {};
   const picturesByAttribute: { [value: string]: string[] } = {};
-  const pictureAttributeName = "Model"; // You can change this if needed
+  const pictureAttributeName = "Model";
 
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
@@ -1058,7 +1065,7 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
     "quantity", // explicitly skip
   ]);
 
-  const variationNodes = variations.reduce((acc: string[], variation: any) => {
+  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     if (variation.listingQuantity <= 0) return acc; // skip zero quantity
 
     const attrObj: Record<string, string> = {};
@@ -1086,28 +1093,60 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
     if (seenCombinations.has(comboKey)) return acc;
     seenCombinations.add(comboKey);
 
-    const nameValueXml = Object.entries(filteredAttrObj)
-      .map(([key, value]) => {
-        if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
-        variationSpecificsSet[key].add(value);
-        return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
-      })
-      .join("");
+    // Generate SKU based on filtered attributes (similar to main function)
+    const skuParts = Object.entries(filteredAttrObj)
+      .sort(([k1], [k2]) => k1.localeCompare(k2))
+      .map(([_, val]) => String(val).replace(/\s+/g, "").toLowerCase());
+
+    const uniqueSku = skuParts.length ? skuParts.join("-") : `variation-${index + 1}`;
+    newSkusSet.add(uniqueSku);
+
+    // Add specifics to set
+    Object.entries(filteredAttrObj).forEach(([key, val]) => {
+      if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
+      variationSpecificsSet[key].add(val);
+    });
 
     acc.push(`
       <Variation>
-        <SKU>VARIATION-${acc.length + 1}</SKU>
+        <SKU>${escapeXml(uniqueSku)}</SKU>
         <StartPrice>${variation.retailPrice}</StartPrice>
         <Quantity>${variation.listingQuantity}</Quantity>
         <VariationSpecifics>
-          ${nameValueXml}
+          ${Object.entries(filteredAttrObj)
+            .map(
+              ([key, val]) =>
+                `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(val)}</Value></NameValueList>`
+            )
+            .join("")}
         </VariationSpecifics>
       </Variation>
     `);
+
     return acc;
   }, []);
 
-  if (!variationNodes.length) return ""; // All variations were skipped
+  // Detect SKUs to delete (present in DB but not in new variations)
+  for (const oldSku of previousSkusSet) {
+    if (!newSkusSet.has(oldSku)) {
+      deleteSkus.push(oldSku);
+    }
+  }
+
+  // Prepare delete XML nodes
+  const deleteXml = deleteSkus
+    .map(
+      (sku) => `
+    <Variation>
+      <SKU>${escapeXml(sku)}</SKU>
+      <Delete>true</Delete>
+    </Variation>`
+    )
+    .join("");
+
+  if (deleteSkus.length) {
+    console.log(`🗑️ SKUs to delete (without stock):`, deleteSkus);
+  }
 
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
@@ -1133,12 +1172,36 @@ function generateVariationsForListingWithoutStockXml(ebayData: any): string {
       </Pictures>`
     : "";
 
+  // Update DB with new SKUs after generating XML
+  const newSkuArray = Array.from(newSkusSet);
+
+  const updatedListing = await Listing.findOneAndUpdate(
+    {
+      _id: ebayData._id,
+      kind: ebayData.kind,
+    },
+    {
+      $set: {
+        "prodPricing.currentEbayVariationsSKU": newSkuArray,
+      },
+    },
+    {
+      new: true,
+      lean: true,
+    }
+  );
+
+  // Optional logs for debug
+  // console.log("Updated SKUs (without stock):", newSkuArray);
+  // console.log("DB update result:", updatedListing);
+
   return `
     <Variations>
       <VariationSpecificsSet>
         ${specificsXml}
       </VariationSpecificsSet>
       ${variationNodes.join("\n")}
+      ${deleteXml}
       ${picturesXml}
     </Variations>`;
 }
