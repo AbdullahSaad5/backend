@@ -72,7 +72,7 @@ const prodPricingSchema = {
       retailPrice: { type: Number, required: true, default: 0 },
       images: { type: [mediaSchema], _id: false },
       listingQuantity: { type: Number, required: true, default: 0 },
-      linkedWithListing: { type: Boolean, default: false },
+      
       discountValue: { type: Number },
       enableEbayListing: { type: Boolean, default: false },
     },
