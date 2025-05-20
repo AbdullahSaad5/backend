@@ -319,13 +319,6 @@ export const ebayListingService = {
         throw new Error("Listing not found or failed to populate");
       }
       const ebayData = populatedListing;
-      // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
-
-      // const variationXml = await (ebayData.listingHasVariations
-      //   ? ebayData.listingWithStock
-      //     ? generateVariationsXml(ebayData)
-      //     : generateVariationsForListingWithoutStockXml(ebayData)
-      //   : "");
       let variationXml = "";
 
       if (ebayData.listingHasVariations) {
@@ -376,7 +369,7 @@ export const ebayListingService = {
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-           <Description>${"a test desc for now"}</Description>
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -491,12 +484,6 @@ export const ebayListingService = {
         throw new Error("Listing not found or failed to populate");
       }
       const ebayData = populatedListing;
-      // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
-      // const variationXml = await (ebayData.listingHasVariations
-      //   ? ebayData.listingWithStock
-      //     ? generateVariationsXml(ebayData)
-      //     : generateVariationsForListingWithoutStockXml(ebayData)
-      //   : Promise.resolve(""));
       let variationXml = "";
 
       if (ebayData.listingHasVariations) {
@@ -551,7 +538,7 @@ export const ebayListingService = {
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
 
-                <Description>${"a test desc for now"}</Description>
+          <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
