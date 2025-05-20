@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
+import { boolean } from "zod";
 
 export const mediaSchema = {
   id: { type: String },
@@ -73,6 +74,7 @@ const prodPricingSchema = {
       listingQuantity: { type: Number, required: true, default: 0 },
       linkedWithListing: { type: Boolean, default: false },
       discountValue: { type: Number },
+      enableEbayListing: { type: Boolean, default: false },
     },
   ],
   retailPrice: {
