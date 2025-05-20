@@ -868,7 +868,10 @@ function generateVariationsXml(ebayData: any): string {
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
 
-  const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
+  const variationNodes = variations.reduce((acc: string[], variation: any) => {
+    // ✅ Only include variations with enableEbayListing === true
+    if (!variation?.enableEbayListing) return acc;
+
     const attrObj = variation?.variationId?.attributes || {};
 
     // Keep only allowed 5 keys
@@ -885,10 +888,9 @@ function generateVariationsXml(ebayData: any): string {
       },
       {} as Record<string, string>
     );
-
     // Serialize combination to string
     const comboKey = JSON.stringify(filteredAttrObj);
-    if (seenCombinations.has(comboKey)) return acc; // Skip duplicate
+    if (seenCombinations.has(comboKey)) return acc;
 
     seenCombinations.add(comboKey);
 
@@ -912,7 +914,6 @@ function generateVariationsXml(ebayData: any): string {
     `);
     return acc;
   }, []);
-
   // Build <VariationSpecificsSet>
   const specificsXml = Object.entries(variationSpecificsSet)
     .map(([name, values]) => {
@@ -922,7 +923,6 @@ function generateVariationsXml(ebayData: any): string {
       return `<NameValueList><Name>${escapeXml(name)}</Name>${valueXml}</NameValueList>`;
     })
     .join("");
-
   // Pictures block
   const picturesXml = Object.keys(picturesByAttribute).length
     ? `<Pictures>
@@ -948,6 +948,7 @@ function generateVariationsXml(ebayData: any): string {
       ${picturesXml}
     </Variations>`;
 }
+
 function generateVariationsForListingWithoutStockXml(ebayData: any): string {
   const variations = ebayData?.prodPricing?.listingWithoutStockVariations || [];
   if (!variations.length) return "";
