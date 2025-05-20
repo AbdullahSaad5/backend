@@ -88,7 +88,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      console.log("Received update request:", { listingId, stepData });
+      // console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -168,7 +168,7 @@ export const listingService = {
         }
       });
 
-      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
