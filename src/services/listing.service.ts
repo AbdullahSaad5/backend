@@ -88,7 +88,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { listingId, stepData });
+      console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -122,13 +122,30 @@ export const listingService = {
 
       // Update Nested Sections Dynamically
       const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      // sectionsToUpdate.forEach((section) => {
+      //   if (stepData[section]) {
+      //     console.log(`Updating ${section} with:`, stepData[section]);
+      //     draftListing[section] = {
+      //       // ...(draftListing[section] || {}), // Preserve existing data
+      //       ...stepData[section], // Merge new data
+      //     };
+      //     draftListing.markModified(section);
+      //   }
+      // });
+
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
-          draftListing[section] = {
-            // ...(draftListing[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
-          };
+          if (section === "prodPricing") {
+            // Overwrite prodPricing entirely if selectedStockId is updated
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodPricing = stepData.prodPricing;
+          } else {
+            // Otherwise merge as usual
+            draftListing[section] = {
+              ...(draftListing[section] || {}),
+              ...stepData[section],
+            };
+          }
           draftListing.markModified(section);
         }
       });
@@ -151,7 +168,7 @@ export const listingService = {
         }
       });
 
-      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
