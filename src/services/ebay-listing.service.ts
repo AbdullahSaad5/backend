@@ -874,7 +874,7 @@ function generateVariationsXml(ebayData: any): string {
 
   const variationNodes = variations.reduce((acc: string[], variation: any) => {
     // ✅ Only include variations with enableEbayListing === true
-    // if (!variation?.enableEbayListing) return acc;
+    if (!variation?.enableEbayListing) return acc;
 
     const attrObj = variation?.variationId?.attributes || {};
 
