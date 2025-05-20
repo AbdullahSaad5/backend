@@ -322,11 +322,11 @@ export const ebayListingService = {
       // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
 
       const variationXml = ebayData.listingHasVariations
-        ? ebayData.listingWithStock
+        ? ebayData.listingwithStock
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
-
+      console.log("variationXml", variationXml);
       const categoryId =
         ebayData.productInfo.productCategory.ebayProductCategoryId ||
         ebayData.productInfo.productCategory.ebayPartCategoryId;
@@ -364,7 +364,8 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-          <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
+          ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
+
           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
@@ -413,7 +414,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -482,10 +483,11 @@ export const ebayListingService = {
       const ebayData = populatedListing;
       // const variationXml = ebayData.listingHasVariations ? generateVariationsXml(ebayData) : "";
       const variationXml = ebayData.listingHasVariations
-        ? ebayData.listingWithStock
+        ? ebayData.listingwithStock
           ? generateVariationsXml(ebayData)
           : generateVariationsForListingWithoutStockXml(ebayData)
         : "";
+      console.log("variationXml", variationXml);
 
       const categoryId =
         ebayData.productInfo.productCategory.ebayProductCategoryId ||
@@ -526,9 +528,10 @@ export const ebayListingService = {
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
-       <SKU>${escapeXml(ebayData.productInfo?.sku || "1234344343")}</SKU>
+          ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+
+          <Description>${"atest desc for now"}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -557,7 +560,7 @@ export const ebayListingService = {
       </ReviseFixedPriceItemRequest>
     `;
 
-      // console.log("Request Body for revise Listing:", listingBody, null, 2);
+      console.log("Request Body for revise Listing:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -729,7 +732,7 @@ const generateListingDescription = (ebayData: any) => {
   // const rawAttributes = ebayData?.prodTechInfo ?? {};
   const rawAttributes =
     ebayData?.prodTechInfo?.toObject?.() || JSON.parse(JSON.stringify(ebayData?.prodTechInfo || {}));
-  console.log("Raw Attributes:", rawAttributes);
+  // console.log("Raw Attributes:", rawAttributes);
 
   // Build dynamic attributes
   const dynamicAttributes: Record<string, string> = {};
@@ -751,7 +754,7 @@ const generateListingDescription = (ebayData: any) => {
     }
   }
 
-  console.log("Dynamic Attributes Received:", dynamicAttributes);
+  // console.log("Dynamic Attributes Received:", dynamicAttributes);
 
   // Format for template
   const attributeList = Object.entries(dynamicAttributes).map(([key, value]) => ({
@@ -771,7 +774,7 @@ function generateItemSpecifics(
     productInfo: ["Brand"],
   },
   exclude: Record<string, string[]> = {
-    productInfo: ["ProductCategory", "Title", "Description"],
+    productInfo: ["ProductCategory", "Title", "Description", "Sku"],
   }
 ) {
   const itemSpecifics = [];
@@ -858,6 +861,7 @@ function escapeXml(unsafe: any): string {
 }
 
 function generateVariationsXml(ebayData: any): string {
+  // console.log("im in variation xml");
   const variations = ebayData?.prodPricing?.selectedVariations || [];
   if (!variations.length) return "";
 
@@ -870,7 +874,7 @@ function generateVariationsXml(ebayData: any): string {
 
   const variationNodes = variations.reduce((acc: string[], variation: any) => {
     // ✅ Only include variations with enableEbayListing === true
-    if (!variation?.enableEbayListing) return acc;
+    // if (!variation?.enableEbayListing) return acc;
 
     const attrObj = variation?.variationId?.attributes || {};
 
