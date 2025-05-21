@@ -42,6 +42,7 @@ export const bundleController = {
       });
     }
   },
+
   getAllPublishedBundles: async (req: Request, res: Response) => {
     try {
       const publishedBundles = await bundleService.getAllPublishedBundles({ status: "published" }); // Call service to get all bundles
@@ -57,6 +58,7 @@ export const bundleController = {
       });
     }
   },
+
   storeBundleCreatedVariations: async (req: Request, res: Response) => {
     try {
       const { bundleId, variations } = req.body;
@@ -124,6 +126,7 @@ export const bundleController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
   // Get a bundle by ID
   getBundleById: async (req: Request, res: Response) => {
     try {
