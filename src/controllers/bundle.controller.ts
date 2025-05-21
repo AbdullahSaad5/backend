@@ -7,7 +7,7 @@ export const bundleController = {
   // Add a new bundle
   addBundle: async (req: Request, res: Response) => {
     try {
-      
+
       const bundleData = req.body; // Destructure bundle details from the request body
       console.log("bundleData in controller : " , bundleData)
       const newBundle = await bundleService.addBundle(bundleData); // Call the service to add the bundle

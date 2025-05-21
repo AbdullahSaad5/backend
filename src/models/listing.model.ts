@@ -73,7 +73,7 @@ const prodPricingSchema = {
       retailPrice: { type: Number, required: true, default: 0 },
       images: { type: [mediaSchema], _id: false },
       listingQuantity: { type: Number, required: true, default: 0 },
-      
+
       discountValue: { type: Number },
       enableEbayListing: { type: Boolean, default: false },
     },
@@ -153,6 +153,7 @@ const listingSchema = new Schema(
   {
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: false },
+    listingType: { type: String, enum: ["product", "part", "bundle"] },
     listingHasVariations: { type: Boolean, default: false },
     listingWithStock: { type: Boolean, default: true },
     ebayItemId: { type: String },
