@@ -79,6 +79,7 @@ export const bundleController = {
       }
 
       const variationsToStore = [];
+      const tempIdMap = [];
 
       for (const v of variations) {
         const { tempId, isBundleVariation, variations: nestedVariations } = v;
@@ -94,29 +95,29 @@ export const bundleController = {
               : undefined,
           }));
 
+        const newId = new mongoose.Types.ObjectId();
+
         variationsToStore.push({
+          _id: newId,
           tempId,
           bundleId,
           variations: cleanedNested,
           isSelected: true,
           isBundleVariation: !!isBundleVariation,
         });
+
+        tempIdMap.push({ tempId, id: newId });
       }
 
       if (variationsToStore.length === 0) {
         return res.status(400).json({ message: "No valid variations to store" });
       }
 
-      const storedVariations = await Variation.insertMany(variationsToStore);
-
-      const responseVariations = storedVariations.map((variation) => ({
-        tempId: variation.tempId,
-        id: variation._id,
-      }));
+      await Variation.insertMany(variationsToStore);
 
       res.status(201).json({
         message: "Bundle variations stored successfully",
-        variations: responseVariations,
+        variations: tempIdMap,
       });
     } catch (error) {
       console.error("❌ Error saving bundle variations:", error);
