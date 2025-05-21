@@ -31,11 +31,7 @@ const bundleSchema = new Schema(
           ref: "Inventory",
           required: true,
         },
-        // variationId: [{
-        //   type: Types.ObjectId,
-        //   ref: "Variation",
-        //   required: false,
-        // }],
+        isPrime: { type: Boolean, default: false },
         stockId: {
           type: Types.ObjectId,
           ref: "Stock",
