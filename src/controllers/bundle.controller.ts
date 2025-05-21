@@ -1,6 +1,9 @@
+import { Variation } from "@/models";
+import { Bundle } from "@/models/bundle.model";
 import { bundleService } from "@/services"; // Assuming you have a bundle service
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
+import mongoose from "mongoose";
 
 export const bundleController = {
   // Add a new bundle
@@ -54,7 +57,72 @@ export const bundleController = {
       });
     }
   },
+  storeBundleCreatedVariations: async (req: Request, res: Response) => {
+    try {
+      const { bundleId, variations } = req.body;
 
+      if (!bundleId || !mongoose.Types.ObjectId.isValid(bundleId)) {
+        return res.status(400).json({ message: "Invalid or missing bundle ID" });
+      }
+
+      if (!Array.isArray(variations) || variations.length === 0) {
+        return res.status(400).json({ message: "No bundle variations provided" });
+      }
+
+      const bundleItem = await Bundle.findById(bundleId);
+      if (!bundleItem) {
+        return res.status(404).json({ message: "Bundle not found" });
+      }
+
+      if (bundleItem.status !== "published") {
+        return res.status(400).json({ message: "Variations are not allowed for draft bundle item" });
+      }
+
+      const variationsToStore = [];
+
+      for (const v of variations) {
+        const { tempId, isBundleVariation, variations: nestedVariations } = v;
+
+        if (!tempId || !Array.isArray(nestedVariations)) continue;
+
+        const cleanedNested = nestedVariations
+          .filter((item) => item.stockId && mongoose.Types.ObjectId.isValid(item.stockId))
+          .map((item) => ({
+            stockId: item.stockId,
+            variationId: Array.isArray(item.variationId)
+              ? item.variationId.filter((id: string) => mongoose.Types.ObjectId.isValid(id))
+              : undefined,
+          }));
+
+        variationsToStore.push({
+          tempId,
+          bundleId,
+          variations: cleanedNested,
+          isSelected: true,
+          isBundleVariation: !!isBundleVariation,
+        });
+      }
+
+      if (variationsToStore.length === 0) {
+        return res.status(400).json({ message: "No valid variations to store" });
+      }
+
+      const storedVariations = await Variation.insertMany(variationsToStore);
+
+      const responseVariations = storedVariations.map((variation) => ({
+        tempId: variation.tempId,
+        id: variation._id,
+      }));
+
+      res.status(201).json({
+        message: "Bundle variations stored successfully",
+        variations: responseVariations,
+      });
+    } catch (error) {
+      console.error("❌ Error saving bundle variations:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
   // Get a bundle by ID
   getBundleById: async (req: Request, res: Response) => {
     try {
