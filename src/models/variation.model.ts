@@ -1,22 +1,50 @@
 import { IVariation } from "@/contracts/variation.contract";
 import mongoose, { model, Schema } from "mongoose";
 
-// Define Mongoose schema for individual variations
 const VariationSchema: Schema = new Schema(
   {
     inventoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Inventory",
-      required: true,
+      required: false,
+    },
+    bundleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Bundle",
+      required: false,
     },
     attributes: {
       type: Map,
       of: Schema.Types.Mixed,
-      required: true,
+      required: false,
     },
-    isSelected: { type: Boolean, default: false },
+    isSelected: {
+      type: Boolean,
+      default: false,
+    },
+    isBundleVariation: {
+      type: Boolean,
+      default: false,
+    },
+    variations: [
+      {
+        _id: false,
+        stockId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Stock",
+          required: true,
+        },
+        variationId: [
+          {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Variation",
+            required: false,
+          },
+        ],
+      },
+    ],
   },
-  { timestamps: true } // Adds createdAt and updatedAt fields
+  { timestamps: true }
 );
 
 export const Variation = model<IVariation>("Variation", VariationSchema);
