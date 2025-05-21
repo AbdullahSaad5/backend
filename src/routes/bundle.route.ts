@@ -18,6 +18,9 @@ export const bundle = (router: Router) => {
   // Route to update a bundle by ID
   router.patch("/:id", bundleController.updateBundleById);
 
+
+    router.patch("/:id/add-bundle-variations", bundleController.storeBundleCreatedVariations);
+
   // Route to delete a bundle by ID
   router.delete("/:id", bundleController.deleteBundleById);
 };
