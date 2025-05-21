@@ -370,7 +370,7 @@ export const inventoryService = {
         ];
 
         // Perform searches for productSupplier and productCategory in parallel using Promise.all
-        const [productCategories] = await Promise.all([
+        const [users, productCategories] = await Promise.all([
           User.find({
             $or: [
               { firstName: { $regex: searchQuery, $options: "i" } },

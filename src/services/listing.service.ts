@@ -41,7 +41,7 @@ export const listingService = {
         kind,
         inventoryId,
         listingHasVariations: stepData.listingHasVariations || false,
-        listingwithStock: stepData.listingwithStock,
+        listingWithStock: stepData.listingWithStock,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -54,7 +54,7 @@ export const listingService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variatio  check : ", stepData.listingwithStock);
+      console.log("listing has variatio  check : ", stepData.listingWithStock);
       console.log("draftListingData here there : ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
@@ -122,13 +122,30 @@ export const listingService = {
 
       // Update Nested Sections Dynamically
       const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      // sectionsToUpdate.forEach((section) => {
+      //   if (stepData[section]) {
+      //     console.log(`Updating ${section} with:`, stepData[section]);
+      //     draftListing[section] = {
+      //       // ...(draftListing[section] || {}), // Preserve existing data
+      //       ...stepData[section], // Merge new data
+      //     };
+      //     draftListing.markModified(section);
+      //   }
+      // });
+
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
-          draftListing[section] = {
-            // ...(draftListing[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
-          };
+          if (section === "prodPricing") {
+            // Overwrite prodPricing entirely if selectedStockId is updated
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodPricing = stepData.prodPricing;
+          } else {
+            // Otherwise merge as usual
+            draftListing[section] = {
+              ...(draftListing[section] || {}),
+              ...stepData[section],
+            };
+          }
           draftListing.markModified(section);
         }
       });
@@ -338,7 +355,7 @@ export const listingService = {
       const {
         searchQuery = "",
         isBlocked,
-        listingwithStock,
+        listingWithStock,
         isTemplate,
         publishToAmazon,
         publishToEbay,
@@ -418,8 +435,8 @@ export const listingService = {
         query.isBlocked = isBlocked;
       }
 
-      if (listingwithStock !== undefined) {
-        query.listingwithStock = listingwithStock;
+      if (listingWithStock !== undefined) {
+        query.listingWithStock = listingWithStock;
       }
 
       if (publishToAmazon !== undefined) {

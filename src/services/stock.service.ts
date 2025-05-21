@@ -122,6 +122,7 @@ export const stockService = {
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
       })
         .populate("inventoryId")
+        .populate("productSupplier")
         .populate("selectedVariations.variationId")
         .populate("receivedBy");
     } catch (error: any) {

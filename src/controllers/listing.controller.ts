@@ -697,7 +697,7 @@ export const listingController = {
         userType,
         status, // Extract status properly
         isBlocked,
-        listingwithStock,
+        listingWithStock,
         isTemplate,
         publishToEbay,
         publishToAmazon,
@@ -714,7 +714,7 @@ export const listingController = {
         userType: userType ? userType.toString() : undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
-        listingwithStock: listingwithStock === "true" ? true : listingwithStock === "false" ? false : undefined, // Convert only valid booleans
+        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined, // Convert only valid booleans
         publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
         publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
         publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
