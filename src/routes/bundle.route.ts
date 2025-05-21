@@ -10,6 +10,7 @@ export const bundle = (router: Router) => {
 
   // Route to get all bundles
   router.get("/", bundleController.getAllBundles);
+  router.get("/published", bundleController.getAllPublishedBundles);
 
   // Route to get a specific bundle by ID
   router.get("/:id", bundleController.getBundleById);
@@ -20,4 +21,3 @@ export const bundle = (router: Router) => {
   // Route to delete a bundle by ID
   router.delete("/:id", bundleController.deleteBundleById);
 };
-
