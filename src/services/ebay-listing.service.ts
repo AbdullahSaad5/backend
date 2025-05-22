@@ -322,10 +322,18 @@ export const ebayListingService = {
       let variationXml = "";
 
       if (ebayData.listingHasVariations) {
-        if (ebayData.listingWithStock) {
-          variationXml = await generateVariationsXml(ebayData); // ✅ await here
+        if (ebayData.listingType === "bundle") {
+          variationXml = await generateBundlesVariationXml(ebayData);
+        } else if (ebayData.listingType === "product" || ebayData.listingType === "part") {
+          if (ebayData.listingWithStock) {
+            variationXml = await generateVariationsXml(ebayData); // ✅ await here
+          } else {
+            variationXml = await generateVariationsForListingWithoutStockXml(ebayData);
+          }
         } else {
-          variationXml = await generateVariationsForListingWithoutStockXml(ebayData);
+          // Optional: handle other listing types or default case
+          console.warn(`Unknown listingType: ${ebayData.listingType}`);
+          variationXml = "";
         }
       }
 
@@ -487,10 +495,18 @@ export const ebayListingService = {
       let variationXml = "";
 
       if (ebayData.listingHasVariations) {
-        if (ebayData.listingWithStock) {
-          variationXml = await generateVariationsXml(ebayData); // ✅ await here
+        if (ebayData.listingType === "bundle") {
+          variationXml = await generateBundlesVariationXml(ebayData);
+        } else if (ebayData.listingType === "product" || ebayData.listingType === "part") {
+          if (ebayData.listingWithStock) {
+            variationXml = await generateVariationsXml(ebayData); // ✅ await here
+          } else {
+            variationXml = await generateVariationsForListingWithoutStockXml(ebayData);
+          }
         } else {
-          variationXml = await generateVariationsForListingWithoutStockXml(ebayData);
+          // Optional: handle other listing types or default case
+          console.warn(`Unknown listingType: ${ebayData.listingType}`);
+          variationXml = "";
         }
       }
 
@@ -1041,47 +1057,19 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
   const seenCombinations = new Set<string>();
 
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
-    const attrObj = variation?.variationId?.attributes || {};
-    console.log(`\n🔍 Processing variation #${index + 1}`, attrObj);
+    const variationName = variation.variationName || "";
+    console.log(`\n🔍 Processing variation #${index + 1} with variationName:`, variationName);
 
-    Object.keys(attrObj).forEach((key) => {
-      if (!usedKeys.has(key) && usedKeys.size < 5) {
-        usedKeys.add(key);
-      }
-    });
+    if (!variationName) return acc; // skip if no name
 
-    const filteredAttrObj = Object.entries(attrObj).reduce(
-      (acc2, [key, value]: any) => {
-        if (usedKeys.has(key)) acc2[key] = value;
-        return acc2;
-      },
-      {} as Record<string, string>
-    );
-
-    console.log(`✅ Filtered Attributes:`, filteredAttrObj);
-
-    const comboKey = JSON.stringify(filteredAttrObj);
-    if (seenCombinations.has(comboKey)) return acc;
-    seenCombinations.add(comboKey);
-
-    const nameValueXml = Object.entries(filteredAttrObj)
-      .map(([key, value]) => {
-        if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
-        variationSpecificsSet[key].add(value);
-        return `<NameValueList><Name>${escapeXml(key)}</Name><Value>${escapeXml(value)}</Value></NameValueList>`;
-      })
-      .join("");
-
-    const skuParts = Object.entries(filteredAttrObj)
-      .sort(([k1], [k2]) => k1.localeCompare(k2))
-      .map(([key, val]) => val.replace(/\s+/g, "").toLowerCase());
-
-    const uniqueSku = skuParts.join("-");
+    const uniqueSku = variationName.replace(/\s+/g, "").toLowerCase();
     newSkusSet.add(uniqueSku);
 
-    console.log(`🆕 Generated SKU: ${uniqueSku}`);
-    console.log("Previous SKUs in DB:", Array.from(previousSkusSet));
-    console.log("New SKUs generated:", Array.from(newSkusSet));
+    // ✅ Add VariationName to VariationSpecificsSet
+    if (!variationSpecificsSet["VariationName"]) variationSpecificsSet["VariationName"] = new Set();
+    variationSpecificsSet["VariationName"].add(variationName);
+
+    const nameValueXml = `<NameValueList><Name>VariationName</Name><Value>${escapeXml(variationName)}</Value></NameValueList>`;
 
     acc.push(`
   <Variation>
@@ -1092,7 +1080,7 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
       ${nameValueXml}
     </VariationSpecifics>
   </Variation>
-`);
+  `);
 
     return acc;
   }, []);
