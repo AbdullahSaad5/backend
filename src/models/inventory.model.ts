@@ -77,7 +77,8 @@ Inventory.discriminator(
   "product",
   new mongoose.Schema({ prodTechInfo: productsTechnicalSchema, productInfo: prodInfoSchema }, options)
 );
-
+Inventory.schema.index({ ean: 1 }, { unique: false });
+export { Inventory };
 // old schemas for each product category
 // export const laptopTechnicalSchema = {
 //   processor: { type: [String], required: true },
@@ -370,5 +371,5 @@ Inventory.discriminator(
 // );
 
 // Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
-Inventory.schema.index({ ean: 1 }, { unique: false });
-export { Inventory };
+// Inventory.schema.index({ ean: 1 }, { unique: false });
+// export { Inventory };

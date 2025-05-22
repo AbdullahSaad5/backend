@@ -725,134 +725,93 @@ export const inventoryService = {
   },
   getAllOptions: async () => {
     try {
-      // List of all top-level fields and subfields you want to get unique values for
-      const fields = [
-        // Top-level fields
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
 
-        // ProductInfo subfields
-        // "productInfo.productCategory",
-        // "productInfo.title",
-        // "productInfo.description",
-        // "productInfo.inventoryCondition",
-        "productInfo.brand",
+      const kinds = await Inventory.distinct("kind");
+      const seenFields = new Set<string>();
+      const productInfoFields: string[] = [];
 
-        // ProdTechInfo subfields
-        "prodTechInfo.processor",
-        "prodTechInfo.model",
-        "prodTechInfo.operatingSystem",
-        "prodTechInfo.storageType",
-        "prodTechInfo.features",
-        "prodTechInfo.ssdCapacity",
-        "prodTechInfo.gpu",
-        "prodTechInfo.unitType",
-        "prodTechInfo.unitQuantity",
-        "prodTechInfo.mpn",
-        "prodTechInfo.processorSpeed",
-        "prodTechInfo.series",
-        "prodTechInfo.ramSize",
-        "prodTechInfo.californiaProp65Warning",
-        "prodTechInfo.type",
-        "prodTechInfo.releaseYear",
-        "prodTechInfo.hardDriveCapacity",
-        "prodTechInfo.color",
-        "prodTechInfo.maxResolution",
-        "prodTechInfo.mostSuitableFor",
-        "prodTechInfo.screenSize",
-        "prodTechInfo.graphicsProcessingType",
-        "prodTechInfo.connectivity",
-        "prodTechInfo.manufacturerWarranty",
-        "prodTechInfo.regionOfManufacture",
-        "prodTechInfo.height",
-        "prodTechInfo.length",
-        "prodTechInfo.weight",
-        "prodTechInfo.width",
-        "prodTechInfo.motherboardModel",
-        "prodTechInfo.operatingSystemEdition",
-        "prodTechInfo.memory",
-        "prodTechInfo.maxRamCapacity",
-        "prodTechInfo.formFactor",
-        "prodTechInfo.ean",
-        "prodTechInfo.inventoryType",
-        "prodTechInfo.nonNewConditionDetails",
-        "prodTechInfo.numberOfLANPorts",
-        "prodTechInfo.maximumWirelessData",
-        "prodTechInfo.maximumLANDataRate",
-        "prodTechInfo.ports",
-        "prodTechInfo.toFit",
-        "prodTechInfo.displayType",
-        "prodTechInfo.aspectRatio",
-        "prodTechInfo.imageBrightness",
-        "prodTechInfo.throwRatio",
-        "prodTechInfo.compatibleOperatingSystem",
-        "prodTechInfo.compatibleFormat",
-        "prodTechInfo.lensMagnification",
-        "prodTechInfo.yearManufactured",
-        "prodTechInfo.nativeResolution",
-        "prodTechInfo.displayTechnology",
-        "prodTechInfo.energyEfficiencyRating",
-        "prodTechInfo.videoInputs",
-        "prodTechInfo.refreshRate",
-        "prodTechInfo.responseTime",
-        "prodTechInfo.brightness",
-        "prodTechInfo.contrastRatio",
-        "prodTechInfo.ecRange",
-        "prodTechInfo.productLine",
-        "prodTechInfo.customBundle",
-        "prodTechInfo.interface",
-        "prodTechInfo.networkConnectivity",
-        "prodTechInfo.networkManagementType",
-        "prodTechInfo.networkType",
-        "prodTechInfo.processorManufacturer",
-        "prodTechInfo.numberOfProcessors",
-        "prodTechInfo.numberOfVANPorts",
-        "prodTechInfo.processorType",
-        "prodTechInfo.raidLfevel",
-        "prodTechInfo.memoryType",
-        "prodTechInfo.deviceConnectivity",
-        "prodTechInfo.connectorType",
-        "prodTechInfo.supportedWirelessProtocol",
-      ];
+      // Get productInfo fields
+      for (const kind of kinds) {
+        const sample: any = await Inventory.findOne({ kind, productInfo: { $exists: true } });
+        if (!sample || !sample.productInfo) continue;
 
-      // Create an object to store the distinct values for each field
-      const fetchPromises = fields.map((field) =>
-        Inventory.find({})
-          .distinct(field)
-          .then((distinctValues) => {
-            distinctValues = distinctValues
-              .filter((value) => value !== "" && value !== null && value !== undefined)
-              .map((value) => (typeof value === "string" ? value.trim() : value));
+        const keys = Object.keys(sample.productInfo.toObject());
+        keys.forEach((key) => {
+          const full = `productInfo.${key}`;
+          if (!skipProductInfoFields.includes(key) && !seenFields.has(full)) {
+            seenFields.add(full);
+            productInfoFields.push(full);
+          }
+        });
+      }
 
-            // Remove duplicates
-            distinctValues = [...new Set(distinctValues)];
+      // Fetch all distinct productInfo values
+      const productInfoResults = await Promise.all(
+        productInfoFields.map((field) =>
+          Inventory.distinct(field).then((values) => {
+            const map = new Map();
+            values
+              .filter((v) => v !== "" && v !== null && v !== undefined)
+              .forEach((val) => {
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
+              });
 
-            return { field, distinctValues };
+            return {
+              field,
+              distinctValues: Array.from(map.values()),
+            };
           })
+        )
       );
 
-      const results = await Promise.all(fetchPromises);
+      // ✅ Dynamically fetch all keys in prodTechInfo (Map) using aggregation
+      const prodTechKeysAgg = await Inventory.aggregate([
+        { $match: { prodTechInfo: { $exists: true } } },
+        { $project: { keys: { $objectToArray: "$prodTechInfo" } } },
+        { $unwind: "$keys" },
+        { $group: { _id: null, allKeys: { $addToSet: "$keys.k" } } },
+      ]);
 
-      const allOptions: Record<string, any> = {};
-      results.forEach(({ field, distinctValues }) => {
-        if (distinctValues.length > 0) {
-          allOptions[field] = distinctValues;
-        }
+      const prodTechKeys: string[] = prodTechKeysAgg[0]?.allKeys || [];
+
+      // Fetch distinct values for each dynamic key
+      const prodTechResults = await Promise.all(
+        prodTechKeys
+          .filter((key) => key && typeof key === "string" && key.trim() !== "") // ✅ filter out empty or invalid keys
+          .map((key) =>
+            Inventory.distinct(`prodTechInfo.${key}`).then((values) => {
+              const map = new Map();
+              values
+                .filter((v) => v !== "" && v !== null && v !== undefined)
+                .forEach((val) => {
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
+                });
+
+              return {
+                key,
+                distinctValues: Array.from(map.values()),
+              };
+            })
+          )
+      );
+
+      // Assemble result
+      const productInfo: Record<string, any> = {};
+      productInfoResults.forEach(({ field, distinctValues }) => {
+        productInfo[field.replace("productInfo.", "")] = distinctValues;
       });
 
-      // Separate into productInfo and prodTechInfo
-      const productInfo: Record<string, any> = {};
       const prodTechInfo: Record<string, any> = {};
-
-      Object.entries(allOptions).forEach(([key, value]) => {
-        if (key.startsWith("productInfo.")) {
-          productInfo[key.replace("productInfo.", "")] = value;
-        } else if (key.startsWith("prodTechInfo.")) {
-          prodTechInfo[key.replace("prodTechInfo.", "")] = value;
-        }
+      prodTechResults.forEach(({ key, distinctValues }) => {
+        prodTechInfo[key] = distinctValues;
       });
 
       return { productInfo, prodTechInfo };
     } catch (error) {
-      console.error("Error fetching all options:", error);
+      console.error("❌ Error fetching all options:", error);
       throw new Error("Failed to fetch all options");
     }
   },

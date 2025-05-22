@@ -27,6 +27,18 @@ export const bundleService = {
     }
   },
 
+  getAllPublishedBundles: async (condition: Record<string, any>) => {
+    try {
+      return await Bundle.find(condition)
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
+    } catch (error) {
+      console.error("Error fetching published bundles:", error);
+      throw new Error("Failed to retrieve published bundles from the database");
+    }
+  },
+
   getBundleById: async (bundleId: string) => {
     try {
       const bundle = await Bundle.findById(bundleId)
