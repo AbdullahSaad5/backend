@@ -1,4 +1,5 @@
 import { Schema, model, Types } from "mongoose";
+import { Variation } from "./variation.model";
 
 export const mediaSchema = {
   id: { type: String },
@@ -24,7 +25,6 @@ const bundleSchema = new Schema(
     images: { type: [mediaSchema], _id: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isBlocked: { type: Boolean, default: false },
-
     // Items in the bundle
     items: [
       {
