@@ -7,6 +7,7 @@ export const bundle = (router: Router) => {
   // router.use(authGuard.isAuth);
   // Route to create a new bundle
   router.post("/", bundleController.addBundle);
+  router.patch("/add-bundle-variations", bundleController.storeBundleCreatedVariations);
 
   // Route to get all bundles
   router.get("/", bundleController.getAllBundles);
@@ -17,9 +18,6 @@ export const bundle = (router: Router) => {
 
   // Route to update a bundle by ID
   router.patch("/:id", bundleController.updateBundleById);
-
-
-    router.patch("/:id/add-bundle-variations", bundleController.storeBundleCreatedVariations);
 
   // Route to delete a bundle by ID
   router.delete("/:id", bundleController.deleteBundleById);

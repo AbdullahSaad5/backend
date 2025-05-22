@@ -61,24 +61,24 @@ export const bundleController = {
 
   storeBundleCreatedVariations: async (req: Request, res: Response) => {
     try {
-      const { bundleId, variations } = req.body;
+      const { variations } = req.body;
 
-      if (!bundleId || !mongoose.Types.ObjectId.isValid(bundleId)) {
-        return res.status(400).json({ message: "Invalid or missing bundle ID" });
-      }
+      // if (!bundleId || !mongoose.Types.ObjectId.isValid(bundleId)) {
+      //   return res.status(400).json({ message: "Invalid or missing bundle ID" });
+      // }
 
       if (!Array.isArray(variations) || variations.length === 0) {
         return res.status(400).json({ message: "No bundle variations provided" });
       }
 
-      const bundleItem = await Bundle.findById(bundleId);
-      if (!bundleItem) {
-        return res.status(404).json({ message: "Bundle not found" });
-      }
+      // const bundleItem = await Bundle.findById(bundleId);
+      // if (!bundleItem) {
+      //   return res.status(404).json({ message: "Bundle not found" });
+      // }
 
-      if (bundleItem.status !== "published") {
-        return res.status(400).json({ message: "Variations are not allowed for draft bundle item" });
-      }
+      // if (bundleItem.status !== "published") {
+      //   return res.status(400).json({ message: "Variations are not allowed for draft bundle item" });
+      // }
 
       const variationsToStore = [];
       const tempIdMap = [];
@@ -102,7 +102,7 @@ export const bundleController = {
         variationsToStore.push({
           _id: newId,
           tempId,
-          bundleId,
+          // bundleId,
           variations: cleanedNested,
           isSelected: true,
           isBundleVariation: !!isBundleVariation,
