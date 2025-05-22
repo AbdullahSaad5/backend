@@ -22,6 +22,8 @@ const bundleSchema = new Schema(
 
     // Promotional images with alt text
     images: { type: [mediaSchema], _id: false },
+    status: { type: String, enum: ["draft", "published"], default: "draft" },
+    isBlocked: { type: Boolean, default: false },
 
     // Items in the bundle
     items: [

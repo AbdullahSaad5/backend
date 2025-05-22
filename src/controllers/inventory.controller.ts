@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
+import { Bundle } from "@/models/bundle.model";
 
 export const inventoryController = {
   // Controller - inventoryController.js
@@ -929,6 +930,8 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
+ 
   //bulk import inventory as CSV
 
   updateVariations: async (req: Request, res: Response) => {
