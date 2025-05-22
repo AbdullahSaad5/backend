@@ -24,21 +24,21 @@ export const listingController = {
         });
       }
 
-      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Invalid or missing 'inventoryId' in request payload",
-        });
-      }
+      // if (!mongoose.isValidObjectId(stepData.inventoryId)) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Invalid or missing 'inventoryId' in request payload",
+      //   });
+      // }
 
       // Ensure inventoryId exists in database
-      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
-      if (!inventoryExists) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Inventory ID does not exist",
-        });
-      }
+      // const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
+      // if (!inventoryExists) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Inventory ID does not exist",
+      //   });
+      // }
 
       const draftListing = await listingService.createDraftListingService(stepData);
 
