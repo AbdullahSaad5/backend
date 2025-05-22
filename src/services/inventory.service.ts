@@ -725,134 +725,76 @@ export const inventoryService = {
   },
   getAllOptions: async () => {
     try {
-      // List of all top-level fields and subfields you want to get unique values for
-      const fields = [
-        // Top-level fields
+      const sampleDoc: any = await Inventory.findOne({
+        $or: [{ productInfo: { $exists: true } }, { prodTechInfo: { $exists: true } }],
+      });
 
-        // ProductInfo subfields
-        // "productInfo.productCategory",
-        // "productInfo.title",
-        // "productInfo.description",
-        // "productInfo.inventoryCondition",
-        "productInfo.brand",
+      if (!sampleDoc) throw new Error("No inventory data found");
 
-        // ProdTechInfo subfields
-        "prodTechInfo.processor",
-        "prodTechInfo.model",
-        "prodTechInfo.operatingSystem",
-        "prodTechInfo.storageType",
-        "prodTechInfo.features",
-        "prodTechInfo.ssdCapacity",
-        "prodTechInfo.gpu",
-        "prodTechInfo.unitType",
-        "prodTechInfo.unitQuantity",
-        "prodTechInfo.mpn",
-        "prodTechInfo.processorSpeed",
-        "prodTechInfo.series",
-        "prodTechInfo.ramSize",
-        "prodTechInfo.californiaProp65Warning",
-        "prodTechInfo.type",
-        "prodTechInfo.releaseYear",
-        "prodTechInfo.hardDriveCapacity",
-        "prodTechInfo.color",
-        "prodTechInfo.maxResolution",
-        "prodTechInfo.mostSuitableFor",
-        "prodTechInfo.screenSize",
-        "prodTechInfo.graphicsProcessingType",
-        "prodTechInfo.connectivity",
-        "prodTechInfo.manufacturerWarranty",
-        "prodTechInfo.regionOfManufacture",
-        "prodTechInfo.height",
-        "prodTechInfo.length",
-        "prodTechInfo.weight",
-        "prodTechInfo.width",
-        "prodTechInfo.motherboardModel",
-        "prodTechInfo.operatingSystemEdition",
-        "prodTechInfo.memory",
-        "prodTechInfo.maxRamCapacity",
-        "prodTechInfo.formFactor",
-        "prodTechInfo.ean",
-        "prodTechInfo.inventoryType",
-        "prodTechInfo.nonNewConditionDetails",
-        "prodTechInfo.numberOfLANPorts",
-        "prodTechInfo.maximumWirelessData",
-        "prodTechInfo.maximumLANDataRate",
-        "prodTechInfo.ports",
-        "prodTechInfo.toFit",
-        "prodTechInfo.displayType",
-        "prodTechInfo.aspectRatio",
-        "prodTechInfo.imageBrightness",
-        "prodTechInfo.throwRatio",
-        "prodTechInfo.compatibleOperatingSystem",
-        "prodTechInfo.compatibleFormat",
-        "prodTechInfo.lensMagnification",
-        "prodTechInfo.yearManufactured",
-        "prodTechInfo.nativeResolution",
-        "prodTechInfo.displayTechnology",
-        "prodTechInfo.energyEfficiencyRating",
-        "prodTechInfo.videoInputs",
-        "prodTechInfo.refreshRate",
-        "prodTechInfo.responseTime",
-        "prodTechInfo.brightness",
-        "prodTechInfo.contrastRatio",
-        "prodTechInfo.ecRange",
-        "prodTechInfo.productLine",
-        "prodTechInfo.customBundle",
-        "prodTechInfo.interface",
-        "prodTechInfo.networkConnectivity",
-        "prodTechInfo.networkManagementType",
-        "prodTechInfo.networkType",
-        "prodTechInfo.processorManufacturer",
-        "prodTechInfo.numberOfProcessors",
-        "prodTechInfo.numberOfVANPorts",
-        "prodTechInfo.processorType",
-        "prodTechInfo.raidLfevel",
-        "prodTechInfo.memoryType",
-        "prodTechInfo.deviceConnectivity",
-        "prodTechInfo.connectorType",
-        "prodTechInfo.supportedWirelessProtocol",
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
+
+      const extractFields = (section: any, skipList: string[]): string[] => {
+        return section
+          ? Object.keys(section.toObject ? section.toObject() : section).filter((key) => !skipList.includes(key))
+          : [];
+      };
+
+      const productInfoFields = extractFields(sampleDoc.productInfo, skipProductInfoFields);
+      const prodTechInfoFields = extractFields(sampleDoc.prodTechInfo, []);
+
+      const allFields = [
+        ...productInfoFields.map((f) => `productInfo.${f}`),
+        ...prodTechInfoFields.map((f) => `prodTechInfo.${f}`),
       ];
 
-      // Create an object to store the distinct values for each field
-      const fetchPromises = fields.map((field) =>
+      const fetchPromises = allFields.map((field) =>
         Inventory.find({})
           .distinct(field)
-          .then((distinctValues) => {
-            distinctValues = distinctValues
-              .filter((value) => value !== "" && value !== null && value !== undefined)
-              .map((value) => (typeof value === "string" ? value.trim() : value));
+          .then((values) => {
+            const normalizedMap = new Map<string, any>();
 
-            // Remove duplicates
-            distinctValues = [...new Set(distinctValues)];
+            values
+              .flat()
+              .filter((val) => val !== "" && val !== null && val !== undefined)
+              .forEach((val) => {
+                if (typeof val === "string") {
+                  const key = val.trim().toLowerCase();
+                  if (!normalizedMap.has(key)) {
+                    normalizedMap.set(key, val.trim());
+                  }
+                } else {
+                  const key = String(val).toLowerCase();
+                  if (!normalizedMap.has(key)) {
+                    normalizedMap.set(key, val);
+                  }
+                }
+              });
 
-            return { field, distinctValues };
+            return {
+              field,
+              distinctValues: Array.from(normalizedMap.values()),
+            };
           })
       );
 
       const results = await Promise.all(fetchPromises);
 
-      const allOptions: Record<string, any> = {};
-      results.forEach(({ field, distinctValues }) => {
-        if (distinctValues.length > 0) {
-          allOptions[field] = distinctValues;
-        }
-      });
-
-      // Separate into productInfo and prodTechInfo
       const productInfo: Record<string, any> = {};
       const prodTechInfo: Record<string, any> = {};
 
-      Object.entries(allOptions).forEach(([key, value]) => {
-        if (key.startsWith("productInfo.")) {
-          productInfo[key.replace("productInfo.", "")] = value;
-        } else if (key.startsWith("prodTechInfo.")) {
-          prodTechInfo[key.replace("prodTechInfo.", "")] = value;
+      results.forEach(({ field, distinctValues }) => {
+        if (distinctValues.length > 0) {
+          if (field.startsWith("productInfo.")) {
+            productInfo[field.replace("productInfo.", "")] = distinctValues;
+          } else if (field.startsWith("prodTechInfo.")) {
+            prodTechInfo[field.replace("prodTechInfo.", "")] = distinctValues;
+          }
         }
       });
 
       return { productInfo, prodTechInfo };
     } catch (error) {
-      console.error("Error fetching all options:", error);
+      console.error("❌ Error fetching all options:", error);
       throw new Error("Failed to fetch all options");
     }
   },
