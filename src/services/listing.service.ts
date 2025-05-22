@@ -40,6 +40,7 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        listingType: stepData.listingType,
         listingHasVariations: stepData.listingHasVariations || false,
         listingWithStock: stepData.listingWithStock,
         publishToEbay: stepData.publishToEbay || false,
@@ -104,7 +105,7 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      console.log("draft listing is here : " , draftListing)
+      console.log("draft listing is here : ", draftListing);
 
       // Update Status
       if (stepData.status !== undefined) {
@@ -143,8 +144,7 @@ export const listingService = {
             // Overwrite prodPricing entirely if selectedStockId is updated
             // draftListing.prodPricing = "jdfnnjlsn";
             draftListing.prodTechInfo = stepData.prodTechInfo;
-          }  
-          else {
+          } else {
             // Otherwise merge as usual
             draftListing[section] = {
               ...(draftListing[section] || {}),
