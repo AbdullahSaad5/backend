@@ -725,71 +725,88 @@ export const inventoryService = {
   },
   getAllOptions: async () => {
     try {
-      const sampleDoc: any = await Inventory.findOne({
-        $or: [{ productInfo: { $exists: true } }, { prodTechInfo: { $exists: true } }],
-      });
-
-      if (!sampleDoc) throw new Error("No inventory data found");
-
       const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
 
-      const extractFields = (section: any, skipList: string[]): string[] => {
-        return section
-          ? Object.keys(section.toObject ? section.toObject() : section).filter((key) => !skipList.includes(key))
-          : [];
-      };
+      const kinds = await Inventory.distinct("kind");
+      const seenFields = new Set<string>();
+      const productInfoFields: string[] = [];
 
-      const productInfoFields = extractFields(sampleDoc.productInfo, skipProductInfoFields);
-      const prodTechInfoFields = extractFields(sampleDoc.prodTechInfo, []);
+      // Get productInfo fields
+      for (const kind of kinds) {
+        const sample: any = await Inventory.findOne({ kind, productInfo: { $exists: true } });
+        if (!sample || !sample.productInfo) continue;
 
-      const allFields = [
-        ...productInfoFields.map((f) => `productInfo.${f}`),
-        ...prodTechInfoFields.map((f) => `prodTechInfo.${f}`),
-      ];
+        const keys = Object.keys(sample.productInfo.toObject());
+        keys.forEach((key) => {
+          const full = `productInfo.${key}`;
+          if (!skipProductInfoFields.includes(key) && !seenFields.has(full)) {
+            seenFields.add(full);
+            productInfoFields.push(full);
+          }
+        });
+      }
 
-      const fetchPromises = allFields.map((field) =>
-        Inventory.find({})
-          .distinct(field)
-          .then((values) => {
-            const normalizedMap = new Map<string, any>();
-
+      // Fetch all distinct productInfo values
+      const productInfoResults = await Promise.all(
+        productInfoFields.map((field) =>
+          Inventory.distinct(field).then((values) => {
+            const map = new Map();
             values
-              .flat()
-              .filter((val) => val !== "" && val !== null && val !== undefined)
+              .filter((v) => v !== "" && v !== null && v !== undefined)
               .forEach((val) => {
-                if (typeof val === "string") {
-                  const key = val.trim().toLowerCase();
-                  if (!normalizedMap.has(key)) {
-                    normalizedMap.set(key, val.trim());
-                  }
-                } else {
-                  const key = String(val).toLowerCase();
-                  if (!normalizedMap.has(key)) {
-                    normalizedMap.set(key, val);
-                  }
-                }
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
               });
 
             return {
               field,
-              distinctValues: Array.from(normalizedMap.values()),
+              distinctValues: Array.from(map.values()),
             };
           })
+        )
       );
 
-      const results = await Promise.all(fetchPromises);
+      // ✅ Dynamically fetch all keys in prodTechInfo (Map) using aggregation
+      const prodTechKeysAgg = await Inventory.aggregate([
+        { $match: { prodTechInfo: { $exists: true } } },
+        { $project: { keys: { $objectToArray: "$prodTechInfo" } } },
+        { $unwind: "$keys" },
+        { $group: { _id: null, allKeys: { $addToSet: "$keys.k" } } },
+      ]);
 
+      const prodTechKeys: string[] = prodTechKeysAgg[0]?.allKeys || [];
+
+      // Fetch distinct values for each dynamic key
+      const prodTechResults = await Promise.all(
+        prodTechKeys
+          .filter((key) => key && typeof key === "string" && key.trim() !== "") // ✅ filter out empty or invalid keys
+          .map((key) =>
+            Inventory.distinct(`prodTechInfo.${key}`).then((values) => {
+              const map = new Map();
+              values
+                .filter((v) => v !== "" && v !== null && v !== undefined)
+                .forEach((val) => {
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
+                });
+
+              return {
+                key,
+                distinctValues: Array.from(map.values()),
+              };
+            })
+          )
+      );
+
+      // Assemble result
       const productInfo: Record<string, any> = {};
-      const prodTechInfo: Record<string, any> = {};
+      productInfoResults.forEach(({ field, distinctValues }) => {
+        productInfo[field.replace("productInfo.", "")] = distinctValues;
+      });
 
-      results.forEach(({ field, distinctValues }) => {
-        if (distinctValues.length > 0) {
-          if (field.startsWith("productInfo.")) {
-            productInfo[field.replace("productInfo.", "")] = distinctValues;
-          } else if (field.startsWith("prodTechInfo.")) {
-            prodTechInfo[field.replace("prodTechInfo.", "")] = distinctValues;
-          }
-        }
+      const prodTechInfo: Record<string, any> = {};
+      prodTechResults.forEach(({ key, distinctValues }) => {
+        prodTechInfo[key] = distinctValues;
       });
 
       return { productInfo, prodTechInfo };
