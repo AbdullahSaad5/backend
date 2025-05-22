@@ -63,22 +63,9 @@ export const bundleController = {
     try {
       const { variations } = req.body;
 
-      // if (!bundleId || !mongoose.Types.ObjectId.isValid(bundleId)) {
-      //   return res.status(400).json({ message: "Invalid or missing bundle ID" });
-      // }
-
       if (!Array.isArray(variations) || variations.length === 0) {
         return res.status(400).json({ message: "No bundle variations provided" });
       }
-
-      // const bundleItem = await Bundle.findById(bundleId);
-      // if (!bundleItem) {
-      //   return res.status(404).json({ message: "Bundle not found" });
-      // }
-
-      // if (bundleItem.status !== "published") {
-      //   return res.status(400).json({ message: "Variations are not allowed for draft bundle item" });
-      // }
 
       const variationsToStore = [];
       const tempIdMap = [];
@@ -92,9 +79,8 @@ export const bundleController = {
           .filter((item) => item.stockId && mongoose.Types.ObjectId.isValid(item.stockId))
           .map((item) => ({
             stockId: item.stockId,
-            variationId: Array.isArray(item.variationId)
-              ? item.variationId.filter((id: string) => mongoose.Types.ObjectId.isValid(id))
-              : undefined,
+            variationId: mongoose.Types.ObjectId.isValid(item.variationId) ? item.variationId : undefined,
+            quantityOffered: typeof item.quantityOffered === "number" ? item.quantityOffered : undefined,
           }));
 
         const newId = new mongoose.Types.ObjectId();
@@ -126,7 +112,6 @@ export const bundleController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
   // Get a bundle by ID
   getBundleById: async (req: Request, res: Response) => {
     try {

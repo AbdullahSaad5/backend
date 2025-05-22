@@ -34,13 +34,15 @@ const VariationSchema: Schema = new Schema(
           ref: "Stock",
           required: true,
         },
-        variationId: [
-          {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Variation",
-            required: false,
-          },
-        ],
+        variationId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Variation",
+          required: false,
+        },
+        quantityOffered: {
+          type: Number,
+          required: false,
+        },
       },
     ],
   },

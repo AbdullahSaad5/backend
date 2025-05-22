@@ -25,17 +25,6 @@ const bundleSchema = new Schema(
     images: { type: [mediaSchema], _id: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isBlocked: { type: Boolean, default: false },
-    // ✅ Store only selected variations
-    selectedBundleCombinations: [
-      {
-        _id: false,
-        variationId: {
-          type: Schema.Types.ObjectId,
-          ref: "Variation",
-        },
-        costPricePerVariationCombination: { type: Number, required: true, min: 0 },
-      },
-    ],
     // Items in the bundle
     items: [
       {
