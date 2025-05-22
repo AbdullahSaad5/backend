@@ -73,7 +73,26 @@ const bundleSchema = new Schema(
       required: true,
       min: 1,
     },
-
+    selectedBundleCombinations: [
+      {
+        variationId: {
+          type: Types.ObjectId,
+          ref: "Variation",
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        costPricePerVariationCombination: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        _id: false,
+      },
+    ],
     // Bundle discount structure
     // discount: {
     //   type: {
