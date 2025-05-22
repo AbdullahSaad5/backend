@@ -75,12 +75,13 @@ const bundleSchema = new Schema(
     },
     selectedBundleCombinations: [
       {
+        combinationName: { type: String },
         variationId: {
           type: Types.ObjectId,
           ref: "Variation",
           required: true,
         },
-        quantity: {
+        totalQuantity: {
           type: Number,
           required: true,
           min: 1,
