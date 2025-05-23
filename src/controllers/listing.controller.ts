@@ -804,9 +804,9 @@ export const listingController = {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Try to get either ebayProductCategoryId or ebayPartCategoryId
+      // Try to get either ebayCategoryId or ebayCategoryId
       const productCategory = listingItem?.productInfo?.productCategory;
-      const ebayCategoryId = productCategory?.ebayProductCategoryId || productCategory?.ebayPartCategoryId;
+      const ebayCategoryId = productCategory?.ebayCategoryId || productCategory?.ebayCategoryId;
 
       if (!ebayCategoryId) {
         return res.status(400).json({ message: "No eBay category ID found in product category" });

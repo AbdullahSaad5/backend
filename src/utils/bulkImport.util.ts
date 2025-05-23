@@ -104,7 +104,7 @@ export const bulkImportUtility = {
 
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
-        rowObj.ebayCategoryId = categoryId;
+        // rowObj.ebayCategoryId = categoryId;
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -308,18 +308,14 @@ export const bulkImportUtility = {
       const result = await ProductCategory.aggregate([
         {
           $match: {
-            $or: [
-              { ebayPartCategoryId: { $exists: true, $ne: null } },
-              { ebayProductCategoryId: { $exists: true, $ne: null } },
-            ],
+            $or: [{ ebayCategoryId: { $exists: true, $ne: null } }, { ebayCategoryId: { $exists: true, $ne: null } }],
           },
         },
         {
           $project: {
             _id: 0,
             name: 1,
-            ebayPartCategoryId: 1,
-            ebayProductCategoryId: 1,
+            ebayCategoryId: 1,
           },
         },
       ]);
@@ -327,12 +323,12 @@ export const bulkImportUtility = {
       // Build array of { id, name } from both possible ID fields
       const allCategories = result.flatMap((item) => {
         const categories: { id: string; name: string }[] = [];
-        if (item.ebayPartCategoryId) {
-          categories.push({ id: item.ebayPartCategoryId.toString(), name: item.name });
+        if (item.ebayCategoryId) {
+          categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
         }
-        if (item.ebayProductCategoryId) {
-          categories.push({ id: item.ebayProductCategoryId.toString(), name: item.name });
-        }
+        // if (item.ebayCategoryId) {
+        //   categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
+        // }
         return categories;
       });
 

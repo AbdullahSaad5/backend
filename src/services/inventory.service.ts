@@ -493,8 +493,8 @@ export const inventoryService = {
             .map(async ({ row, data: normalizedData }) => {
               const matchedCategory = await ProductCategory.findOne({
                 $or: [
-                  { ebayProductCategoryId: normalizedData.ebaycategoryid },
-                  { ebayPartCategoryId: normalizedData.ebaycategoryid },
+                  { ebayCategoryId: normalizedData.ebaycategoryid },
+                  // { ebayCategoryId: normalizedData.ebaycategoryid },
                 ],
               }).select("_id");
 
