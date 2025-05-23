@@ -19,7 +19,8 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
+      const { kind, title, sku, description, brand, productCategory } =
+        stepData.productInfo;
       const { inventoryId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
@@ -65,7 +66,10 @@ export const listingService = {
 
       // Remove undefined values
       Object.keys(draftListingData).forEach((key) => {
-        if (typeof draftListingData[key] === "object" && draftListingData[key]) {
+        if (
+          typeof draftListingData[key] === "object" &&
+          draftListingData[key]
+        ) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
             if (draftListingData[key][subKey] === undefined) {
               delete draftListingData[key][subKey];
@@ -89,6 +93,7 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
+      console.log("draft listing");
       console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
@@ -97,7 +102,9 @@ export const listingService = {
       }
 
       // Find listing
-      const draftListing: any = await Listing.findById(listingId).populate("productInfo.productCategory");
+      const draftListing: any = await Listing.findById(listingId).populate(
+        "productInfo.productCategory"
+      );
       if (!draftListing) {
         console.error("Draft Listing not found:", listingId);
         throw new Error("Draft Listing not found");
@@ -106,6 +113,21 @@ export const listingService = {
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
       console.log("draft listing is here : ", draftListing);
+
+      if (stepData.inventoryId) {
+        console.log("update inventory id : ", stepData.inventoryId);
+        draftListing.inventoryId = stepData.inventoryId;
+      }
+
+      if (stepData.listingHasVariations === true || stepData.listingHasVariations === false) {
+        console.log("update listingHasVariations : ", stepData.listingHasVariations);
+        draftListing.listingHasVariations = stepData.listingHasVariations;
+      }
+
+      if (stepData.listingType) {
+        console.log("update listingType : ", stepData.listingType);
+        draftListing.listingType = stepData.listingType;
+      }
 
       // Update Status
       if (stepData.status !== undefined) {
@@ -122,7 +144,14 @@ export const listingService = {
       }
 
       // Update Nested Sections Dynamically
-      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      const sectionsToUpdate = [
+        "productInfo",
+        "prodPricing",
+        "prodDelivery",
+        "prodSeo",
+        "prodMedia",
+        "prodTechInfo",
+      ];
       // sectionsToUpdate.forEach((section) => {
       //   if (stepData[section]) {
       //     console.log(`Updating ${section} with:`, stepData[section]);
@@ -304,7 +333,11 @@ export const listingService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isBlocked },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -314,7 +347,11 @@ export const listingService = {
   },
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isTemplate },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -517,7 +554,9 @@ export const listingService = {
         SupplierId: listing.supplier?._id,
         AmazonInfo: JSON.stringify(listing.platformDetails.amazon.productInfo),
         EbayInfo: JSON.stringify(listing.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(listing.platformDetails.website.productInfo),
+        WebsiteInfo: JSON.stringify(
+          listing.platformDetails.website.productInfo
+        ),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -551,17 +590,27 @@ export const listingService = {
       }
 
       // Validate that each listingId is a valid ObjectId
-      const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+      const invalidIds = listingIds.filter(
+        (id) => !mongoose.Types.ObjectId.isValid(id)
+      );
       if (invalidIds.length > 0) {
-        return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
+        return {
+          status: 400,
+          message: `Invalid listingId(s): ${invalidIds.join(", ")}`,
+        };
       }
 
       // Fetch listings from the database
       const listings = await Listing.find({ _id: { $in: listingIds } });
       if (listings.length !== listingIds.length) {
-        const existingIds = listings.map((listing: any) => listing._id.toString());
+        const existingIds = listings.map((listing: any) =>
+          listing._id.toString()
+        );
         const missingIds = listingIds.filter((id) => !existingIds.includes(id));
-        return { status: 400, message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.` };
+        return {
+          status: 400,
+          message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.`,
+        };
       }
 
       const percent = discountType === "percentage" ? discountValue / 100 : 0;
@@ -582,12 +631,56 @@ export const listingService = {
         // If retailPrice is provided, update it in the variations or the main listing
         if (retailPrice) {
           // Case 1: Listings with variations
-          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
-            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-              const basePrice = variation.retailPrice || 0;
-              let newDiscountValue = 0;
+          if (
+            Array.isArray(prodPricing.selectedVariations) &&
+            prodPricing.selectedVariations.length > 0
+          ) {
+            const updatedVariations = prodPricing.selectedVariations.map(
+              (variation: any) => {
+                const basePrice = variation.retailPrice || 0;
+                let newDiscountValue = 0;
 
-              // Calculate discount for each variation
+                // Calculate discount for each variation
+                if (basePrice === 0) {
+                  newDiscountValue = 0;
+                } else {
+                  // Calculate discount value based on discount type
+                  if (discountType === "percentage") {
+                    const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
+                    newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
+                  } else if (discountType === "fixed") {
+                    newDiscountValue = basePrice - discountValue; // Apply fixed discount
+                  }
+                }
+
+                // Return updated variation object with new retail price and discount value
+                return {
+                  ...variation,
+                  retailPrice: retailPrice, // Set retailPrice in each variation
+                  discountValue: newDiscountValue, // Set the discounted price
+                };
+              }
+            );
+
+            update.$set["prodPricing.selectedVariations"] = updatedVariations;
+          }
+          // Case 2: Listings without variations (already handled previously)
+          else if (typeof prodPricing.retailPrice === "number") {
+            update.$set["prodPricing.retailPrice"] = retailPrice;
+          }
+        }
+
+        // Case 2: Listings without variations (update the variation inside selectedVariations)
+        else if (
+          prodPricing.selectedVariations &&
+          prodPricing.selectedVariations.length > 0
+        ) {
+          const updatedVariations = prodPricing.selectedVariations.map(
+            (variation: any) => {
+              let newDiscountValue = 0;
+              const basePrice = variation.retailPrice || 0;
+
+              // If retailPrice is missing, discountValue will be set to 0
               if (basePrice === 0) {
                 newDiscountValue = 0;
               } else {
@@ -600,47 +693,13 @@ export const listingService = {
                 }
               }
 
-              // Return updated variation object with new retail price and discount value
               return {
                 ...variation,
                 retailPrice: retailPrice, // Set retailPrice in each variation
                 discountValue: newDiscountValue, // Set the discounted price
               };
-            });
-
-            update.$set["prodPricing.selectedVariations"] = updatedVariations;
-          }
-          // Case 2: Listings without variations (already handled previously)
-          else if (typeof prodPricing.retailPrice === "number") {
-            update.$set["prodPricing.retailPrice"] = retailPrice;
-          }
-        }
-
-        // Case 2: Listings without variations (update the variation inside selectedVariations)
-        else if (prodPricing.selectedVariations && prodPricing.selectedVariations.length > 0) {
-          const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-            let newDiscountValue = 0;
-            const basePrice = variation.retailPrice || 0;
-
-            // If retailPrice is missing, discountValue will be set to 0
-            if (basePrice === 0) {
-              newDiscountValue = 0;
-            } else {
-              // Calculate discount value based on discount type
-              if (discountType === "percentage") {
-                const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
-                newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
-              } else if (discountType === "fixed") {
-                newDiscountValue = basePrice - discountValue; // Apply fixed discount
-              }
             }
-
-            return {
-              ...variation,
-              retailPrice: retailPrice, // Set retailPrice in each variation
-              discountValue: newDiscountValue, // Set the discounted price
-            };
-          });
+          );
 
           update.$set["prodPricing.selectedVariations"] = updatedVariations;
         }
@@ -652,7 +711,8 @@ export const listingService = {
             newDiscountValue = 0; // If retailPrice is missing or 0, no discount
           } else {
             if (discountType === "percentage") {
-              const discountAmount = (prodPricing.retailPrice * discountValue) / 100; // Calculate discount amount
+              const discountAmount =
+                (prodPricing.retailPrice * discountValue) / 100; // Calculate discount amount
               newDiscountValue = prodPricing.retailPrice - discountAmount; // Apply discount to retail price
             } else if (discountType === "fixed") {
               newDiscountValue = prodPricing.retailPrice - discountValue; // Apply fixed discount
@@ -663,7 +723,12 @@ export const listingService = {
         }
 
         // Log the final update object
-        console.log("Update Object for Listing ID", listing._id, ":", JSON.stringify(update, null, 2));
+        console.log(
+          "Update Object for Listing ID",
+          listing._id,
+          ":",
+          JSON.stringify(update, null, 2)
+        );
 
         // Use updateDoc to update with $set
         return {
@@ -692,7 +757,10 @@ export const listingService = {
     }
   },
 
-  upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
+  upsertListingPartsService: async (
+    listingId: string,
+    selectedVariations: any
+  ) => {
     return await Listing.findByIdAndUpdate(
       listingId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -784,7 +852,10 @@ export const listingService = {
         data: jsonData, // actual parsed data
       });
     } catch (error: any) {
-      console.error("Error getting getCategorySubTree from eBay:", error.message);
+      console.error(
+        "Error getting getCategorySubTree from eBay:",
+        error.message
+      );
 
       return JSON.stringify({
         status: 500,
