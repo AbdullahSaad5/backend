@@ -339,9 +339,8 @@ export const ebayListingService = {
 
       // console.log("variationXml", variationXml);
       const categoryId =
-        ebayData.productInfo.productCategory.ebayProductCategoryId ||
-        ebayData.productInfo.productCategory.ebayPartCategoryId;
-      // console.log("categoryId is", categoryId);
+        ebayData.productInfo.productCategory.ebayCategoryId ;
+      console.log("categoryId is", categoryId);
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
@@ -377,7 +376,7 @@ export const ebayListingService = {
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-           <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${"A test descriotion for now"}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -513,9 +512,8 @@ export const ebayListingService = {
       // console.log("variationXml", variationXml);
 
       const categoryId =
-        ebayData.productInfo.productCategory.ebayProductCategoryId ||
-        ebayData.productInfo.productCategory.ebayPartCategoryId;
-      // console.log("categoryId is", categoryId);
+        ebayData.productInfo.productCategory.ebayCategoryId;
+      console.log("categoryId is", categoryId);
 
       const retailPrice =
         ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
@@ -552,9 +550,9 @@ export const ebayListingService = {
         <ItemID>${ebayData.ebayItemId}</ItemID>
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
+<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
 
-
-          <Description>${escapeXml(listingDescriptionData)}</Description>
+          <Description>${"A test desc ription for now"}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -884,9 +882,7 @@ function escapeXml(unsafe: any): string {
 }
 async function generateVariationsXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.selectedVariations || [];
-  if (!variations.length) return "";
-
-  const previousSkusSet: any = new Set(
+  const previousSkusSet: Set<string> = new Set(
     (ebayData?.prodPricing?.currentEbayVariationsSKU || []).map((s: string) => s.trim().toLowerCase())
   );
   const newSkusSet = new Set<string>();
@@ -899,14 +895,36 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
 
+  // 🧤 Edge Case: No selected variations, but old SKUs exist
+  if (!variations.length && previousSkusSet.size > 0) {
+    const deleteXml = Array.from(previousSkusSet)
+      .map(
+        (sku) => `
+      <Variation>
+        <SKU>${escapeXml(sku)}</SKU>
+        <Delete>true</Delete>
+      </Variation>`
+      )
+      .join("");
+
+    // 🔄 Clear DB SKUs
+    await Listing.findOneAndUpdate(
+      { _id: ebayData._id, kind: ebayData.kind },
+      { $set: { "prodPricing.currentEbayVariationsSKU": [] } },
+      { new: true, lean: true }
+    );
+
+    return `
+      <Variations>
+        ${deleteXml}
+      </Variations>`;
+  }
+
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     const attrObj = variation?.variationId?.attributes || {};
-    // console.log(`\n🔍 Processing variation #${index + 1}`, attrObj);
 
     Object.keys(attrObj).forEach((key) => {
-      if (!usedKeys.has(key) && usedKeys.size < 5) {
-        usedKeys.add(key);
-      }
+      if (!usedKeys.has(key) && usedKeys.size < 5) usedKeys.add(key);
     });
 
     const filteredAttrObj = Object.entries(attrObj).reduce(
@@ -916,8 +934,6 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
       },
       {} as Record<string, string>
     );
-
-    // console.log(`✅ Filtered Attributes:`, filteredAttrObj);
 
     const comboKey = JSON.stringify(filteredAttrObj);
     if (seenCombinations.has(comboKey)) return acc;
@@ -938,42 +954,32 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
     const uniqueSku = skuParts.join("-");
     newSkusSet.add(uniqueSku);
 
-    // console.log(`🆕 Generated SKU: ${uniqueSku}`);
-    // console.log("Previous SKUs in DB:", Array.from(previousSkusSet));
-    // console.log("New SKUs generated:", Array.from(newSkusSet));
-
     acc.push(`
-  <Variation>
-    <SKU>${escapeXml(uniqueSku)}</SKU>
-    <StartPrice>${variation.retailPrice}</StartPrice>
-    <Quantity>${variation.listingQuantity}</Quantity>
-    <VariationSpecifics>
-      ${nameValueXml}
-    </VariationSpecifics>
-  </Variation>
-`);
+      <Variation>
+        <SKU>${escapeXml(uniqueSku)}</SKU>
+        <StartPrice>${variation.retailPrice}</StartPrice>
+        <Quantity>${variation.listingQuantity}</Quantity>
+        <VariationSpecifics>
+          ${nameValueXml}
+        </VariationSpecifics>
+      </Variation>`);
 
     return acc;
   }, []);
 
-  // Compare old vs new SKUs
   for (const oldSku of previousSkusSet) {
     if (!newSkusSet.has(oldSku)) {
       deleteSkus.push(oldSku);
     }
   }
 
-  if (deleteSkus.length) {
-    // console.log(`🗑️ SKUs to delete:`, deleteSkus);
-  }
-
   const deleteXml = deleteSkus
     .map(
       (sku) => `
-  <Variation>
-    <SKU>${escapeXml(sku)}</SKU>
-    <Delete>true</Delete>
-  </Variation>`
+      <Variation>
+        <SKU>${escapeXml(sku)}</SKU>
+        <Delete>true</Delete>
+      </Variation>`
     )
     .join("");
 
@@ -1003,29 +1009,13 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
 
   const newSkuArray = Array.from(newSkusSet);
 
-  const updatedListing = await Listing.findOneAndUpdate(
-    {
-      _id: ebayData._id,
-      kind: ebayData.kind, // ensure discriminator key is used
-    },
-    {
-      $set: {
-        "prodPricing.currentEbayVariationsSKU": newSkuArray,
-      },
-    },
-    {
-      new: true, // return the updated document
-      lean: true, // optional: make it a plain object
-    }
+  await Listing.findOneAndUpdate(
+    { _id: ebayData._id, kind: ebayData.kind },
+    { $set: { "prodPricing.currentEbayVariationsSKU": newSkuArray } },
+    { new: true, lean: true }
   );
 
-  // ✅ Logging to verify update
-  // console.log("📦 Updating currentEbayVariationsSKU...");
-  // console.log("➡️ Filter:", { _id: ebayData._id, kind: ebayData.kind });
-  // console.log("📝 New SKUs:", newSkuArray);
-  // console.log("🔧 DB Update Result:", updatedListing);
-
-  const finalXml = `
+  return `
     <Variations>
       <VariationSpecificsSet>
         ${specificsXml}
@@ -1034,11 +1024,8 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
       ${deleteXml}
       ${picturesXml}
     </Variations>`;
-
-  // console.log(`📦 Final XML prepared (truncated):\n`, finalXml.slice(0, 500), "...");
-
-  return finalXml;
 }
+
 async function generateBundlesVariationXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.selectedVariations || [];
   if (!variations.length) return "";
@@ -1170,9 +1157,38 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
 }
 async function generateVariationsForListingWithoutStockXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.listingWithoutStockVariations || [];
-  if (!variations.length) return "";
 
-  // Normalize previous SKUs from DB
+  // If no variations are provided, delete existing SKUs from DB and return delete XML
+  if (!variations.length) {
+    const previousSkus = ebayData?.prodPricing?.currentEbayVariationsSKU || [];
+
+    // Prepare delete XML
+    const deleteXml = previousSkus
+      .map(
+        (sku: string) => `
+        <Variation>
+          <SKU>${escapeXml(sku)}</SKU>
+          <Delete>true</Delete>
+        </Variation>`
+      )
+      .join("");
+
+    // Update DB to clear the SKUs
+    await Listing.findOneAndUpdate(
+      { _id: ebayData._id, kind: ebayData.kind },
+      { $set: { "prodPricing.currentEbayVariationsSKU": [] } },
+      { new: true, lean: true }
+    );
+
+    if (previousSkus.length) {
+      console.log(`🗑️ Deleted SKUs (no new variations):`, previousSkus);
+    }
+
+    return `<Variations>${deleteXml}</Variations>`;
+  }
+
+  // ------- rest of your original logic --------
+
   const previousSkusSet: any = new Set(
     (ebayData?.prodPricing?.currentEbayVariationsSKU || []).map((s: string) => s.trim().toLowerCase())
   );
@@ -1186,18 +1202,10 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
   const usedKeys = new Set<string>();
   const seenCombinations = new Set<string>();
 
-  const staticKeys = new Set([
-    "retailPrice",
-    "listingQuantity",
-    "discountValue",
-    "images",
-    "_id",
-    "price",
-    "quantity", // explicitly skip
-  ]);
+  const staticKeys = new Set(["retailPrice", "listingQuantity", "discountValue", "images", "_id", "price", "quantity"]);
 
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
-    if (variation.listingQuantity <= 0) return acc; // skip zero quantity
+    if (variation.listingQuantity <= 0) return acc;
 
     const attrObj: Record<string, string> = {};
     for (const key in variation) {
@@ -1224,7 +1232,6 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
     if (seenCombinations.has(comboKey)) return acc;
     seenCombinations.add(comboKey);
 
-    // Generate SKU based on filtered attributes (similar to main function)
     const skuParts = Object.entries(filteredAttrObj)
       .sort(([k1], [k2]) => k1.localeCompare(k2))
       .map(([_, val]) => String(val).replace(/\s+/g, "").toLowerCase());
@@ -1232,7 +1239,6 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
     const uniqueSku = skuParts.length ? skuParts.join("-") : `variation-${index + 1}`;
     newSkusSet.add(uniqueSku);
 
-    // Add specifics to set
     Object.entries(filteredAttrObj).forEach(([key, val]) => {
       if (!variationSpecificsSet[key]) variationSpecificsSet[key] = new Set();
       variationSpecificsSet[key].add(val);
@@ -1257,14 +1263,12 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
     return acc;
   }, []);
 
-  // Detect SKUs to delete (present in DB but not in new variations)
   for (const oldSku of previousSkusSet) {
     if (!newSkusSet.has(oldSku)) {
       deleteSkus.push(oldSku);
     }
   }
 
-  // Prepare delete XML nodes
   const deleteXml = deleteSkus
     .map(
       (sku) => `
@@ -1303,7 +1307,6 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
       </Pictures>`
     : "";
 
-  // Update DB with new SKUs after generating XML
   const newSkuArray = Array.from(newSkusSet);
 
   const updatedListing = await Listing.findOneAndUpdate(
@@ -1321,7 +1324,6 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
       lean: true,
     }
   );
-
   // Optional logs for debug
   // console.log("Updated SKUs (without stock):", newSkuArray);
   // console.log("DB update result:", updatedListing);

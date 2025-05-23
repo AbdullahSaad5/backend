@@ -3,8 +3,8 @@ import { Document, Model, Types } from "mongoose";
 // Interface for Product Category
 export interface IProductCategory extends Document {
   name: string;
-  ebayPartCategoryId: string;
-  ebayProductCategoryId: string;
+  ebayCategoryId: string;
+
   description: string;
   image?: string[];
   tags?: string[];
