@@ -539,6 +539,7 @@ export const listingService = {
   //service
   // Debug service with verification
   // Direct MongoDB update (bypass Mongoose discriminators)
+  // Direct MongoDB update (bypass Mongoose discriminators)
   bulkUpdateListingTaxDiscount: async (
     listingIds: string[],
     discountType: "fixed" | "percentage",
@@ -578,9 +579,13 @@ export const listingService = {
       docsBefore.forEach((doc) => {
         console.log(`Doc ${doc._id}:`, {
           kind: doc.kind || doc.__t,
+          listingWithStock: doc.listingWithStock,
           vat: doc.prodPricing?.vat,
-          hasVariations:
+          hasSelectedVariations:
             Array.isArray(doc.prodPricing?.selectedVariations) && doc.prodPricing.selectedVariations.length > 0,
+          hasListingWithoutStockVariations:
+            Array.isArray(doc.prodPricing?.listingWithoutStockVariations) &&
+            doc.prodPricing.listingWithoutStockVariations.length > 0,
         });
       });
 
@@ -615,30 +620,67 @@ export const listingService = {
           },
         };
 
-        // Handle listings with variations
-        if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
-          const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-            let updatedVariation = { ...variation };
+        // Check listingWithStock to determine which variations array to update
+        const isListingWithStock = doc.listingWithStock !== false; // default to true if undefined
+        console.log(`Listing ${doc._id} - listingWithStock: ${isListingWithStock}`);
 
+        if (isListingWithStock) {
+          // Handle listings WITH stock - update selectedVariations
+          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+            console.log(`Updating selectedVariations for listing ${doc._id}`);
+            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              let updatedVariation = { ...variation };
+
+              if (retailPrice !== undefined) {
+                updatedVariation.retailPrice = retailPrice;
+              }
+
+              const basePrice = updatedVariation.retailPrice || 0;
+              updatedVariation.discountValue = calculateDiscountValue(basePrice);
+
+              return updatedVariation;
+            });
+
+            update.$set["prodPricing.selectedVariations"] = updatedVariations;
+          } else {
+            // No variations - update main listing
             if (retailPrice !== undefined) {
-              updatedVariation.retailPrice = retailPrice;
+              update.$set["prodPricing.retailPrice"] = retailPrice;
             }
 
-            const basePrice = updatedVariation.retailPrice || 0;
-            updatedVariation.discountValue = calculateDiscountValue(basePrice);
-
-            return updatedVariation;
-          });
-
-          update.$set["prodPricing.selectedVariations"] = updatedVariations;
-        } else {
-          // Handle listings without variations
-          if (retailPrice !== undefined) {
-            update.$set["prodPricing.retailPrice"] = retailPrice;
+            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
           }
+        } else {
+          // Handle listings WITHOUT stock - update listingWithoutStockVariations
+          if (
+            Array.isArray(prodPricing.listingWithoutStockVariations) &&
+            prodPricing.listingWithoutStockVariations.length > 0
+          ) {
+            console.log(`Updating listingWithoutStockVariations for listing ${doc._id}`);
+            const updatedVariations = prodPricing.listingWithoutStockVariations.map((variation: any) => {
+              let updatedVariation = { ...variation };
 
-          const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
-          update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+              if (retailPrice !== undefined) {
+                updatedVariation.retailPrice = retailPrice;
+              }
+
+              const basePrice = updatedVariation.retailPrice || 0;
+              updatedVariation.discountValue = calculateDiscountValue(basePrice);
+
+              return updatedVariation;
+            });
+
+            update.$set["prodPricing.listingWithoutStockVariations"] = updatedVariations;
+          } else {
+            // No variations - update main listing
+            if (retailPrice !== undefined) {
+              update.$set["prodPricing.retailPrice"] = retailPrice;
+            }
+
+            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+          }
         }
 
         console.log(`Direct update for ${doc._id}:`, JSON.stringify(update, null, 2));
