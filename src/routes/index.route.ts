@@ -8,6 +8,7 @@ import { auth } from "./user-auth.route";
 import { userCategory } from "./user-category.route";
 import { supplier } from "./supplier.route";
 import { supplierCategory } from "./supplier-category.routes";
+import { blogCategory } from "./blog-category.route";
 import { productCategory } from "./product-category.route";
 import { productBrand } from "./product-brand.route";
 import { listing } from "./listing.route";
@@ -15,9 +16,11 @@ import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
+import { blog } from "./blog.route";
 import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
 import { variations } from "./variations.route";
+import { gamerComunity } from "./gamer-comunity.route";
 import { paymentPolicy } from "./payment-policy.route";
 import { discriminatorRouter } from "./discriminator.route";
 import { faqsPolicy } from "./faqs-policy.route";
@@ -47,6 +50,7 @@ const routes: {
   auth,
   userCategory,
   variations,
+  blog,
   supplier,
   supplierCategory,
   stock,
@@ -54,6 +58,8 @@ const routes: {
   inventory,
   ebay,
   productCategory,
+  gamerComunity,
+  blogCategory,
   productBrand,
   customPolicy,
   returnPolicy,
