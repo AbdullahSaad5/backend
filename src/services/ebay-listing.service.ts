@@ -337,7 +337,7 @@ export const ebayListingService = {
         }
       }
 
-      console.log("variationXml", variationXml);
+      // console.log("variationXml", variationXml);
       const categoryId =
         ebayData.productInfo.productCategory.ebayCategoryId ;
       console.log("categoryId is", categoryId);
@@ -349,7 +349,7 @@ export const ebayListingService = {
         ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
         "10";
 
-      console.log("listingQuantity", listingQuantity);
+      // console.log("listingQuantity", listingQuantity);
       const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
@@ -424,7 +424,7 @@ export const ebayListingService = {
       </AddFixedPriceItemRequest>
     `;
 
-      console.log("Request Body for Listing Creation:", listingBody, null, 2);
+      // console.log("Request Body for Listing Creation:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -509,7 +509,7 @@ export const ebayListingService = {
         }
       }
 
-      console.log("variationXml", variationXml);
+      // console.log("variationXml", variationXml);
 
       const categoryId =
         ebayData.productInfo.productCategory.ebayCategoryId;
@@ -522,7 +522,7 @@ export const ebayListingService = {
         ebayData?.prodPricing?.selectedVariations?.[0]?.listingQuantity ||
         "10";
 
-      console.log("retailPrice", retailPrice);
+      // console.log("retailPrice", retailPrice);
 
       const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
@@ -581,7 +581,7 @@ export const ebayListingService = {
       </ReviseFixedPriceItemRequest>
     `;
 
-      console.log("Request Body for revise Listing:", listingBody, null, 2);
+      // console.log("Request Body for revise Listing:", listingBody, null, 2);
 
       // Step 1: Create Listing on eBay
       const response = await fetch(ebayUrl, {
@@ -1045,7 +1045,7 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
 
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     const variationName = variation.variationName || "";
-    console.log(`\n🔍 Processing variation #${index + 1} with variationName:`, variationName);
+    // console.log(`\n🔍 Processing variation #${index + 1} with variationName:`, variationName);
 
     if (!variationName) return acc; // skip if no name
 
@@ -1080,7 +1080,7 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
   }
 
   if (deleteSkus.length) {
-    console.log(`🗑️ SKUs to delete:`, deleteSkus);
+    // console.log(`🗑️ SKUs to delete:`, deleteSkus);
   }
 
   const deleteXml = deleteSkus
@@ -1151,7 +1151,7 @@ async function generateBundlesVariationXml(ebayData: any): Promise<string> {
       ${picturesXml}
     </Variations>`;
 
-  console.log(`📦 Final XML prepared (truncated):\n`, finalXml.slice(0, 500), "...");
+  // console.log(`📦 Final XML prepared (truncated):\n`, finalXml.slice(0, 500), "...");
 
   return finalXml;
 }
@@ -1280,7 +1280,7 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
     .join("");
 
   if (deleteSkus.length) {
-    console.log(`🗑️ SKUs to delete (without stock):`, deleteSkus);
+    // console.log(`🗑️ SKUs to delete (without stock):`, deleteSkus);
   }
 
   const specificsXml = Object.entries(variationSpecificsSet)
