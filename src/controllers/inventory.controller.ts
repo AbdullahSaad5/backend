@@ -643,6 +643,7 @@ export const inventoryController = {
         status, // Extract status properly
         isBlocked,
         isTemplate,
+        productCategory,
         kind,
         isPart,
         startDate,
@@ -655,6 +656,7 @@ export const inventoryController = {
       const filters = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
+        productCategory: productCategory?.toString() || undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
         isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
@@ -931,7 +933,6 @@ export const inventoryController = {
     }
   },
 
- 
   //bulk import inventory as CSV
 
   updateVariations: async (req: Request, res: Response) => {
