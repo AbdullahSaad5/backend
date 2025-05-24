@@ -5,7 +5,7 @@ export interface IUserAddress extends Document {
     userId: Types.ObjectId;
     country: string;
     address: string,
-    label: string;
+    county: string;
     appartment: string,
     city: string,
     postalCode: string,
