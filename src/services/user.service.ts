@@ -98,11 +98,11 @@ export const userService = {
   },
 
   createAddress: (addresss: IUserAddress, userId: string) => {
-    const { country, address, label, appartment, city, postalCode, isDefault } =
+    const { country, address, county, appartment, city, postalCode, isDefault } =
       addresss;
     const newAddress = new Address({
       userId,
-      label,
+      county,
       address,
       city,
       appartment,

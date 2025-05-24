@@ -188,6 +188,7 @@ export const listingService = {
       const topLevelFields = [
         "ebayItemId",
         "ebaySandboxUrl",
+        "listingWithStock",
         "publishToEbay",
         "publishToAmazon",
         "publishToWebsite",
