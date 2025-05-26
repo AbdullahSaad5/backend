@@ -36,8 +36,18 @@ export const permissionsController = {
             "VIEW_INVENTORY",
             "ADD_STOCK",
             "VIEW_STOCK",
-            "MANAGE_VARIATION",
+            "VIEW_LISTING",
+            "ADD_LISTING",
             "MANAGE_DISCOUNTS",
+          ],
+        },
+        bundleManagement: {
+          parent: "MANAGE_BUNDLES",
+          children: [
+            // "ADD_SUPPLIERS_CATEGORY",
+            // "VIEW_SUPPLIERS_CATEGORY",
+            "ADD_BUNDLES",
+            "VIEW_BUNDLES",
           ],
         },
         // discountAndTaxes: {
@@ -51,16 +61,45 @@ export const permissionsController = {
         // },
         gamersCommunity: {
           parent: "GAMERS_COMMUNITY",
-          children: ["VIEW_GAMERS_COMMUNITY", "VIEW_BLOGS"],
+          children: [
+            "VIEW_BLOGS_CATEGORY",
+            "ADD_BLOGS_CATEGORY",
+            "VIEW_BLOGS",
+            "ADD_BLOGS",
+            "VIEW_GAMERS_COMMUNITY",
+            "ADD_GAMERS_COMMUNITY",
+          ],
+        },
+        hrManagement: {
+          parent: "HR_MANAGEMENET",
+          children: [
+            "VIEW_EMPLOYEES",
+            "ADD_EMPLOYEES",
+            "VIEW_WORK_SHIFT",
+            "ADD_WORK_SHIFT",
+            "VIEW_ATTENDANCE",
+            
+          ],
+        },
+        ticketing: {
+          parent: "MANAGE_TICKETING",
+        },
+        documents: {
+          parent: "MANAGE_DOCUMENTS",
         },
         policies: {
           parent: "MANAGE_POLICIES",
           children: [
-            "VIEW_POLICIES",
+            "VIEW_CUSTOM_POLICIES",
+            "ADD_CUSTOM_POLICIES",
             "VIEW_PAYMENT_POLICIES",
-            "VIEW_POSTAGE_POLICIES",
-            "VIEW_SUBSCRIPTIONS",
-            "VIEW_FAQS",
+            "ADD_PAYMENT_POLICIES",
+            "VIEW_FULFILLMENT_POLICIES",
+            "ADD_FULFILLMENT_POLICIES",
+            "VIEW_RETURN_POLICIES",
+            "ADD_RETURN_POLICIES",
+            // "VIEW_SUBSCRIPTIONS",
+            // "VIEW_FAQS",
           ],
         },
         setting: {

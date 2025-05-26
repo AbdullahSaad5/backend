@@ -114,10 +114,10 @@ export const listingService = {
 
       console.log("draft listing is here : ", draftListing);
 
-      if (stepData.inventoryId) {
-        console.log("update inventory id : ", stepData.inventoryId);
-        draftListing.inventoryId = stepData.inventoryId;
-      }
+      // if (stepData.inventoryId) {
+      //   console.log("update inventory id : ", stepData.inventoryId);
+      //   draftListing.inventoryId = stepData.inventoryId;
+      // }
 
       if (stepData.listingHasVariations === true || stepData.listingHasVariations === false) {
         console.log("update listingHasVariations : ", stepData.listingHasVariations);
@@ -166,10 +166,12 @@ export const listingService = {
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
           if (section === "prodPricing") {
+            console.log("prodPricing if work")
             // Overwrite prodPricing entirely if selectedStockId is updated
             // draftListing.prodPricing = "jdfnnjlsn";
             draftListing.prodPricing = stepData.prodPricing;
           } else if (section === "prodTechInfo") {
+            console.log("prodTechInfo if work")
             // Overwrite prodPricing entirely if selectedStockId is updated
             // draftListing.prodPricing = "jdfnnjlsn";
             draftListing.prodTechInfo = stepData.prodTechInfo;
@@ -188,7 +190,9 @@ export const listingService = {
       const topLevelFields = [
         "ebayItemId",
         "ebaySandboxUrl",
+        "listingType",
         "listingWithStock",
+        "inventoryId",
         "publishToEbay",
         "publishToAmazon",
         "publishToWebsite",

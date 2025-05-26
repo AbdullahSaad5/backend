@@ -1,5 +1,4 @@
 import { Schema, model, Types } from "mongoose";
-import { Variation } from "./variation.model";
 
 export const mediaSchema = {
   id: { type: String },
@@ -9,6 +8,7 @@ export const mediaSchema = {
   size: { type: Number },
   url: { type: String },
   type: { type: String },
+
   filename: { type: String },
 };
 
@@ -94,19 +94,7 @@ const bundleSchema = new Schema(
         _id: false,
       },
     ],
-    // Bundle discount structure
-    // discount: {
-    //   type: {
-    //     type: String,
-    //     enum: ["percentage", "fixed" , "none"],
-    //     required: true,
-    //   },
-    //   value: {
-    //     type: Number,
-    //     required: true,
-    //     min: 0,
-    //   },
-    // },
+
 
     // Bundle expiration date
     validity: {
