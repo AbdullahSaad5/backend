@@ -59,6 +59,7 @@ const prodPricingSchema = {
       { _id: true, strict: false } // 👈 this line allows undefined fields (dynamic attributes)
     ),
   ],
+  
   currentEbayVariationsSKU: { type: [String] },
   selectedVariations: [
     {
