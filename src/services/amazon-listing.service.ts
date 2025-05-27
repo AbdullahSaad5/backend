@@ -7,6 +7,7 @@ import {
   getProductTypeDefinitions,
 } from "@/utils/amazon-helpers.util";
 import { Listing } from "@/models";
+import { parseSchemaProperties } from "@/utils/parseAmazonSchema";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
 
@@ -23,6 +24,58 @@ export const amazonListingService = {
         error: "Failed to get application token",
         details: error,
       });
+    }
+  },
+
+  getParsedSchema: async (req: Request, res: Response) => {
+    try {
+      const productType = req.params.productType;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
+
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
+
+      const accessToken = await getStoredAmazonAccessToken();
+
+      // Fetch SP API product type schema metadata
+      const spApiResponse = await fetch(spApiUrl, {
+        method: "GET",
+        headers: {
+          "x-amz-access-token": accessToken ?? "",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!spApiResponse.ok) {
+        return res.status(spApiResponse.status).json({ error: "Failed to fetch product type schema" });
+      }
+
+      const spApiData = await spApiResponse.json();
+
+      const schemaUrl = spApiData.schema?.link?.resource;
+      if (!schemaUrl) {
+        return res.status(400).json({ error: "Schema link resource not found" });
+      }
+
+      // Fetch actual schema JSON from schemaUrl (usually public S3 URL with token)
+      const schemaResponse = await fetch(schemaUrl);
+      if (!schemaResponse.ok) {
+        return res.status(schemaResponse.status).json({ error: "Failed to fetch actual schema" });
+      }
+
+      const actualSchema = await schemaResponse.json();
+
+      // Parse schema properties with your utility function
+      const properties = actualSchema.properties || {};
+      const requiredFields = actualSchema.required || [];
+
+      const parsedFields = parseSchemaProperties(properties, requiredFields);
+
+      // Return parsed fields
+      return res.json({ parsedFields });
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
     }
   },
 
@@ -53,25 +106,6 @@ export const amazonListingService = {
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         error: "Failed to refresh Amazon access token",
         details: error,
-      });
-    }
-  },
-
-  getProductCategories: async (req: Request, res: Response) => {
-    try {
-      const token = await getStoredAmazonAccessToken();
-      if (!token) {
-        throw new Error("Missing or invalid Amazon access token");
-      }
-
-      const response = await getProductTypeDefinitions("LUGGAGE");
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: response });
-    } catch (error) {
-      console.error("Error getting categories:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get Amazon categories",
       });
     }
   },
@@ -320,38 +354,53 @@ export const amazonListingService = {
   getAmazonCategories: async (req: Request, res: Response) => {
     try {
       const token = await getStoredAmazonAccessToken();
+
+      console.log("🔑 Using Amazon access token:", token ? "[TOKEN PRESENT]" : "[NO TOKEN]");
+
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      // Get categories for the specified marketplace
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // Default to UK marketplace
+      // Accept dynamic marketplaceId and environment via query parameters
+      let marketplaceId = process.env.AMAZON_MARKETPLACE_ID; // Default UK here
 
-      const response = await fetch(
-        `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes?marketplaceIds=${marketplaceId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const env = process.env.AMAZON_TOKEN_ENV === "production" ? "production" : "sandbox";
+      console.log(`Environment set to: ${env}`);
+
+      const baseUrl =
+        env === "production"
+          ? "https://sellingpartnerapi-eu.amazon.com"
+          : "https://sandbox.sellingpartnerapi-na.amazon.com";
+
+      const endpoint = `${baseUrl}/definitions/2020-09-01/productTypes?marketplaceIds=${marketplaceId}`;
+      console.log(`🔗 Calling endpoint: ${endpoint}`);
+
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("❌ Failed to fetch categories:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText,
+        });
+        throw new Error(`Failed to fetch categories: ${response.status} ${response.statusText}`);
       }
 
-      const categories = await response.json();
+      const responseData = await response.json();
 
-      // Transform the response to match your application's needs
-      const transformedCategories = categories.map((category: any) => ({
-        id: category.categoryId,
-        name: category.categoryName,
-        parentId: category.parentId,
-        path: category.categoryPath,
-        leaf: category.isLeaf,
-        attributes: category.attributes || [],
+      // console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
+
+      const transformedCategories = (responseData.productTypes || []).map((category: any) => ({
+        id: category.name,
+        name: category.displayName,
+        marketplaceIds: category.marketplaceIds,
       }));
 
       return res.status(StatusCodes.OK).json({
@@ -360,7 +409,7 @@ export const amazonListingService = {
         data: transformedCategories,
       });
     } catch (error: any) {
-      console.error("Error getting Amazon categories:", error);
+      console.error("❌ Error getting Amazon categories:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
