@@ -301,19 +301,27 @@ export const amazonListingService = {
   getAmazonCategories: async (req: Request, res: Response) => {
     try {
       const token = await getStoredAmazonAccessToken();
+
+      console.log("🔑 Using Amazon access token:", token ? "[TOKEN PRESENT]" : "[NO TOKEN]");
+
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
 
       // Accept dynamic marketplaceId and environment via query parameters
-      const marketplaceId = (req.query.marketplaceId as string) || process.env.AMAZON_MARKETPLACE_ID || "ATVPDKIKX0DER"; // Default US
-      const useSandbox = req.query.env === "sandbox";
+      let marketplaceId = (req.query.marketplaceId as string) || process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // Default UK here
+      marketplaceId = marketplaceId.trim(); // Important: remove trailing whitespace/newlines
 
-      const baseUrl = useSandbox
-        ? "https://sandbox.sellingpartnerapi-na.amazon.com"
-        : "https://sellingpartnerapi-na.amazon.com";
+      const env = process.env.AMAZON_TOKEN_ENV === "production" ? "production" : "sandbox";
+      console.log(`Environment set to: ${env}`);
+
+      const baseUrl =
+        env === "production"
+          ? "https://sellingpartnerapi-eu.amazon.com"
+          : "https://sandbox.sellingpartnerapi-na.amazon.com";
 
       const endpoint = `${baseUrl}/definitions/2020-09-01/productTypes?marketplaceIds=${marketplaceId}`;
+      console.log(`🔗 Calling endpoint: ${endpoint}`);
 
       const response = await fetch(endpoint, {
         headers: {
