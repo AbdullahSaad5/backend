@@ -5,7 +5,7 @@ export interface IProductCategory extends Document {
   name: string;
   ebayCategoryId: string;
   amazonCategoryId?: string;
-  platform: String;
+  platform?: String;
   description: string;
   image?: string[];
   tags?: string[];
@@ -17,7 +17,15 @@ export type ProductCategoryModel = Model<IProductCategory>;
 
 export type ProductCategoryCreatePayload = Pick<
   IProductCategory,
-  "name" | "description" | "image" | "isBlocked" | "tags" | "isPart" | "ebayCategoryId" | "amazonCategoryId"
+  | "name"
+  | "description"
+  | "image"
+  | "isBlocked"
+  | "tags"
+  | "isPart"
+  | "ebayCategoryId"
+  | "amazonCategoryId"
+  | "platform"
 >;
 
 export type ProductCategoryUpdatePayload = Partial<ProductCategoryCreatePayload>;

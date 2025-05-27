@@ -57,7 +57,7 @@ export const ebayListingService = {
       let data;
       try {
         data = JSON.parse(rawResponse);
-        console.log("Parsed JSON data:", data);
+        // console.log("Parsed JSON data:", data);
       } catch (err) {
         console.error("Failed to parse JSON:", err);
         return res.status(500).json({
