@@ -28,7 +28,7 @@ const AMAZON_ENDPOINTS = {
   },
   SANDBOX: {
     auth: "https://api.amazon.com/auth/o2/token",
-    sellingPartner: "https://sellingpartnerapi-na.amazon.com",
+    sellingPartner: "https://sandbox.sellingpartnerapi-eu.amazon.com",
   },
 };
 
@@ -115,11 +115,19 @@ export const getStoredAmazonAccessToken = async () => {
 export const refreshAmazonAccessToken = async (type: AmazonEnvironment) => {
   try {
     const tokenFile = type === "PRODUCTION" ? "amazon_tokens.json" : "amazon_tokens_sandbox.json";
+    console.log(`🔄 Refreshing token using file: ${tokenFile}`);
+
     const credentialsText = fs.readFileSync(tokenFile, "utf-8");
     const credentials = JSON.parse(credentialsText);
 
+    console.log("🔍 Loaded credentials:", {
+      hasRefreshToken: !!credentials.refresh_token,
+      clientIdPresent: !!process.env.AMAZON_CLIENT_ID,
+      clientSecretPresent: !!process.env.AMAZON_CLIENT_SECRET,
+    });
+
     if (!credentials.refresh_token) {
-      console.error("❌ No refresh token found");
+      console.error("❌ No refresh token found in credentials");
       return null;
     }
 
@@ -129,20 +137,46 @@ export const refreshAmazonAccessToken = async (type: AmazonEnvironment) => {
     params.append("client_id", process.env.AMAZON_CLIENT_ID!);
     params.append("client_secret", process.env.AMAZON_CLIENT_SECRET!);
 
-    const response = await axios.post(AMAZON_ENDPOINTS[type].auth, params.toString(), {
+    const url = AMAZON_ENDPOINTS[type].auth;
+    console.log(`📡 Sending POST to ${url} with params:`, params.toString());
+
+    const response = await axios.post(url, params.toString(), {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
     });
 
     const newToken: AmazonToken = response.data;
+    console.log("✅ Received new token from Amazon");
 
     // Save the new token
-    fs.writeFileSync(tokenFile, JSON.stringify({ ...credentials, ...newToken, generated_at: Date.now() }, null, 2));
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify(
+        {
+          ...credentials,
+          ...newToken,
+          generated_at: Date.now(),
+        },
+        null,
+        2
+      )
+    );
+
+    console.log("💾 New token saved to file:", tokenFile);
 
     return newToken;
-  } catch (error) {
-    console.error("❌ Error refreshing Amazon token:", error);
+  } catch (error: any) {
+    if (axios.isAxiosError(error)) {
+      console.error("❌ Axios error while refreshing token:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.response?.headers,
+        request: error.config?.url,
+      });
+    } else {
+      console.error("❌ Unknown error during token refresh:", error);
+    }
     return null;
   }
 };
