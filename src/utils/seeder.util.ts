@@ -158,10 +158,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every(
-        (permission, index) =>
-          permission === superAdminCategoryData.permissions[index]
-      )
+      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
@@ -178,10 +175,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every(
-        (permission, index) =>
-          permission === adminCategoryData.permissions[index]
-      )
+      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
@@ -231,10 +225,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every(
-        (permission, index) =>
-          permission === supplierCategoryData.permissions[index]
-      )
+      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
@@ -264,8 +255,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   // 3. Seed admin User
   const adminData = {
@@ -287,8 +277,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   let superAdmin = await User.findOne({ email: superAdminData.email });
 
