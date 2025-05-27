@@ -57,25 +57,6 @@ export const amazonListingService = {
     }
   },
 
-  getProductCategories: async (req: Request, res: Response) => {
-    try {
-      const token = await getStoredAmazonAccessToken();
-      if (!token) {
-        throw new Error("Missing or invalid Amazon access token");
-      }
-
-      const response = await getProductTypeDefinitions("LUGGAGE");
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: response });
-    } catch (error) {
-      console.error("Error getting categories:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get Amazon categories",
-      });
-    }
-  },
-
   addItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
@@ -324,34 +305,42 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      // Get categories for the specified marketplace
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // Default to UK marketplace
+      // Accept dynamic marketplaceId and environment via query parameters
+      const marketplaceId = (req.query.marketplaceId as string) || process.env.AMAZON_MARKETPLACE_ID || "ATVPDKIKX0DER"; // Default US
+      const useSandbox = req.query.env === "sandbox";
 
-      const response = await fetch(
-        `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes?marketplaceIds=${marketplaceId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const baseUrl = useSandbox
+        ? "https://sandbox.sellingpartnerapi-na.amazon.com"
+        : "https://sellingpartnerapi-na.amazon.com";
+
+      const endpoint = `${baseUrl}/definitions/2020-09-01/productTypes?marketplaceIds=${marketplaceId}`;
+
+      const response = await fetch(endpoint, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch categories: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error("❌ Failed to fetch categories:", {
+          status: response.status,
+          statusText: response.statusText,
+          errorBody: errorText,
+        });
+        throw new Error(`Failed to fetch categories: ${response.status} ${response.statusText}`);
       }
 
-      const categories = await response.json();
+      const responseData = await response.json();
 
-      // Transform the response to match your application's needs
-      const transformedCategories = categories.map((category: any) => ({
-        id: category.categoryId,
-        name: category.categoryName,
-        parentId: category.parentId,
-        path: category.categoryPath,
-        leaf: category.isLeaf,
-        attributes: category.attributes || [],
+      console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
+
+      const transformedCategories = (responseData.productTypes || []).map((category: any) => ({
+        id: category.name,
+        name: category.displayName,
+        marketplaceIds: category.marketplaceIds,
       }));
 
       return res.status(StatusCodes.OK).json({
@@ -360,7 +349,7 @@ export const amazonListingService = {
         data: transformedCategories,
       });
     } catch (error: any) {
-      console.error("Error getting Amazon categories:", error);
+      console.error("❌ Error getting Amazon categories:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
