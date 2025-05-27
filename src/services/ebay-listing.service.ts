@@ -12,10 +12,11 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
-
+import { IParamsRequest } from "@/contracts/request.contract";
 const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
 const useClient =
   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
+const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -32,7 +33,59 @@ export const ebayListingService = {
       });
     }
   },
+  getItemAspects: async (req: IParamsRequest<{ categoryId: string }>, res: Response) => {
+    try {
+      const accessToken = await getStoredEbayAccessToken();
 
+      const categoryId = req.params.categoryId;
+      const response = await fetch(
+        `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/0/get_item_aspects_for_category?category_id=${categoryId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US",
+            "Accept-Language": "en-US",
+          },
+        }
+      );
+
+      const rawResponse = await response.text();
+      console.log("Raw response:", rawResponse);
+
+      // Then try parsing only if JSON
+      let data;
+      try {
+        data = JSON.parse(rawResponse);
+      } catch (err) {
+        console.error("Failed to parse JSON:", err);
+        return res.status(500).json({ error: "Failed to parse API response", details: rawResponse });
+      }
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          status: response.status,
+          statusText: response.statusText,
+          data,
+        });
+      }
+
+      return res.status(response.status).json({
+        status: response.status,
+        statusText: response.statusText,
+        data,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "API call failed",
+        details: error,
+      });
+    }
+  },
   getUserAuthorizationUrl: async (req: Request, res: Response) => {
     try {
       // const type = req.query.type as "production" | "sandbox";
@@ -338,8 +391,7 @@ export const ebayListingService = {
       }
 
       // console.log("variationXml", variationXml);
-      const categoryId =
-        ebayData.productInfo.productCategory.ebayCategoryId ;
+      const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
       const retailPrice =
@@ -511,8 +563,7 @@ export const ebayListingService = {
 
       // console.log("variationXml", variationXml);
 
-      const categoryId =
-        ebayData.productInfo.productCategory.ebayCategoryId;
+      const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
       const retailPrice =
