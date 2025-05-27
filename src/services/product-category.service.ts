@@ -4,18 +4,20 @@ import { ProductCategory } from "@/models";
 export const productCategoryService = {
   createCategory: (
     name: String,
-    ebayCategoryId: string,
-    // ebayCategoryId: string,
+    ebayCategoryId: string, // ebayCategoryId: string,
     description: string,
     image: string,
     tags: string[],
+    platform: string,
     isBlocked: boolean,
-    isPart: boolean
+    isPart: boolean,
+    amazonCategoryId: string
   ) => {
     const newProductCategory = new ProductCategory({
       name,
       ebayCategoryId,
-      // ebayCategoryId,
+      amazonCategoryId,
+      platform,
       description,
       image,
       tags,
