@@ -73,6 +73,7 @@ const seedData = async () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+
   const adminCategoryData = {
     _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"), // Unique ID for super admin
     role: "admin",
@@ -142,9 +143,11 @@ const seedData = async () => {
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+
   let userCategory = await UserCategory.findOne({
     role: superAdminCategoryData.role,
   });
+
   let adminUserCategory = await UserCategory.findOne({
     role: adminCategoryData.role,
   });
@@ -184,6 +187,7 @@ const seedData = async () => {
       console.log("Admin User Category already exists and matches.");
     }
   }
+
   // 2. Seed Supplier User Category (New Category)
   const supplierCategoryData = {
     _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"), // Unique ID for supplier
@@ -191,21 +195,64 @@ const seedData = async () => {
     description: "This is Supplier Category",
     permissions: [
       "DASHBOARD",
-      "SETTINGS",
+
       "MANAGE_USERS",
+      // "ADD_USERS_CATEGORY",
+      // "VIEW_USERS_CATEGORY",
       "ADD_USERS",
       "VIEW_USERS",
+
       "MANAGE_SUPPLIERS",
+      "ADD_SUPPLIERS_CATEGORY",
       "VIEW_SUPPLIERS_CATEGORY",
+      "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
+
       "MANAGE_INVENTORY",
+      // "ADD_INVENTORY_CATEGORY",
+      // "VIEW_INVENTORY_CATEGORY",
+      "ADD_INVENTORY",
       "VIEW_INVENTORY",
-      "VIEW_INVENTORY_CATEGORY",
-      "MANAGE_TAXES_AND_DISCOUNTS",
-      "ADD_TAXES",
-      "VIEW_TAXES",
-      "ADD_DISCOUNTS",
-      "VIEW_DISCOUNTS",
+      "ADD_STOCK",
+      "VIEW_STOCK",
+      "VIEW_LISTING",
+      "ADD_LISTING",
+      "MANAGE_DISCOUNTS",
+
+      // "MANAGE_BUNDLES",
+      // "ADD_BUNDLES",
+      // "VIEW_BUNDLES",
+
+      // "GAMERS_COMMUNITY",
+      // "VIEW_BLOGS_CATEGORY",
+      // "ADD_BLOGS_CATEGORY",
+      // "VIEW_BLOGS",
+      // "ADD_BLOGS",
+      // "VIEW_GAMERS_COMMUNITY",
+      // "ADD_GAMERS_COMMUNITY",
+
+      // "HR_MANAGEMENET",
+      // "VIEW_EMPLOYEES",
+      // "ADD_EMPLOYEES",
+      // "VIEW_WORK_SHIFT",
+      // "ADD_WORK_SHIFT",
+      // "VIEW_ATTENDANCE",
+
+      // "MANAGE_TICKETING",
+
+      // "MANAGE_DOCUMENTS",
+
+      // "MANAGE_POLICIES",
+      // "VIEW_CUSTOM_POLICIES",
+      // "ADD_CUSTOM_POLICIES",
+      // "VIEW_PAYMENT_POLICIES",
+      // "ADD_PAYMENT_POLICIES",
+      // "VIEW_FULFILLMENT_POLICIES",
+      // "ADD_FULFILLMENT_POLICIES",
+      // "VIEW_RETURN_POLICIES",
+      // "ADD_RETURN_POLICIES",
+
+      "SETTINGS",
     ],
     isBlocked: false,
     createdAt: new Date(),
@@ -257,6 +304,7 @@ const seedData = async () => {
     resetPasswordExpires: 1741744977042,
     resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
+  
   // 3. Seed admin User
   const adminData = {
     _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
