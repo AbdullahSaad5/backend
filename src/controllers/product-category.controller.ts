@@ -6,11 +6,12 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const productCategoryController = {
   addCategory: async (req: Request, res: Response) => {
     try {
-      const { name, ebayCategoryId, description, image, tags, isBlocked, isPart } = req.body;
+      const { name, ebayCategoryId, amazonCategoryId, description, image, tags, isBlocked, isPart ,platform} = req.body;
       const newProductCategory = await productCategoryService.createCategory(
         name,
         ebayCategoryId,
-        // ebayCategoryId,
+        amazonCategoryId,
+        platform,
         description,
         image,
         tags,
