@@ -33,11 +33,12 @@ export const ebayListingService = {
       });
     }
   },
+
   getItemAspects: async (req: IParamsRequest<{ categoryId: string }>, res: Response) => {
     try {
       const accessToken = await getStoredEbayAccessToken();
-
       const categoryId = req.params.categoryId;
+
       const response = await fetch(
         `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/0/get_item_aspects_for_category?category_id=${categoryId}`,
         {
@@ -52,15 +53,17 @@ export const ebayListingService = {
       );
 
       const rawResponse = await response.text();
-      console.log("Raw response:", rawResponse);
 
-      // Then try parsing only if JSON
       let data;
       try {
         data = JSON.parse(rawResponse);
+        console.log("Parsed JSON data:", data);
       } catch (err) {
         console.error("Failed to parse JSON:", err);
-        return res.status(500).json({ error: "Failed to parse API response", details: rawResponse });
+        return res.status(500).json({
+          error: "Failed to parse API response",
+          details: rawResponse,
+        });
       }
 
       if (!response.ok) {
@@ -71,10 +74,27 @@ export const ebayListingService = {
         });
       }
 
+      // let filteredAspectNames: string[] = [];
+      // if (data && Array.isArray(data.aspects)) {
+      //   console.log("All aspects:", data.aspects);
+      //   filteredAspectNames = filterAspectNamesByEnabledForVariations(data.aspects);
+      // }
+
+      // return res.status(response.status).json({
+      //   status: response.status,
+      //   statusText: response.statusText,
+      //   aspectNames: filteredAspectNames,
+      // });
+
+      let allAspectNames = [];
+      if (data && Array.isArray(data.aspects)) {
+        allAspectNames = getAllAspectNames(data.aspects);
+      }
+
       return res.status(response.status).json({
         status: response.status,
         statusText: response.statusText,
-        data,
+        aspectNames: allAspectNames,
       });
     } catch (error) {
       console.log(error);
@@ -86,6 +106,7 @@ export const ebayListingService = {
       });
     }
   },
+
   getUserAuthorizationUrl: async (req: Request, res: Response) => {
     try {
       // const type = req.query.type as "production" | "sandbox";
@@ -1388,4 +1409,12 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
       ${deleteXml}
       ${picturesXml}
     </Variations>`;
+}
+// function filterAspectNamesByEnabledForVariations(aspects: any[]) {
+//   const filtered = aspects.filter((aspect) => aspect.aspectConstraint?.aspectRequired === true);
+//   console.log("Filtered required aspects count:", filtered.length);
+//   return filtered.map((aspect) => aspect.localizedAspectName);
+// }
+function getAllAspectNames(aspects: any[]) {
+  return aspects.map((aspect) => aspect.localizedAspectName);
 }
