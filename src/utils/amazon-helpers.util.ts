@@ -3,7 +3,7 @@ import fs from "fs";
 import dotenv from "dotenv";
 
 // Configure dotenv to use .env file
-dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
+dotenv.config({ path: `.env.${process.env.AMAZON_TOKEN_ENV || "dev"}` });
 
 type AmazonEnvironment = "PRODUCTION" | "SANDBOX";
 
@@ -45,7 +45,7 @@ const SCOPES = [
 
 export const getStoredAmazonAccessToken = async () => {
   try {
-    const type = process.env.NODE_ENV === "production" ? "PRODUCTION" : "SANDBOX";
+    const type = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
     const useClient =
       process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
     const tokenFile = type === "PRODUCTION" ? "amazon_tokens.json" : "amazon_tokens_sandbox.json";
