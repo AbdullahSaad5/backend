@@ -3,9 +3,10 @@ import { ProductCategory } from "@/models";
 
 export const productCategoryService = {
   createCategory: (
-    name: String,
+    name: string,
     ebayCategoryId: string,
-    // ebayCategoryId: string,
+    amazonCategoryId: string,
+    platform: string,
     description: string,
     image: string,
     tags: string[],
@@ -15,7 +16,8 @@ export const productCategoryService = {
     const newProductCategory = new ProductCategory({
       name,
       ebayCategoryId,
-      // ebayCategoryId,
+      amazonCategoryId,
+      platform,
       description,
       image,
       tags,
@@ -37,8 +39,8 @@ export const productCategoryService = {
     return ProductCategory.findByIdAndUpdate(id, data, { new: true });
   },
 
-  deleteCategory: (id: string) => {
-    const category = ProductCategory.findByIdAndDelete(id);
+  deleteCategory: async (id: string) => {
+    const category = await ProductCategory.findByIdAndDelete(id);
     if (!category) {
       throw new Error("Category not found");
     }
@@ -46,7 +48,7 @@ export const productCategoryService = {
   },
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
-    const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isBlocked: isBlocked }, { new: true });
+    const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isBlocked }, { new: true });
     if (!updatedCategory) {
       throw new Error("Category not found");
     }

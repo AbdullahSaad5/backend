@@ -12,10 +12,11 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
-
+import { IParamsRequest } from "@/contracts/request.contract";
 const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
 const useClient =
   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
+const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
 export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -28,6 +29,79 @@ export const ebayListingService = {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         error: "Failed to get application token",
+        details: error,
+      });
+    }
+  },
+
+  getItemAspects: async (req: IParamsRequest<{ categoryId: string }>, res: Response) => {
+    try {
+      const accessToken = await getStoredEbayAccessToken();
+      const categoryId = req.params.categoryId;
+
+      const response = await fetch(
+        `https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/0/get_item_aspects_for_category?category_id=${categoryId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            "Content-Language": "en-US",
+            "Accept-Language": "en-US",
+          },
+        }
+      );
+
+      const rawResponse = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(rawResponse);
+        // console.log("Parsed JSON data:", data);
+      } catch (err) {
+        console.error("Failed to parse JSON:", err);
+        return res.status(500).json({
+          error: "Failed to parse API response",
+          details: rawResponse,
+        });
+      }
+
+      if (!response.ok) {
+        return res.status(response.status).json({
+          status: response.status,
+          statusText: response.statusText,
+          data,
+        });
+      }
+
+      // let filteredAspectNames: string[] = [];
+      // if (data && Array.isArray(data.aspects)) {
+      //   console.log("All aspects:", data.aspects);
+      //   filteredAspectNames = filterAspectNamesByEnabledForVariations(data.aspects);
+      // }
+
+      // return res.status(response.status).json({
+      //   status: response.status,
+      //   statusText: response.statusText,
+      //   aspectNames: filteredAspectNames,
+      // });
+
+      let allAspectNames = [];
+      if (data && Array.isArray(data.aspects)) {
+        allAspectNames = getAllAspectNames(data.aspects);
+      }
+
+      return res.status(response.status).json({
+        status: response.status,
+        statusText: response.statusText,
+        aspectNames: allAspectNames,
+      });
+    } catch (error) {
+      console.log(error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "API call failed",
         details: error,
       });
     }
@@ -338,8 +412,7 @@ export const ebayListingService = {
       }
 
       // console.log("variationXml", variationXml);
-      const categoryId =
-        ebayData.productInfo.productCategory.ebayCategoryId ;
+      const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
       const retailPrice =
@@ -511,8 +584,7 @@ export const ebayListingService = {
 
       // console.log("variationXml", variationXml);
 
-      const categoryId =
-        ebayData.productInfo.productCategory.ebayCategoryId;
+      const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
       const retailPrice =
@@ -1337,4 +1409,12 @@ async function generateVariationsForListingWithoutStockXml(ebayData: any): Promi
       ${deleteXml}
       ${picturesXml}
     </Variations>`;
+}
+// function filterAspectNamesByEnabledForVariations(aspects: any[]) {
+//   const filtered = aspects.filter((aspect) => aspect.aspectConstraint?.aspectRequired === true);
+//   console.log("Filtered required aspects count:", filtered.length);
+//   return filtered.map((aspect) => aspect.localizedAspectName);
+// }
+function getAllAspectNames(aspects: any[]) {
+  return aspects.map((aspect) => aspect.localizedAspectName);
 }
