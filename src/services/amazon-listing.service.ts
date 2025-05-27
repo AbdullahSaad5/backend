@@ -309,8 +309,7 @@ export const amazonListingService = {
       }
 
       // Accept dynamic marketplaceId and environment via query parameters
-      let marketplaceId = (req.query.marketplaceId as string) || process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // Default UK here
-      marketplaceId = marketplaceId.trim(); // Important: remove trailing whitespace/newlines
+      let marketplaceId = process.env.AMAZON_MARKETPLACE_ID; // Default UK here
 
       const env = process.env.AMAZON_TOKEN_ENV === "production" ? "production" : "sandbox";
       console.log(`Environment set to: ${env}`);
@@ -343,7 +342,7 @@ export const amazonListingService = {
 
       const responseData = await response.json();
 
-      console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
+      // console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
 
       const transformedCategories = (responseData.productTypes || []).map((category: any) => ({
         id: category.name,
