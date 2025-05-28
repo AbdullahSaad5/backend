@@ -863,7 +863,7 @@ class AmazonSchemaParser {
     if (marketplaceDef?.anyOf?.[1]?.enum) {
       return {
         id: marketplaceDef.anyOf[1].enum[0],
-        name: marketplaceDef.anyOf[1].enumNames[0],
+        name: marketplaceDef.anyOf[1].enumNames?.[0] || "Unknown Marketplace",
       };
     }
     return { id: "unknown", name: "Unknown Marketplace" };
@@ -874,19 +874,17 @@ class AmazonSchemaParser {
     if (languageDef?.anyOf?.[1]?.enum) {
       return {
         tag: languageDef.anyOf[1].enum[0],
-        name: languageDef.anyOf[1].enumNames[0],
+        name: languageDef.anyOf[1].enumNames?.[0] || "English",
       };
     }
     return { tag: "en", name: "English" };
   }
 
   public parse(): TransformedSchema {
-    // Parse main properties
     if (this.schema.properties) {
       this.parseProperties(this.schema.properties);
     }
 
-    // Parse conditional rules from allOf
     if (this.schema.allOf) {
       this.parseConditionalRules(this.schema.allOf);
     }
@@ -900,7 +898,6 @@ class AmazonSchemaParser {
       const transformedField = this.transformProperty(key, property as any, fieldPath);
 
       if (parentPath) {
-        // Handle nested properties
         this.setNestedField(parentPath, key, transformedField);
       } else {
         this.transformedSchema.fields[key] = transformedField;
@@ -920,6 +917,7 @@ class AmazonSchemaParser {
         }
       } else {
         current = current[part];
+        if (!current) return;
         if (current.type === "object") {
           current = current.properties;
         } else if (current.type === "array") {
@@ -936,35 +934,53 @@ class AmazonSchemaParser {
     if (!property || typeof property !== "object") {
       throw new Error(`Invalid or undefined property for key "${key}" at path "${fieldPath}"`);
     }
+
+    const isRequired = this.transformedSchema.requiredFields.includes(key) || this.isRequiredInParent(fieldPath);
+
     const baseField: Partial<BaseField> = {
       id: fieldPath,
       name: key,
-      title: property.title || this.humanizeFieldName(key),
-      description: property.description,
-      required: this.transformedSchema.requiredFields.includes(key),
+      title: property.title ?? this.humanizeFieldName(key),
+      description: property.description ?? "",
+      required: isRequired,
       editable: property.editable !== false,
       hidden: property.hidden === true,
       examples: property.examples,
       defaultValue: property.default,
     };
 
-    // Handle array types
-    if (property.type === "array") {
-      return this.transformArrayField(baseField, property, fieldPath);
-    }
-
-    // Handle object types
-    if (property.type === "object") {
-      return this.transformObjectField(baseField, property, fieldPath);
-    }
-
-    // Handle enum types
+    // Handle enums first
     if (property.enum || property.anyOf?.some((item: any) => item.enum)) {
       return this.transformEnumField(baseField, property);
     }
 
-    // Handle basic types
-    return this.transformBasicField(baseField, property);
+    switch (property.type) {
+      case "array":
+        return this.transformArrayField(baseField, property, fieldPath);
+      case "object":
+        return this.transformObjectField(baseField, property, fieldPath);
+      case "string":
+      case "number":
+      case "boolean":
+      case "integer":
+        return this.transformBasicField(baseField, property);
+      default:
+        return this.transformBasicField(baseField, property);
+    }
+  }
+
+  // Helper: check if field is required by its parent object
+  private isRequiredInParent(fieldPath: string): boolean {
+    const parts = fieldPath.split(".");
+    if (parts.length <= 1) return false;
+
+    let currentSchema = this.schema;
+    for (let i = 0; i < parts.length - 1; i++) {
+      currentSchema = currentSchema.properties?.[parts[i]];
+      if (!currentSchema) return false;
+    }
+    const lastPart = parts[parts.length - 1];
+    return currentSchema?.required?.includes(lastPart) ?? false;
   }
 
   private transformArrayField(baseField: Partial<BaseField>, property: any, fieldPath: string): ArrayField {
@@ -986,7 +1002,7 @@ class AmazonSchemaParser {
       items,
       minItems: property.minItems,
       maxItems: property.maxItems || property.maxUniqueItems,
-      uniqueItems: property.minUniqueItems > 0 || property.uniqueItems,
+      uniqueItems: property.uniqueItems || property.minUniqueItems > 0,
     } as ArrayField;
   }
 
@@ -996,7 +1012,7 @@ class AmazonSchemaParser {
       type: "object",
       properties: {},
       requiredFields: property.required || [],
-    } as ObjectField;
+    }as ObjectField;
 
     if (property.properties) {
       this.parseProperties(property.properties, fieldPath);
@@ -1044,7 +1060,7 @@ class AmazonSchemaParser {
     };
 
     // Add string-specific validations
-    if (type === "string" || type === "email" || type === "url" || type === "date") {
+    if (["string", "email", "url", "date"].includes(type)) {
       if (property.minLength !== undefined) field.minLength = property.minLength;
       if (property.maxLength !== undefined) field.maxLength = property.maxLength;
       if (property.pattern) field.pattern = property.pattern;
@@ -1075,6 +1091,8 @@ class AmazonSchemaParser {
       }
     }
 
+    if (property.type === "integer") return "number";
+
     return property.type || "string";
   }
 
@@ -1094,9 +1112,7 @@ class AmazonSchemaParser {
       const condition = this.parseCondition(rule.if);
       if (!condition) return null;
 
-      const conditionalRule: ConditionalRule = {
-        condition,
-      };
+      const conditionalRule: ConditionalRule = { condition };
 
       if (rule.then) {
         conditionalRule.then = this.parseRuleAction(rule.then);
@@ -1114,21 +1130,19 @@ class AmazonSchemaParser {
   }
 
   private parseCondition(ifCondition: any): ConditionalRule["condition"] | null {
-    // Handle anyOf conditions
-    if (ifCondition.anyOf) {
-      // For now, we'll handle the first condition in anyOf
+        // Handle anyOf conditions
+        if (ifCondition.anyOf) {
+             // For now, we'll handle the first condition in anyOf
       // This can be enhanced to handle complex OR conditions
       return this.parseCondition(ifCondition.anyOf[0]);
     }
-
     // Handle allOf conditions
     if (ifCondition.allOf) {
-      // For now, we'll handle the first condition in allOf
+         // For now, we'll handle the first condition in allOf
       // This can be enhanced to handle complex AND conditions
       return this.parseCondition(ifCondition.allOf[0]);
     }
-
-    // Handle not conditions
+ // Handle not conditions
     if (ifCondition.not) {
       const innerCondition = this.parseCondition(ifCondition.not);
       if (innerCondition) {
@@ -1139,15 +1153,14 @@ class AmazonSchemaParser {
       }
     }
 
-    // Handle required field conditions
+      // Handle required field conditions
     if (ifCondition.required && Array.isArray(ifCondition.required)) {
       return {
         field: ifCondition.required[0],
         operator: "exists",
       };
     }
-
-    // Handle property value conditions
+ // Handle property value conditions
     if (ifCondition.properties) {
       const fieldName = Object.keys(ifCondition.properties)[0];
       const fieldCondition = ifCondition.properties[fieldName];
@@ -1178,7 +1191,14 @@ class AmazonSchemaParser {
       result.requiredFields = action.required;
     }
 
-    // Add more action parsing as needed
+    if (action.properties) {
+      if (action.properties.hidden) {
+        result.hiddenFields = Object.keys(action.properties.hidden);
+      }
+      if (action.properties.disabled) {
+        result.disabledFields = Object.keys(action.properties.disabled);
+      }
+    }
 
     return result;
   }
@@ -1222,7 +1242,7 @@ export const parseAmazonSchema = async (req: Request, res: Response) => {
   }
 };
 
-// Utility function to validate transformed schema before saving to DB
+// Utility function export (optional)
 export const validateTransformedSchema = (schema: TransformedSchema): boolean => {
   try {
     // Basic validation checks
@@ -1279,3 +1299,4 @@ export const saveSchemaToDatabase = async (schema: TransformedSchema) => {
 };
 
 export { AmazonSchemaParser, TransformedSchema, TransformedField };
+
