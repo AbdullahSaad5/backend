@@ -56,7 +56,10 @@ export const productCategoryController = {
       console.error("View Categories Error:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting all product categories" });
+        .json({
+          success: false,
+          message: "Error getting all product categories",
+        });
     }
   },
 
@@ -65,27 +68,42 @@ export const productCategoryController = {
       const id = req.params.id;
       const result = await productCategoryService.getById(id);
       //   console.log(result);
-      if (!result) return res.status(404).json({ message: "Category not found" });
+      if (!result)
+        return res.status(404).json({ message: "Category not found" });
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error) {
       console.error("View Category Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting product category" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error getting product category" });
     }
   },
 
   editCategory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name, description, image, tags, isBlocked, isPart, platform } = req.body;
-
-      const category = await productCategoryService.editCategory(id, {
+      const {
         name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart,
-        platform, // <-- optionally include platform here
+      } = req.body;
+
+      const category = await productCategoryService.editCategory(id, {
+        name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
+        description,
+        image,
+        tags,
+        isBlocked,
+        isPart,
       });
 
       res.status(StatusCodes.OK).json({
@@ -106,7 +124,13 @@ export const productCategoryController = {
     try {
       const { id } = req.params;
       const result = await productCategoryService.deleteCategory(id);
-      res.status(StatusCodes.OK).json({ success: true, message: "Category deleted successfully", deletedUser: result });
+      res
+        .status(StatusCodes.OK)
+        .json({
+          success: true,
+          message: "Category deleted successfully",
+          deletedUser: result,
+        });
     } catch (error) {
       console.error("Delete Category Error:", error);
       res
@@ -130,7 +154,10 @@ export const productCategoryController = {
       console.error("Toggle Block Category Error:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating product category status" });
+        .json({
+          success: false,
+          message: "Error updating product category status",
+        });
     }
   },
 };
