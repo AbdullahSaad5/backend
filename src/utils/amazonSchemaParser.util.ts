@@ -798,11 +798,13 @@ interface ConditionalRule {
     requiredFields?: string[];
     hiddenFields?: string[];
     disabledFields?: string[];
+    enums?: Record<string, { values: any[]; names: any[] }>;
   };
   else?: {
     requiredFields?: string[];
     hiddenFields?: string[];
     disabledFields?: string[];
+    enums?: Record<string, { values: any[]; names: any[] }>;
   };
 }
 
@@ -1015,7 +1017,13 @@ class AmazonSchemaParser {
     }as ObjectField;
 
     if (property.properties) {
-      this.parseProperties(property.properties, fieldPath);
+      // Instead of calling parseProperties (which adds to top-level fields),
+      // manually transform each property and add to this object's properties
+      for (const [key, prop] of Object.entries(property.properties)) {
+        const childFieldPath = `${fieldPath}.${key}`;
+        const transformedChild = this.transformProperty(key, prop, childFieldPath);
+        objectField.properties[key] = transformedChild;
+      }
     }
 
     return objectField;
@@ -1130,19 +1138,19 @@ class AmazonSchemaParser {
   }
 
   private parseCondition(ifCondition: any): ConditionalRule["condition"] | null {
-        // Handle anyOf conditions
-        if (ifCondition.anyOf) {
-             // For now, we'll handle the first condition in anyOf
+    // Handle anyOf conditions
+    if (ifCondition.anyOf) {
+      // For now, we'll handle the first condition in anyOf
       // This can be enhanced to handle complex OR conditions
       return this.parseCondition(ifCondition.anyOf[0]);
     }
     // Handle allOf conditions
     if (ifCondition.allOf) {
-         // For now, we'll handle the first condition in allOf
+      // For now, we'll handle the first condition in allOf
       // This can be enhanced to handle complex AND conditions
       return this.parseCondition(ifCondition.allOf[0]);
     }
- // Handle not conditions
+    // Handle not conditions
     if (ifCondition.not) {
       const innerCondition = this.parseCondition(ifCondition.not);
       if (innerCondition) {
@@ -1153,14 +1161,14 @@ class AmazonSchemaParser {
       }
     }
 
-      // Handle required field conditions
+    // Handle required field conditions
     if (ifCondition.required && Array.isArray(ifCondition.required)) {
       return {
         field: ifCondition.required[0],
         operator: "exists",
       };
     }
- // Handle property value conditions
+    // Handle property value conditions
     if (ifCondition.properties) {
       const fieldName = Object.keys(ifCondition.properties)[0];
       const fieldCondition = ifCondition.properties[fieldName];
@@ -1197,6 +1205,40 @@ class AmazonSchemaParser {
       }
       if (action.properties.disabled) {
         result.disabledFields = Object.keys(action.properties.disabled);
+      }
+
+      // Extract enums from properties
+      result.enums = {};
+      for (const [field, schema] of Object.entries(action.properties)) {
+        // Handle array of objects with enum in "value"
+        if (
+          typeof schema === "object" &&
+          schema !== null &&
+          "type" in schema &&
+          (schema as any).type === "array" &&
+          "items" in schema &&
+          (schema as any).items &&
+          (schema as any).items.properties &&
+          (schema as any).items.properties.value &&
+          Array.isArray((schema as any).items.properties.value.enum)
+        ) {
+          result.enums[field] = {
+            values: (schema as any).items.properties.value.enum,
+            names: (schema as any).items.properties.value.enumNames || (schema as any).items.properties.value.enum,
+          };
+        }
+        // Handle direct enum fields
+        else if (
+          typeof schema === "object" &&
+          schema !== null &&
+          "enum" in schema &&
+          Array.isArray((schema as any).enum)
+        ) {
+          result.enums[field] = {
+            values: (schema as any).enum,
+            names: (schema as any).enumNames || (schema as any).enum,
+          };
+        }
       }
     }
 
@@ -1299,4 +1341,3 @@ export const saveSchemaToDatabase = async (schema: TransformedSchema) => {
 };
 
 export { AmazonSchemaParser, TransformedSchema, TransformedField };
-
