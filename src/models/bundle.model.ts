@@ -1,119 +1,108 @@
 import { Schema, model, Types } from "mongoose";
-import { IProduct } from "@/contracts/listing.contract";
-import { IProductCategory } from "@/contracts/product-category.contract";
-import { IProductBrand } from "@/contracts/product-brand.contract";
 
-// Schema for Bundle
+export const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+
+  filename: { type: String },
+};
+
 const bundleSchema = new Schema(
   {
     // Bundle Name
-    bundleName: {
+    name: {
       type: String,
       required: true,
       trim: true,
     },
 
-    // Bundle Description
-    description: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    // Promotional images or material for the bundle
-    imageUrls: {
-      type: [String], // Array of URLs to images or promotional material
-      required: false,
-    },
-
-    // Products included in the Bundle (Referencing Product Model)
-    products: [
+    // Promotional images with alt text
+    images: { type: [mediaSchema], _id: false },
+    status: { type: String, enum: ["draft", "published"], default: "draft" },
+    isBlocked: { type: Boolean, default: false },
+    // Items in the bundle
+    items: [
       {
-        product: {
+        productId: {
           type: Types.ObjectId,
-          ref: "Product", // Reference to the Product model
+          ref: "Inventory",
           required: true,
         },
-        quantity: {
-          type: Number,
-          required: true,
-          min: 1, // Ensuring at least one unit of product
-        },
-        //todo fix
-        price: {
-          type: Number,
+        isPrime: { type: Boolean, default: false },
+        stockId: {
+          type: Types.ObjectId,
+          ref: "Stock",
           required: true,
         },
-        discount: {
-          type: Number,
-          default: 0, // Discount on individual product in the bundle
+        isSimpleProduct: {
+          type: Boolean,
+          default: false,
         },
+        selectedVariations: [
+          {
+            variationId: {
+              type: Types.ObjectId,
+              ref: "Variation",
+              required: true,
+            },
+            quantity: {
+              type: Number,
+              required: true,
+              min: 1,
+            },
+            customPrice: {
+              type: Number,
+              required: true,
+              min: 0,
+            },
+            _id: false,
+          },
+        ],
+        _id: false,
       },
     ],
 
-    // Total cost of the bundle after considering product prices and discounts
-    //TODO fix
-    totalCost: {
+    // Total possible combinations in the bundle
+    totalCombinations: {
       type: Number,
       required: true,
-      min: 0, // Ensuring non-negative value
+      min: 1,
     },
-
-    // Bundle-wide discount
-    discount: {
-      type: Number,
-      default: 0, // Discount applied to the entire bundle
-      min: 0, // Discount cannot be negative
-    },
-
-    // Validity period for the bundle's pricing and discount
-    validityPeriod: {
-      startDate: {
-        type: Date,
-        required: false,
+    selectedBundleCombinations: [
+      {
+        combinationName: { type: String },
+        variationId: {
+          type: Types.ObjectId,
+          ref: "Variation",
+          required: true,
+        },
+        totalQuantity: {
+          type: Number,
+          required: true,
+          min: 1,
+        },
+        costPricePerVariationCombination: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+        _id: false,
       },
-      endDate: {
-        type: Date,
-        required: false,
-      },
-    },
+    ],
 
-    // Status of the bundle (draft or published)
-    status: {
-      type: String,
-      enum: ["draft", "published"], // Draft for unapproved bundles, published for active ones
-      default: "draft", // Default to draft when created
-    },
 
-    // Bundle Category - Can help group bundles by category (e.g., Gaming, Office)
-    category: {
-      type: Types.ObjectId,
-      ref: "ProductCategory", // Reference to Category Model
+    // Bundle expiration date
+    validity: {
+      type: Date,
       required: true,
-    },
-
-    // Bundle Brand (Optional - You may want to group bundles by a brand)
-    brand: {
-      type: Types.ObjectId,
-      ref: "ProductBrand", // Reference to ProductBrand Model
-      required: false, // Optional field, not required
-    },
-
-    // Total Quantity of the bundle available (Inventory Tracking)
-    bundleQuantity: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0, // Number of bundles in stock
-    },
-
-    // Additional fields for stock management
-    stockNotificationLevel: {
-      type: Number,
-      default: 5, // Level at which you want to be notified about low stock
     },
   },
-  { timestamps: true } // Automatically manage createdAt and updatedAt fields
+  { timestamps: true }
 );
 
 // Model for the Bundle

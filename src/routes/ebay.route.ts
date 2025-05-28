@@ -1,4 +1,4 @@
-import { ebayService } from "@/services";
+import { ebayListingService } from "@/services";
 import {
   exchangeCodeForAccessToken,
   getEbayAuthURL,
@@ -9,59 +9,62 @@ import {
 import e, { Router } from "express";
 // import ebayToken from "../../ebay_tokens.json";
 
-const baseURL = "https://api.ebay.com";
+const baseURL = "https://api.sandbox.ebay.com";
 
 export const ebay = (router: Router) => {
-  router.get("/auth/initial", ebayService.getApplicationAuthToken);
-  router.get("/auth/ebay", ebayService.getUserAuthorizationUrl);
-  router.get("/auth/ebay/callback", ebayService.handleAuthorizationCallback);
-  router.get(
-    "/auth/ebay/callback/declined",
-    ebayService.handleFallbackCallback
-  );
-  router.get("/auth/refresh-token", ebayService.handleRefreshToken);
-
-  router.get("/inventory", ebayService.getAllInventory);
-  router.get("/inventory/get-all-categories", ebayService.getAllCategories);
+  router.get("/auth/initial", ebayListingService.getApplicationAuthToken);
+  router.get("/auth/ebay", ebayListingService.getUserAuthorizationUrl);
+  router.get("/auth/ebay/callback", ebayListingService.handleAuthorizationCallback);
+  router.get("/auth/ebay/callback/sandbox", ebayListingService.handleAuthorizationCallbackSandbox);
+  router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
+  router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
+  router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
+  router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
+  router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
+  router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
+  router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
+  router.get("/orders/get-orders", ebayListingService.getOrders);
+  // router.get("/inventory", ebayListingService.getAllInventory);
+  // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
   router.get(
     "/inventory/get-item-aspects/:categoryId",
-    ebayService.getItemAspects
+    ebayListingService.getItemAspects
   );
-  router.post("/inventory/create-item", ebayService.createProduct);
-  router.patch("/inventory/update-item", ebayService.updateProduct);
-  router.delete("/inventory/delete-item/:sku", ebayService.deleteProduct);
+  // router.post("/inventory/create-item", ebayListingService.createProduct);
+  // router.patch("/inventory/update-item", ebayListingService.updateProduct);
+  // router.delete("/inventory/delete-item/:sku", ebayListingService.deleteProduct);
 
-  router.post("/create-offer", ebayService.createOffer);
-  router.get("/get-all-offers/:sku", ebayService.getAllOffers);
-  router.post("/publish-offer/:offerId", ebayService.publishOffer);
-  router.patch("/update-offer/:offerId", ebayService.updateOffer);
+  // router.post("/create-offer", ebayListingService.createOffer);
+  // router.get("/get-all-offers/:sku", ebayListingService.getAllOffers);
+  // router.post("/publish-offer/:offerId", ebayListingService.publishOffer);
+  // router.patch("/update-offer/:offerId", ebayListingService.updateOffer);
 
-  router.post("/create-custom-policy", ebayService.createCustomPolicy);
-  router.get("/get-all-custom-policies", ebayService.getAllCustomPolicies);
-  router.patch(
-    "/update-custom-policy/:policyId",
-    ebayService.updateCustomPolicy
-  );
+  // router.post("/create-custom-policy", ebayListingService.createCustomPolicy);
+  // router.get("/get-all-custom-policies", ebayListingService.getAllCustomPolicies);
+  // router.patch(
+  //   "/update-custom-policy/:policyId",
+  //   ebayListingService.updateCustomPolicy
+  // );
 
-  router.post(
-    "/create-fulfillment-policy",
-    ebayService.createFulfillmentPolicy
-  );
-  router.get(
-    "/get-all-fulfillment-policies",
-    ebayService.getAllFulfillmentPolicies
-  );
+  // router.post(
+  //   "/create-fulfillment-policy",
+  //   ebayListingService.createFulfillmentPolicy
+  // );
+  // router.get(
+  //   "/get-all-fulfillment-policies",
+  //   ebayListingService.getAllFulfillmentPolicies
+  // );
 
-  router.get("/get-locations", ebayService.getInventoryLocations);
-  router.post(
-    "/create-location/:merchantLocationKey",
-    ebayService.createInventoryLocation
-  );
+  // router.get("/get-locations", ebayListingService.getInventoryLocations);
+  // router.post(
+  //   "/create-location/:merchantLocationKey",
+  //   ebayListingService.createInventoryLocation
+  // );
 
-  router.post("/opt-in", ebayService.sellingPolicyManagementProgramOptIn);
-  router.post("/create-payment-policy", ebayService.createPaymentPolicy);
-  router.get("/get-all-payment-policies", ebayService.getAllPaymentPolicies);
+  // router.post("/opt-in", ebayListingService.sellingPolicyManagementProgramOptIn);
+  // router.post("/create-payment-policy", ebayListingService.createPaymentPolicy);
+  // router.get("/get-all-payment-policies", ebayListingService.getAllPaymentPolicies);
 
-  router.post("/create-return-policy", ebayService.createReturnPolicy);
-  router.get("/get-all-return-policies", ebayService.getAllReturnPolicies);
+  // router.post("/create-return-policy", ebayListingService.createReturnPolicy);
+  // router.get("/get-all-return-policies", ebayListingService.getAllReturnPolicies);
 };

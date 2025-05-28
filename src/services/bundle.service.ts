@@ -17,21 +17,40 @@ export const bundleService = {
   // Get all bundles
   getAllBundles: async () => {
     try {
-      return await Bundle.find(); // Fetch all bundles from the database
+      return await Bundle.find()
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
     } catch (error) {
       console.error("Error fetching bundles:", error);
       throw new Error("Failed to retrieve bundles from the database");
     }
   },
 
-  // Get a bundle by ID
+  getAllPublishedBundles: async (condition: Record<string, any>) => {
+    try {
+      return await Bundle.find(condition)
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
+    } catch (error) {
+      console.error("Error fetching published bundles:", error);
+      throw new Error("Failed to retrieve published bundles from the database");
+    }
+  },
+
   getBundleById: async (bundleId: string) => {
     try {
-      const bundle = await Bundle.findById(bundleId); // Fetch a specific bundle by its ID
+      const bundle = await Bundle.findById(bundleId)
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
+
       if (!bundle) {
         throw new Error("Bundle not found");
       }
-      return bundle; // Return the found bundle
+
+      return bundle;
     } catch (error) {
       console.error("Error fetching bundle:", error);
       throw new Error("Failed to retrieve the bundle");

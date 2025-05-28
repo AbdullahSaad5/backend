@@ -8,7 +8,7 @@ const DiscountSchema = new Schema<IDiscount>(
     applicableCategory: {
       type: Schema.Types.ObjectId,
       ref: "ProductCategory",
-      unique: true,
+
     },
   },
   { timestamps: true }

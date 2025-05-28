@@ -9,5 +9,4 @@ export const taxes = (router: Router) => {
 
   router.post("/", taxesController.createOrUpdateTax); // Create or update
   router.get("/", taxesController.getTax);
-  router.patch("/", taxesController.updateTax);
 };

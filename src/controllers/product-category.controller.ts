@@ -1,3 +1,4 @@
+import { ebay } from "@/routes/ebay.route";
 import { productCategoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
@@ -5,31 +6,45 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const productCategoryController = {
   addCategory: async (req: Request, res: Response) => {
     try {
-      const { name, description, image, tags, isBlocked, isPart } = req.body;
-      //   console.log(name, description, image);
+      const {
+        name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
+        description,
+        image,
+        tags,
+        isBlocked,
+        isPart,
+      } = req.body;
+
       const newProductCategory = await productCategoryService.createCategory(
         name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart
       );
-      res
-        .status(StatusCodes.CREATED)
-        .json({ success: true, message: "Product category created successfully", data: newProductCategory });
+
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Product category created successfully",
+        data: newProductCategory,
+      });
     } catch (error: any) {
       if (error.name === "MongoServerError" && error.code === 11000) {
-        console.error(error);
-        // Handle duplicate key error (unique constraint violation)
-        const field = Object.keys(error.keyPattern)[0]; // Find the duplicate field
-        res.status(StatusCodes.BAD_REQUEST).json({
+        const field = Object.keys(error.keyPattern)[0];
+        return res.status(StatusCodes.BAD_REQUEST).json({
           message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
         });
-      } else {
-        // console.error(error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating product category" });
       }
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error creating product category",
+      });
     }
   },
 
@@ -41,7 +56,10 @@ export const productCategoryController = {
       console.error("View Categories Error:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting all product categories" });
+        .json({
+          success: false,
+          message: "Error getting all product categories",
+        });
     }
   },
 
@@ -50,32 +68,55 @@ export const productCategoryController = {
       const id = req.params.id;
       const result = await productCategoryService.getById(id);
       //   console.log(result);
-      if (!result) return res.status(404).json({ message: "Category not found" });
+      if (!result)
+        return res.status(404).json({ message: "Category not found" });
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error) {
       console.error("View Category Error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting product category" });
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: "Error getting product category" });
     }
   },
 
   editCategory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name, description, image, tags, isBlocked, isPart } = req.body;
+      const {
+        name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
+        description,
+        image,
+        tags,
+        isBlocked,
+        isPart,
+      } = req.body;
+
       const category = await productCategoryService.editCategory(id, {
         name,
+        ebayCategoryId,
+        amazonCategoryId,
+        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart,
       });
-      res.status(StatusCodes.OK).json({ success: true, message: "Category updated successfully", data: category });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Category updated successfully",
+        data: category,
+      });
     } catch (error) {
       console.error("Edit Category Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating supplier category" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating supplier category",
+      });
     }
   },
 
@@ -83,7 +124,13 @@ export const productCategoryController = {
     try {
       const { id } = req.params;
       const result = await productCategoryService.deleteCategory(id);
-      res.status(StatusCodes.OK).json({ success: true, message: "Category deleted successfully", deletedUser: result });
+      res
+        .status(StatusCodes.OK)
+        .json({
+          success: true,
+          message: "Category deleted successfully",
+          deletedUser: result,
+        });
     } catch (error) {
       console.error("Delete Category Error:", error);
       res
@@ -107,7 +154,10 @@ export const productCategoryController = {
       console.error("Toggle Block Category Error:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating product category status" });
+        .json({
+          success: false,
+          message: "Error updating product category status",
+        });
     }
   },
 };

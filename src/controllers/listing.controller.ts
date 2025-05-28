@@ -1,9 +1,9 @@
-import { ebayService, listingService } from "@/services";
+import { ebayListingService, listingService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
-import { Inventory } from "@/models";
+import { Inventory, Listing } from "@/models";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -24,21 +24,21 @@ export const listingController = {
         });
       }
 
-      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Invalid or missing 'inventoryId' in request payload",
-        });
-      }
+      // if (!mongoose.isValidObjectId(stepData.inventoryId)) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Invalid or missing 'inventoryId' in request payload",
+      //   });
+      // }
 
       // Ensure inventoryId exists in database
-      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
-      if (!inventoryExists) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Inventory ID does not exist",
-        });
-      }
+      // const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
+      // if (!inventoryExists) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Inventory ID does not exist",
+      //   });
+      // }
 
       const draftListing = await listingService.createDraftListingService(stepData);
 
@@ -61,9 +61,6 @@ export const listingController = {
       const listingId = req.params.id;
       const { stepData } = req.body;
 
-      // console.log("Received request to update draft Listing:", { listingId, stepData });
-
-      // Validate listing ID
       if (!mongoose.isValidObjectId(listingId)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -71,7 +68,6 @@ export const listingController = {
         });
       }
 
-      // Validate stepData
       if (!stepData || typeof stepData !== "object") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -79,42 +75,66 @@ export const listingController = {
         });
       }
 
-      // Update listing
+      // Step 1: Update the local draft first
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
-      if (stepData.publishToEbay) {
-        // Sync product with eBay if it's marked for publishing
-        const ebayItemId = await ebayService.syncListingWithEbay(updatedListing);
 
-        // Update the product with the eBay Item ID
-        await listingService.updateDraftListing(updatedListing._id, {
-          ebayItemId,
-        });
+      let ebayResponse: any;
 
-        // Return success with the updated product
-        return res.status(StatusCodes.OK).json({
-          success: true,
-          message: "Draft product updated and synced with eBay successfully",
-          data: updatedListing,
-          ebayItemId, // Include eBay Item ID in the response
-        });
+      // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
+      if (updatedListing.ebayItemId) {
+        // Listing already exists on eBay → Update it
+        ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
+      } else if (updatedListing.status === "published" && updatedListing.publishToEbay === true) {
+        // Listing is marked as 'published' → Create new item on eBay
+        ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
       }
-      if (!updatedListing) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Listing not found or could not be updated",
-        });
+      if (ebayResponse) {
+        if (typeof ebayResponse === "string") {
+          ebayResponse = JSON.parse(ebayResponse);
+        }
+
+        const ackValue =
+          ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddFixedPriceItemResponse?.Ack;
+
+        const isAckSuccess = ackValue === "Success";
+        const isDirectSuccess = ebayResponse?.status === 200 && ebayResponse?.itemId;
+
+        if (!isAckSuccess && !isDirectSuccess) {
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Failed to sync with eBay",
+            ebayResponse,
+            ebayErrors:
+              ebayResponse?.response?.AddFixedPriceItemResponse?.Errors ||
+              ebayResponse?.response?.ReviseItemResponse?.Errors,
+          });
+        }
+
+        // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+        if (ebayResponse && !updatedListing.ebayItemId && ebayResponse.itemId) {
+          await listingService.updateDraftListing(updatedListing._id, {
+            ebayItemId: ebayResponse.itemId,
+            ebaySandboxUrl: ebayResponse.sandboxUrl,
+            ebayResponse, // optional: store raw response
+          });
+        }
       }
 
-      // If not marked for publishing, just return the updated product
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: "Draft Listing updated successfully",
-        data: updatedListing,
+        message: ebayResponse
+          ? "Draft product updated and synced with eBay successfully"
+          : "Draft product updated locally without syncing to eBay",
+        data: {
+          ...updatedListing.toObject(),
+          ebayItemId: ebayResponse?.itemId ?? updatedListing.ebayItemId,
+          ebaySandboxUrl: ebayResponse?.sandboxUrl ?? updatedListing.ebaySandboxUrl,
+        },
+        ebayResponse,
       });
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
 
-      // Check if the error is related to eBay synchronization
       if (error.message.includes("eBay")) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
@@ -122,7 +142,6 @@ export const listingController = {
         });
       }
 
-      // Generic internal error
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
@@ -146,6 +165,37 @@ export const listingController = {
     }
   },
 
+  getSellerList: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getEbaySellerList();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching listing:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching listing",
+      });
+    }
+  },
+
+  getCategoryFeatures: async (req: Request, res: Response) => {
+    try {
+      const listings = await listingService.getCategoryFeatures();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        getSellerList: listings,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Category Features", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching Categoory Features",
+      });
+    }
+  },
   getListingById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -224,8 +274,13 @@ export const listingController = {
         });
       }
 
-      const templateList = templates.map((template, index) => {
+      // console.log("templates :: " , templates)
+
+      const templateList = templates.map((template: any, index) => {
         const listingId = template._id;
+        const templateAlias = template?.alias;
+
+        // console.log("templateAlias : ", templateAlias);
         const kind = (template.kind || "UNKNOWN").toLowerCase();
 
         // ✅ Ensure correct access to prodTechInfo
@@ -233,7 +288,7 @@ export const listingController = {
         let fields: string[] = [];
 
         switch (kind) {
-          case "laptops":
+          case "listing_laptops":
             fields = [
               prodInfo.processor,
               prodInfo.model,
@@ -243,19 +298,19 @@ export const listingController = {
               prodInfo.operatingSystem,
             ];
             break;
-          case "all in one pc":
+          case "listing_all_in_one_pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
             break;
-          case "projectors":
+          case "listing_projectors":
             fields = [prodInfo.type, prodInfo.model];
             break;
-          case "monitors":
+          case "listing_monitors":
             fields = [prodInfo.screenSize, prodInfo.maxResolution];
             break;
-          case "gaming pc":
+          case "listing_gaming_pc":
             fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
             break;
-          case "network equipments":
+          case "listing_network_equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
           default:
@@ -264,9 +319,9 @@ export const listingController = {
 
         const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
         const srno = (index + 1).toString().padStart(2, "0");
-        const templateName = `${kind}-${fieldString}-${srno}`.toUpperCase();
+        const templateName = `Category:${kind} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        return { templateName, listingId };
+        return { templateName, listingId, templateAlias };
       });
 
       // Sorting based on numerical value at the end of templateName
@@ -279,7 +334,7 @@ export const listingController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Templates fetched successfully",
-        data: templateList,
+        data: { templateList, templates },
       });
     } catch (error: any) {
       console.error("Error fetching templates:", error);
@@ -405,6 +460,38 @@ export const listingController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error transforming listing Draft",
+      });
+    }
+  },
+
+  getCategorySubTree: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch listing from DB
+      const categorySubTree = await listingService.getFullListingById(id);
+
+      if (!categorySubTree) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "categrySubTree not found",
+        });
+      }
+
+      // Transform listing data using utility
+      const getCategorySubTree = listingService.getCategorySubTree(id);
+
+      // Send transformed Draft listing as response
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "category sub tree Fetched successfully",
+        data: getCategorySubTree,
+      });
+    } catch (error: any) {
+      console.error("Error getting sub tree", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error getting sub tree",
       });
     }
   },
@@ -559,6 +646,41 @@ export const listingController = {
       });
     }
   },
+
+  toggleIsTemplate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isTemplate } = req.body;
+
+      if (typeof isTemplate !== "boolean") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isTemplate must be a boolean value",
+        });
+      }
+
+      const updatedListing = await listingService.toggleIsTemplate(id, isTemplate);
+
+      if (!updatedListing) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Listing ${isTemplate ? "is" : "is not"} template now`,
+        data: updatedListing,
+      });
+    } catch (error: any) {
+      console.error("Error toggling listing tempalate status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling listing template status",
+      });
+    }
+  },
   getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();
@@ -575,7 +697,11 @@ export const listingController = {
         userType,
         status, // Extract status properly
         isBlocked,
+        listingWithStock,
         isTemplate,
+        publishToEbay,
+        publishToAmazon,
+        publishToWebsite,
         startDate,
         endDate,
         page = "1",
@@ -588,6 +714,10 @@ export const listingController = {
         userType: userType ? userType.toString() : undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
+        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined, // Convert only valid booleans
+        publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
+        publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
+        publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
         isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
@@ -612,34 +742,33 @@ export const listingController = {
       });
     }
   },
+
   bulkUpdateListingTaxDiscount: async (req: Request, res: Response) => {
     try {
-      const { listingIds, discountValue, vat } = req.body;
+      const { listingIds, discountType, discountValue, vat, retailPrice } = req.body;
 
+      // Validate listingIds
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return res.status(400).json({ message: "listingIds array is required" });
       }
 
-      if (discountValue === undefined || vat === undefined) {
-        return res.status(400).json({ message: "Both discount and VAT/tax are required" });
-      }
+      // Call the service to perform the bulk update
+      const result = await listingService.bulkUpdateListingTaxDiscount(
+        listingIds,
+        discountType,
+        discountValue,
+        vat,
+        retailPrice
+      );
 
-      // Validate each listingId format
-      for (const listingId of listingIds) {
-        if (!mongoose.Types.ObjectId.isValid(listingId)) {
-          return res.status(400).json({ message: `Invalid listingId: ${listingId}` });
-        }
-      }
-
-      // Perform bulk update
-      const result = await listingService.bulkUpdateListingTaxDiscount(listingIds, discountValue, vat);
-
+      // Return success response
       return res.status(200).json({
         message: "Listing VAT/tax and discount updated successfully",
         result,
       });
     } catch (error: any) {
-      res.status(500).json({ message: "Internal Server Error", error: error.message });
+      // Catch errors and return a 500 response with the error message
+      return res.status(500).json({ message: "Internal Server Error", error: error.message });
     }
   },
   upsertListingParts: async (req: Request, res: Response) => {
@@ -661,6 +790,49 @@ export const listingController = {
       res.status(200).json({ selectedVariations: listing.selectedVariations });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
+    }
+  },
+  // get all attribute combinations from ebay aspects  for creating variationsin listing which are without stock getting using listingId
+  getAllAttributesById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Fetch listing and populate productInfo.productCategory
+      const listingItem: any = await Listing.findById(id).populate("productInfo.productCategory").lean();
+
+      if (!listingItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+
+      // Try to get either ebayCategoryId or ebayCategoryId
+      const productCategory = listingItem?.productInfo?.productCategory;
+      const ebayCategoryId = productCategory?.ebayCategoryId || productCategory?.ebayCategoryId;
+
+      if (!ebayCategoryId) {
+        return res.status(400).json({ message: "No eBay category ID found in product category" });
+      }
+
+      // Get eBay aspects using the provided function
+      const ebayAspects = await ebayListingService.fetchEbayCategoryAspects(ebayCategoryId);
+
+      // Extract and filter aspects enabled for variations
+      const variationAspects = (ebayAspects?.aspects || []).filter(
+        (aspect: any) => aspect?.aspectConstraint?.aspectEnabledForVariations === true
+      );
+
+      // Format for response: name + full aspectValues array
+      const formattedVariationAspects = variationAspects.map((aspect: any) => ({
+        name: aspect.localizedAspectName,
+        values: aspect.aspectValues || [],
+      }));
+
+      return res.status(200).json({
+        message: "eBay aspects with enabled variations fetched successfully",
+        attributes: formattedVariationAspects,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching data:", error);
+      return res.status(500).json({ message: "Internal server error" });
     }
   },
 };

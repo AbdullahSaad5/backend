@@ -1,351 +1,439 @@
 import fs from "fs";
+import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
 import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { Listing, User } from "@/models";
-import { Request, Response } from "express";
+import { ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import dotenv from "dotenv";
-
+import { ebayListingService, inventoryService } from "@/services";
+import { addLog } from "./bulkImportLogs.util";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
-const uploadToFirebase = async (
-  filePath: string,
-  destination: string
-): Promise<string | null> => {
-  if (!filePath) throw new Error("No file provided!");
-  try {
-    const storageFile = adminStorage.file(destination);
-    await storageFile.save(filePath, {
-      metadata: {
-        contentType: destination.includes("videos")
-          ? "video/mp4"
-          : "image/jpeg",
-      },
-      public: true,
-    });
-    console.log(`✅ Uploaded file to Firebase: ${destination}`);
-    return `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${destination}`;
-  } catch (error) {
-    console.error("❌ Error uploading file:", error);
-    return null;
-  }
-};
+export const bulkImportUtility = {
+  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
+    const sheetNames = workbook.SheetNames;
+    const validRows: { row: number; data: any }[] = [];
+    const invalidRows: { row: number; errors: string[] }[] = [];
+    const validIndexes = new Set<number>();
 
-const validateCsvData = async (csvFilePath: string) => {
-  console.log(`📂 Validating CSV file: ${csvFilePath}`);
-  const requiredColumns = [
-    "brand",
-    "title",
-    "description",
-    "productSupplierKey",
-    "productCategory",
-    "price",
-  ];
+    for (const sheetName of sheetNames) {
+      let match = sheetName.trim().match(/^(.+?)\s*\((\d+)\)\s*$/);
 
-  const csvContent = fs.readFileSync(csvFilePath, "utf8");
-  const parsedCSV = Papa.parse(csvContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
-
-  if (parsedCSV.errors.length > 0)
-    throw new Error(`CSV Parsing Errors: ${JSON.stringify(parsedCSV.errors)}`);
-
-  const validRows: { row: number; data: any }[] = [];
-  const invalidRows: { row: number; errors: string[] }[] = [];
-  const validIndexes = new Set<number>();
-  // console.log("📂 Parsed CSV Data:", parsedCSV.data);
-
-  for (const [index, row] of (parsedCSV.data as any[]).entries()) {
-    const errors: string[] = [];
-
-    requiredColumns.forEach((col) => {
-      if (!row[col]?.trim()) errors.push(`${col} is missing or empty`);
-    });
-
-    if (!row.price || isNaN(parseFloat(row.price)))
-      errors.push("Price must be a valid number");
-
-    if (row.productSupplierKey) {
-      const supplier = await User.findOne({
-        supplierKey: row.productSupplierKey,
-      }).select("_id");
-      if (!supplier) {
-        errors.push(
-          `supplierKey ${row.productSupplierKey} does not exist in the database`
-        );
-      } else {
-        row.productSupplier = supplier._id;
-      }
-    } else {
-      errors.push("productSupplierKey is required");
-    }
-
-    if (row.productCategory && !mongoose.isValidObjectId(row.productCategory))
-      errors.push("productCategory must be a valid MongoDB ObjectId");
-    if (row.productSupplier && !mongoose.isValidObjectId(row.productSupplier))
-      errors.push("productSupplier must be a valid MongoDB ObjectId");
-    if (errors.length > 0) {
-      invalidRows.push({ row: index + 1, errors });
-    } else {
-      validRows.push({ row: index + 1, data: row });
-      validIndexes.add(index + 1);
-    }
-  }
-
-  console.log(
-    `✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`
-  );
-  return { validRows, invalidRows, validIndexes };
-};
-
-const processZipFile = async (zipFilePath: string) => {
-  const extractPath = path.join(process.cwd(), "extracted");
-
-  try {
-    console.log(`📂 Processing ZIP file: ${zipFilePath}`);
-    if (!fs.existsSync(zipFilePath)) {
-      throw new Error(`ZIP file does not exist: ${zipFilePath}`);
-    }
-
-    const zip = new AdmZip(zipFilePath);
-    if (!fs.existsSync(extractPath)) {
-      fs.mkdirSync(extractPath, { recursive: true });
-    }
-    zip.extractAllTo(extractPath, true);
-
-    const extractedItems = fs
-      .readdirSync(extractPath)
-      .filter((item) => item !== "__MACOSX");
-    console.log("🔹 Extracted files:", extractedItems);
-
-    const mainFolder =
-      extractedItems.length === 1 &&
-      fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
-        ? path.join(extractPath, extractedItems[0])
-        : extractPath;
-
-    const files = fs.readdirSync(mainFolder);
-    console.log("✅ Files inside extracted folder:", files);
-
-    const csvFile = files.find((f) => f.endsWith(".csv"));
-    const mediaFolder = files.find((f) =>
-      fs.lstatSync(path.join(mainFolder, f)).isDirectory()
-    );
-
-    if (!csvFile || !mediaFolder) {
-      throw new Error("Invalid ZIP structure. Missing CSV or media folder.");
-    }
-
-    console.log("✅ CSV File:", csvFile);
-    console.log("✅ Media Folder:", mediaFolder);
-
-    const csvFilePath = path.join(mainFolder, csvFile);
-    const { validRows, validIndexes } = await validateCsvData(csvFilePath);
-
-    if (validRows.length === 0) {
-      console.log("❌ No valid rows found in CSV. Exiting.");
-      return;
-    }
-
-    for (const [index, { data }] of validRows.entries()) {
-      const folderIndex = (index + 1).toString();
-      if (!validIndexes.has(index + 1)) continue;
-
-      console.log(`📂 Processing media for row: ${folderIndex}`);
-      const productMediaPath = path.join(mainFolder, mediaFolder, folderIndex);
-      if (!fs.existsSync(productMediaPath)) continue;
-
-      const uploadFiles = async (files: string[], destination: string) => {
-        try {
-          const uploads = files.map((file) =>
-            uploadFileToFirebase(file, `${destination}/${uuidv4()}`)
-          );
-
-          const results = await Promise.allSettled(uploads);
-
-          return results
-            .filter((res) => res.status === "fulfilled")
-            .map((res) => (res as PromiseFulfilledResult<string>).value);
-        } catch (error) {
-          console.error("❌ Error uploading files:", error);
-          return [];
+      // Optional auto-correct fallback
+      if (!match && sheetName.includes("(")) {
+        const parts = sheetName.split("(");
+        if (parts.length === 2 && /^\d+\)?$/.test(parts[1].trim())) {
+          const correctedName = `${parts[0].trim()} (${parts[1].replace(/\)/g, "").trim()})`;
+          console.log(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
+          match = correctedName.match(/^(.+?)\s*\((\d+)\)\s*$/);
         }
+      }
+
+      if (!match) {
+        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
+        continue;
+      }
+
+      const [_, categoryName, categoryId] = match;
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
+      if (data.length < 2) continue;
+
+      const [headerRow, ...rows]: any = data;
+
+      const requiredIndexes: number[] = [];
+      const variationAllowedIndexes: number[] = [];
+      const requiredFields = new Set<string>();
+      const variationFields = new Set<string>();
+
+      const cleanedHeaders = headerRow.map((h: string, idx: number) => {
+        if (typeof h !== "string") return h;
+
+        let clean = h.trim();
+        if (clean.endsWith("*")) {
+          clean = clean.replace("*", "").trim();
+          requiredIndexes.push(idx);
+          requiredFields.add(clean);
+        }
+
+        if (/\(variation allowed\)/i.test(clean)) {
+          clean = clean.replace(/\(variation allowed\)/i, "").trim();
+          variationAllowedIndexes.push(idx);
+          variationFields.add(clean);
+        }
+
+        return clean;
+      });
+
+      let sheetValidCount = 0;
+      let sheetInvalidCount = 0;
+
+      for (const [index, row] of rows.entries()) {
+        const errors: string[] = [];
+
+        requiredIndexes.forEach((reqIdx) => {
+          const val = (row[reqIdx] ?? "").toString().trim();
+          if (!val) {
+            errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
+          }
+        });
+
+        const rowObj: Record<string, any> = {};
+
+        cleanedHeaders.forEach((key: string, idx: number) => {
+          const rawValue = row[idx];
+
+          if (variationFields.has(key)) {
+            if (typeof rawValue === "string" && rawValue.trim()) {
+              rowObj[key] = rawValue
+                .split(",")
+                .map((v) => v.trim())
+                .filter(Boolean);
+            } else {
+              rowObj[key] = [];
+            }
+          } else {
+            rowObj[key] = rawValue?.toString().trim() ?? "";
+          }
+        });
+
+        rowObj.productCategoryName = categoryName.trim();
+        rowObj.productCategory = categoryId;
+        // rowObj.ebayCategoryId = categoryId;
+
+        const globalRowIndex = validRows.length + invalidRows.length + 1;
+
+        if (errors.length > 0) {
+          invalidRows.push({ row: globalRowIndex, errors });
+          sheetInvalidCount++;
+        } else {
+          // const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
+          // const imageFolderPath = path.join(mediaBasePath, "images");
+          // const videoFolderPath = path.join(mediaBasePath, "videos");
+
+          const categoryIdStr = String(categoryId);
+
+          // Find the folder that includes exactly this category ID
+          const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
+
+          // if (!matchingFolder) {
+          //   console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
+          //   continue;
+          // }
+          if (!matchingFolder) {
+            const globalRowIndex = validRows.length + invalidRows.length + 1;
+            const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
+
+            console.warn(`⚠️ ${errorMessage}`);
+            addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
+
+            invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
+            sheetInvalidCount++;
+            continue;
+          }
+
+          const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
+          const imageFolderPath = path.join(mediaBasePath, "images");
+          const videoFolderPath = path.join(mediaBasePath, "videos");
+
+          const uploadedImages: string[] = [];
+          const uploadedVideos: string[] = [];
+
+          if (fs.existsSync(imageFolderPath)) {
+            const imageFiles = fs.readdirSync(imageFolderPath);
+            for (const file of imageFiles) {
+              const filePath = path.join(imageFolderPath, file);
+              const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
+              const url = await uploadFileToFirebase(filePath, destination);
+              uploadedImages.push(url);
+            }
+          }
+
+          if (fs.existsSync(videoFolderPath)) {
+            const videoFiles = fs.readdirSync(videoFolderPath);
+            for (const file of videoFiles) {
+              const filePath = path.join(videoFolderPath, file);
+              const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
+              const url = await uploadFileToFirebase(filePath, destination);
+              uploadedVideos.push(url);
+            }
+          }
+
+          rowObj.images = uploadedImages;
+          rowObj.videos = uploadedVideos;
+
+          validRows.push({ row: globalRowIndex, data: rowObj });
+          validIndexes.add(globalRowIndex);
+          sheetValidCount++;
+        }
+      }
+
+      if (sheetValidCount > 0 || sheetInvalidCount > 0) {
+        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
+        invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
+          addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+        });
+      }
+    }
+
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    return { validRows, invalidRows, validIndexes };
+  },
+
+  processZipFile: async (zipFilePath: string) => {
+    const extractPath = path.join(process.cwd(), "extracted");
+
+    try {
+      addLog(`📂 Processing ZIP file: ${zipFilePath}`);
+
+      if (!fs.existsSync(zipFilePath)) {
+        addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
+        throw new Error(`ZIP file does not exist: ${zipFilePath}`);
+      }
+
+      const zip = new AdmZip(zipFilePath);
+      if (!fs.existsSync(extractPath)) {
+        fs.mkdirSync(extractPath, { recursive: true });
+      }
+
+      zip.extractAllTo(extractPath, true);
+
+      const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
+      addLog(`🔹 Extracted files: ${extractedItems.join(", ")}`);
+
+      const mainFolder =
+        extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
+          ? path.join(extractPath, extractedItems[0])
+          : extractPath;
+
+      const files = fs.readdirSync(mainFolder);
+      addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
+
+      const isValidExcel = (filename: string) => {
+        return (
+          filename.endsWith(".xlsx") &&
+          !filename.startsWith("._") && // macOS metadata
+          !filename.startsWith(".~") && // Excel temp file
+          !filename.startsWith(".") // Hidden files like .DS_Store
+        );
       };
 
-      const imagesFolder = path.join(productMediaPath, "images");
-      const videosFolder = path.join(productMediaPath, "videos");
+      const xlsxFile = files.find(isValidExcel);
+      const mediaFolder = files.find(
+        (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
+      );
 
-      data.images = fs.existsSync(imagesFolder)
-        ? await uploadFiles(
-            fs.readdirSync(imagesFolder).map((f) => path.join(imagesFolder, f)),
-            `products/${folderIndex}/images`
-          )
-        : [];
-
-      data.videos = fs.existsSync(videosFolder)
-        ? await uploadFiles(
-            fs.readdirSync(videosFolder).map((f) => path.join(videosFolder, f)),
-            `products/${folderIndex}/videos`
-          )
-        : [];
-    }
-
-    console.log("🚀 Starting bulk import...");
-    await bulkImportInventory(validRows);
-    console.log(`✅ Bulk import completed.`);
-  } catch (error) {
-    console.error("❌ Error processing ZIP file:", error);
-  } finally {
-    try {
-      if (fs.existsSync(extractPath)) {
-        fs.rmSync(extractPath, { recursive: true, force: true });
-        console.log("🗑️ Extracted files cleaned up.");
+      if (!xlsxFile || !mediaFolder) {
+        addLog("❌ Invalid ZIP structure. Missing XLSX or media folder.");
+        throw new Error("Invalid ZIP structure. Missing XLSX or media folder.");
       }
-      if (fs.existsSync(zipFilePath)) {
-        // fs.unlinkSync(zipFilePath);
-        console.log("🗑️ ZIP file deleted.");
-      }
-    } catch (err) {
-      console.error("❌ Error cleaning up files:", err);
-    }
-  }
-};
 
-export { validateCsvData, processZipFile };
-const bulkImportInventory = async (
-  validRows: { row: number; data: any }[]
-): Promise<void> => {
-  try {
-    const invalidRows: { row: number; errors: string[] }[] = [];
+      const xlsxPath = path.join(mainFolder, xlsxFile);
+      const mediaFolderPath = path.join(mainFolder, mediaFolder);
 
-    if (invalidRows.length > 0) {
-      console.log("❌ Some rows were skipped due to validation errors:");
-      invalidRows.forEach(({ row, errors }) => {
-        console.log(`Row ${row}: ${errors.join(", ")}`);
+      addLog(`✅ XLSX File: ${xlsxFile}`);
+      addLog(`✅ Media Folder: ${mediaFolder}`);
+
+      const workbook = XLSX.readFile(xlsxPath, {
+        type: "file",
+        cellDates: true,
+        raw: false,
+        WTF: true,
       });
-    }
 
-    if (validRows.length === 0) {
-      console.log("❌ No valid Inventory to import.");
-      return;
-    }
+      const sheetNames = workbook.SheetNames;
+      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
-    // ✅ Fetch all existing product titles to prevent duplicates
-    const existingTitles = new Set(
-      (await Listing.find({}, "title")).map((p: any) => p.title)
-    );
-
-    // ✅ Fetch all suppliers in one query to optimize validation
-    const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-    const existingSuppliers = await User.find(
-      { supplierKey: { $in: supplierKeys } },
-      "_id supplierKey"
-      // ).lean();
-    );
-    const supplierMap = new Map(
-      existingSuppliers.map((supplier: any) => [supplier.supplierKey, supplier._id])
-    );
-
-    // ✅ Filter out invalid suppliers
-    const filteredRows = validRows.filter(({ data }) => {
-      if (!supplierMap.has(data.productSupplierKey)) {
-        invalidRows.push({
-          row: data.row,
-          errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-        });
-        return false;
+      if (sheetNames.length === 0) {
+        addLog("❌ XLSX file has no sheets.");
+        throw new Error("XLSX file has no sheets.");
       }
-      return true;
-    });
 
-    if (filteredRows.length === 0) {
-      console.log("❌ No valid Inventory to insert after supplier validation.");
-      return;
+      let allValidRows: any = [];
+      let allInvalidRows: any = [];
+
+      for (const sheetName of sheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          // addLog(`⚠️ Sheet "${sheetName}" is empty. Skipping.`);
+          continue;
+        }
+
+        addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
+
+        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook, mediaFolderPath);
+
+        allValidRows = allValidRows.concat(validRows);
+        allInvalidRows = allInvalidRows.concat(invalidRows);
+      }
+
+      console.log("✅ Total Valid Rows Ready:", allValidRows.length);
+      console.log("❌ Total Invalid Rows:", allInvalidRows.length);
+
+      if (allValidRows.length === 0) {
+        addLog("❌ No valid Inventory to import.");
+      } else {
+        addLog("🚀 Starting bulk import...");
+        await inventoryService.bulkImportInventory(allValidRows);
+        addLog("✅ Bulk import completed.");
+      }
+    } catch (error: any) {
+      addLog(`❌ Error processing ZIP file: ${error.message}`);
+      console.error("Full error details:", error);
+    } finally {
+      try {
+        if (fs.existsSync(extractPath)) {
+          fs.rmSync(extractPath, { recursive: true, force: true });
+          addLog("🗑️ Extracted files cleaned up.");
+        }
+        if (fs.existsSync(zipFilePath)) {
+          // fs.unlinkSync(zipFilePath);
+          console.log("🗑️ ZIP file deleted.");
+        }
+      } catch (err) {
+        console.error("❌ Error cleaning up files:", err);
+      }
     }
-
-    // ✅ Bulk insert new Inventory (avoiding duplicates)
-    const bulkOperations = filteredRows
-      .filter(({ data }) => !existingTitles.has(data.title))
-      .map(({ data }) => ({
-        insertOne: {
-          document: {
-            title: data.title,
-            brand: data.brand,
-            description: data.description,
-            productCategory: new mongoose.Types.ObjectId(data.productCategory),
-            productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-            price: parseFloat(data.price),
-            media: {
-              images: data.images.map((url: string) => ({
-                url,
-                type: "image/jpeg",
-              })),
-              videos: data.videos.map((url: string) => ({
-                url,
-                type: "video/mp4",
-              })),
-            },
-            platformDetails: ["amazon", "ebay", "website"].reduce(
-              (acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    description: data.description,
-                    productCategory: new mongoose.Types.ObjectId(
-                      data.productCategory
-                    ),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              },
-              {}
-            ),
+  },
+  fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
+    try {
+      const result = await ProductCategory.aggregate([
+        {
+          $match: {
+            $or: [{ ebayCategoryId: { $exists: true, $ne: null } }, { ebayCategoryId: { $exists: true, $ne: null } }],
           },
         },
-      }));
+        {
+          $project: {
+            _id: 0,
+            name: 1,
+            ebayCategoryId: 1,
+          },
+        },
+      ]);
 
-    if (bulkOperations.length === 0) {
-      console.log("✅ No new Inventory to insert.");
-      return;
-    }
-
-    // ✅ Perform Bulk Insert Operation
-    await Listing.bulkWrite(bulkOperations);
-    console.log(
-      `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
-    );
-
-    // ✅ Log skipped rows due to invalid suppliers
-    if (invalidRows.length > 0) {
-      console.log("❌ Some products were skipped due to invalid suppliers:");
-      invalidRows.forEach(({ row, errors }) => {
-        console.log(`Row ${row}: ${errors.join(", ")}`);
+      // Build array of { id, name } from both possible ID fields
+      const allCategories = result.flatMap((item) => {
+        const categories: { id: string; name: string }[] = [];
+        if (item.ebayCategoryId) {
+          categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
+        }
+        // if (item.ebayCategoryId) {
+        //   categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
+        // }
+        return categories;
       });
+
+      return allCategories;
+    } catch (error) {
+      console.error("Error fetching category IDs:", error);
+      throw new Error("Failed to fetch category IDs");
     }
-  } catch (error) {
-    console.error("❌ Bulk import failed:", error);
-  }
+  },
+
+  fetchAspectsForAllCategories: async () => {
+    try {
+      // Step 1: Get all category ID-name pairs
+      const categoryIdNamePairs = await bulkImportUtility.fetchAllCategoryIds(); // [{ id, name }]
+      if (categoryIdNamePairs.length === 0) {
+        console.log("No category IDs found.");
+        return;
+      }
+
+      // Step 2: Fetch aspects for each category using Promise.allSettled
+      const results = await Promise.allSettled(
+        categoryIdNamePairs.map(async ({ id, name }) => {
+          const aspects = await ebayListingService.fetchEbayCategoryAspects(id);
+          return { categoryId: id, categoryName: name, aspects };
+        })
+      );
+
+      // Step 3: Filter fulfilled
+      const fulfilledResults = results
+        .filter(
+          (
+            result
+          ): result is PromiseFulfilledResult<{
+            categoryId: string;
+            categoryName: string;
+            aspects: any;
+          }> => result.status === "fulfilled" && !!result.value?.categoryId
+        )
+        .map((result) => result.value);
+
+      // Step 4: Log rejected ones
+      const failedCategories = results
+        .map((res, index) => ({ res, index }))
+        .filter(({ res }) => res.status === "rejected")
+        .map(({ index }) => categoryIdNamePairs[index].id);
+
+      if (failedCategories.length > 0) {
+        console.warn("Some categories failed to fetch aspects:", failedCategories);
+      }
+
+      // Step 5: Export to Excel with names and aspects
+      bulkImportUtility.exportCategoryAspectsToExcel(fulfilledResults);
+
+      return fulfilledResults;
+    } catch (error) {
+      console.error("Error fetching aspects for all categories:", error);
+      throw error;
+    }
+  },
+
+  exportCategoryAspectsToExcel: async (
+    allCategoryAspects: { categoryId: string; categoryName: string; aspects: any }[],
+    filePath: string = "CategoryAspects.xlsx"
+  ) => {
+    const workbook = XLSX.utils.book_new();
+
+    allCategoryAspects.forEach(({ categoryId, categoryName, aspects }) => {
+      const aspectList = aspects?.aspects || [];
+
+      const uniqueHeaders = new Set<string>();
+
+      // Add static required fields first
+      const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
+      staticHeaders.forEach((header) => uniqueHeaders.add(header));
+
+      // Add dynamic headers with required & variation flags
+      aspectList.forEach((aspect: any) => {
+        let title = aspect.localizedAspectName || "Unknown";
+        const isRequired = aspect.aspectConstraint?.aspectRequired;
+        const isVariation = aspect.aspectConstraint?.aspectEnabledForVariations;
+
+        if (isRequired) title += "*";
+        if (isVariation) title += " (variation allowed)";
+
+        uniqueHeaders.add(title);
+      });
+
+      const headers = Array.from(uniqueHeaders);
+      const data = [headers]; // first row is header
+
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+      const idPart = ` (${categoryId})`;
+      let safeName = categoryName.replace(/[\\/?*[\]:]/g, ""); // clean illegal chars
+
+      const maxNameLength = 31 - idPart.length;
+      if (safeName.length > maxNameLength) {
+        safeName = safeName.slice(0, maxNameLength); // trim name only
+      }
+
+      const sheetName = `${safeName}${idPart}`;
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+
+    XLSX.writeFile(workbook, filePath);
+    console.log(`✅ Excel file generated: ${filePath}`);
+  },
 };

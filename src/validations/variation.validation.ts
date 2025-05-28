@@ -7,13 +7,11 @@ import { IBodyRequest } from "@/contracts/request.contract";
 import { REGEX } from "@/constants/regex";
 import {
   IVariation,
-  IVariationUpdatePayload,
+  // IVariationUpdatePayload,
 } from "@/contracts/variation.contract";
 
 // Custom Zod validation for MongoDB ObjectId
-const objectId = z
-  .instanceof(Types.ObjectId)
-  .or(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"));
+const objectId = z.instanceof(Types.ObjectId).or(z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid ObjectId"));
 
 // Platform-Specific Schema: Amazon
 const amazonSchema = z.object({
@@ -46,15 +44,9 @@ const amazonSchema = z.object({
       additionalSpecifications: z.string().optional(),
     })
     .optional(),
-  quantity: z
-    .number()
-    .min(0, "Quantity must be a non-negative number")
-    .optional(),
+  quantity: z.number().min(0, "Quantity must be a non-negative number").optional(),
   pricing: z.object({
-    pricePerUnit: z
-      .number()
-      .positive("Price per unit must be positive")
-      .optional(),
+    pricePerUnit: z.number().positive("Price per unit must be positive").optional(),
     discountPrice: z.number().optional(),
   }),
   condition: z.object({
@@ -95,9 +87,7 @@ const ebaySchema = amazonSchema.extend({
 
 // Platform-Specific Schema: Website
 const websiteSchema = amazonSchema.extend({
-  fulfillmentMethod: z
-    .enum(["Dropshipping", "In-House Fulfillment"])
-    .optional(),
+  fulfillmentMethod: z.enum(["Dropshipping", "In-House Fulfillment"]).optional(),
 });
 
 // vatPercentage: { type: Number, required: true, default: 0 }, // VAT Percentage
@@ -107,9 +97,7 @@ const websiteSchema = amazonSchema.extend({
 
 // Variation Schema
 const variationSchema = z.object({
-  images: z
-    .array(z.string().url("Invalid URL format"))
-    .min(1, "At least one image is required"),
+  images: z.array(z.string().url("Invalid URL format")).min(1, "At least one image is required"),
   isBlocked: z.boolean().optional(),
   platformDetails: z.object({
     amazon: amazonSchema.optional(),
@@ -121,11 +109,7 @@ const variationSchema = z.object({
 
 // Variation Validation
 export const variationValidation = {
-  addVariation: async (
-    req: IBodyRequest<IVariation>,
-    res: Response,
-    next: NextFunction
-  ) => {
+  addVariation: async (req: IBodyRequest<IVariation>, res: Response, next: NextFunction) => {
     try {
       const validatedData = variationSchema.parse(req.body);
       Object.assign(req.body, validatedData);
@@ -149,11 +133,7 @@ export const variationValidation = {
   },
 
   // Update Variation (Support for partial updates)
-  updateVariation: async (
-    req: IBodyRequest<IVariationUpdatePayload>,
-    res: Response,
-    next: NextFunction
-  ) => {
+  updateVariation: async (req: IBodyRequest<IVariation>, res: Response, next: NextFunction) => {
     try {
       const validatedData = variationSchema.parse(req.body); // Allow partial updates
       Object.assign(req.body, validatedData);
@@ -177,11 +157,7 @@ export const variationValidation = {
   },
 
   // ID validation
-  validateId: (
-    req: IBodyRequest<string>,
-    res: Response,
-    next: NextFunction
-  ) => {
+  validateId: (req: IBodyRequest<string>, res: Response, next: NextFunction) => {
     const schema = z.object({
       id: objectId,
     });

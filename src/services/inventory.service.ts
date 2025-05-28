@@ -1,40 +1,11 @@
-import { Inventory, Stock, User } from "@/models";
-import Papa from "papaparse";
+import { Inventory, ProductCategory, Stock, User } from "@/models";
+import { Parser } from "json2csv";
 import mongoose from "mongoose";
+import crypto from "crypto";
+import { addLog } from "@/utils/bulkImportLogs.util";
+import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 import fs from "fs";
-import { validateCsvData } from "@/utils/bulkImport.util";
-import {
-  allInOnePCTechnicalSchema,
-  gamingPCTechnicalSchema,
-  laptopTechnicalSchema,
-  monitorTechnicalSchema,
-  networkEquipmentsTechnicalSchema,
-  projectorTechnicalSchema,
-} from "@/models/inventory.model";
-
-// Define a type for the tech schemas
-type TechSchemas = {
-  laptops: typeof laptopTechnicalSchema;
-  all_in_one_pc: typeof allInOnePCTechnicalSchema;
-  projectors: typeof projectorTechnicalSchema;
-  monitors: typeof monitorTechnicalSchema;
-  gaming_pc: typeof gamingPCTechnicalSchema;
-  network_equipments: typeof networkEquipmentsTechnicalSchema;
-};
-
-// Helper function to get correct tech schema
-function getTechSchema(kind: keyof TechSchemas) {
-  const techSchemas: TechSchemas = {
-    laptops: laptopTechnicalSchema,
-    all_in_one_pc: allInOnePCTechnicalSchema,
-    projectors: projectorTechnicalSchema,
-    monitors: monitorTechnicalSchema,
-    gaming_pc: gamingPCTechnicalSchema,
-    network_equipments: networkEquipmentsTechnicalSchema,
-  };
-  return techSchemas[kind] || {};
-}
-
+import * as XLSX from "xlsx";
 // Utility function to pick allowed fields
 function pick(obj: any, keys: string[]) {
   return keys.reduce((acc: { [key: string]: any }, key) => {
@@ -58,32 +29,43 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-
-      const { kind, productCategory, productSupplier, title, description, brand, inventoryImages, inventoryCondition } =
+      const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const { kind, productCategory, title, description, brand, inventoryImages, inventoryCondition, ebayCategoryId } =
         stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
       }
 
-      const categoryId = mongoose.isValidObjectId(productCategory)
-        ? new mongoose.Types.ObjectId(productCategory)
-        : null;
-      const supplierId = mongoose.isValidObjectId(productSupplier)
-        ? new mongoose.Types.ObjectId(productSupplier)
-        : null;
+      let categoryId;
+
+      // Handle productCategory based on isPart
+      if (isPart) {
+        // For parts, accept eBay category ID (string or number)
+        if (productCategory === undefined || productCategory === null || productCategory === "") {
+          throw new Error("Invalid or missing 'productCategory' for part");
+        }
+        categoryId = productCategory.toString(); // Convert to string
+      } else {
+        // For non-parts, validate as MongoDB ObjectId
+        if (!mongoose.isValidObjectId(productCategory)) {
+          throw new Error("Invalid or missing 'productCategory' for product");
+        }
+        categoryId = new mongoose.Types.ObjectId(productCategory);
+      }
 
       if (!categoryId) throw new Error("Invalid or missing 'productCategory'");
-      if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
+      // if (!supplierId) throw new Error("Invalid or missing 'productSupplier'");
 
       // ✅ Ensure inventoryImages is correctly mapped inside productInfo
       const productInfo = {
         productCategory: categoryId,
-        productSupplier: supplierId,
+        // productSupplier: supplierId,
         title: title || "",
         description: description || "",
         brand: brand || "",
         inventoryCondition: inventoryCondition || "",
+        ebayCategoryId: ebayCategoryId || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
@@ -95,6 +77,7 @@ export const inventoryService = {
         productInfo,
         // isTemplate,
         // isVariation,
+        isMultiBrand,
         prodPricing: stepData.prodPricing || {},
         prodTechInfo: stepData.prodTechInfo || {},
         prodDelivery: stepData.prodDelivery || {},
@@ -148,20 +131,42 @@ export const inventoryService = {
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
         draftInventory.isTemplate = stepData.isTemplate || false;
+        draftInventory.alias = stepData.alias || "";
       }
 
+      // if (draftInventory.isPart) {
+      // For parts, we need to handle the different technical info structure
+      if (stepData.prodTechInfo) {
+        draftInventory.prodTechInfo = stepData.prodTechInfo;
+        draftInventory.markModified("prodTechInfo");
+      } else {
+        // Update Nested Sections Dynamically
+        const sectionsToUpdate = ["productInfo"];
+        sectionsToUpdate.forEach((section) => {
+          if (stepData[section]) {
+            console.log(`Updating ${section} with:`, stepData[section]);
+            draftInventory[section] = {
+              ...(draftInventory[section] || {}), // Preserve existing data
+              ...stepData[section], // Merge new data
+            };
+            draftInventory.markModified(section);
+          }
+        });
+      }
+      // } else {
       // Update Nested Sections Dynamically
-      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
-      sectionsToUpdate.forEach((section) => {
-        if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
-          draftInventory[section] = {
-            ...(draftInventory[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
-          };
-          draftInventory.markModified(section);
-        }
-      });
+      // const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      // sectionsToUpdate.forEach((section) => {
+      //   if (stepData[section]) {
+      //     console.log(`Updating ${section} with:`, stepData[section]);
+      //     draftInventory[section] = {
+      //       ...(draftInventory[section] || {}), // Preserve existing data
+      //       ...stepData[section], // Merge new data
+      //     };
+      //     draftInventory.markModified(section);
+      //   }
+      // });
+      // }
 
       // Update Top-Level Fields
       const topLevelFields = [
@@ -170,11 +175,13 @@ export const inventoryService = {
         "publishToWebsite",
         "stockThreshold",
         "isBlocked",
-        "Kind",
+        "kind",
         "stocks",
         "stockThreshold",
         "isTemplate",
+        "alias",
         "isVariation",
+        "isMultiBrand",
         "status",
       ];
       topLevelFields.forEach((field) => {
@@ -188,7 +195,7 @@ export const inventoryService = {
       // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
 
-      console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
+      // console.log("Updated inventory after save:", JSON.stringify(draftInventory, null, 2));
 
       return draftInventory;
     } catch (error: any) {
@@ -218,9 +225,8 @@ export const inventoryService = {
 
   getFullInventoryById: async (id: string) => {
     try {
-      const inventory = await Inventory.findById(id)
-        .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier");
+      const inventory = await Inventory.findById(id).populate("productInfo.productCategory");
+      // .populate("productInfo.productSupplier");
       // .lean();
 
       if (!inventory) throw new Error("Inventory not found");
@@ -235,31 +241,33 @@ export const inventoryService = {
     try {
       return await Inventory.find()
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
     } catch (error) {
       console.error("Error fetching all inventory:", error);
       throw new Error("Failed to fetch inventory");
     }
   },
+
   //getting all template inventory name and their id
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        // .populate("productInfo.productSupplier")
+        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");
     }
   },
+
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .populate("prodPricing.paymentPolicy");
       if (!inventory) throw new Error("Inventory not found");
       return inventory;
@@ -272,9 +280,7 @@ export const inventoryService = {
   updateInventory: async (id: string, data: any) => {
     try {
       const updateQuery = { [`platformDetails.`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, {
-        new: true,
-      });
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -299,25 +305,25 @@ export const inventoryService = {
       throw new Error("Failed to toggle block status");
     }
   },
+  toggleIsTemplate: async (id: string, isTemplate: boolean) => {
+    try {
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      if (!updatedInventory) throw new Error("Inventory not found");
+      return updatedInventory;
+    } catch (error) {
+      console.error("Error toggling template status:", error);
+      throw new Error("Failed to toggle template status");
+    }
+  },
   // New API for fetching inventory stats (separate service logic)
   getInventoryStats: async () => {
     try {
       const totalInventory = await Inventory.countDocuments({});
-      const activeInventory = await Inventory.countDocuments({
-        isBlocked: false,
-      });
-      const blockedInventory = await Inventory.countDocuments({
-        isBlocked: true,
-      });
-      const PublishedInventory = await Inventory.countDocuments({
-        status: "published",
-      });
-      const DraftInventory = await Inventory.countDocuments({
-        status: "draft",
-      });
-      const TemplateInventory = await Inventory.countDocuments({
-        isTemplate: true,
-      });
+      const activeInventory = await Inventory.countDocuments({ isBlocked: false });
+      const blockedInventory = await Inventory.countDocuments({ isBlocked: true });
+      const PublishedInventory = await Inventory.countDocuments({ status: "published" });
+      const DraftInventory = await Inventory.countDocuments({ status: "draft" });
+      const TemplateInventory = await Inventory.countDocuments({ isTemplate: true });
 
       return {
         totalInventory,
@@ -338,6 +344,7 @@ export const inventoryService = {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        productCategory,
         kind,
         status, // Extract status from filters
         startDate,
@@ -352,69 +359,97 @@ export const inventoryService = {
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
-      // Build the query dynamically based on filters
       const query: any = {};
+      const andConditions: any[] = [];
 
-      // Search within platformDetails (amazon, ebay, website) for productInfo.title and productInfo.brand
+      // 🔎 Search logic
       if (searchQuery) {
-        query.$or = [
-          {
-            "productInfo.title": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-          {
-            "productInfo.brand": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
-
-          {
-            "prodPricing.condition": {
-              $regex: searchQuery,
-              $options: "i",
-            },
-          },
+        const searchConditions: any[] = [
+          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
+
+        const [users, productCategories] = await Promise.all([
+          User.find({
+            $or: [
+              { firstName: { $regex: searchQuery, $options: "i" } },
+              { lastName: { $regex: searchQuery, $options: "i" } },
+              { email: { $regex: searchQuery, $options: "i" } },
+            ],
+          }).select("_id"),
+
+          ProductCategory.find({ name: { $regex: searchQuery, $options: "i" } }).select("_id"),
+        ]);
+
+        if (productCategories.length > 0) {
+          searchConditions.push({
+            "productInfo.productCategory": { $in: productCategories.map((cat) => cat._id) },
+          });
+        }
+
+        andConditions.push({ $or: searchConditions });
       }
 
-      // Add filters for status, isBlocked, and isTemplate
-      if (status && ["draft", "published"].includes(status)) {
-        query.status = status;
+      // 🟢 Category filter (from query param)
+      if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
+        andConditions.push({
+          "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
+        });
       }
+
+      // // Explicit productCategory filter (separate)
+      // if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
+      //   andConditions.push({
+      //     "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
+      //   });
+      // }
+
+      // Other filters
+      if (status && ["draft", "published"].includes(status)) {
+        andConditions.push({ status });
+      }
+
       if (isBlocked !== undefined) {
-        query.isBlocked = isBlocked;
+        andConditions.push({ isBlocked });
       }
 
       if (isTemplate !== undefined) {
-        query.isTemplate = isTemplate;
-      }
-      if (isPart !== undefined) {
-        query.isPart = isPart;
-      }
-      if (kind === "part") {
-        query.kind = kind;
+        andConditions.push({ isTemplate });
       }
 
-      // Date range filter for createdAt
+      if (isPart !== undefined) {
+        andConditions.push({ isPart });
+      }
+
+      if (kind === "part") {
+        andConditions.push({ kind });
+      }
+
+      // Date filter
       if (startDate || endDate) {
         const dateFilter: any = {};
         if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
         if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
-        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
+        if (Object.keys(dateFilter).length > 0) {
+          andConditions.push({ createdAt: dateFilter });
+        }
       }
 
-      // Fetch inventory with pagination
+      // Final query assignment
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
+      }
+
+      // Fetch filtered inventory with pagination and populate the necessary fields
       const inventory = await Inventory.find(query)
         .populate("userType")
         .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
+        // .populate("productInfo.productSupplier")
         .skip(skip)
         .limit(limitNumber);
 
-      // Count total inventory
+      // Count total filtered inventory
       const totalInventory = await Inventory.countDocuments(query);
 
       return {
@@ -431,165 +466,224 @@ export const inventoryService = {
       throw new Error("Error during search and filter");
     }
   },
+
   //bulk import inventory as CSV
-  bulkImportInventory: async (filePath: string): Promise<void> => {
+  bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
-      // ✅ Validate CSV data (supplier validation happens inside)
-      const { validRows, invalidRows } = await validateCsvData(filePath);
-
-      if (invalidRows.length > 0) {
-        console.log("❌ Some rows were skipped due to validation errors:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
-      }
-
       if (validRows.length === 0) {
-        console.log("❌ No valid inventory to import.");
+        addLog("❌ No valid Inventory to import.");
         return;
       }
 
-      // ✅ Fetch all existing inventory titles to prevent duplicates
-      const existingTitles = new Set((await Inventory.find({}, "title")).map((p: any) => p.title));
-
-      // ✅ Fetch all suppliers in one query to optimize validation
-      const supplierKeys = validRows.map(({ data }) => data.productSupplierKey);
-      const existingSuppliers = await User.find(
-        { supplierKey: { $in: supplierKeys } },
-        "_id supplierKey"
-        // ).lean();
-      );
-      const supplierMap = new Map(existingSuppliers.map((supplier) => [supplier.supplierKey, supplier._id]));
-
-      // ✅ Filter out invalid suppliers
-      const filteredRows = validRows.filter(({ data }) => {
-        if (!supplierMap.has(data.productSupplierKey)) {
-          invalidRows.push({
-            row: data.row,
-            errors: [`supplierKey ${data.productSupplierKey} does not exist.`],
-          });
-          return false;
+      addLog("🔹 Valid Rows Received for Bulk Import:");
+      validRows.forEach(({ row, data }, i) => {
+        try {
+          addLog(`Row [${i}] => #${row}`);
+          if (!data || typeof data !== "object") {
+            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
+          } else {
+            console.log(`Data: ${JSON.stringify(data)}`);
+          }
+        } catch (err) {
+          console.log(`❌ Error while printing row ${row}:`, err);
         }
-        return true;
       });
+      const bulkOperations: any = (
+        await Promise.all(
+          validRows
+            .map(({ row, data }) => {
+              const normalizedData: any = {};
+              for (const key in data) {
+                normalizedData[key.toLowerCase()] = data[key];
+              }
+              return { row, data: normalizedData };
+            })
+            .filter(({ data }) => data && data.title)
+            .map(async ({ row, data: normalizedData }) => {
+              const matchedCategory = await ProductCategory.findOne({
+                $or: [
+                  { ebayCategoryId: normalizedData.ebaycategoryid },
+                  // { ebayCategoryId: normalizedData.ebaycategoryid },
+                ],
+              }).select("_id");
 
-      if (filteredRows.length === 0) {
-        console.log("❌ No valid inventory to insert after supplier validation.");
-        return;
-      }
+              if (!matchedCategory) {
+                addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
+                return null;
+              }
 
-      // ✅ Bulk insert new inventory (avoiding duplicates)
-      const bulkOperations = filteredRows
-        .filter(({ data }) => !existingTitles.has(data.title))
-        .map(({ data }) => ({
-          insertOne: {
-            document: {
-              title: data.title,
-              brand: data.brand,
-              inventoryDescription: data.inventoryDescription,
-              productCategory: new mongoose.Types.ObjectId(data.productCategory),
-              productSupplier: supplierMap.get(data.productSupplierKey), // ✅ Replace supplierKey with actual _id
-              price: parseFloat(data.price),
-              media: {
-                images: data.images.map((url: string) => ({
+              // Normalize brand
+              let brandList = normalizedData.brand;
+              if (typeof brandList === "string") {
+                brandList = brandList
+                  .split(",")
+                  .map((b: string) => b.trim())
+                  .filter(Boolean);
+              } else if (!Array.isArray(brandList)) {
+                brandList = [brandList];
+              }
+
+              const isMultiBrand = brandList.length > 1;
+
+              const productInfo: any = {
+                productCategory: matchedCategory._id,
+                ebayCategoryId: normalizedData.ebaycategoryid,
+                title: normalizedData.title,
+                description: normalizedData.description,
+                inventoryImages: (normalizedData.images || []).map((url: string) => ({
+                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  size: 0,
                   url,
                   type: "image/jpeg",
                 })),
-                videos: data.videos.map((url: string) => ({
-                  url,
-                  type: "video/mp4",
-                })),
-              },
-              platformDetails: ["amazon", "ebay", "website"].reduce((acc: { [key: string]: any }, platform) => {
-                acc[platform] = {
-                  productInfo: {
-                    brand: data.brand,
-                    title: data.title,
-                    inventoryDescription: data.inventoryDescription,
-                    productCategory: new mongoose.Types.ObjectId(data.productCategory),
-                    productSupplier: supplierMap.get(data.productSupplierKey),
-                  },
-                  prodPricing: {
-                    price: parseFloat(data.price),
-                    condition: "new",
-                    quantity: 10,
-                    vat: 5,
-                  },
-                  prodMedia: {
-                    images: data.images.map((url: string) => ({
-                      url,
-                      type: "image/jpeg",
-                    })),
-                    videos: data.videos.map((url: string) => ({
-                      url,
-                      type: "video/mp4",
-                    })),
-                  },
-                };
-                return acc;
-              }, {}),
-            },
-          },
-        }));
+                inventoryCondition: normalizedData.inventoryCondition || "new",
+                brand: brandList,
+              };
+
+              const prodTechInfo: Record<string, any> = {};
+              const knownFields = new Set([
+                "title",
+                "description",
+                "brand",
+                "images",
+                "videos",
+                "inventoryCondition",
+                "productSupplier",
+                "productSupplierKey",
+                "productCategoryName",
+                "ebayCategoryId",
+              ]);
+
+              for (const key in normalizedData) {
+                if (!knownFields.has(key)) {
+                  prodTechInfo[key] = normalizedData[key];
+                }
+              }
+
+              // Set kind based on eBay ID
+              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
+
+              // Set isPart based on kind
+              const isPart = kindType === "part";
+
+              // Set isVariation based on prodTechInfo["allow variations"]
+              const allowVar = prodTechInfo["allow variations"];
+              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
+              delete prodTechInfo["allow variations"]; // optional cleanup
+
+              const docToInsert = {
+                isBlocked: false,
+                kind: kindType,
+                status: "draft",
+                isVariation,
+                isMultiBrand,
+                isTemplate: false,
+                isPart,
+                stocks: [],
+                stockThreshold: 10,
+                prodTechInfo,
+                productInfo,
+              };
+
+              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
+
+              return {
+                insertOne: {
+                  document: docToInsert,
+                },
+              };
+            })
+        )
+      ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
-        console.log("✅ No new inventory to insert.");
+        addLog("✅ No new Inventory to insert.");
         return;
       }
 
-      // ✅ Perform Bulk Insert Operation
       await Inventory.bulkWrite(bulkOperations);
-      console.log(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new inventory.`);
+      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+    } catch (error: any) {
+      addLog(`❌ Bulk import failed: ${error.message}`);
+    }
+  },
 
-      // ✅ Log skipped rows due to invalid suppliers
-      if (invalidRows.length > 0) {
-        console.log("❌ Some inventory were skipped due to invalid suppliers:");
-        invalidRows.forEach(({ row, errors }) => {
-          console.log(`Row ${row}: ${errors.join(", ")}`);
-        });
+  exportInventory: async (inventoryIds: string[]): Promise<{ fromCache: boolean; file: string }> => {
+    const cacheKey = generateCacheKey(inventoryIds);
+
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      return { fromCache: true, file: cachedData };
+    }
+
+    const items: any[] = await Inventory.find({ _id: { $in: inventoryIds } })
+      .populate("productInfo.productCategory", "name")
+      .lean();
+
+    if (!items.length) throw new Error("No inventory items found");
+
+    const categoryMap: Record<string, any[]> = {};
+
+    for (const item of items) {
+      const ebayId = item.productInfo?.ebayCategoryId || "unknown";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
+
+      const rawSheetKey = `${categoryName} (${ebayId})`;
+      const sheetKey = sanitizeSheetName(rawSheetKey);
+      const flatRow: Record<string, any> = {
+        Title: item.productInfo?.title || "",
+        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
+        Brand: Array.isArray(item.productInfo?.brand)
+          ? item.productInfo.brand.join(", ")
+          : item.productInfo?.brand || "",
+        InventoryCondition: item.productInfo?.inventoryCondition || "",
+        "Allow Variations": item.isVariation ? "yes" : "no",
+        Images: Array.isArray(item.productInfo?.inventoryImages)
+          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
+          : "",
+      };
+
+      // Add dynamic attributes
+      for (const [key, value] of Object.entries(item.prodTechInfo || {})) {
+        flatRow[key] = Array.isArray(value) ? value.join(", ") : value;
       }
-    } catch (error) {
-      console.error("❌ Bulk import failed:", error);
+
+      if (!categoryMap[sheetKey]) categoryMap[sheetKey] = [];
+      categoryMap[sheetKey].push(flatRow);
     }
-  },
-  //bulk Export inventory to CSV
-  exportInventory: async (): Promise<string> => {
-    try {
-      // Fetch all inventory from the database
-      const inventory = await Inventory.find({});
 
-      // Format the inventory data for CSV export
-      const formattedData = inventory.map((inventory: any) => ({
-        InventoryID: inventory._id,
-        Title: inventory.title,
-        Description: inventory.description,
-        Price: inventory.price,
-        Category: inventory.category,
-        // ProductSupplier: inventory?.supplier?.name,
-        Stock: inventory.stock,
-        SupplierId: inventory.supplier?._id,
-        AmazonInfo: JSON.stringify(inventory.productInfo),
-        EbayInfo: JSON.stringify(inventory.productInfo),
-        WebsiteInfo: JSON.stringify(inventory.productInfo),
-      }));
+    // Create workbook with multiple sheets
+    const wb = XLSX.utils.book_new();
 
-      // Convert the data to CSV format using Papa.unparse
-      const csv = Papa.unparse(formattedData);
-
-      // Generate a unique file path for the export
-      const filePath = `exports/inventory_${Date.now()}.csv`;
-
-      // Write the CSV data to a file
-      fs.writeFileSync(filePath, csv);
-
-      console.log("✅ Export completed successfully.");
-      return filePath;
-    } catch (error) {
-      console.error("❌ Export Failed:", error);
-      throw new Error("Failed to export inventory.");
+    for (const [sheetName, rows] of Object.entries(categoryMap)) {
+      if (rows.length === 0) continue;
+      const ws = XLSX.utils.json_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max length is 31 chars
     }
+
+    // Write workbook to binary string
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "binary" });
+
+    // Helper function: convert binary string to ArrayBuffer
+    function s2ab(s: string) {
+      const buf = new ArrayBuffer(s.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < s.length; i++) {
+        view[i] = s.charCodeAt(i) & 0xff;
+      }
+      return buf;
+    }
+
+    // Convert to base64
+    const base64Excel = Buffer.from(s2ab(wbout)).toString("base64");
+
+    // Cache the base64 encoded excel file
+    await setCacheWithTTL(cacheKey, base64Excel, 300); // Cache 5 min
+
+    return { fromCache: false, file: base64Excel };
   },
-  bulkUpdateInventoryTaxDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
+  bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -599,12 +693,7 @@ export const inventoryService = {
       // Perform bulk update with nested prodPricing field
       const result = await Inventory.updateMany(
         { _id: { $in: inventoryIds } }, // Filter valid inventory IDs
-        {
-          $set: {
-            "prodPricing.discountValue": discountValue,
-            "prodPricing.vat": vat,
-          },
-        }
+        { $set: { "prodPricing.discountValue": discountValue, "prodPricing.vat": vat } }
       );
 
       if (result.modifiedCount === 0) {
@@ -643,4 +732,110 @@ export const inventoryService = {
 
     return cartesianProduct(values);
   },
+  getAllOptions: async () => {
+    try {
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
+
+      const kinds = await Inventory.distinct("kind");
+      const seenFields = new Set<string>();
+      const productInfoFields: string[] = [];
+
+      // Get productInfo fields
+      for (const kind of kinds) {
+        const sample: any = await Inventory.findOne({ kind, productInfo: { $exists: true } });
+        if (!sample || !sample.productInfo) continue;
+
+        const keys = Object.keys(sample.productInfo.toObject());
+        keys.forEach((key) => {
+          const full = `productInfo.${key}`;
+          if (!skipProductInfoFields.includes(key) && !seenFields.has(full)) {
+            seenFields.add(full);
+            productInfoFields.push(full);
+          }
+        });
+      }
+
+      // Fetch all distinct productInfo values
+      const productInfoResults = await Promise.all(
+        productInfoFields.map((field) =>
+          Inventory.distinct(field).then((values) => {
+            const map = new Map();
+            values
+              .filter((v) => v !== "" && v !== null && v !== undefined)
+              .forEach((val) => {
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
+              });
+
+            return {
+              field,
+              distinctValues: Array.from(map.values()),
+            };
+          })
+        )
+      );
+
+      // ✅ Dynamically fetch all keys in prodTechInfo (Map) using aggregation
+      const prodTechKeysAgg = await Inventory.aggregate([
+        { $match: { prodTechInfo: { $exists: true } } },
+        { $project: { keys: { $objectToArray: "$prodTechInfo" } } },
+        { $unwind: "$keys" },
+        { $group: { _id: null, allKeys: { $addToSet: "$keys.k" } } },
+      ]);
+
+      const prodTechKeys: string[] = prodTechKeysAgg[0]?.allKeys || [];
+
+      // Fetch distinct values for each dynamic key
+      const prodTechResults = await Promise.all(
+        prodTechKeys
+          .filter((key) => key && typeof key === "string" && key.trim() !== "") // ✅ filter out empty or invalid keys
+          .map((key) =>
+            Inventory.distinct(`prodTechInfo.${key}`).then((values) => {
+              const map = new Map();
+              values
+                .filter((v) => v !== "" && v !== null && v !== undefined)
+                .forEach((val) => {
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
+                });
+
+              return {
+                key,
+                distinctValues: Array.from(map.values()),
+              };
+            })
+          )
+      );
+
+      // Assemble result
+      const productInfo: Record<string, any> = {};
+      productInfoResults.forEach(({ field, distinctValues }) => {
+        productInfo[field.replace("productInfo.", "")] = distinctValues;
+      });
+
+      const prodTechInfo: Record<string, any> = {};
+      prodTechResults.forEach(({ key, distinctValues }) => {
+        prodTechInfo[key] = distinctValues;
+      });
+
+      return { productInfo, prodTechInfo };
+    } catch (error) {
+      console.error("❌ Error fetching all options:", error);
+      throw new Error("Failed to fetch all options");
+    }
+  },
 };
+function generateCacheKey(inventoryIds: string[]) {
+  // Concatenate all IDs into a single string
+  const concatenatedIds = inventoryIds.join("");
+
+  // Create a hash of the concatenated IDs
+  const hash = crypto.createHash("sha256").update(concatenatedIds).digest("hex");
+
+  // The hash itself will be the file name (base16 format)
+  return hash; // This is the base16 string
+}
+
+function sanitizeSheetName(name: string): string {
+  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31); // Excel limits sheet names to 31 chars
+}

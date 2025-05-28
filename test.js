@@ -18,6 +18,7 @@ const encrypt = (qrContent, secretMessage) => {
   return result;
 };
 
+//a test
 const decrypt = (encryptedMessage, qrContent) => {
   let result = "";
   let paddedQR = qrContent;

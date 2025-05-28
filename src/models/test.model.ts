@@ -60,7 +60,7 @@ const userSchema = new Schema(
 
 const userCategory = new Schema(
     {
-      userType: { type: String, required: true, unique: true },
+      userType: { type: String, required: true },
       description: { type: String },
       permissions: { type: [String], required: true },
     },
@@ -246,7 +246,7 @@ const ExpenseSchema = new Schema(
     date: { type: Date, default: Date.now },
     description: { type: String, required: true },
     // ledgerEntryId: { type: Schema.Types.ObjectId, ref: "Ledger" },980
-    
+
   },
   {
     timestamps: true,
@@ -271,7 +271,7 @@ const RevenueSchema = new Schema(
 
 const CouponSchema = new Schema(
   {
-    code: { type: String, required: true, unique: true }, // Unique code for the coupon
+    code: { type: String, required: true}, // Unique code for the coupon
     product: [{ type: String, ref: "Product" }], // Associated products (optional)
     discountType: {
       type: String,
@@ -351,7 +351,7 @@ const BundleSchema = new Schema(
 
 const OrderSchema = new Schema(
   {
-    orderId: { type: String, unique: true },
+    orderId: { type: String },
     customerId: { type: String, ref: "Customer" },
     products: [
       {
