@@ -15,7 +15,7 @@ const addressSchema = z.object({
   userId: z.string().optional(),
   country: z.string().trim().optional(),
   address: z.string().trim().optional(),
-  label: z.string().trim().optional(),
+  county: z.string().trim().optional(),
   appartment: z.string().trim().optional(),
   city: z.string().trim().optional(),
   postalCode: z.string().trim().optional(),

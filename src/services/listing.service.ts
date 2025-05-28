@@ -13,14 +13,15 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      // console.log("step Data in listing : ", stepData);
+      console.log("step Data in listing : ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
-      const { inventoryId } = stepData;
+      const { kind, title, sku, description, brand, productCategory } =
+        stepData.productInfo;
+      const { inventoryId, bundleId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (listing type)");
@@ -40,8 +41,10 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        bundleId,
+        listingType: stepData.listingType,
         listingHasVariations: stepData.listingHasVariations || false,
-        listingwithStock: stepData.listingwithStock,
+        listingWithStock: stepData.listingWithStock,
         publishToEbay: stepData.publishToEbay || false,
         publishToAmazon: stepData.publishToAmazon || false,
         publishToWebsite: stepData.publishToWebsite || false,
@@ -54,7 +57,7 @@ export const listingService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variatio  check : ", stepData.listingwithStock);
+      console.log("listing has variatio  check : ", stepData.listingWithStock);
       console.log("draftListingData here there : ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
@@ -64,7 +67,10 @@ export const listingService = {
 
       // Remove undefined values
       Object.keys(draftListingData).forEach((key) => {
-        if (typeof draftListingData[key] === "object" && draftListingData[key]) {
+        if (
+          typeof draftListingData[key] === "object" &&
+          draftListingData[key]
+        ) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
             if (draftListingData[key][subKey] === undefined) {
               delete draftListingData[key][subKey];
@@ -88,7 +94,8 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      // console.log("Received update request:", { listingId, stepData });
+      console.log("draft listing");
+      console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -96,7 +103,9 @@ export const listingService = {
       }
 
       // Find listing
-      const draftListing: any = await Listing.findById(listingId).populate("productInfo.productCategory");
+      const draftListing: any = await Listing.findById(listingId).populate(
+        "productInfo.productCategory"
+      );
       if (!draftListing) {
         console.error("Draft Listing not found:", listingId);
         throw new Error("Draft Listing not found");
@@ -104,7 +113,22 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      // console.log("draft listing is here : " , draftListing)
+      console.log("draft listing is here : ", draftListing);
+
+      // if (stepData.inventoryId) {
+      //   console.log("update inventory id : ", stepData.inventoryId);
+      //   draftListing.inventoryId = stepData.inventoryId;
+      // }
+
+      if (stepData.listingHasVariations === true || stepData.listingHasVariations === false) {
+        console.log("update listingHasVariations : ", stepData.listingHasVariations);
+        draftListing.listingHasVariations = stepData.listingHasVariations;
+      }
+
+      if (stepData.listingType) {
+        console.log("update listingType : ", stepData.listingType);
+        draftListing.listingType = stepData.listingType;
+      }
 
       // Update Status
       if (stepData.status !== undefined) {
@@ -121,14 +145,44 @@ export const listingService = {
       }
 
       // Update Nested Sections Dynamically
-      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      const sectionsToUpdate = [
+        "productInfo",
+        "prodPricing",
+        "prodDelivery",
+        "prodSeo",
+        "prodMedia",
+        "prodTechInfo",
+      ];
+      // sectionsToUpdate.forEach((section) => {
+      //   if (stepData[section]) {
+      //     console.log(`Updating ${section} with:`, stepData[section]);
+      //     draftListing[section] = {
+      //       // ...(draftListing[section] || {}), // Preserve existing data
+      //       ...stepData[section], // Merge new data
+      //     };
+      //     draftListing.markModified(section);
+      //   }
+      // });
+
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
-          console.log(`Updating ${section} with:`, stepData[section]);
-          draftListing[section] = {
-            // ...(draftListing[section] || {}), // Preserve existing data
-            ...stepData[section], // Merge new data
-          };
+          if (section === "prodPricing") {
+            console.log("prodPricing if work")
+            // Overwrite prodPricing entirely if selectedStockId is updated
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodPricing = stepData.prodPricing;
+          } else if (section === "prodTechInfo") {
+            console.log("prodTechInfo if work")
+            // Overwrite prodPricing entirely if selectedStockId is updated
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodTechInfo = stepData.prodTechInfo;
+          } else {
+            // Otherwise merge as usual
+            draftListing[section] = {
+              ...(draftListing[section] || {}),
+              ...stepData[section],
+            };
+          }
           draftListing.markModified(section);
         }
       });
@@ -137,6 +191,10 @@ export const listingService = {
       const topLevelFields = [
         "ebayItemId",
         "ebaySandboxUrl",
+        "listingType",
+        "listingWithStock",
+        "inventoryId",
+        "bundleId",
         "publishToEbay",
         "publishToAmazon",
         "publishToWebsite",
@@ -282,7 +340,11 @@ export const listingService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isBlocked },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -292,7 +354,11 @@ export const listingService = {
   },
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isTemplate },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -338,7 +404,7 @@ export const listingService = {
       const {
         searchQuery = "",
         isBlocked,
-        listingwithStock,
+        listingWithStock,
         isTemplate,
         publishToAmazon,
         publishToEbay,
@@ -418,8 +484,8 @@ export const listingService = {
         query.isBlocked = isBlocked;
       }
 
-      if (listingwithStock !== undefined) {
-        query.listingwithStock = listingwithStock;
+      if (listingWithStock !== undefined) {
+        query.listingWithStock = listingWithStock;
       }
 
       if (publishToAmazon !== undefined) {
@@ -495,7 +561,9 @@ export const listingService = {
         SupplierId: listing.supplier?._id,
         AmazonInfo: JSON.stringify(listing.platformDetails.amazon.productInfo),
         EbayInfo: JSON.stringify(listing.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(listing.platformDetails.website.productInfo),
+        WebsiteInfo: JSON.stringify(
+          listing.platformDetails.website.productInfo
+        ),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -515,41 +583,88 @@ export const listingService = {
     }
   },
   //service
+  // Debug service with verification
+  // Direct MongoDB update (bypass Mongoose discriminators)
+  // Direct MongoDB update (bypass Mongoose discriminators)
   bulkUpdateListingTaxDiscount: async (
     listingIds: string[],
     discountType: "fixed" | "percentage",
     discountValue: number,
     vat: number,
-    retailPrice: number
+    retailPrice?: number
   ) => {
     try {
-      // Validate the format of the listing IDs
+      // Validate inputs
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return { status: 400, message: "listingIds array is required" };
       }
 
-      // Validate that each listingId is a valid ObjectId
       const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
       if (invalidIds.length > 0) {
-        return { status: 400, message: `Invalid listingId(s): ${invalidIds.join(", ")}` };
+        return {
+          status: 400,
+          message: `Invalid listingId(s): ${invalidIds.join(", ")}`,
+        };
       }
 
-      // Fetch listings from the database
-      const listings = await Listing.find({ _id: { $in: listingIds } });
-      if (listings.length !== listingIds.length) {
-        const existingIds = listings.map((listing: any) => listing._id.toString());
+      if (discountValue < 0) {
+        return { status: 400, message: "Discount value cannot be negative" };
+      }
+
+      // Convert string IDs to ObjectIds
+      const objectIds = listingIds.map((id) => new mongoose.Types.ObjectId(id));
+
+      // Get direct access to MongoDB collection
+      if (!mongoose.connection.db) {
+        throw new Error("Database connection is not established.");
+      }
+      const collection = mongoose.connection.db.collection("listings"); // Adjust collection name if needed
+
+      // First, let's see what documents we're working with
+      console.log("Fetching documents before update...");
+      const docsBefore = await collection.find({ _id: { $in: objectIds } }).toArray();
+      console.log(`Found ${docsBefore.length} documents before update`);
+
+      docsBefore.forEach((doc) => {
+        console.log(`Doc ${doc._id}:`, {
+          kind: doc.kind || doc.__t,
+          listingWithStock: doc.listingWithStock,
+          vat: doc.prodPricing?.vat,
+          hasSelectedVariations:
+            Array.isArray(doc.prodPricing?.selectedVariations) && doc.prodPricing.selectedVariations.length > 0,
+          hasListingWithoutStockVariations:
+            Array.isArray(doc.prodPricing?.listingWithoutStockVariations) &&
+            doc.prodPricing.listingWithoutStockVariations.length > 0,
+        });
+      });
+
+      if (docsBefore.length !== listingIds.length) {
+        const existingIds = docsBefore.map((doc) => doc._id.toString());
         const missingIds = listingIds.filter((id) => !existingIds.includes(id));
-        return { status: 400, message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.` };
+        return {
+          status: 400,
+          message: `Listing(s) with ID(s) ${missingIds.join(", ")} not found.`,
+        };
       }
 
-      const percent = discountType === "percentage" ? discountValue / 100 : 0;
+      // Helper function to calculate discount value
+      const calculateDiscountValue = (basePrice: number): number => {
+        if (basePrice <= 0) return 0;
 
-      const bulkOps = listings.map((listing: any) => {
-        const prodPricing = listing.prodPricing || {}; // Ensure prodPricing is not undefined
-        console.log("Updating listing:", listing._id);
-        console.log("prodPricing:", prodPricing);
+        if (discountType === "percentage") {
+          const discountAmount = (basePrice * discountValue) / 100;
+          return Math.max(0, basePrice - discountAmount);
+        } else if (discountType === "fixed") {
+          return Math.max(0, basePrice - discountValue);
+        }
 
-        // Initialize update object for VAT and discountType
+        return basePrice;
+      };
+
+      // Prepare bulk operations
+      const bulkOps = docsBefore.map((doc) => {
+        const prodPricing = doc.prodPricing || {};
+
         let update: any = {
           $set: {
             "prodPricing.vat": vat,
@@ -557,119 +672,121 @@ export const listingService = {
           },
         };
 
-        // If retailPrice is provided, update it in the variations or the main listing
-        if (retailPrice) {
-          // Case 1: Listings with variations
-          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
-            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-              const basePrice = variation.retailPrice || 0;
-              let newDiscountValue = 0;
+        // Check listingWithStock to determine which variations array to update
+        const isListingWithStock = doc.listingWithStock !== false; // default to true if undefined
+        console.log(`Listing ${doc._id} - listingWithStock: ${isListingWithStock}`);
 
-              // Calculate discount for each variation
-              if (basePrice === 0) {
-                newDiscountValue = 0;
-              } else {
-                // Calculate discount value based on discount type
-                if (discountType === "percentage") {
-                  const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
-                  newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
-                } else if (discountType === "fixed") {
-                  newDiscountValue = basePrice - discountValue; // Apply fixed discount
-                }
+        if (isListingWithStock) {
+          // Handle listings WITH stock - update selectedVariations
+          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+            console.log(`Updating selectedVariations for listing ${doc._id}`);
+            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
+              let updatedVariation = { ...variation };
+
+              if (retailPrice !== undefined) {
+                updatedVariation.retailPrice = retailPrice;
               }
 
-              // Return updated variation object with new retail price and discount value
-              return {
-                ...variation,
-                retailPrice: retailPrice, // Set retailPrice in each variation
-                discountValue: newDiscountValue, // Set the discounted price
-              };
+              const basePrice = updatedVariation.retailPrice || 0;
+              updatedVariation.discountValue = calculateDiscountValue(basePrice);
+
+              return updatedVariation;
             });
 
             update.$set["prodPricing.selectedVariations"] = updatedVariations;
-          }
-          // Case 2: Listings without variations (already handled previously)
-          else if (typeof prodPricing.retailPrice === "number") {
-            update.$set["prodPricing.retailPrice"] = retailPrice;
-          }
-        }
-
-        // Case 2: Listings without variations (update the variation inside selectedVariations)
-        else if (prodPricing.selectedVariations && prodPricing.selectedVariations.length > 0) {
-          const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-            let newDiscountValue = 0;
-            const basePrice = variation.retailPrice || 0;
-
-            // If retailPrice is missing, discountValue will be set to 0
-            if (basePrice === 0) {
-              newDiscountValue = 0;
-            } else {
-              // Calculate discount value based on discount type
-              if (discountType === "percentage") {
-                const discountAmount = (basePrice * discountValue) / 100; // Calculate discount amount
-                newDiscountValue = basePrice - discountAmount; // Apply discount to the retail price
-              } else if (discountType === "fixed") {
-                newDiscountValue = basePrice - discountValue; // Apply fixed discount
-              }
-            }
-
-            return {
-              ...variation,
-              retailPrice: retailPrice, // Set retailPrice in each variation
-              discountValue: newDiscountValue, // Set the discounted price
-            };
-          });
-
-          update.$set["prodPricing.selectedVariations"] = updatedVariations;
-        }
-        // Case 2: Listings without variations (update discount)
-        else if (typeof prodPricing.retailPrice === "number") {
-          let newDiscountValue = 0;
-
-          if (prodPricing.retailPrice === 0) {
-            newDiscountValue = 0; // If retailPrice is missing or 0, no discount
           } else {
-            if (discountType === "percentage") {
-              const discountAmount = (prodPricing.retailPrice * discountValue) / 100; // Calculate discount amount
-              newDiscountValue = prodPricing.retailPrice - discountAmount; // Apply discount to retail price
-            } else if (discountType === "fixed") {
-              newDiscountValue = prodPricing.retailPrice - discountValue; // Apply fixed discount
+            // No variations - update main listing
+            if (retailPrice !== undefined) {
+              update.$set["prodPricing.retailPrice"] = retailPrice;
             }
-          }
 
-          update.$set["prodPricing.discountValue"] = newDiscountValue;
+            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+          }
+        } else {
+          // Handle listings WITHOUT stock - update listingWithoutStockVariations
+          if (
+            Array.isArray(prodPricing.listingWithoutStockVariations) &&
+            prodPricing.listingWithoutStockVariations.length > 0
+          ) {
+            console.log(`Updating listingWithoutStockVariations for listing ${doc._id}`);
+            const updatedVariations = prodPricing.listingWithoutStockVariations.map((variation: any) => {
+              let updatedVariation = { ...variation };
+
+              if (retailPrice !== undefined) {
+                updatedVariation.retailPrice = retailPrice;
+              }
+
+              const basePrice = updatedVariation.retailPrice || 0;
+              updatedVariation.discountValue = calculateDiscountValue(basePrice);
+
+              return updatedVariation;
+            });
+
+            update.$set["prodPricing.listingWithoutStockVariations"] = updatedVariations;
+          } else {
+            // No variations - update main listing
+            if (retailPrice !== undefined) {
+              update.$set["prodPricing.retailPrice"] = retailPrice;
+            }
+
+            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+          }
         }
 
-        // Log the final update object
-        console.log("Update Object for Listing ID", listing._id, ":", JSON.stringify(update, null, 2));
+        console.log(`Direct update for ${doc._id}:`, JSON.stringify(update, null, 2));
 
-        // Use updateDoc to update with $set
         return {
           updateOne: {
-            filter: { _id: listing._id }, // Dynamically use listing.kind
+            filter: { _id: doc._id },
             update: update,
           },
         };
       });
 
-      // Log the bulkOps to check the operations
-      console.log("Bulk Update Operations:", JSON.stringify(bulkOps, null, 2));
+      // Execute bulk update directly on MongoDB collection
+      console.log("Executing direct MongoDB bulk write...");
+      const result = await collection.bulkWrite(bulkOps);
+      console.log("Direct bulk write result:", result);
 
-      // Execute bulk update using bulkWrite
-      const result = await Listing.bulkWrite(bulkOps);
-      console.log("Bulk Write Result:", result);
-      // await Promise.all(
-      //   bulkOps.map(
-      //     (op) => Listing.updateOne(op.updateOne.filter, op.updateOne.update, { new: true }) // Use updateOne for each operation
-      //   )
-      // );
-      return { status: 200, message: "Listing updates successful" };
+      // Verify the updates
+      console.log("Verifying updates...");
+      const docsAfter = await collection.find({ _id: { $in: objectIds } }).toArray();
+
+      console.log("Documents after update:");
+      docsAfter.forEach((doc) => {
+        console.log(`Doc ${doc._id}:`, {
+          kind: doc.kind || doc.__t,
+          vat: doc.prodPricing?.vat,
+          discountType: doc.prodPricing?.discountType,
+          discountValue: doc.prodPricing?.discountValue,
+        });
+      });
+
+      const verifiedUpdates = docsAfter.filter(
+        (doc) => doc.prodPricing?.vat === vat && doc.prodPricing?.discountType === discountType
+      );
+
+      return {
+        status: 200,
+        message: "Listing updates successful",
+        modifiedCount: result.modifiedCount,
+        matchedCount: result.matchedCount,
+        verifiedUpdates: verifiedUpdates.length,
+        details: docsAfter.map((doc) => ({
+          id: doc._id,
+          kind: doc.kind || doc.__t,
+          vat: doc.prodPricing?.vat,
+          discountType: doc.prodPricing?.discountType,
+          discountValue: doc.prodPricing?.discountValue,
+        })),
+      };
     } catch (error: any) {
-      console.error("Error during bulk update:", error);
+      console.error("Error during direct bulk update:", error);
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
-
   upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
     return await Listing.findByIdAndUpdate(
       listingId,
@@ -762,7 +879,10 @@ export const listingService = {
         data: jsonData, // actual parsed data
       });
     } catch (error: any) {
-      console.error("Error getting getCategorySubTree from eBay:", error.message);
+      console.error(
+        "Error getting getCategorySubTree from eBay:",
+        error.message
+      );
 
       return JSON.stringify({
         status: 500,

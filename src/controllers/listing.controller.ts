@@ -24,21 +24,21 @@ export const listingController = {
         });
       }
 
-      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Invalid or missing 'inventoryId' in request payload",
-        });
-      }
+      // if (!mongoose.isValidObjectId(stepData.inventoryId)) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Invalid or missing 'inventoryId' in request payload",
+      //   });
+      // }
 
       // Ensure inventoryId exists in database
-      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
-      if (!inventoryExists) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Inventory ID does not exist",
-        });
-      }
+      // const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
+      // if (!inventoryExists) {
+      //   return res.status(StatusCodes.BAD_REQUEST).json({
+      //     success: false,
+      //     message: "Inventory ID does not exist",
+      //   });
+      // }
 
       const draftListing = await listingService.createDraftListingService(stepData);
 
@@ -697,7 +697,7 @@ export const listingController = {
         userType,
         status, // Extract status properly
         isBlocked,
-        listingwithStock,
+        listingWithStock,
         isTemplate,
         publishToEbay,
         publishToAmazon,
@@ -714,7 +714,7 @@ export const listingController = {
         userType: userType ? userType.toString() : undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
-        listingwithStock: listingwithStock === "true" ? true : listingwithStock === "false" ? false : undefined, // Convert only valid booleans
+        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined, // Convert only valid booleans
         publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
         publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
         publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
@@ -804,9 +804,9 @@ export const listingController = {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Try to get either ebayProductCategoryId or ebayPartCategoryId
+      // Try to get either ebayCategoryId or ebayCategoryId
       const productCategory = listingItem?.productInfo?.productCategory;
-      const ebayCategoryId = productCategory?.ebayProductCategoryId || productCategory?.ebayPartCategoryId;
+      const ebayCategoryId = productCategory?.ebayCategoryId || productCategory?.ebayCategoryId;
 
       if (!ebayCategoryId) {
         return res.status(400).json({ message: "No eBay category ID found in product category" });

@@ -1,5 +1,6 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
+import { boolean } from "zod";
 
 export const mediaSchema = {
   id: { type: String },
@@ -58,6 +59,8 @@ const prodPricingSchema = {
       { _id: true, strict: false } // 👈 this line allows undefined fields (dynamic attributes)
     ),
   ],
+  
+  currentEbayVariationsSKU: { type: [String] },
   selectedVariations: [
     {
       _id: false,
@@ -71,8 +74,9 @@ const prodPricingSchema = {
       retailPrice: { type: Number, required: true, default: 0 },
       images: { type: [mediaSchema], _id: false },
       listingQuantity: { type: Number, required: true, default: 0 },
-      linkedWithListing: { type: Boolean, default: false },
+      variationName: { type: String },
       discountValue: { type: Number },
+      enableEbayListing: { type: Boolean, default: false },
     },
   ],
   retailPrice: {
@@ -148,10 +152,12 @@ const selectedVariationsSchema = new Schema({
 // Main Listing Schema
 const listingSchema = new Schema(
   {
-    inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: true },
+    inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: false },
+    bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", required: false },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: false },
+    listingType: { type: String, enum: ["product", "part", "bundle"] },
     listingHasVariations: { type: Boolean, default: false },
-    listingwithStock: { type: Boolean, default: true },
+    listingWithStock: { type: Boolean, default: true },
     ebayItemId: { type: String },
     ebaySandboxUrl: { type: String },
     offerId: { type: String },

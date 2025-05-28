@@ -344,6 +344,7 @@ export const inventoryService = {
         searchQuery = "",
         isBlocked,
         isTemplate,
+        productCategory,
         kind,
         status, // Extract status from filters
         startDate,
@@ -358,19 +359,18 @@ export const inventoryService = {
       const limitNumber = parseInt(limit, 10) || 10;
       const skip = (pageNumber - 1) * limitNumber;
 
-      // Build the query dynamically based on filters
       const query: any = {};
+      const andConditions: any[] = [];
 
-      // Search logic if searchQuery is provided
+      // 🔎 Search logic
       if (searchQuery) {
-        query.$or = [
+        const searchConditions: any[] = [
           { "productInfo.title": { $regex: searchQuery, $options: "i" } },
           { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
-        // Perform searches for productSupplier and productCategory in parallel using Promise.all
-        const [productCategories] = await Promise.all([
+        const [users, productCategories] = await Promise.all([
           User.find({
             $or: [
               { firstName: { $regex: searchQuery, $options: "i" } },
@@ -382,54 +382,63 @@ export const inventoryService = {
           ProductCategory.find({ name: { $regex: searchQuery, $options: "i" } }).select("_id"),
         ]);
 
-        // Check if search query contains both first and last name (e.g., "Asad Khan")
-        // if (searchQuery.includes(" ")) {
-        // const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
+        if (productCategories.length > 0) {
+          searchConditions.push({
+            "productInfo.productCategory": { $in: productCategories.map((cat) => cat._id) },
+          });
+        }
 
-        // Filter product suppliers based on both first name and last name
-        // const supplierQuery = {
-        //   $or: [
-        //     { firstName: { $regex: firstNameQuery, $options: "i" } },
-        //     { lastName: { $regex: lastNameQuery, $options: "i" } },
-        //   ],
-        // };
-
-        // const suppliersWithFullName = await User.find(supplierQuery).select("_id");
-        // Combine both individual and full-name matches
-        // productSuppliers.push(...suppliersWithFullName);
-        // }
-
-        // Add filters for productSupplier and productCategory ObjectIds to the query
-        query.$or.push(
-          // { "productInfo.productSupplier": { $in: productSuppliers.map((supplier) => supplier._id) } },
-          { "productInfo.productCategory": { $in: productCategories.map((category) => category._id) } }
-        );
+        andConditions.push({ $or: searchConditions });
       }
 
-      // Add filters for status, isBlocked, and isTemplate
+      // 🟢 Category filter (from query param)
+      if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
+        andConditions.push({
+          "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
+        });
+      }
+
+      // // Explicit productCategory filter (separate)
+      // if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
+      //   andConditions.push({
+      //     "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
+      //   });
+      // }
+
+      // Other filters
       if (status && ["draft", "published"].includes(status)) {
-        query.status = status;
+        andConditions.push({ status });
       }
+
       if (isBlocked !== undefined) {
-        query.isBlocked = isBlocked;
+        andConditions.push({ isBlocked });
       }
 
       if (isTemplate !== undefined) {
-        query.isTemplate = isTemplate;
-      }
-      if (isPart !== undefined) {
-        query.isPart = isPart;
-      }
-      if (kind === "part") {
-        query.kind = kind;
+        andConditions.push({ isTemplate });
       }
 
-      // Date range filter for createdAt
+      if (isPart !== undefined) {
+        andConditions.push({ isPart });
+      }
+
+      if (kind === "part") {
+        andConditions.push({ kind });
+      }
+
+      // Date filter
       if (startDate || endDate) {
         const dateFilter: any = {};
         if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
         if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
-        if (Object.keys(dateFilter).length > 0) query.createdAt = dateFilter;
+        if (Object.keys(dateFilter).length > 0) {
+          andConditions.push({ createdAt: dateFilter });
+        }
+      }
+
+      // Final query assignment
+      if (andConditions.length > 0) {
+        query.$and = andConditions;
       }
 
       // Fetch filtered inventory with pagination and populate the necessary fields
@@ -493,8 +502,8 @@ export const inventoryService = {
             .map(async ({ row, data: normalizedData }) => {
               const matchedCategory = await ProductCategory.findOne({
                 $or: [
-                  { ebayProductCategoryId: normalizedData.ebaycategoryid },
-                  { ebayPartCategoryId: normalizedData.ebaycategoryid },
+                  { ebayCategoryId: normalizedData.ebaycategoryid },
+                  // { ebayCategoryId: normalizedData.ebaycategoryid },
                 ],
               }).select("_id");
 
@@ -725,134 +734,93 @@ export const inventoryService = {
   },
   getAllOptions: async () => {
     try {
-      // List of all top-level fields and subfields you want to get unique values for
-      const fields = [
-        // Top-level fields
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
 
-        // ProductInfo subfields
-        // "productInfo.productCategory",
-        // "productInfo.title",
-        // "productInfo.description",
-        // "productInfo.inventoryCondition",
-        "productInfo.brand",
+      const kinds = await Inventory.distinct("kind");
+      const seenFields = new Set<string>();
+      const productInfoFields: string[] = [];
 
-        // ProdTechInfo subfields
-        "prodTechInfo.processor",
-        "prodTechInfo.model",
-        "prodTechInfo.operatingSystem",
-        "prodTechInfo.storageType",
-        "prodTechInfo.features",
-        "prodTechInfo.ssdCapacity",
-        "prodTechInfo.gpu",
-        "prodTechInfo.unitType",
-        "prodTechInfo.unitQuantity",
-        "prodTechInfo.mpn",
-        "prodTechInfo.processorSpeed",
-        "prodTechInfo.series",
-        "prodTechInfo.ramSize",
-        "prodTechInfo.californiaProp65Warning",
-        "prodTechInfo.type",
-        "prodTechInfo.releaseYear",
-        "prodTechInfo.hardDriveCapacity",
-        "prodTechInfo.color",
-        "prodTechInfo.maxResolution",
-        "prodTechInfo.mostSuitableFor",
-        "prodTechInfo.screenSize",
-        "prodTechInfo.graphicsProcessingType",
-        "prodTechInfo.connectivity",
-        "prodTechInfo.manufacturerWarranty",
-        "prodTechInfo.regionOfManufacture",
-        "prodTechInfo.height",
-        "prodTechInfo.length",
-        "prodTechInfo.weight",
-        "prodTechInfo.width",
-        "prodTechInfo.motherboardModel",
-        "prodTechInfo.operatingSystemEdition",
-        "prodTechInfo.memory",
-        "prodTechInfo.maxRamCapacity",
-        "prodTechInfo.formFactor",
-        "prodTechInfo.ean",
-        "prodTechInfo.inventoryType",
-        "prodTechInfo.nonNewConditionDetails",
-        "prodTechInfo.numberOfLANPorts",
-        "prodTechInfo.maximumWirelessData",
-        "prodTechInfo.maximumLANDataRate",
-        "prodTechInfo.ports",
-        "prodTechInfo.toFit",
-        "prodTechInfo.displayType",
-        "prodTechInfo.aspectRatio",
-        "prodTechInfo.imageBrightness",
-        "prodTechInfo.throwRatio",
-        "prodTechInfo.compatibleOperatingSystem",
-        "prodTechInfo.compatibleFormat",
-        "prodTechInfo.lensMagnification",
-        "prodTechInfo.yearManufactured",
-        "prodTechInfo.nativeResolution",
-        "prodTechInfo.displayTechnology",
-        "prodTechInfo.energyEfficiencyRating",
-        "prodTechInfo.videoInputs",
-        "prodTechInfo.refreshRate",
-        "prodTechInfo.responseTime",
-        "prodTechInfo.brightness",
-        "prodTechInfo.contrastRatio",
-        "prodTechInfo.ecRange",
-        "prodTechInfo.productLine",
-        "prodTechInfo.customBundle",
-        "prodTechInfo.interface",
-        "prodTechInfo.networkConnectivity",
-        "prodTechInfo.networkManagementType",
-        "prodTechInfo.networkType",
-        "prodTechInfo.processorManufacturer",
-        "prodTechInfo.numberOfProcessors",
-        "prodTechInfo.numberOfVANPorts",
-        "prodTechInfo.processorType",
-        "prodTechInfo.raidLfevel",
-        "prodTechInfo.memoryType",
-        "prodTechInfo.deviceConnectivity",
-        "prodTechInfo.connectorType",
-        "prodTechInfo.supportedWirelessProtocol",
-      ];
+      // Get productInfo fields
+      for (const kind of kinds) {
+        const sample: any = await Inventory.findOne({ kind, productInfo: { $exists: true } });
+        if (!sample || !sample.productInfo) continue;
 
-      // Create an object to store the distinct values for each field
-      const fetchPromises = fields.map((field) =>
-        Inventory.find({})
-          .distinct(field)
-          .then((distinctValues) => {
-            distinctValues = distinctValues
-              .filter((value) => value !== "" && value !== null && value !== undefined)
-              .map((value) => (typeof value === "string" ? value.trim() : value));
+        const keys = Object.keys(sample.productInfo.toObject());
+        keys.forEach((key) => {
+          const full = `productInfo.${key}`;
+          if (!skipProductInfoFields.includes(key) && !seenFields.has(full)) {
+            seenFields.add(full);
+            productInfoFields.push(full);
+          }
+        });
+      }
 
-            // Remove duplicates
-            distinctValues = [...new Set(distinctValues)];
+      // Fetch all distinct productInfo values
+      const productInfoResults = await Promise.all(
+        productInfoFields.map((field) =>
+          Inventory.distinct(field).then((values) => {
+            const map = new Map();
+            values
+              .filter((v) => v !== "" && v !== null && v !== undefined)
+              .forEach((val) => {
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
+              });
 
-            return { field, distinctValues };
+            return {
+              field,
+              distinctValues: Array.from(map.values()),
+            };
           })
+        )
       );
 
-      const results = await Promise.all(fetchPromises);
+      // ✅ Dynamically fetch all keys in prodTechInfo (Map) using aggregation
+      const prodTechKeysAgg = await Inventory.aggregate([
+        { $match: { prodTechInfo: { $exists: true } } },
+        { $project: { keys: { $objectToArray: "$prodTechInfo" } } },
+        { $unwind: "$keys" },
+        { $group: { _id: null, allKeys: { $addToSet: "$keys.k" } } },
+      ]);
 
-      const allOptions: Record<string, any> = {};
-      results.forEach(({ field, distinctValues }) => {
-        if (distinctValues.length > 0) {
-          allOptions[field] = distinctValues;
-        }
+      const prodTechKeys: string[] = prodTechKeysAgg[0]?.allKeys || [];
+
+      // Fetch distinct values for each dynamic key
+      const prodTechResults = await Promise.all(
+        prodTechKeys
+          .filter((key) => key && typeof key === "string" && key.trim() !== "") // ✅ filter out empty or invalid keys
+          .map((key) =>
+            Inventory.distinct(`prodTechInfo.${key}`).then((values) => {
+              const map = new Map();
+              values
+                .filter((v) => v !== "" && v !== null && v !== undefined)
+                .forEach((val) => {
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
+                });
+
+              return {
+                key,
+                distinctValues: Array.from(map.values()),
+              };
+            })
+          )
+      );
+
+      // Assemble result
+      const productInfo: Record<string, any> = {};
+      productInfoResults.forEach(({ field, distinctValues }) => {
+        productInfo[field.replace("productInfo.", "")] = distinctValues;
       });
 
-      // Separate into productInfo and prodTechInfo
-      const productInfo: Record<string, any> = {};
       const prodTechInfo: Record<string, any> = {};
-
-      Object.entries(allOptions).forEach(([key, value]) => {
-        if (key.startsWith("productInfo.")) {
-          productInfo[key.replace("productInfo.", "")] = value;
-        } else if (key.startsWith("prodTechInfo.")) {
-          prodTechInfo[key.replace("prodTechInfo.", "")] = value;
-        }
+      prodTechResults.forEach(({ key, distinctValues }) => {
+        prodTechInfo[key] = distinctValues;
       });
 
       return { productInfo, prodTechInfo };
     } catch (error) {
-      console.error("Error fetching all options:", error);
+      console.error("❌ Error fetching all options:", error);
       throw new Error("Failed to fetch all options");
     }
   },

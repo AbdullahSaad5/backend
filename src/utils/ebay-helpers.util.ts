@@ -58,29 +58,20 @@ const options: EbayAuthOptions = { prompt: "consent" };
 
 export const getStoredEbayAccessToken = async () => {
   try {
-    // const filePath = path.resolve(__dirname, "ebay_tokens.json");
-
-    // // ✅ Check if file exists
-    // if (!fs.existsSync(filePath)) {
-    //   console.error("❌ Token file not found.");
-    //   return null;
-    // }
     const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
     const useClient =
       process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
+
     let credentialsText;
     try {
       if (useClient === "true") {
         console.log("🔑 [CLIENT] Reading client token file");
         credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
       } else {
-        if (type === "production") {
-          console.log("🔵 [PRODUCTION] Reading production token file");
-          credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
-        } else {
-          console.log("🟣 [SANDBOX] Reading sandbox token file");
-          credentialsText = fs.readFileSync("ebay_tokens_sandbox.json", "utf-8");
-        }
+        credentialsText = fs.readFileSync(
+          type === "production" ? "ebay_tokens.json" : "ebay_tokens_sandbox.json",
+          "utf-8"
+        );
       }
     } catch (readError) {
       console.error("❌ Error reading token file:", readError);
@@ -95,31 +86,29 @@ export const getStoredEbayAccessToken = async () => {
       return null;
     }
 
-    if (!credentials || !credentials.access_token || !credentials.generated_at || !credentials.expires_in) {
-      console.error("❌ Invalid token data in file.");
-      return null;
-    }
-
     const { access_token, generated_at, expires_in } = credentials;
 
-    // 🔥 Fix: Ensure generated_at is a valid number
-    if (isNaN(generated_at) || isNaN(expires_in)) {
-      console.error("❌ Invalid 'generated_at' or 'expires_in' value.");
+    if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
+      console.error("❌ Invalid or missing token fields.");
       return null;
     }
 
     const currentTime = Date.now();
-    const expiresAt = generated_at + expires_in * 1000; // Expiration time in ms
+    const expiresAt = generated_at + expires_in * 1000;
+    const timeRemaining = expiresAt - currentTime;
+    const bufferTime = 5 * 60 * 1000; // 5 minutes
 
-    if (currentTime > expiresAt) {
-      console.error("❌ Token expired.");
-      // Refresh the token when expired
-      const newToken = await refreshEbayAccessToken(type, useClient); // Call your function to refresh token
-      if (newToken) {
+    // 🔁 Refresh token if it's expired or will expire soon
+    if (timeRemaining <= bufferTime) {
+      console.warn("⚠️ Access token is expired or about to expire. Refreshing...");
+      const newToken = await refreshEbayAccessToken(type, useClient);
+      if (newToken?.access_token) {
         console.log("✅ Token refreshed.");
-        return newToken; // Return the new token after refreshing
+        return newToken.access_token;
+      } else {
+        console.error("❌ Failed to refresh token.");
+        return null;
       }
-      return null; // If refreshing fails, return null
     }
 
     const isClient = useClient === "true";

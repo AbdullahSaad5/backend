@@ -104,7 +104,7 @@ export const bulkImportUtility = {
 
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
-        rowObj.ebayCategoryId = categoryId;
+        // rowObj.ebayCategoryId = categoryId;
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -121,8 +121,19 @@ export const bulkImportUtility = {
           // Find the folder that includes exactly this category ID
           const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
 
+          // if (!matchingFolder) {
+          //   console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
+          //   continue;
+          // }
           if (!matchingFolder) {
-            console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
+            const globalRowIndex = validRows.length + invalidRows.length + 1;
+            const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
+
+            console.warn(`⚠️ ${errorMessage}`);
+            addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
+
+            invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
+            sheetInvalidCount++;
             continue;
           }
 
@@ -202,6 +213,7 @@ export const bulkImportUtility = {
 
       const files = fs.readdirSync(mainFolder);
       addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
+
       const isValidExcel = (filename: string) => {
         return (
           filename.endsWith(".xlsx") &&
@@ -212,9 +224,6 @@ export const bulkImportUtility = {
       };
 
       const xlsxFile = files.find(isValidExcel);
-
-      // const xlsxFile = files.find((f) => f.endsWith(".xlsx") && !f.startsWith("._"));
-
       const mediaFolder = files.find(
         (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
       );
@@ -234,43 +243,48 @@ export const bulkImportUtility = {
         type: "file",
         cellDates: true,
         raw: false,
-        WTF: true, // helps log unexpected formats
+        WTF: true,
       });
-      console.log("✅ Sheet Names Extracted:", workbook.SheetNames);
 
       const sheetNames = workbook.SheetNames;
-      sheetNames.forEach((name) => {
-        console.log(
-          `Sheet name: "${name}" →`,
-          [...name].map((c) => c.charCodeAt(0))
-        );
-      });
-      console.log(
-        "Sheet visibility states:",
-        workbook.Workbook?.Sheets?.map((s) => s.Hidden)
-      );
+      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
       if (sheetNames.length === 0) {
         addLog("❌ XLSX file has no sheets.");
         throw new Error("XLSX file has no sheets.");
       }
-      const laptopSheet = workbook.Sheets["Laptops"];
-      console.log("Rows in Laptops sheet:", XLSX.utils.sheet_to_json(laptopSheet).length);
 
-      console.log(`📄 Found worksheets: ${sheetNames.join(", ")}`);
+      let allValidRows: any = [];
+      let allInvalidRows: any = [];
 
-      // ✅ Pass workbook and media folder to validator
-      const { validRows, invalidRows, validIndexes } = await bulkImportUtility.validateXLSXData(
-        workbook,
-        mediaFolderPath
-      );
+      for (const sheetName of sheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet);
 
-      // Use validRows as needed (e.g., for database upload)
-      console.log("✅ Valid Rows Ready:", validRows.length);
-      console.log("❌ Invalid Rows:", invalidRows.length);
-      addLog("🚀 Starting bulk import...");
-      await inventoryService.bulkImportInventory(validRows);
-      addLog("✅ Bulk import completed.");
+        if (rows.length === 0) {
+          // addLog(`⚠️ Sheet "${sheetName}" is empty. Skipping.`);
+          continue;
+        }
+
+        addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
+
+        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook, mediaFolderPath);
+
+        allValidRows = allValidRows.concat(validRows);
+        allInvalidRows = allInvalidRows.concat(invalidRows);
+      }
+
+      console.log("✅ Total Valid Rows Ready:", allValidRows.length);
+      console.log("❌ Total Invalid Rows:", allInvalidRows.length);
+
+      if (allValidRows.length === 0) {
+        addLog("❌ No valid Inventory to import.");
+      } else {
+        addLog("🚀 Starting bulk import...");
+        await inventoryService.bulkImportInventory(allValidRows);
+        addLog("✅ Bulk import completed.");
+      }
     } catch (error: any) {
       addLog(`❌ Error processing ZIP file: ${error.message}`);
       console.error("Full error details:", error);
@@ -289,24 +303,19 @@ export const bulkImportUtility = {
       }
     }
   },
-
   fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
     try {
       const result = await ProductCategory.aggregate([
         {
           $match: {
-            $or: [
-              { ebayPartCategoryId: { $exists: true, $ne: null } },
-              { ebayProductCategoryId: { $exists: true, $ne: null } },
-            ],
+            $or: [{ ebayCategoryId: { $exists: true, $ne: null } }, { ebayCategoryId: { $exists: true, $ne: null } }],
           },
         },
         {
           $project: {
             _id: 0,
             name: 1,
-            ebayPartCategoryId: 1,
-            ebayProductCategoryId: 1,
+            ebayCategoryId: 1,
           },
         },
       ]);
@@ -314,12 +323,12 @@ export const bulkImportUtility = {
       // Build array of { id, name } from both possible ID fields
       const allCategories = result.flatMap((item) => {
         const categories: { id: string; name: string }[] = [];
-        if (item.ebayPartCategoryId) {
-          categories.push({ id: item.ebayPartCategoryId.toString(), name: item.name });
+        if (item.ebayCategoryId) {
+          categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
         }
-        if (item.ebayProductCategoryId) {
-          categories.push({ id: item.ebayProductCategoryId.toString(), name: item.name });
-        }
+        // if (item.ebayCategoryId) {
+        //   categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
+        // }
         return categories;
       });
 

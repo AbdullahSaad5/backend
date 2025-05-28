@@ -82,7 +82,7 @@ export const authValidation = {
     // Define the address schema
   const addressSchema =  z.object({
     userId: z.string().optional(), // Optional if it's an update; otherwise, it's for new addresses
-    label: z.string().trim().min(3, "Address label must be at least 3 characters").optional(),
+    county: z.string().trim().min(3, "County must be at least 3 characters").optional(),
     street: z.string().trim().min(3, "Street must be at least 3 characters").optional(),
     city: z.string().trim().min(2, "City must be at least 2 characters").optional(),
     state: z.string().trim().min(2, "State must be at least 2 characters").optional(),
