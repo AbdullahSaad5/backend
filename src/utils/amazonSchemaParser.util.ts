@@ -1014,7 +1014,7 @@ class AmazonSchemaParser {
       type: "object",
       properties: {},
       requiredFields: property.required || [],
-    }as ObjectField;
+    } as ObjectField;
 
     if (property.properties) {
       // Instead of calling parseProperties (which adds to top-level fields),
