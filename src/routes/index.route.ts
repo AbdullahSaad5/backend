@@ -16,9 +16,11 @@ import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
+import { document } from "./documents.route"
 import { blog } from "./blog.route";
 import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
+import { ticket } from "./ticket.route";
 import { variations } from "./variations.route";
 import { gamerComunity } from "./gamer-comunity.route";
 import { paymentPolicy } from "./payment-policy.route";
@@ -51,12 +53,14 @@ const routes: {
   userCategory,
   variations,
   blog,
+  document,
   supplier,
   supplierCategory,
   stock,
   listing,
   inventory,
   ebay,
+  ticket,
   productCategory,
   gamerComunity,
   blogCategory,
