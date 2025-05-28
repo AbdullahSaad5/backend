@@ -7,6 +7,8 @@ import {
   getProductTypeDefinitions,
 } from "@/utils/amazon-helpers.util";
 import { Listing } from "@/models";
+import { parseSchemaProperties } from "@/utils/parseAmazonSchema";
+import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
 
@@ -23,6 +25,62 @@ export const amazonListingService = {
         error: "Failed to get application token",
         details: error,
       });
+    }
+  },
+
+  getAmazonSchema: async (req: Request, res: Response) => {
+    try {
+      const productType = req.params.productType;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
+
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
+
+      const accessToken = await getStoredAmazonAccessToken();
+
+      // Fetch SP API product type schema metadata
+      const spApiResponse = await fetch(spApiUrl, {
+        method: "GET",
+        headers: {
+          "x-amz-access-token": accessToken ?? "",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!spApiResponse.ok) {
+        return res.status(spApiResponse.status).json({ error: "Failed to fetch product type schema" });
+      }
+
+      const spApiData = await spApiResponse.json();
+
+      const schemaUrl = spApiData.schema?.link?.resource;
+      if (!schemaUrl) {
+        return res.status(400).json({ error: "Schema link resource not found" });
+      }
+
+      // Fetch actual schema JSON from schemaUrl (usually public S3 URL with token)
+      const schemaResponse = await fetch(schemaUrl);
+      if (!schemaResponse.ok) {
+        return res.status(schemaResponse.status).json({ error: "Failed to fetch actual schema" });
+      }
+
+      const actualSchema = await schemaResponse.json();
+
+      // Parse schema properties with your utility function
+      // const properties = actualSchema.properties || {};
+      // const requiredFields = actualSchema.required || [];
+
+      // const parsedFields = parseSchemaProperties(properties, requiredFields);
+
+      const parser = new AmazonSchemaParser(actualSchema);
+      const transformedSchema = parser.parse();
+
+      // Return parsed fields
+      // return res.json({ parsedFields });
+      return res.json({ transformedSchema });
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
     }
   },
 
