@@ -153,6 +153,7 @@ const selectedVariationsSchema = new Schema({
 const listingSchema = new Schema(
   {
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: false },
+    bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", required: false },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: false },
     listingType: { type: String, enum: ["product", "part", "bundle"] },
     listingHasVariations: { type: Boolean, default: false },
