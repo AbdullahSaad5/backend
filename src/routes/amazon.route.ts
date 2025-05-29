@@ -10,13 +10,15 @@ export const amazon = (router: Router) => {
   // Taxonomy/Category routes
   router.get("/get-amazon-categories", amazonListingService.getAmazonCategories);
 
+
   // Product routes
   router.post("/products/create", amazonListingService.addItemOnAmazon);
   router.patch("/products/update", amazonListingService.reviseItemOnAmazon);
 
   // Order routes
   router.get("/orders/get-orders", amazonListingService.getOrders);
-  router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchema);
+  // router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchema);
+  router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchemaDummy);
 
   // Additional routes can be added here as needed
   // For example:

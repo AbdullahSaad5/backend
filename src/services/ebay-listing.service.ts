@@ -449,7 +449,7 @@ export const ebayListingService = {
           <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-           <Description>${"A test descriotion for now"}</Description>
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -624,7 +624,7 @@ export const ebayListingService = {
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
 
-          <Description>${"A test desc ription for now"}</Description>
+           <Description>${escapeXml(listingDescriptionData)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
