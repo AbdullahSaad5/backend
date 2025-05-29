@@ -16,7 +16,7 @@ export const amazon = (router: Router) => {
 
   // Order routes
   router.get("/orders/get-orders", amazonListingService.getOrders);
-  router.get("/get-parsed-schema/:productType", amazonListingService.getParsedSchema);
+  router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchema);
 
   // Additional routes can be added here as needed
   // For example:
