@@ -6,6 +6,8 @@ import {
   initializeAmazonCredentials,
   getProductTypeDefinitions,
 } from "@/utils/amazon-helpers.util";
+import path from "path";
+import { promises as fs } from "fs";
 import { Listing } from "@/models";
 import { parseSchemaProperties } from "@/utils/parseAmazonSchema";
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
@@ -83,7 +85,27 @@ export const amazonListingService = {
       return res.status(500).json({ error: "Internal server error", details: error.message });
     }
   },
+  getAmazonSchemaDummy: async (req: Request, res: Response) => {
+    try {
+      const productType = req.params.productType;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
 
+      // Read schema JSON from local test.json file instead of API calls
+      const filePath = path.join(__dirname, "test.json");
+      const jsonData = await fs.readFile(filePath, "utf-8");
+      const actualSchema = JSON.parse(jsonData);
+
+      // Pass the local JSON schema to your parser
+      const parser = new AmazonSchemaParser(actualSchema);
+      const transformedSchema = parser.parse();
+
+      return res.json({ transformedSchema });
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
+    }
+  },
   handleAuthorizationCallback: async (req: Request, res: Response) => {
     try {
       const { code } = req.query;
