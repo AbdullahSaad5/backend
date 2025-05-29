@@ -9,7 +9,6 @@ export const blogService = {
   editblog: (id: string, data: { title?: string; content?: string; category?: string }) => {
     return Iblog.findByIdAndUpdate(id, data, { new: true });
   },
-
   deleteblog: (id: string) => {
     const blog = Iblog.findByIdAndDelete(id);
     if (!blog) {

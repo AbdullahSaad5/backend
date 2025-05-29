@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import jwt from 'jsonwebtoken';
 
 import { getAccessTokenFromHeaders } from "@/utils/headers.util";
 import { jwtVerify } from "@/utils/jwt.util";
@@ -41,3 +42,4 @@ export const authMiddleware = async (
     return next();
   }
 };
+

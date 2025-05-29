@@ -21,7 +21,7 @@ export const listingService = {
 
       const { kind, title, sku, description, brand, productCategory } =
         stepData.productInfo;
-      const { inventoryId } = stepData;
+      const { inventoryId, bundleId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (listing type)");
@@ -41,6 +41,7 @@ export const listingService = {
         isBlocked: false,
         kind,
         inventoryId,
+        bundleId,
         listingType: stepData.listingType,
         listingHasVariations: stepData.listingHasVariations || false,
         listingWithStock: stepData.listingWithStock,
@@ -193,6 +194,7 @@ export const listingService = {
         "listingType",
         "listingWithStock",
         "inventoryId",
+        "bundleId",
         "publishToEbay",
         "publishToAmazon",
         "publishToWebsite",

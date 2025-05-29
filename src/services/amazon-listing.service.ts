@@ -8,6 +8,7 @@ import {
 } from "@/utils/amazon-helpers.util";
 import { Listing } from "@/models";
 import { parseSchemaProperties } from "@/utils/parseAmazonSchema";
+import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
 
@@ -27,7 +28,7 @@ export const amazonListingService = {
     }
   },
 
-  getParsedSchema: async (req: Request, res: Response) => {
+  getAmazonSchema: async (req: Request, res: Response) => {
     try {
       const productType = req.params.productType;
       if (!productType) {
@@ -67,13 +68,17 @@ export const amazonListingService = {
       const actualSchema = await schemaResponse.json();
 
       // Parse schema properties with your utility function
-      const properties = actualSchema.properties || {};
-      const requiredFields = actualSchema.required || [];
+      // const properties = actualSchema.properties || {};
+      // const requiredFields = actualSchema.required || [];
 
-      const parsedFields = parseSchemaProperties(properties, requiredFields);
+      // const parsedFields = parseSchemaProperties(properties, requiredFields);
+
+      const parser = new AmazonSchemaParser(actualSchema);
+      const transformedSchema = parser.parse();
 
       // Return parsed fields
-      return res.json({ parsedFields });
+      // return res.json({ parsedFields });
+      return res.json({ transformedSchema });
     } catch (error: any) {
       return res.status(500).json({ error: "Internal server error", details: error.message });
     }
