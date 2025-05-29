@@ -14,6 +14,23 @@ function pick(obj: any, keys: string[]) {
   }, {});
 }
 
+interface ExportParams {
+  inventoryIds: string[];
+  selectAllPages: boolean;
+  // filters: {
+  //   category?: string;
+  //   search?: string;
+  //   // Add other filter properties as needed
+  //   [key: string]: any;
+  // };
+}
+
+interface ExportResult {
+  fromCache: boolean;
+  file: string;
+  totalExported: number;
+}
+
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
@@ -29,11 +46,24 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-      const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
-      const { kind, productCategory, title, description, brand, inventoryImages, inventoryCondition, ebayCategoryId } =
-        stepData.productInfo;
+      const isMultiBrand =
+        stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const {
+        kind,
+        productCategory,
+        title,
+        description,
+        brand,
+        inventoryImages,
+        inventoryCondition,
+        ebayCategoryId,
+      } = stepData.productInfo;
 
-      if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
+      if (
+        !kind ||
+        !Inventory.discriminators ||
+        !Inventory.discriminators[kind]
+      ) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
       }
 
@@ -42,7 +72,11 @@ export const inventoryService = {
       // Handle productCategory based on isPart
       if (isPart) {
         // For parts, accept eBay category ID (string or number)
-        if (productCategory === undefined || productCategory === null || productCategory === "") {
+        if (
+          productCategory === undefined ||
+          productCategory === null ||
+          productCategory === ""
+        ) {
           throw new Error("Invalid or missing 'productCategory' for part");
         }
         categoryId = productCategory.toString(); // Convert to string
@@ -87,7 +121,10 @@ export const inventoryService = {
       console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
-        if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
+        if (
+          typeof draftInventoryData[key] === "object" &&
+          draftInventoryData[key]
+        ) {
           Object.keys(draftInventoryData[key]).forEach((subKey) => {
             if (draftInventoryData[key][subKey] === undefined) {
               delete draftInventoryData[key][subKey];
@@ -96,9 +133,14 @@ export const inventoryService = {
         }
       });
 
-      console.log("Final draftInventoryData before saving:", draftInventoryData);
+      console.log(
+        "Final draftInventoryData before saving:",
+        draftInventoryData
+      );
 
-      const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
+      const draftInventory = new Inventory.discriminators[kind](
+        draftInventoryData
+      );
       await draftInventory.save({ validateBeforeSave: false });
 
       return draftInventory;
@@ -125,7 +167,10 @@ export const inventoryService = {
         throw new Error("Draft inventory not found");
       }
 
-      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
+      console.log(
+        "Existing inventory before update:",
+        JSON.stringify(draftInventory, null, 2)
+      );
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
@@ -190,7 +235,10 @@ export const inventoryService = {
         }
       });
 
-      console.log("Final inventory object before save:", JSON.stringify(draftInventory, null, 2));
+      console.log(
+        "Final inventory object before save:",
+        JSON.stringify(draftInventory, null, 2)
+      );
 
       // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
@@ -207,14 +255,18 @@ export const inventoryService = {
   getInventoriesWithStock: async () => {
     try {
       // ✅ Step 1: Get unique inventory IDs from Stock where `markAsStock` is true
-      const stockInventories = await Stock.distinct("inventoryId", { markAsStock: true });
+      const stockInventories = await Stock.distinct("inventoryId", {
+        markAsStock: true,
+      });
 
       if (!stockInventories.length) {
         return [];
       }
 
       // ✅ Step 2: Find Inventories that match the stock inventory IDs
-      const inventories = await Inventory.find({ _id: { $in: stockInventories } }).lean();
+      const inventories = await Inventory.find({
+        _id: { $in: stockInventories },
+      }).lean();
 
       return inventories;
     } catch (error) {
@@ -225,7 +277,9 @@ export const inventoryService = {
 
   getFullInventoryById: async (id: string) => {
     try {
-      const inventory = await Inventory.findById(id).populate("productInfo.productCategory");
+      const inventory = await Inventory.findById(id).populate(
+        "productInfo.productCategory"
+      );
       // .populate("productInfo.productSupplier");
       // .lean();
 
@@ -255,7 +309,9 @@ export const inventoryService = {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
         // .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+        .select(
+          "_id kind prodTechInfo brand model alias srno productCategory productInfo"
+        ) // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
@@ -277,10 +333,15 @@ export const inventoryService = {
       throw new Error("Failed to fetch inventory");
     }
   },
+
   updateInventory: async (id: string, data: any) => {
     try {
       const updateQuery = { [`platformDetails.`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, { new: true });
+      const updatedInventory = await Inventory.findByIdAndUpdate(
+        id,
+        updateQuery,
+        { new: true }
+      );
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -288,6 +349,7 @@ export const inventoryService = {
       throw new Error("Failed to update inventory");
     }
   },
+
   deleteInventory: (id: string) => {
     const inventory = Inventory.findByIdAndDelete(id);
     if (!inventory) {
@@ -295,9 +357,14 @@ export const inventoryService = {
     }
     return inventory;
   },
+
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      const updatedInventory = await Inventory.findByIdAndUpdate(
+        id,
+        { isBlocked },
+        { new: true }
+      );
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -305,9 +372,14 @@ export const inventoryService = {
       throw new Error("Failed to toggle block status");
     }
   },
+
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      const updatedInventory = await Inventory.findByIdAndUpdate(
+        id,
+        { isTemplate },
+        { new: true }
+      );
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -315,15 +387,26 @@ export const inventoryService = {
       throw new Error("Failed to toggle template status");
     }
   },
+
   // New API for fetching inventory stats (separate service logic)
   getInventoryStats: async () => {
     try {
       const totalInventory = await Inventory.countDocuments({});
-      const activeInventory = await Inventory.countDocuments({ isBlocked: false });
-      const blockedInventory = await Inventory.countDocuments({ isBlocked: true });
-      const PublishedInventory = await Inventory.countDocuments({ status: "published" });
-      const DraftInventory = await Inventory.countDocuments({ status: "draft" });
-      const TemplateInventory = await Inventory.countDocuments({ isTemplate: true });
+      const activeInventory = await Inventory.countDocuments({
+        isBlocked: false,
+      });
+      const blockedInventory = await Inventory.countDocuments({
+        isBlocked: true,
+      });
+      const PublishedInventory = await Inventory.countDocuments({
+        status: "published",
+      });
+      const DraftInventory = await Inventory.countDocuments({
+        status: "draft",
+      });
+      const TemplateInventory = await Inventory.countDocuments({
+        isTemplate: true,
+      });
 
       return {
         totalInventory,
@@ -338,6 +421,7 @@ export const inventoryService = {
       throw new Error("Error fetching inventory statistics");
     }
   },
+
   searchAndFilterInventory: async (filters: any) => {
     try {
       const {
@@ -379,12 +463,16 @@ export const inventoryService = {
             ],
           }).select("_id"),
 
-          ProductCategory.find({ name: { $regex: searchQuery, $options: "i" } }).select("_id"),
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
         ]);
 
         if (productCategories.length > 0) {
           searchConditions.push({
-            "productInfo.productCategory": { $in: productCategories.map((cat) => cat._id) },
+            "productInfo.productCategory": {
+              $in: productCategories.map((cat) => cat._id),
+            },
           });
         }
 
@@ -392,9 +480,14 @@ export const inventoryService = {
       }
 
       // 🟢 Category filter (from query param)
-      if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
+      if (
+        filters.productCategory &&
+        mongoose.Types.ObjectId.isValid(filters.productCategory)
+      ) {
         andConditions.push({
-          "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
+          "productInfo.productCategory": new mongoose.Types.ObjectId(
+            filters.productCategory
+          ),
         });
       }
 
@@ -429,8 +522,10 @@ export const inventoryService = {
       // Date filter
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
+        if (startDate && !isNaN(Date.parse(startDate)))
+          dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate)))
+          dateFilter.$lte = new Date(endDate);
         if (Object.keys(dateFilter).length > 0) {
           andConditions.push({ createdAt: dateFilter });
         }
@@ -468,7 +563,9 @@ export const inventoryService = {
   },
 
   //bulk import inventory as CSV
-  bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
+  bulkImportInventory: async (
+    validRows: { row: number; data: any }[]
+  ): Promise<void> => {
     try {
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
@@ -480,7 +577,9 @@ export const inventoryService = {
         try {
           addLog(`Row [${i}] => #${row}`);
           if (!data || typeof data !== "object") {
-            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
+            console.log(
+              `⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`
+            );
           } else {
             console.log(`Data: ${JSON.stringify(data)}`);
           }
@@ -508,7 +607,9 @@ export const inventoryService = {
               }).select("_id");
 
               if (!matchedCategory) {
-                addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
+                addLog(
+                  `❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`
+                );
                 return null;
               }
 
@@ -530,12 +631,14 @@ export const inventoryService = {
                 ebayCategoryId: normalizedData.ebaycategoryid,
                 title: normalizedData.title,
                 description: normalizedData.description,
-                inventoryImages: (normalizedData.images || []).map((url: string) => ({
-                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  size: 0,
-                  url,
-                  type: "image/jpeg",
-                })),
+                inventoryImages: (normalizedData.images || []).map(
+                  (url: string) => ({
+                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    size: 0,
+                    url,
+                    type: "image/jpeg",
+                  })
+                ),
                 inventoryCondition: normalizedData.inventoryCondition || "new",
                 brand: brandList,
               };
@@ -561,15 +664,27 @@ export const inventoryService = {
               }
 
               // Set kind based on eBay ID
-              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
-              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
+              const productCategoryIds = new Set([
+                "177",
+                "179",
+                "80053",
+                "25321",
+                "44995",
+              ]);
+              const kindType = productCategoryIds.has(
+                normalizedData.ebaycategoryid?.toString()
+              )
+                ? "product"
+                : "part";
 
               // Set isPart based on kind
               const isPart = kindType === "part";
 
               // Set isVariation based on prodTechInfo["allow variations"]
               const allowVar = prodTechInfo["allow variations"];
-              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
+              const isVariation =
+                typeof allowVar === "string" &&
+                allowVar.trim().toLowerCase() === "yes";
               delete prodTechInfo["allow variations"]; // optional cleanup
 
               const docToInsert = {
@@ -586,7 +701,9 @@ export const inventoryService = {
                 productInfo,
               };
 
-              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
+              console.log(
+                `📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`
+              );
 
               return {
                 insertOne: {
@@ -603,44 +720,78 @@ export const inventoryService = {
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+      addLog(
+        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
+      );
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
     }
   },
 
-  exportInventory: async (inventoryIds: string[]): Promise<{ fromCache: boolean; file: string }> => {
-    const cacheKey = generateCacheKey(inventoryIds);
+  exportInventory: async (params: ExportParams): Promise<ExportResult> => {
+    const { inventoryIds, selectAllPages } = params;
+
+    
+
+    // Generate cache key based on export parameters
+    const cacheKey = selectAllPages
+      ? generateCacheKeyForAllItems() // Fixed: removed filters reference
+      : generateCacheKey(inventoryIds);
 
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
-      return { fromCache: true, file: cachedData };
+      const cachedResult = JSON.parse(cachedData);
+      return {
+        fromCache: true,
+        file: cachedResult.file,
+        totalExported: cachedResult.totalExported,
+      };
     }
 
-    const items: any[] = await Inventory.find({ _id: { $in: inventoryIds } })
-      .populate("productInfo.productCategory", "name")
-      .lean();
+    let items: any[];
 
-    if (!items.length) throw new Error("No inventory items found");
+    if (selectAllPages) {
+      // Export ALL items without any filters
+      console.log("Exporting all items from database");
+
+      items = await Inventory.find({}) // Empty query = get all items
+        .populate("productInfo.productCategory", "name")
+        .lean();
+    } else {
+      // Export specific items by IDs
+      items = await Inventory.find({ _id: { $in: inventoryIds } })
+        .populate("productInfo.productCategory", "name")
+        .lean();
+    }
+
+    if (!items.length) {
+      throw new Error("No inventory items found matching the criteria");
+    }
+
+    console.log(`Found ${items.length} items to export`);
 
     const categoryMap: Record<string, any[]> = {};
 
     for (const item of items) {
       const ebayId = item.productInfo?.ebayCategoryId || "unknown";
-      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
+      const categoryName =
+        item.productInfo?.productCategory?.name || "Uncategorized";
 
       const rawSheetKey = `${categoryName} (${ebayId})`;
       const sheetKey = sanitizeSheetName(rawSheetKey);
       const flatRow: Record<string, any> = {
         Title: item.productInfo?.title || "",
-        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
+        Description:
+          item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
         Brand: Array.isArray(item.productInfo?.brand)
           ? item.productInfo.brand.join(", ")
           : item.productInfo?.brand || "",
         InventoryCondition: item.productInfo?.inventoryCondition || "",
         "Allow Variations": item.isVariation ? "yes" : "no",
         Images: Array.isArray(item.productInfo?.inventoryImages)
-          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
+          ? item.productInfo.inventoryImages
+              .map((img: any) => img.url)
+              .join(", ")
           : "",
       };
 
@@ -678,12 +829,27 @@ export const inventoryService = {
     // Convert to base64
     const base64Excel = Buffer.from(s2ab(wbout)).toString("base64");
 
-    // Cache the base64 encoded excel file
-    await setCacheWithTTL(cacheKey, base64Excel, 300); // Cache 5 min
+    // Prepare result for caching
+    const result = {
+      file: base64Excel,
+      totalExported: items.length,
+    };
 
-    return { fromCache: false, file: base64Excel };
+    // Cache the result (including metadata)
+    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300); // Cache 5 min
+
+    return {
+      fromCache: false,
+      file: base64Excel,
+      totalExported: items.length,
+    };
   },
-  bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
+
+  bulkUpdateInventoryTaxAndDiscount: async (
+    inventoryIds: string[],
+    discountValue: number,
+    vat: number
+  ) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -693,11 +859,18 @@ export const inventoryService = {
       // Perform bulk update with nested prodPricing field
       const result = await Inventory.updateMany(
         { _id: { $in: inventoryIds } }, // Filter valid inventory IDs
-        { $set: { "prodPricing.discountValue": discountValue, "prodPricing.vat": vat } }
+        {
+          $set: {
+            "prodPricing.discountValue": discountValue,
+            "prodPricing.vat": vat,
+          },
+        }
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error("No inventory were updated. Please verify inventory IDs and data.");
+        throw new Error(
+          "No inventory were updated. Please verify inventory IDs and data."
+        );
       }
 
       return result;
@@ -706,7 +879,10 @@ export const inventoryService = {
     }
   },
 
-  upsertInventoryPartsService: async (inventoryId: string, selectedVariations: any) => {
+  upsertInventoryPartsService: async (
+    inventoryId: string,
+    selectedVariations: any
+  ) => {
     return await Inventory.findByIdAndUpdate(
       inventoryId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -718,6 +894,7 @@ export const inventoryService = {
   getSelectedInventoryPartsService: async (inventoryId: string) => {
     return await Inventory.findById(inventoryId).select("selectedVariations");
   },
+
   // Function to generate all possible combinations of multi-select attributes
   generateCombinations: async (attributes: Record<string, any>) => {
     const keys = Object.keys(attributes);
@@ -725,16 +902,24 @@ export const inventoryService = {
 
     const cartesianProduct = (arrays: any[][]) => {
       return arrays.reduce(
-        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
+        (acc, curr, index) =>
+          acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
         [{}]
       );
     };
 
     return cartesianProduct(values);
   },
+
   getAllOptions: async () => {
     try {
-      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
+      const skipProductInfoFields = [
+        "title",
+        "description",
+        "productCategory",
+        "ebayCategoryId",
+        "inventoryImages",
+      ];
 
       const kinds = await Inventory.distinct("kind");
       const seenFields = new Set<string>();
@@ -742,7 +927,10 @@ export const inventoryService = {
 
       // Get productInfo fields
       for (const kind of kinds) {
-        const sample: any = await Inventory.findOne({ kind, productInfo: { $exists: true } });
+        const sample: any = await Inventory.findOne({
+          kind,
+          productInfo: { $exists: true },
+        });
         if (!sample || !sample.productInfo) continue;
 
         const keys = Object.keys(sample.productInfo.toObject());
@@ -763,8 +951,12 @@ export const inventoryService = {
             values
               .filter((v) => v !== "" && v !== null && v !== undefined)
               .forEach((val) => {
-                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
-                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
+                const key =
+                  typeof val === "string"
+                    ? val.trim().toLowerCase()
+                    : String(val).toLowerCase();
+                if (!map.has(key))
+                  map.set(key, typeof val === "string" ? val.trim() : val);
               });
 
             return {
@@ -795,8 +987,12 @@ export const inventoryService = {
               values
                 .filter((v) => v !== "" && v !== null && v !== undefined)
                 .forEach((val) => {
-                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
-                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
+                  const k =
+                    typeof val === "string"
+                      ? val.trim().toLowerCase()
+                      : String(val).toLowerCase();
+                  if (!map.has(k))
+                    map.set(k, typeof val === "string" ? val.trim() : val);
                 });
 
               return {
@@ -825,17 +1021,21 @@ export const inventoryService = {
     }
   },
 };
-function generateCacheKey(inventoryIds: string[]) {
-  // Concatenate all IDs into a single string
-  const concatenatedIds = inventoryIds.join("");
-
-  // Create a hash of the concatenated IDs
-  const hash = crypto.createHash("sha256").update(concatenatedIds).digest("hex");
-
-  // The hash itself will be the file name (base16 format)
-  return hash; // This is the base16 string
-}
 
 function sanitizeSheetName(name: string): string {
   return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31); // Excel limits sheet names to 31 chars
+}
+
+// Helper function to generate cache key for "export all" operations
+function generateCacheKeyForAllItems(): string {
+  const crypto = require("crypto");
+  const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  return `export_all_items_${timestamp}`; // Daily cache for all items
+}
+
+// Your existing generateCacheKey function for specific IDs
+function generateCacheKey(inventoryIds: string[]): string {
+  const sortedIds = [...inventoryIds].sort();
+  const crypto = require("crypto");
+  return `export_ids_${crypto.createHash("md5").update(sortedIds.join(",")).digest("hex")}`;
 }
