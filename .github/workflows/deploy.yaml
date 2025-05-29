@@ -31,7 +31,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: 22
           script: |
-            cd public_html/bavit-backend copy
+            cd public_html/bavit-backend
             git pull origin dev
             yarn install
             pm2 restart all || pm2 start server.js --name backend
