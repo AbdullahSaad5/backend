@@ -806,7 +806,7 @@ export const inventoryController = {
         }, {});
         //TODO: to change the logic , first confirm attribute from eebay, whether variation is allowed  , of not then create variation on that attribute
         // 2. Normalize excluded attributes
-        const excludedAttributes = ["brand", "Features"];
+        const excludedAttributes = ["brand", "Features", "features"];
 
         // 3. Filter out excluded keys
         const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
