@@ -96,7 +96,7 @@ export const amazonListingService = {
       const filePath = path.join(__dirname, "test.json");
       const jsonData = await fs.readFile(filePath, "utf-8");
       const actualSchema = JSON.parse(jsonData);
-
+      // console.log("actual Schema", actualSchema);
       // Pass the local JSON schema to your parser
       const parser = new AmazonSchemaParser(actualSchema);
       const transformedSchema = parser.parse();
