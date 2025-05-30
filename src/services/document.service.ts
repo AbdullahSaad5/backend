@@ -10,7 +10,10 @@ export const documentService = {
 
     // Get all documents
     getAllDocuments: async () => {
-        return await DocumentModel.find();
+        return await DocumentModel.find().populate({
+            path: "userId",
+            select: "firstName lastName" // Only include these fields
+        });
     },
 
     // Get document by ID
