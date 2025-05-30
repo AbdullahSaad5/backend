@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { complaintCategoryController } from "@/controllers/complaint.controller";
+import { complaintCategoryController } from "@/controllers/complaintcategory.controller";
 
 export const complaintcategory = (router: Router) => {
   router.post(
