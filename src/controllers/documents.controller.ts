@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { documentService } from "../services/document.service";
+import { StatusCodes } from 'http-status-codes';
+import { jwtVerify } from '@/utils/jwt.util';
 
 export const documentController = {
     // Create a new document
     createDocument: async (req: Request, res: Response) => {
         try {
-            
+           
             const newDocument = await documentService.createDocument(req.body);
             res.status(201).json({
                 success: true,

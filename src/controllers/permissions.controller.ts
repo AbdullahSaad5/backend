@@ -78,7 +78,15 @@ export const permissionsController = {
             "VIEW_WORK_SHIFT",
             "ADD_WORK_SHIFT",
             "VIEW_ATTENDANCE",
-            
+          ],
+        },
+        complaintsManagement: {
+          parent: "COMPLAINTS_MANAGEMENET",
+          children: [
+            "VIEW_COMPLAINTS_CATEGORY",
+            "ADD_COMPLAINTS_CATEGORY",
+            "VIEW_COMPLAINTS",
+            "ADD_COMPLAINTS",
           ],
         },
         ticketing: {

@@ -36,6 +36,9 @@ import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
 import { ebay } from "./ebay.route";
 import { amazon } from "./amazon.route";
+import { complaintcategory } from "./complaintcategory.route";
+import { expense } from "./expense.route";
+import { expensecategory } from "./expensecategory.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -54,8 +57,11 @@ const routes: {
   userCategory,
   variations,
   blog,
+  expense, 
   document,
+  expensecategory,
   supplier,
+  complaintcategory,
   supplierCategory,
   stock,
   listing,

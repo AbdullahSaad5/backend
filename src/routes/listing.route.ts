@@ -24,7 +24,7 @@ export const listing = (router: Router) => {
   // Fetch transformed template listing by ID
   router.get("/template/:id", listingValidation.validateId, listingController.transformAndSendTemplateListing);
   router.get("/drafts/:id", listingValidation.validateId, listingController.transformAndSendDraftListing);
-
+  
   // Fetch all template listing  names
   router.get("/templates", listingController.getAllTemplateListingNames);
 
@@ -37,7 +37,6 @@ export const listing = (router: Router) => {
     // listingValidation.updateListing,
     listingController.updateDraftListingController
   );
-
   router.get("/", listingController.getAllListing);
 
   router.get("/:id", listingValidation.validateId, listingController.getListingById);
