@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import { complaintService } from "@/services/complaint.service";
+import { complaintService } from "@/services/complaintcategory.service";
 
 export const complaintCategoryController = {
   /**
