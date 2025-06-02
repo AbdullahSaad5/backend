@@ -6,7 +6,7 @@ export const complaintService = {
     return newComplaint.save();
   },
 
-  editComplaint: (id: string, data: { title?: string; description?: string; image?: string }) => {
+  editComplaint: (id: string, data: { title?: string; description?: string; image?: string, isBlocked?: boolean }) => {
     return IComplaintModel.findByIdAndUpdate(id, data, { new: true });
   },
   deleteComplaint: (id: string) => {
