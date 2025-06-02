@@ -36,7 +36,7 @@ export const expenseService = {
     } = {}
   ): Promise<IExpense[]> => {
     const query: any = {};
-
+  
     if (filters.category) query.category = filters.category;
     if (filters.startDate || filters.endDate) {
       query.date = {};
@@ -48,8 +48,14 @@ export const expenseService = {
       if (filters.minAmount) query.amount.$gte = filters.minAmount;
       if (filters.maxAmount) query.amount.$lte = filters.maxAmount;
     }
-
-    return ExpenseModel.find(query).sort({ date: -1 });
+  
+    return ExpenseModel.find(query)
+      .populate({
+        path: 'category',
+        select: 'title', // Only get the title from Category
+        model: 'IExpenseModel' // The model name you used when creating the Category model
+      })
+      .sort({ date: -1 });
   },
 
   /**
