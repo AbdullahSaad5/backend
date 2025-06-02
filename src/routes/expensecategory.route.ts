@@ -16,6 +16,12 @@ export const expensecategory = (router: Router) => {
     ExpenseCategoryController.updateExpenseCategory
   );
 
+  router.patch(
+    "/block/:id",
+    // complaintsValidation.editcomplaints,
+    ExpenseCategoryController.updateExpenseCategory
+  );
+
   router.delete(
     "/:id",
     // complaintsValidation.validateId,

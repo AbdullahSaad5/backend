@@ -1,31 +1,75 @@
-import { Schema, model } from "mongoose";
-import {
-  IComplaintCategory,
-  ComplaintCategoryModel,
-} from "@/contracts/complaints-category.contract";
+import {model,Schema,  Types, Document} from "mongoose"
+import { IComplaint } from "@/contracts/complaint.contract";
 
-const ICompCategory = new Schema<IComplaintCategory, ComplaintCategoryModel>({
-  title: {
-    type: String,
-    required: [true, "Title is required"],
-    unique: true,
-    maxlength: [100, "Title cannot exceed 100 characters"],
-  },
-  description: {
-    type: String,
-    required: [true, "Description is required"],
-    trim: true,
-    maxlength: [500, "Description cannot exceed 500 characters"],
-  },
-  image: {
-    type: String,
-    default: "",
-  },
-  isBlocked: {
-    type: Boolean,
-    default: false,
-  },
-});
-
-
-export const IComplaintModel = model("IComplaintModel", ICompCategory)
+const complaintSchema = new Schema<IComplaint>({
+    category: {
+      type: String,
+      required: [true, "Category is required"],
+      trim: true
+    },
+    title: {
+      type: String,
+      required: [true, "Title is required"],
+      trim: true,
+      maxlength: [100, "Title cannot exceed 100 characters"]
+    },
+    details: {
+      type: String,
+      required: [true, "Details are required"],
+      trim: true
+    },
+    attachedFiles: {
+      type: [String],
+      validate: {
+        validator: (files: string[]) => files.length <= 10,
+        message: "Cannot attach more than 10 files"
+      },
+      default: []
+    },
+    notes: {
+      type: String,
+      default: "",
+      trim: true
+    },
+    assignedTo: {
+      type: Schema.Types.ObjectId,
+      ref: "User"
+    },
+    createDate: {
+      type: Date,
+      default: Date.now
+    },
+    dueDate: {
+      type: Date,
+      required: [true, "Due date is required"],
+      validate: {
+        validator: function(this: IComplaint, value: Date) {
+          return value > this.createDate;
+        },
+        message: "Due date must be after creation date"
+      }
+    },
+    status: {
+      type: String,
+      enum: ["Open", "In Progress", "Closed"],
+      default: "Open"
+    },
+    priority: {
+      type: String,
+      enum: ["Low", "Medium", "High"],
+      default: "Medium"
+    },
+    resolution: {
+      description: String,
+      resolvedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+      },
+      resolvedAt: Date
+    }
+  });
+  
+  // Indexes for better query performance
+  
+  
+  export const ComplaintModel = model<IComplaint>("Complaint", complaintSchema);

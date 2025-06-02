@@ -15,6 +15,11 @@ export const complaintcategory = (router: Router) => {
     // complaintsValidation.editcomplaints,
     complaintCategoryController.updateComplaintCategory
   );
+  router.patch(
+    "/block/:id",
+    // complaintsValidation.editcomplaints,
+    complaintCategoryController.updateComplaintCategory
+  );
 
   router.delete(
     "/:id",
