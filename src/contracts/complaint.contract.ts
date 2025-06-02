@@ -15,5 +15,6 @@ export interface IComplaint extends Document {
     description: string;
     resolvedBy: Types.ObjectId;
   };
+  userId: string;
 }
 export type complaintModel = Model<IComplaint>;

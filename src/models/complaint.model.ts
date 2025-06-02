@@ -39,16 +39,6 @@ const complaintSchema = new Schema<IComplaint>({
       type: Date,
       default: Date.now
     },
-    dueDate: {
-      type: Date,
-      required: [true, "Due date is required"],
-      validate: {
-        validator: function(this: IComplaint, value: Date) {
-          return value > this.createDate;
-        },
-        message: "Due date must be after creation date"
-      }
-    },
     status: {
       type: String,
       enum: ["Open", "In Progress", "Closed"],
@@ -66,6 +56,11 @@ const complaintSchema = new Schema<IComplaint>({
         ref: "User"
       },
       resolvedAt: Date
+    }, 
+    userId :{
+      type: String,
+      default: "",
+      trim: true
     }
   });
   

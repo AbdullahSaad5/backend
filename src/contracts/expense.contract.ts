@@ -1,9 +1,12 @@
-import { Document, Model } from "mongoose";
+import { Document, Model, Types } from "mongoose";
 
 export interface IExpense extends Document {
   description: string;
   amount: number;
-  category: string;
+  category: {
+    _id: Types.ObjectId;
+    title: string;
+  } | Types.ObjectId;
   date: Date;
   image: string;
 }
