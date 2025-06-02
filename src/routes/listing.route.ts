@@ -24,13 +24,14 @@ export const listing = (router: Router) => {
   // Fetch transformed template listing by ID
   router.get("/template/:id", listingValidation.validateId, listingController.transformAndSendTemplateListing);
   router.get("/drafts/:id", listingValidation.validateId, listingController.transformAndSendDraftListing);
-  
+
   // Fetch all template listing  names
   router.get("/templates", listingController.getAllTemplateListingNames);
 
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
+  
   // Update a draft listing by ID (subsequent steps)
   router.patch(
     "/:id",
