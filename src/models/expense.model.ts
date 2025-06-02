@@ -14,9 +14,9 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
     min: [0, "Amount cannot be negative"],
   },
   category: {
-    type: String,
+    type: Schema.Types.ObjectId,
+    ref:"IExpenseModel",
     required: [true, "Category is required"],
-    trim: true,
   },
   date: {
     type: Date,
