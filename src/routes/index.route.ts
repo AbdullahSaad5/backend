@@ -39,6 +39,7 @@ import { amazon } from "./amazon.route";
 import { complaintcategory } from "./complaintcategory.route";
 import { expense } from "./expense.route";
 import { expensecategory } from "./expensecategory.route";
+import { complaint } from "./complaint.routes";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -56,6 +57,7 @@ const routes: {
   auth,
   userCategory,
   variations,
+  complaint,
   blog,
   expense, 
   document,
