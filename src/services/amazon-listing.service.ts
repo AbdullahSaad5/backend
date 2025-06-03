@@ -106,6 +106,23 @@ export const amazonListingService = {
       return res.status(500).json({ error: "Internal server error", details: error.message });
     }
   },
+  getAmazonSchemaOriginal: async (req: Request, res: Response) => {
+    try {
+      const productType = req.params.productType;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
+
+      // Read schema JSON from local test.json file instead of API calls
+      const filePath = path.join(__dirname, "test.json");
+      const jsonData = await fs.readFile(filePath, "utf-8");
+      const actualSchema = JSON.parse(jsonData);
+
+      return res.json({ actualSchema });
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
+    }
+  },
   handleAuthorizationCallback: async (req: Request, res: Response) => {
     try {
       const { code } = req.query;
