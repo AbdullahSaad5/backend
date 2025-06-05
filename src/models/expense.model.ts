@@ -1,5 +1,6 @@
 import { Schema, model } from "mongoose";
 import { IExpense, IExpenseModel } from "@/contracts/expense.contract";
+import { boolean } from "zod";
 
 const expenseSchema = new Schema<IExpense, IExpenseModel>({
   description: {
@@ -22,6 +23,10 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
     type: Date,
     required: [true, "Date is required"],
     default: Date.now,
+  },
+  isBlocked:{
+    type: Boolean,
+    default: false,
   },
   image: {
     type: String,

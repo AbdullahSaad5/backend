@@ -15,6 +15,9 @@ export const expense = (router: Router) => {
   // Update expense
   router.patch("/:id", expenseController.updateExpense);
 
+  router.patch("/block/:id", expenseController.updateExpense);
+
+
   // Delete expense
   router.delete("/:id", expenseController.deleteExpense);
 
