@@ -161,140 +161,134 @@ export const amazonListingService = {
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
+
       const sku = "DELL-XPS-13-9310"; // Your unique SKU
-      const sellerId = "A21DY98JS1BBQC";
-
-
-
-
-      // Sandbox seller ID for US
-      //production client sellerId :ALTKAQGINRXND
-      const productData: any = {
-        productType: "LUGGAGE",
-        requirements: "LISTING",
-        locale: "en_US",
-        marketplaceId: ["ATVPDKIKX0DER"],
-        // sku: "DELL-XPS-13-9310", // Unique SKU for the product
-        // productName: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
+      const sellerId = "A21DY98JS1BBQC"; // Sandbox seller ID
+      const marketplaceId = "A1F83G8C2ARO7P"; // US marketplace
+      // A1F83G8C2ARO7P // UK marketplace
+      // ATVPDKIKX0DER // US marketplace
+      const productData = {
+        productType: "COMPUTER", // Changed from "LUGGAGE" to appropriate product type
+        requirements: "LISTING", // This is correct
         attributes: {
           condition_type: [
             {
               value: "new_new",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           item_name: [
             {
               value: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
               language_tag: "en_US",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           brand: [
             {
               value: "Dell",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           manufacturer: [
             {
               value: "Dell Inc.",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           model_name: [
             {
               value: "XPS 13 9310",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           model_number: [
             {
               value: "XPS13-9310-i7-16-512",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           processor_brand: [
             {
               value: "Intel",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           processor_type: [
             {
               value: "Core i7",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           processor_speed: [
             {
               value: "2.8",
               unit: "GHz",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           system_memory_size: [
             {
               value: "16",
               unit: "GB",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           system_memory_type: [
             {
               value: "DDR4",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           hard_drive_size: [
             {
               value: "512",
               unit: "GB",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           hard_drive_interface: [
             {
               value: "SSD",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           display_size: [
             {
               value: "13.3",
               unit: "inches",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           display_resolution: [
             {
               value: "1920x1080",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           operating_system: [
             {
               value: "Windows 11 Home",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           graphics_coprocessor: [
             {
               value: "Intel Iris Xe Graphics",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           connectivity_type: [
             {
               value: "Wi-Fi, Bluetooth",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           item_weight: [
             {
               value: "2.64",
               unit: "pounds",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           item_dimensions: [
@@ -311,89 +305,87 @@ export const amazonListingService = {
                 value: "0.58",
                 unit: "inches",
               },
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           color: [
             {
               value: "Platinum Silver",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           bullet_point: [
             {
               value: "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
             {
               value: "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
             {
               value: "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
             {
               value: "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
             {
               value: "Windows 11 Home pre-installed with premium build quality",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           generic_keyword: [
             {
               value: "laptop computer notebook ultrabook portable",
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           max_order_quantity: [
             {
               value: 10,
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
           fulfillment_availability: [
             {
               fulfillment_channel_code: "DEFAULT",
               quantity: 50,
-              marketplace_id: "ATVPDKIKX0DER",
+              marketplace_id: marketplaceId,
             },
           ],
         },
       };
 
       console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
-      // Make API call to create listing
-      // const response = await fetch(`${process.env.AMAZON_API_ENDPOINT}/catalog/2022-04-01/items`, {
-      const response = await fetch(`https://sandbox.sellingpartnerapi-eu.amazon.com/fba/inventory/v1/items`, {
-        // const response = await fetch(
-        //   `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}`,
-        //   {
-        method: "POST",
-        headers: {
-          // Authorization: `Bearer ${token}`,
-          "x-amz-access-token": token,
-          // "x-amzn-idempotency-token": token,
-          "x-amzn-api-sandbox-only": "true",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(productData),
-      });
+
+      const response = await fetch(
+        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+        {
+          method: "PUT",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            "x-amzn-api-sandbox-only": "true",
+          },
+          body: JSON.stringify(productData),
+        }
+      );
 
       const result = await response.json();
+
       if (response.ok) {
         return JSON.stringify({
           status: 200,
           statusText: "OK",
-          itemId: result.itemId,
+          sku: sku,
           response: result,
         });
       } else {
         return JSON.stringify({
           status: response.status,
-          statusText: "Failed to create listing",
+          statusText: response.statusText,
           errorResponse: result,
         });
       }
