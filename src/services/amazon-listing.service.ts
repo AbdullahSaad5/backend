@@ -161,51 +161,221 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const populatedListing: any = await Listing.findById(listing._id)
-        .populate("prodPricing.selectedVariations.variationId")
-        .populate("productInfo.productCategory")
-        .lean();
+      // const populatedListing: any = await Listing.findById(listing._id)
+      //   .populate("prodPricing.selectedVariations.variationId")
+      //   .populate("productInfo.productCategory")
+      //   .lean();
 
-      if (!populatedListing) {
-        throw new Error("Listing not found or failed to populate");
-      }
+      // if (!populatedListing) {
+      //   throw new Error("Listing not found or failed to populate");
+      // }
 
-      const amazonData = populatedListing;
-      const productType = amazonData.productInfo.productCategory.amazonProductType || "LUGGAGE";
+      // const amazonData = populatedListing;
+      // const productType = amazonData.productInfo.productCategory.amazonProductType || "LUGGAGE";
 
       // Get product type definitions
-      const productDefinitions = await getProductTypeDefinitions(productType);
+      // const productDefinitions = await getProductTypeDefinitions(productType);
 
-      // Prepare product data
       const productData: any = {
-        productType,
+        productType: "NOTEBOOK_COMPUTER",
         requirements: "LISTING",
         attributes: {
-          title: amazonData.productInfo?.title,
-          bullet_point: amazonData.productInfo?.description?.split(".").slice(0, 5),
-          description: amazonData.productInfo?.description,
-          brand: amazonData.prodTechInfo?.brand,
-          manufacturer: amazonData.prodTechInfo?.manufacturer,
-          item_type: productType,
-          condition_type: "New",
-          standard_price: {
-            amount: amazonData.prodPricing?.retailPrice,
-            currency: "GBP",
-          },
-          quantity: amazonData.prodPricing?.listingQuantity,
-          // Add more attributes based on product type
+          condition_type: [
+            {
+              value: "new_new",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          item_name: [
+            {
+              value: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
+              language_tag: "en_GB",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          brand: [
+            {
+              value: "Dell",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          manufacturer: [
+            {
+              value: "Dell Inc.",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          model_name: [
+            {
+              value: "XPS 13 9310",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          model_number: [
+            {
+              value: "XPS13-9310-i7-16-512",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          processor_brand: [
+            {
+              value: "Intel",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          processor_type: [
+            {
+              value: "Core i7",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          processor_speed: [
+            {
+              value: "2.8",
+              unit: "GHz",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          system_memory_size: [
+            {
+              value: "16",
+              unit: "GB",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          system_memory_type: [
+            {
+              value: "DDR4",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          hard_drive_size: [
+            {
+              value: "512",
+              unit: "GB",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          hard_drive_interface: [
+            {
+              value: "SSD",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          display_size: [
+            {
+              value: "13.3",
+              unit: "inches",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          display_resolution: [
+            {
+              value: "1920x1080",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          operating_system: [
+            {
+              value: "Windows 11 Home",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          graphics_coprocessor: [
+            {
+              value: "Intel Iris Xe Graphics",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          connectivity_type: [
+            {
+              value: "Wi-Fi, Bluetooth",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          item_weight: [
+            {
+              value: "2.64",
+              unit: "pounds",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          item_dimensions: [
+            {
+              length: {
+                value: "11.64",
+                unit: "inches",
+              },
+              width: {
+                value: "7.82",
+                unit: "inches",
+              },
+              height: {
+                value: "0.58",
+                unit: "inches",
+              },
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          color: [
+            {
+              value: "Platinum Silver",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          bullet_point: [
+            {
+              value: "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+            {
+              value: "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+            {
+              value: "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+            {
+              value: "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+            {
+              value: "Windows 11 Home pre-installed with premium build quality",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          generic_keyword: [
+            {
+              value: "laptop computer notebook ultrabook portable",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          max_order_quantity: [
+            {
+              value: 10,
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          fulfillment_availability: [
+            {
+              fulfillment_channel_code: "DEFAULT",
+              quantity: 50,
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
         },
       };
 
       // Handle variations if present
-      if (amazonData.listingHasVariations) {
-        productData.attributes.variations = amazonData.prodPricing?.selectedVariations?.map((variation: any) => ({
-          sku: variation.variationId?.sku,
-          price: variation.retailPrice,
-          quantity: variation.listingQuantity,
-          attributes: variation.variationId?.attributes,
-        }));
-      }
+      // if (amazonData.listingHasVariations) {
+      //   productData.attributes.variations = amazonData.prodPricing?.selectedVariations?.map((variation: any) => ({
+      //     sku: variation.variationId?.sku,
+      //     price: variation.retailPrice,
+      //     quantity: variation.listingQuantity,
+      //     attributes: variation.variationId?.attributes,
+      //   }));
+      // }
 
       // Make API call to create listing
       const response = await fetch(`${process.env.AMAZON_API_ENDPOINT}/catalog/2022-04-01/items`, {
