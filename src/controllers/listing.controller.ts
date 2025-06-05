@@ -183,8 +183,8 @@ export const listingController = {
   checkAmazonListingStatus: async (req: Request, res: Response): Promise<void> => {
     try {
       const { sku } = req.params;
-      const { sellerId } = req.query;
-
+      // const { sellerId } = req.query;
+      const sellerId = "A21DY98JS1BBQC";
       // Validate required parameters
       if (!sku) {
         res.status(400).json({
@@ -194,61 +194,32 @@ export const listingController = {
         return;
       }
 
-      // Get stored Amazon access token
-      const token = await getStoredAmazonAccessToken();
-      if (!token) {
-        res.status(401).json({
-          success: false,
-          message: "Missing or invalid Amazon access token",
-        });
-        return;
-      }
+      // Call the checkListingStatus service function
+      const listingStatus = await amazonListingService.checkListingStatus(sku);
 
-      const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
-      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
-      const isProduction = process.env.AMAZON_ENV === "production";
-      const baseUrl = isProduction
-        ? "https://sellingpartnerapi-eu.amazon.com"
-        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+      const listingStatusParsed = JSON.parse(listingStatus); // Parse the JSON string response
 
-      console.log(`🔍 Checking listing status for SKU: ${sku}`);
-
-      // Get listing details
-      const response = await fetch(
-        `${baseUrl}/listings/2021-08-01/items/${sellerIdToUse}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
-        {
-          method: "GET",
-          headers: {
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-            ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
+      if (listingStatusParsed.status === 200) {
         console.log(`✅ Successfully retrieved listing status for SKU: ${sku}`);
         res.status(200).json({
           success: true,
           message: "Listing status retrieved successfully",
           data: {
             sku: sku,
-            sellerId: sellerIdToUse,
-            marketplaceId: marketplaceId,
-            listingData: result,
+            sellerId: sellerId, // Use the provided sellerId or fallback to default
+            marketplaceId: "A1F83G8C2ARO7P", // Default marketplaceId for UK
+            listingData: listingStatusParsed.listingData,
           },
         });
       } else {
-        console.error(`❌ Failed to retrieve listing status for SKU: ${sku}`, result);
-        res.status(response.status).json({
+        console.error(`❌ Failed to retrieve listing status for SKU: ${sku}`, listingStatusParsed);
+        res.status(listingStatusParsed.status).json({
           success: false,
           message: "Failed to retrieve listing status",
           error: {
-            status: response.status,
-            statusText: response.statusText,
-            details: result,
+            status: listingStatusParsed.status,
+            statusText: listingStatusParsed.statusText,
+            details: listingStatusParsed.errorResponse,
           },
         });
       }
@@ -354,7 +325,7 @@ export const listingController = {
       }
 
       const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
-      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
+      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
       const isProduction = process.env.AMAZON_ENV === "production";
       const baseUrl = isProduction
         ? "https://sellingpartnerapi-eu.amazon.com"
@@ -440,7 +411,7 @@ export const listingController = {
       }
 
       const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
-      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
+      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
       const isProduction = process.env.AMAZON_ENV === "production";
       const baseUrl = isProduction
         ? "https://sellingpartnerapi-eu.amazon.com"
