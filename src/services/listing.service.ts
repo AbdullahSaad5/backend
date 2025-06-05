@@ -19,8 +19,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, sku, description, brand, productCategory } =
-        stepData.productInfo;
+      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
       if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
@@ -67,10 +66,7 @@ export const listingService = {
 
       // Remove undefined values
       Object.keys(draftListingData).forEach((key) => {
-        if (
-          typeof draftListingData[key] === "object" &&
-          draftListingData[key]
-        ) {
+        if (typeof draftListingData[key] === "object" && draftListingData[key]) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
             if (draftListingData[key][subKey] === undefined) {
               delete draftListingData[key][subKey];
@@ -94,8 +90,8 @@ export const listingService = {
   // Update an existing draft listing when user move to next stepper
   updateDraftListing: async (listingId: string, stepData: any) => {
     try {
-      console.log("draft listing");
-      console.log("Received update request:", { listingId, stepData });
+      // console.log("draft listing");
+      // console.log("Received update request:", { listingId, stepData });
 
       // Validate listingId
       if (!mongoose.isValidObjectId(listingId)) {
@@ -103,9 +99,7 @@ export const listingService = {
       }
 
       // Find listing
-      const draftListing: any = await Listing.findById(listingId).populate(
-        "productInfo.productCategory"
-      );
+      const draftListing: any = await Listing.findById(listingId).populate("productInfo.productCategory");
       if (!draftListing) {
         console.error("Draft Listing not found:", listingId);
         throw new Error("Draft Listing not found");
@@ -113,7 +107,7 @@ export const listingService = {
 
       // console.log("Existing Listing before update:", JSON.stringify(draftListing, null, 2));
 
-      console.log("draft listing is here : ", draftListing);
+      // console.log("draft listing is here : ", draftListing);
 
       // if (stepData.inventoryId) {
       //   console.log("update inventory id : ", stepData.inventoryId);
@@ -121,38 +115,31 @@ export const listingService = {
       // }
 
       if (stepData.listingHasVariations === true || stepData.listingHasVariations === false) {
-        console.log("update listingHasVariations : ", stepData.listingHasVariations);
+        // console.log("update listingHasVariations : ", stepData.listingHasVariations);
         draftListing.listingHasVariations = stepData.listingHasVariations;
       }
 
       if (stepData.listingType) {
-        console.log("update listingType : ", stepData.listingType);
+        // console.log("update listingType : ", stepData.listingType);
         draftListing.listingType = stepData.listingType;
       }
 
       // Update Status
       if (stepData.status !== undefined) {
-        console.log("draft if work");
+        // console.log("draft if work");
         draftListing.status = stepData.status;
         // draftListing.isTemplate = stepData.isTemplate || false;
       }
       // Update Template Check
       if (stepData.isTemplate) {
-        console.log("template if work");
+        // console.log("template if work");
         // draftListing.status = stepData.status;
         draftListing.isTemplate = stepData.isTemplate || false;
         draftListing.alias = stepData.alias || "";
       }
 
       // Update Nested Sections Dynamically
-      const sectionsToUpdate = [
-        "productInfo",
-        "prodPricing",
-        "prodDelivery",
-        "prodSeo",
-        "prodMedia",
-        "prodTechInfo",
-      ];
+      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
       // sectionsToUpdate.forEach((section) => {
       //   if (stepData[section]) {
       //     console.log(`Updating ${section} with:`, stepData[section]);
@@ -167,12 +154,12 @@ export const listingService = {
       sectionsToUpdate.forEach((section) => {
         if (stepData[section]) {
           if (section === "prodPricing") {
-            console.log("prodPricing if work")
+            console.log("prodPricing if work");
             // Overwrite prodPricing entirely if selectedStockId is updated
             // draftListing.prodPricing = "jdfnnjlsn";
             draftListing.prodPricing = stepData.prodPricing;
           } else if (section === "prodTechInfo") {
-            console.log("prodTechInfo if work")
+            console.log("prodTechInfo if work");
             // Overwrite prodPricing entirely if selectedStockId is updated
             // draftListing.prodPricing = "jdfnnjlsn";
             draftListing.prodTechInfo = stepData.prodTechInfo;
@@ -340,11 +327,7 @@ export const listingService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(
-        id,
-        { isBlocked },
-        { new: true }
-      );
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -354,11 +337,7 @@ export const listingService = {
   },
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(
-        id,
-        { isTemplate },
-        { new: true }
-      );
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -561,9 +540,7 @@ export const listingService = {
         SupplierId: listing.supplier?._id,
         AmazonInfo: JSON.stringify(listing.platformDetails.amazon.productInfo),
         EbayInfo: JSON.stringify(listing.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(
-          listing.platformDetails.website.productInfo
-        ),
+        WebsiteInfo: JSON.stringify(listing.platformDetails.website.productInfo),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -879,10 +856,7 @@ export const listingService = {
         data: jsonData, // actual parsed data
       });
     } catch (error: any) {
-      console.error(
-        "Error getting getCategorySubTree from eBay:",
-        error.message
-      );
+      console.error("Error getting getCategorySubTree from eBay:", error.message);
 
       return JSON.stringify({
         status: 500,
