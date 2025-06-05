@@ -70,6 +70,19 @@ export const permissionsController = {
             "ADD_GAMERS_COMMUNITY",
           ],
         },
+
+         accountingManagement: {
+          parent: "MANAGE_ACCOUNTING",
+          children: [
+            "ADD_EXPENSE_CATEGORY",
+            "VIEW_EXPENSE_CATEGORY",
+            "ADD_EXPENSE",
+            "VIEW_EXPENSE",
+            "VIEW_REVENUE",
+            "ADD_REVENUE",
+            "VIEW_INVENTORY_PURCHASES",
+          ],
+        },
         hrManagement: {
           parent: "HR_MANAGEMENET",
           children: [
@@ -87,6 +100,8 @@ export const permissionsController = {
             "ADD_COMPLAINTS_CATEGORY",
             "VIEW_COMPLAINTS",
             "ADD_COMPLAINTS",
+            "VIEW_REVENUE",
+            "ADD_REVENUE",
           ],
         },
         ticketing: {

@@ -38,6 +38,7 @@ export const amazonListingService = {
       }
 
       const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=ATVPDKIKX0DER`;
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=ATVPDKIKX0DER`;
 
       const accessToken = await getStoredAmazonAccessToken();
 
@@ -94,6 +95,7 @@ export const amazonListingService = {
 
       // Read schema JSON from local test.json file instead of API calls
       // const filePath = path.join(__dirname, "test.json");
+      // const filePath = path.join(__dirname, "test.json");
       const filePath = path.join(__dirname, "test.json");
       const jsonData = await fs.readFile(filePath, "utf-8");
       const actualSchema = JSON.parse(jsonData);
@@ -103,6 +105,23 @@ export const amazonListingService = {
       const transformedSchema = parser.parse();
 
       return res.json({ transformedSchema });
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
+    }
+  },
+  getAmazonSchemaOriginal: async (req: Request, res: Response) => {
+    try {
+      const productType = req.params.productType;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
+
+      // Read schema JSON from local test.json file instead of API calls
+      const filePath = path.join(__dirname, "test.json");
+      const jsonData = await fs.readFile(filePath, "utf-8");
+      const actualSchema = JSON.parse(jsonData);
+
+      return res.json({ actualSchema });
     } catch (error: any) {
       return res.status(500).json({ error: "Internal server error", details: error.message });
     }
@@ -483,7 +502,6 @@ export const amazonListingService = {
       );
 
       const result = await response.json();
-
       if (response.ok) {
         return JSON.stringify({
           status: 200,

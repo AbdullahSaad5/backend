@@ -41,6 +41,7 @@ import { complaintcategory } from "./complaintcategory.route";
 import { expense } from "./expense.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
+import { revenue } from "./revenue.routes";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -89,6 +90,7 @@ const routes: {
   taxes,
   faqsPolicy,
   chat,
+  revenue,
   // discriminator,
 };
 
