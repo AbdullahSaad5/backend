@@ -179,6 +179,324 @@ export const listingController = {
     }
   },
 
+  // Controller to check Amazon listing status by SKU
+  checkAmazonListingStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+      const { sellerId } = req.query;
+
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Get stored Amazon access token
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          message: "Missing or invalid Amazon access token",
+        });
+        return;
+      }
+
+      const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
+      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
+      const isProduction = process.env.AMAZON_ENV === "production";
+      const baseUrl = isProduction
+        ? "https://sellingpartnerapi-eu.amazon.com"
+        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+
+      console.log(`🔍 Checking listing status for SKU: ${sku}`);
+
+      // Get listing details
+      const response = await fetch(
+        `${baseUrl}/listings/2021-08-01/items/${sellerIdToUse}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
+        {
+          method: "GET",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Successfully retrieved listing status for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing status retrieved successfully",
+          data: {
+            sku: sku,
+            sellerId: sellerIdToUse,
+            marketplaceId: marketplaceId,
+            listingData: result,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve listing status for SKU: ${sku}`, result);
+        res.status(response.status).json({
+          success: false,
+          message: "Failed to retrieve listing status",
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            details: result,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonListingStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking listing status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to check Amazon submission status by submission ID
+  checkAmazonSubmissionStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { submissionId } = req.params;
+
+      // Validate required parameters
+      if (!submissionId) {
+        res.status(400).json({
+          success: false,
+          message: "Submission ID parameter is required",
+        });
+        return;
+      }
+
+      // Get stored Amazon access token
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          message: "Missing or invalid Amazon access token",
+        });
+        return;
+      }
+
+      const isProduction = process.env.AMAZON_ENV === "production";
+      const baseUrl = isProduction
+        ? "https://sellingpartnerapi-eu.amazon.com"
+        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+
+      console.log(`🔍 Checking submission status for ID: ${submissionId}`);
+
+      // Check submission status
+      const response = await fetch(`${baseUrl}/listings/2021-08-01/submissions/${submissionId}`, {
+        method: "GET",
+        headers: {
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+          ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Successfully retrieved submission status for ID: ${submissionId}`);
+        res.status(200).json({
+          success: true,
+          message: "Submission status retrieved successfully",
+          data: {
+            submissionId: submissionId,
+            submissionStatus: result,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve submission status for ID: ${submissionId}`, result);
+        res.status(response.status).json({
+          success: false,
+          message: "Failed to retrieve submission status",
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            details: result,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonSubmissionStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking submission status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to get all listings for a seller
+  getAmazonSellerListings: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sellerId } = req.query;
+      const { page = 1, limit = 20 } = req.query;
+
+      // Get stored Amazon access token
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          message: "Missing or invalid Amazon access token",
+        });
+        return;
+      }
+
+      const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
+      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
+      const isProduction = process.env.AMAZON_ENV === "production";
+      const baseUrl = isProduction
+        ? "https://sellingpartnerapi-eu.amazon.com"
+        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+
+      console.log(`🔍 Getting all listings for seller: ${sellerIdToUse}`);
+
+      // Get all listings
+      const response = await fetch(
+        `${baseUrl}/listings/2021-08-01/items/${sellerIdToUse}?marketplaceIds=${marketplaceId}&includedData=summaries&pageSize=${limit}&pageToken=${page}`,
+        {
+          method: "GET",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Successfully retrieved listings for seller: ${sellerIdToUse}`);
+        res.status(200).json({
+          success: true,
+          message: "Seller listings retrieved successfully",
+          data: {
+            sellerId: sellerIdToUse,
+            marketplaceId: marketplaceId,
+            pagination: {
+              page: parseInt(page as string),
+              limit: parseInt(limit as string),
+            },
+            listings: result,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve listings for seller: ${sellerIdToUse}`, result);
+        res.status(response.status).json({
+          success: false,
+          message: "Failed to retrieve seller listings",
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            details: result,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in getAmazonSellerListings:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while getting seller listings",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to delete/deactivate a listing
+  deleteAmazonListing: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+      const { sellerId } = req.query;
+
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Get stored Amazon access token
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          message: "Missing or invalid Amazon access token",
+        });
+        return;
+      }
+
+      const sellerIdToUse = (sellerId as string) || "A21DY98JS1BBQC"; // Default to sandbox seller ID
+      const marketplaceId = "ATVPDKIKX0DER"; // US marketplace
+      const isProduction = process.env.AMAZON_ENV === "production";
+      const baseUrl = isProduction
+        ? "https://sellingpartnerapi-eu.amazon.com"
+        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+
+      console.log(`🗑️ Deleting listing for SKU: ${sku}`);
+
+      // Delete listing
+      const response = await fetch(
+        `${baseUrl}/listings/2021-08-01/items/${sellerIdToUse}/${sku}?marketplaceIds=${marketplaceId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log(`✅ Successfully deleted listing for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing deleted successfully",
+          data: {
+            sku: sku,
+            sellerId: sellerIdToUse,
+            marketplaceId: marketplaceId,
+            deletionResult: result,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to delete listing for SKU: ${sku}`, result);
+        res.status(response.status).json({
+          success: false,
+          message: "Failed to delete listing",
+          error: {
+            status: response.status,
+            statusText: response.statusText,
+            details: result,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in deleteAmazonListing:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while deleting listing",
+        error: error.message,
+      });
+    }
+  },
+
   getAllListing: async (req: Request, res: Response) => {
     try {
       const listings = await listingService.getAllListing();

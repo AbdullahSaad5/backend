@@ -154,7 +154,116 @@ export const amazonListingService = {
       });
     }
   },
+  // Function to check the status of your submitted listing
+  checkListingStatus: async (sku: string): Promise<string> => {
+    try {
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid Amazon access token");
+      }
 
+      const sellerId = "A21DY98JS1BBQC"; // Your seller ID
+      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
+
+      // Get listing details
+      const response = await fetch(
+        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
+        {
+          method: "GET",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            "x-amzn-api-sandbox-only": "true", // Remove for production
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        return JSON.stringify(
+          {
+            status: 200,
+            statusText: "OK",
+            listingData: result,
+          },
+          null,
+          2
+        );
+      } else {
+        return JSON.stringify(
+          {
+            status: response.status,
+            statusText: response.statusText,
+            errorResponse: result,
+          },
+          null,
+          2
+        );
+      }
+    } catch (error: any) {
+      console.error("Error checking listing status:", error.message);
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error checking listing status",
+      });
+    }
+  },
+
+  // Function to get submission status
+  getSubmissionStatus: async (submissionId: string): Promise<string> => {
+    try {
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid Amazon access token");
+      }
+
+      const sellerId = "A21DY98JS1BBQC";
+
+      // Check submission status
+      const response = await fetch(
+        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/submissions/${submissionId}`,
+        {
+          method: "GET",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            "x-amzn-api-sandbox-only": "true", // Remove for production
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        return JSON.stringify(
+          {
+            status: 200,
+            statusText: "OK",
+            submissionStatus: result,
+          },
+          null,
+          2
+        );
+      } else {
+        return JSON.stringify(
+          {
+            status: response.status,
+            statusText: response.statusText,
+            errorResponse: result,
+          },
+          null,
+          2
+        );
+      }
+    } catch (error: any) {
+      console.error("Error checking submission status:", error.message);
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error checking submission status",
+      });
+    }
+  },
   addItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
@@ -164,7 +273,7 @@ export const amazonListingService = {
 
       const sku = "DELL-XPS-13-9310"; // Your unique SKU
       const sellerId = "A21DY98JS1BBQC"; // Sandbox seller ID
-      const marketplaceId = "A1F83G8C2ARO7P"; // US marketplace
+      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
       // A1F83G8C2ARO7P // UK marketplace
       // ATVPDKIKX0DER // US marketplace
       const productData = {
