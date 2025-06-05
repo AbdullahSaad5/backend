@@ -247,54 +247,30 @@ export const listingController = {
         return;
       }
 
-      // Get stored Amazon access token
-      const token = await getStoredAmazonAccessToken();
-      if (!token) {
-        res.status(401).json({
-          success: false,
-          message: "Missing or invalid Amazon access token",
-        });
-        return;
-      }
+      // Call the getSubmissionStatus service function
+      const submissionStatus = await amazonListingService.getSubmissionStatus(submissionId);
 
-      const isProduction = process.env.AMAZON_ENV === "production";
-      const baseUrl = isProduction
-        ? "https://sellingpartnerapi-eu.amazon.com"
-        : "https://sandbox.sellingpartnerapi-eu.amazon.com";
+      const submissionStatusParsed = JSON.parse(submissionStatus); // Parse the JSON string response
 
-      console.log(`🔍 Checking submission status for ID: ${submissionId}`);
-
-      // Check submission status
-      const response = await fetch(`${baseUrl}/listings/2021-08-01/submissions/${submissionId}`, {
-        method: "GET",
-        headers: {
-          "x-amz-access-token": token,
-          "Content-Type": "application/json",
-          ...(isProduction ? {} : { "x-amzn-api-sandbox-only": "true" }),
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
+      if (submissionStatusParsed.status === 200) {
         console.log(`✅ Successfully retrieved submission status for ID: ${submissionId}`);
         res.status(200).json({
           success: true,
           message: "Submission status retrieved successfully",
           data: {
             submissionId: submissionId,
-            submissionStatus: result,
+            submissionStatus: submissionStatusParsed.submissionStatus,
           },
         });
       } else {
-        console.error(`❌ Failed to retrieve submission status for ID: ${submissionId}`, result);
-        res.status(response.status).json({
+        console.error(`❌ Failed to retrieve submission status for ID: ${submissionId}`, submissionStatusParsed);
+        res.status(submissionStatusParsed.status).json({
           success: false,
           message: "Failed to retrieve submission status",
           error: {
-            status: response.status,
-            statusText: response.statusText,
-            details: result,
+            status: submissionStatusParsed.status,
+            statusText: submissionStatusParsed.statusText,
+            details: submissionStatusParsed.errorResponse,
           },
         });
       }
