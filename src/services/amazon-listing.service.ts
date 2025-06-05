@@ -37,7 +37,7 @@ export const amazonListingService = {
         return res.status(400).json({ error: "Missing productType parameter" });
       }
 
-      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=ATVPDKIKX0DER`;
 
       const accessToken = await getStoredAmazonAccessToken();
 
@@ -93,6 +93,7 @@ export const amazonListingService = {
       }
 
       // Read schema JSON from local test.json file instead of API calls
+      // const filePath = path.join(__dirname, "test.json");
       const filePath = path.join(__dirname, "test.json");
       const jsonData = await fs.readFile(filePath, "utf-8");
       const actualSchema = JSON.parse(jsonData);
@@ -160,144 +161,140 @@ export const amazonListingService = {
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
+      const sku = "DELL-XPS-13-9310"; // Your unique SKU
+      const sellerId = "A21DY98JS1BBQC";
 
-      // const populatedListing: any = await Listing.findById(listing._id)
-      //   .populate("prodPricing.selectedVariations.variationId")
-      //   .populate("productInfo.productCategory")
-      //   .lean();
 
-      // if (!populatedListing) {
-      //   throw new Error("Listing not found or failed to populate");
-      // }
 
-      // const amazonData = populatedListing;
-      // const productType = amazonData.productInfo.productCategory.amazonProductType || "LUGGAGE";
 
-      // Get product type definitions
-      // const productDefinitions = await getProductTypeDefinitions(productType);
-
+      // Sandbox seller ID for US
+      //production client sellerId :ALTKAQGINRXND
       const productData: any = {
-        productType: "NOTEBOOK_COMPUTER",
+        productType: "LUGGAGE",
         requirements: "LISTING",
+        locale: "en_US",
+        marketplaceId: ["ATVPDKIKX0DER"],
+        // sku: "DELL-XPS-13-9310", // Unique SKU for the product
+        // productName: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
         attributes: {
           condition_type: [
             {
               value: "new_new",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           item_name: [
             {
               value: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
-              language_tag: "en_GB",
-              marketplace_id: "A1F83G8C2ARO7P",
+              language_tag: "en_US",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           brand: [
             {
               value: "Dell",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           manufacturer: [
             {
               value: "Dell Inc.",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           model_name: [
             {
               value: "XPS 13 9310",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           model_number: [
             {
               value: "XPS13-9310-i7-16-512",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           processor_brand: [
             {
               value: "Intel",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           processor_type: [
             {
               value: "Core i7",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           processor_speed: [
             {
               value: "2.8",
               unit: "GHz",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           system_memory_size: [
             {
               value: "16",
               unit: "GB",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           system_memory_type: [
             {
               value: "DDR4",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           hard_drive_size: [
             {
               value: "512",
               unit: "GB",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           hard_drive_interface: [
             {
               value: "SSD",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           display_size: [
             {
               value: "13.3",
               unit: "inches",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           display_resolution: [
             {
               value: "1920x1080",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           operating_system: [
             {
               value: "Windows 11 Home",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           graphics_coprocessor: [
             {
               value: "Intel Iris Xe Graphics",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           connectivity_type: [
             {
               value: "Wi-Fi, Bluetooth",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           item_weight: [
             {
               value: "2.64",
               unit: "pounds",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           item_dimensions: [
@@ -314,82 +311,78 @@ export const amazonListingService = {
                 value: "0.58",
                 unit: "inches",
               },
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           color: [
             {
               value: "Platinum Silver",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           bullet_point: [
             {
               value: "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
             {
               value: "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
             {
               value: "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
             {
               value: "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
             {
               value: "Windows 11 Home pre-installed with premium build quality",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           generic_keyword: [
             {
               value: "laptop computer notebook ultrabook portable",
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           max_order_quantity: [
             {
               value: 10,
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
           fulfillment_availability: [
             {
               fulfillment_channel_code: "DEFAULT",
               quantity: 50,
-              marketplace_id: "A1F83G8C2ARO7P",
+              marketplace_id: "ATVPDKIKX0DER",
             },
           ],
         },
       };
 
-      // Handle variations if present
-      // if (amazonData.listingHasVariations) {
-      //   productData.attributes.variations = amazonData.prodPricing?.selectedVariations?.map((variation: any) => ({
-      //     sku: variation.variationId?.sku,
-      //     price: variation.retailPrice,
-      //     quantity: variation.listingQuantity,
-      //     attributes: variation.variationId?.attributes,
-      //   }));
-      // }
-
+      console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
       // Make API call to create listing
-      const response = await fetch(`${process.env.AMAZON_API_ENDPOINT}/catalog/2022-04-01/items`, {
+      // const response = await fetch(`${process.env.AMAZON_API_ENDPOINT}/catalog/2022-04-01/items`, {
+      const response = await fetch(`https://sandbox.sellingpartnerapi-eu.amazon.com/fba/inventory/v1/items`, {
+        // const response = await fetch(
+        //   `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}`,
+        //   {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          // Authorization: `Bearer ${token}`,
           "x-amz-access-token": token,
+          // "x-amzn-idempotency-token": token,
+          "x-amzn-api-sandbox-only": "true",
           "Content-Type": "application/json",
         },
         body: JSON.stringify(productData),
       });
 
       const result = await response.json();
-
       if (response.ok) {
         return JSON.stringify({
           status: 200,
