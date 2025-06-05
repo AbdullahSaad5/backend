@@ -4,14 +4,12 @@ import {
   getStoredAmazonAccessToken,
   refreshAmazonAccessToken,
   initializeAmazonCredentials,
-  getProductTypeDefinitions,
 } from "@/utils/amazon-helpers.util";
 import path from "path";
 import { promises as fs } from "fs";
 import { Listing } from "@/models";
 
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
-import { get } from "lodash";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
 
