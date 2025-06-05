@@ -153,7 +153,7 @@ export const inventoryService = {
   // Update an existing draft inventory when user move to next stepper
   updateDraftInventory: async (inventoryId: string, stepData: any) => {
     try {
-      console.log("Received update request:", { inventoryId, stepData });
+      // console.log("Received update request:", { inventoryId, stepData });
 
       // Validate inventoryId
       if (!mongoose.isValidObjectId(inventoryId)) {
@@ -731,7 +731,7 @@ export const inventoryService = {
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
 
-    
+
 
     // Generate cache key based on export parameters
     const cacheKey = selectAllPages
