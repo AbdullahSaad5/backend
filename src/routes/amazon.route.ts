@@ -21,6 +21,7 @@ export const amazon = (router: Router) => {
   router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchemaDummy);
   router.get("/get-original-schema/:productType", amazonListingService.getAmazonSchemaOriginal);
   router.get("/check-amazon-listing-status/:sku", listingController.checkAmazonListingStatus);
+  router.get("/check-amazon-submission-status/:submissionId", listingController.checkAmazonSubmissionStatus);
 
   // Additional routes can be added here as needed
   // For example:
