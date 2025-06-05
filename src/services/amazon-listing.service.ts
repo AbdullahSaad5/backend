@@ -524,47 +524,160 @@ export const amazonListingService = {
       }
 
       const amazonData = populatedListing;
-      const productType = amazonData.productInfo.productCategory.amazonProductType || "LUGGAGE";
+      const productType = amazonData.productInfo.productCategory.amazonProductType;
+      const sellerId = process.env.AMAZON_SELLER_ID; // You'll need this from your environment
+      const sku = amazonData.sku; // Make sure your listing has an SKU field
+      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
-      // Prepare update data
-      const updateData: any = {
-        productType,
-        requirements: "LISTING",
-        attributes: {
-          title: amazonData.productInfo?.title,
-          bullet_point: amazonData.productInfo?.description?.split(".").slice(0, 5),
-          description: amazonData.productInfo?.description,
-          standard_price: {
-            amount: amazonData.prodPricing?.retailPrice,
-            currency: "GBP",
-          },
-          quantity: amazonData.prodPricing?.listingQuantity,
-        },
-      };
-
-      // Handle variations if present
-      if (amazonData.listingHasVariations) {
-        updateData.attributes.variations = amazonData.prodPricing?.selectedVariations?.map((variation: any) => ({
-          sku: variation.variationId?.sku,
-          price: variation.retailPrice,
-          quantity: variation.listingQuantity,
-          attributes: variation.variationId?.attributes,
-        }));
+      if (!sellerId || !sku) {
+        throw new Error("Missing required sellerId or SKU");
       }
 
-      // Make API call to update listing
-      const response = await fetch(
-        `${process.env.AMAZON_API_ENDPOINT}/catalog/2022-04-01/items/${amazonData.amazonItemId}`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updateData),
+      // Prepare JSON Patch operations according to API docs
+      const patches: any[] = [];
+
+      // Update title if present
+      if (amazonData.productInfo?.title) {
+        patches.push({
+          op: "replace",
+          path: "/attributes/item_name",
+          value: [
+            {
+              value: amazonData.productInfo.title,
+              marketplace_id: marketplaceId,
+            },
+          ],
+        });
+      }
+
+      // Update bullet points if present
+      if (amazonData.productInfo?.description) {
+        const bulletPoints = amazonData.productInfo.description
+          .split(".")
+          .slice(0, 5)
+          .filter((point: any) => point.trim().length > 0)
+          .map((point: any) => point.trim());
+
+        if (bulletPoints.length > 0) {
+          patches.push({
+            op: "replace",
+            path: "/attributes/bullet_point",
+            value: bulletPoints.map((point: any) => ({
+              value: point,
+              marketplace_id: marketplaceId,
+            })),
+          });
         }
-      );
+      }
+
+      // Update description if present
+      if (amazonData.productInfo?.description) {
+        patches.push({
+          op: "replace",
+          path: "/attributes/description",
+          value: [
+            {
+              value: amazonData.productInfo.description,
+              marketplace_id: marketplaceId,
+            },
+          ],
+        });
+      }
+
+      // Update price if present
+      if (amazonData.prodPricing?.retailPrice) {
+        patches.push({
+          op: "replace",
+          path: "/attributes/list_price",
+          value: [
+            {
+              value: {
+                Amount: amazonData.prodPricing.retailPrice,
+                CurrencyCode: "GBP",
+              },
+              marketplace_id: marketplaceId,
+            },
+          ],
+        });
+      }
+
+      // Update quantity if present
+      if (amazonData.prodPricing?.listingQuantity !== undefined) {
+        patches.push({
+          op: "replace",
+          path: "/attributes/fulfillment_availability",
+          value: [
+            {
+              value: [
+                {
+                  fulfillment_channel_code: "DEFAULT",
+                  quantity: amazonData.prodPricing.listingQuantity,
+                },
+              ],
+              marketplace_id: marketplaceId,
+            },
+          ],
+        });
+      }
+
+      // Handle variations if present
+      if (amazonData.listingHasVariations && amazonData.prodPricing?.selectedVariations?.length > 0) {
+        const variations = amazonData.prodPricing.selectedVariations.map((variation: any) => ({
+          sku: variation.variationId?.sku,
+          attributes: variation.variationId?.attributes,
+          price: variation.retailPrice,
+          quantity: variation.listingQuantity,
+        }));
+
+        patches.push({
+          op: "replace",
+          path: "/attributes/child_parent_sku_relationship",
+          value: [
+            {
+              value: variations.map((v: any) => ({
+                child_sku: v.sku,
+                parent_sku: sku,
+              })),
+              marketplace_id: marketplaceId,
+            },
+          ],
+        });
+      }
+
+      if (patches.length === 0) {
+        throw new Error("No valid data to update");
+      }
+
+      // Prepare request body according to ListingsItemPatchRequest schema
+      const requestBody = {
+        productType: productType,
+        patches: patches,
+      };
+
+      // Build query parameters
+      const queryParams = new URLSearchParams({
+        marketplaceIds: marketplaceId,
+        includedData: "issues", // Default as per API docs
+      });
+
+      // Add optional parameters if needed
+      if (process.env.AMAZON_ISSUE_LOCALE) {
+        queryParams.append("issueLocale", process.env.AMAZON_ISSUE_LOCALE);
+      }
+
+      // Make API call using the correct endpoint structure
+      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${sku}?${queryParams.toString()}`;
+
+      const response = await fetch(apiUrl, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
 
       const result = await response.json();
 
@@ -572,7 +685,8 @@ export const amazonListingService = {
         return JSON.stringify({
           status: 200,
           statusText: "OK",
-          itemId: amazonData.amazonItemId,
+          sellerId: sellerId,
+          sku: sku,
           response: result,
         });
       } else {
