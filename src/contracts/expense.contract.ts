@@ -8,6 +8,7 @@ export interface IExpense extends Document {
     title: string;
   } | Types.ObjectId;
   date: Date;
+  isBlocked: boolean;
   image: string;
 }
 

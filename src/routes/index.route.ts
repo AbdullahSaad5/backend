@@ -14,6 +14,7 @@ import { productBrand } from "./product-brand.route";
 import { listing } from "./listing.route";
 import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
+import { workshift } from "./workshift.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
 import { document } from "./documents.route"
@@ -63,6 +64,7 @@ const routes: {
   expense, 
   document,
   expensecategory,
+  workshift,
   supplier,
   complaintcategory,
   supplierCategory,
