@@ -73,6 +73,14 @@ const seedData = async () => {
       "VIEW_COMPLAINTS",
       "ADD_COMPLAINTS",
 
+      "MANAGE_ACCOUNTING",
+            "ADD_EXPENSE_CATEGORY",
+            "VIEW_EXPENSE_CATEGORY",
+            "ADD_EXPENSE",
+            "VIEW_EXPENSE",
+            "VIEW_REVENUE",
+            "ADD_REVENUE",
+
       "SETTINGS",
     ],
     isBlocked: false,
