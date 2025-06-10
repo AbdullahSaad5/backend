@@ -481,25 +481,25 @@ export const amazonListingService = {
               marketplace_id: marketplaceId,
             },
           ],
-          processor_brand: [
-            {
-              value: "Intel",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          processor_type: [
-            {
-              value: "Core i7",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          processor_speed: [
-            {
-              value: "2.8",
-              unit: "GHz",
-              marketplace_id: marketplaceId,
-            },
-          ],
+          // processor_brand: [
+          //   {
+          //     value: "Intel",
+          //     marketplace_id: marketplaceId,
+          //   },
+          // ],
+          // processor_type: [
+          //   {
+          //     value: "Core i7",
+          //     marketplace_id: marketplaceId,
+          //   },
+          // ],
+          // processor_speed: [
+          //   {
+          //     value: "2.8",
+          //     unit: "GHz",
+          //     marketplace_id: marketplaceId,
+          //   },
+          // ],
           system_memory_size: [
             {
               value: "16",

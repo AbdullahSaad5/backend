@@ -33,12 +33,24 @@ export const productsTechnicalSchema = {
 export const prodInfoSchema = {
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: true },
   ebayCategoryId: { type: String },
+  amazonCategoryId: { type: String },
   // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  title: { type: String, required: true },
-  description: { type: String },
+  item_name: {
+    value: { type: String, required: true },
+    language_tag: { type: String, default: "en_UK" },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+  },
+  product_description: {
+    value: { type: String, required: true },
+    language_tag: { type: String, default: "en_UK" },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+  },
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
-  brand: { type: [String], required: true },
+  brand_name: {
+    value: { type: String, required: true },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+  },
 };
 
 // Main Inventory Schema
@@ -55,7 +67,6 @@ const inventorySchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     alias: { type: String },
     isPart: { type: Boolean, default: false },
-
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
