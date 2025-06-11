@@ -1,4 +1,3 @@
-
 {
   "inventoryId": {
     "$oid": "684852788b36f12049a54b9e"
@@ -275,28 +274,32 @@
     "suggestedTags": []
   },
   "productInfo": {
-    "item_name": {
-      "value": "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
-      "marketplace_id": "A1F83G8C2ARO7P",
-      "language_tag": "e_UK"
-    },
+    "item_name": [
+      {
+        "value": "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "language_tag": "e_UK"
+      }
+    ],
     "amazonCategoryId": "567890",
-    "brand_name": {
-      "value": "Dell",
-      "language_tag": "en_UK",
-      "marketplace_id": "A1F83G8C2ARO7P"
-    },
-    "product_description": {
-      "value": "The Dell XPS 13 features an Intel Core i7 processor, 16GB RAM, and a 512GB SSD, offering performance and style in a compact design.",
-      "language_tag": "en_UK",
-      "marketplace_id": "A1F83G8C2ARO7P"
-    },
+    "brand_name": [
+      {
+        "value": "Dell",
+        "language_tag": "en_UK",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "product_description": [
+      {
+        "value": "The Dell XPS 13 features an Intel Core i7 processor, 16GB RAM, and a 512GB SSD, offering performance and style in a compact design.",
+        "language_tag": "en_UK",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
     "sku": "",
     "productCategory": {
       "$oid": "683720a498047d13e2205613"
-    },
-    "description": "<p><strong>1000mbps 6 Port POE Switch IEEE802.3af/at AC100-240V RJ45 Network Equipment Part</strong></p>",
-    "brand": ["unbranded"]
+    }
   },
   "prodMedia": {
     "images": [
