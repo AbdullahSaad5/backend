@@ -11,10 +11,9 @@ import { promises as fs } from "fs";
 import { Listing } from "@/models";
 
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
-import { get } from "lodash";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-const { marketplaceId, sellerId } = getAmazonCredentials();
+const { marketplaceId, sellerId, redirectUri } = getAmazonCredentials();
 export const amazonListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -169,7 +168,7 @@ export const amazonListingService = {
 
       // Get listing details
       const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
         {
           method: "GET",
           headers: {
@@ -223,17 +222,14 @@ export const amazonListingService = {
       const sellerId = "A21DY98JS1BBQC";
 
       // Check submission status
-      const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/submissions/${submissionId}`,
-        {
-          method: "GET",
-          headers: {
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-            "x-amzn-api-sandbox-only": "true", // Remove for production
-          },
-        }
-      );
+      const response = await fetch(`${redirectUri}/listings/2021-08-01/submissions/${submissionId}`, {
+        method: "GET",
+        headers: {
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+          "x-amzn-api-sandbox-only": "true", // Remove for production
+        },
+      });
 
       const result = await response.json();
 
@@ -294,7 +290,7 @@ export const amazonListingService = {
       }
 
       // Make DELETE API call
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
 
       const response = await fetch(apiUrl, {
         method: "DELETE",
@@ -369,7 +365,7 @@ export const amazonListingService = {
       }
 
       // Make GET API call
-      const apiUrl = `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
       // console.log("API URL:", apiUrl);
 
       const response = await fetch(apiUrl, {
@@ -514,7 +510,7 @@ export const amazonListingService = {
       console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
 
       const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
         {
           method: "PUT",
           headers: {
@@ -721,7 +717,7 @@ export const amazonListingService = {
       }
 
       // Make API call using the correct endpoint structure
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${sku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?${queryParams.toString()}`;
 
       const response = await fetch(apiUrl, {
         method: "PATCH",
