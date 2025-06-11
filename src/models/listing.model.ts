@@ -15,13 +15,26 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  title: { type: String, required: true, maxlength: 80 },
   sku: { type: String, required: true },
 
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
-  description: { type: String },
-  brand: { type: [String], required: true },
+
   displayUnits: { type: Number, required: true },
+
+  item_name: {
+    value: { type: String, required: true },
+    language_tag: { type: String, default: "en_UK" },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+  },
+  product_description: {
+    value: { type: String, required: true },
+    language_tag: { type: String, default: "en_UK" },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+  },
+  brand: {
+    value: { type: String, required: true },
+    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+  },
 };
 
 const prodMediaSchema = {
@@ -59,7 +72,7 @@ const prodPricingSchema = {
       { _id: true, strict: false } // 👈 this line allows undefined fields (dynamic attributes)
     ),
   ],
-  
+
   currentEbayVariationsSKU: { type: [String] },
   selectedVariations: [
     {
