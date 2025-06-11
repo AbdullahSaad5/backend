@@ -269,10 +269,20 @@ export const listingController = {
       // Call the service to get item details from Amazon
       const itemDetails: any = await amazonListingService.getItemFromAmazon(listingId, includedData as string[]);
 
+      // Check if itemDetails has a status field and return accordingly
+      if (!itemDetails) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve item details from Amazon",
+        });
+        return;
+      }
+
       // Send the response from the service
-      res.status(itemDetails.status).json(itemDetails);
+      const parsedItemDetails = JSON.parse(itemDetails); // Parse the JSON response if necessary
+      res.status(parsedItemDetails.status || 500).json(parsedItemDetails);
     } catch (error: any) {
-      console.error("Error in getItemFromAmazon:", error.message);
+      console.error("Error in getItemFromAmazon route:", error.message);
       res.status(500).json({
         success: false,
         message: "Internal server error while retrieving item from Amazon",
