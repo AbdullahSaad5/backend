@@ -47,7 +47,7 @@ export const prodInfoSchema = {
   },
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
-  brand_name: {
+  brand: {
     value: { type: String, required: true },
     marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
   },
