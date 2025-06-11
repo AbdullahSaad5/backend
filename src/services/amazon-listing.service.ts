@@ -340,7 +340,6 @@ export const amazonListingService = {
       }
 
       const populatedListing: any = await Listing.findById(listingId);
-      // console.log("Populated Listing:", populatedListing);
       if (!populatedListing) {
         throw new Error("Listing not found");
       }
@@ -371,8 +370,9 @@ export const amazonListingService = {
       }
 
       // Make GET API call
-      const apiUrl = `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}&marketplaceIds=${marketplaceId}`;
-      console.log("API URL:", apiUrl);
+      const apiUrl = `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      // console.log("API URL:", apiUrl);
+
       const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
@@ -382,15 +382,19 @@ export const amazonListingService = {
         },
       });
 
-      // Log response details for debugging
-      console.log("Response Status:", response.status);
-      console.log("Response Body:", await response.text()); // Log response body
+      // Log the response status and body for debugging
+      const responseBody = await response.text(); // Use text() to avoid body already consumed error
+      // console.log("Response Status:", response.status);
+      // console.log("Response Body:", responseBody);
 
-      const result = await response.json().catch((err) => {
-        // If JSON parsing fails, log the raw response body
+      // Try parsing JSON from the response body
+      let result;
+      try {
+        result = JSON.parse(responseBody);
+      } catch (err) {
         console.error("Error parsing JSON from Amazon API response", err);
-        return {};
-      });
+        result = { error: "Failed to parse Amazon API response" };
+      }
 
       if (response.ok) {
         return JSON.stringify({
