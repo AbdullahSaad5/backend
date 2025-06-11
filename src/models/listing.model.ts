@@ -23,6 +23,7 @@ const prodInfoSchema = {
 
   item_name: [
     {
+      _id: false,
       value: { type: String, required: true },
       language_tag: { type: String, default: "en_UK" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
@@ -30,6 +31,7 @@ const prodInfoSchema = {
   ],
   product_description: [
     {
+      _id: false,
       value: { type: String, required: true },
       language_tag: { type: String, default: "en_UK" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
@@ -37,6 +39,7 @@ const prodInfoSchema = {
   ],
   brand: [
     {
+      _id: false,
       value: { type: String, required: true },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
     },
@@ -179,6 +182,8 @@ const listingSchema = new Schema(
     listingWithStock: { type: Boolean, default: true },
     ebayItemId: { type: String },
     ebaySandboxUrl: { type: String },
+    amazonSubmissionId: { type: String },
+    amazonSku: { type: String },
     offerId: { type: String },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean, default: false },
