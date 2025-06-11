@@ -100,8 +100,6 @@ export const permissionsController = {
             "ADD_COMPLAINTS_CATEGORY",
             "VIEW_COMPLAINTS",
             "ADD_COMPLAINTS",
-            "VIEW_REVENUE",
-            "ADD_REVENUE",
           ],
         },
         ticketing: {
