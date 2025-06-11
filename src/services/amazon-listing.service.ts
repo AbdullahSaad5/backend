@@ -4,15 +4,17 @@ import {
   getStoredAmazonAccessToken,
   refreshAmazonAccessToken,
   initializeAmazonCredentials,
+  getAmazonCredentials,
 } from "@/utils/amazon-helpers.util";
 import path from "path";
 import { promises as fs } from "fs";
 import { Listing } from "@/models";
 
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
+import { get } from "lodash";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-
+const { marketplaceId, sellerId } = getAmazonCredentials();
 export const amazonListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -274,8 +276,6 @@ export const amazonListingService = {
 
       const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // Replace with your seller ID
 
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
-
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
       }
@@ -346,7 +346,6 @@ export const amazonListingService = {
 
       const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC";
       const sku = populatedListing.amazonSku;
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
@@ -583,9 +582,7 @@ export const amazonListingService = {
 
       const amazonData = populatedListing;
       const productType = amazonData.productInfo.productCategory.amazonProductType;
-      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // You'll need this from your environment
       const sku = amazonData.sku; // Make sure your listing has an SKU field
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
@@ -842,7 +839,6 @@ export const amazonListingService = {
       }
 
       // Accept dynamic marketplaceId and environment via query parameters
-      let marketplaceId = process.env.AMAZON_MARKETPLACE_ID; // Default UK here
 
       const env = process.env.AMAZON_TOKEN_ENV === "production" ? "production" : "sandbox";
       console.log(`Environment set to: ${env}`);
