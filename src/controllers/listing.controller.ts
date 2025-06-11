@@ -24,7 +24,6 @@ export const listingController = {
         });
       }
 
-
       const draftListing = await listingService.createDraftListingService(stepData);
 
       return res.status(StatusCodes.CREATED).json({
@@ -66,7 +65,7 @@ export const listingController = {
       let ebayResponse: any;
       let amazonResponse: any;
       if (updatedListing.status === "published" && updatedListing.publishToAmazon === true) {
-        // Listing is marked as 'published' → Create new item on
+        // Listing is marked as 'published' → Create new item on Amazon
         amazonResponse = await amazonListingService.addItemOnAmazon(updatedListing);
       }
       // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
@@ -114,48 +113,31 @@ export const listingController = {
         }
       }
       if (amazonResponse) {
-        if (typeof amazonResponse === "string") {
-          amazonResponse = JSON.parse(amazonResponse);
+        // Handle saving submissionId if response was successful
+        if (amazonResponse.status === 200 && amazonResponse.submissionId) {
+          await listingService.updateDraftListing(updatedListing._id, {
+            amazonSubmissionId: amazonResponse.submissionId, // Save submissionId
+            amazonSku: amazonResponse.sku, // Save SKU
+            amazonResponse: amazonResponse.response, // Save full response
+          });
         }
-      }
 
-      if (ebayResponse) {
-        return res.status(StatusCodes.OK).json({
-          success: true,
-          message: ebayResponse
-            ? "Draft product updated and synced with eBay successfully"
-            : "Draft product updated locally without syncing to eBay",
-          data: {
-            ...updatedListing.toObject(),
-            ebayItemId: ebayResponse?.itemId ?? updatedListing.ebayItemId,
-            ebaySandboxUrl: ebayResponse?.sandboxUrl ?? updatedListing.ebaySandboxUrl,
-          },
-          ebayResponse,
-        });
-      }
-      if (amazonResponse) {
         return res.status(StatusCodes.OK).json({
           success: true,
           message: amazonResponse
-            ? "Draft product updated and synced with amazon successfully"
-            : "Draft product updated locally without syncing to amazon",
-          // data: {
-          //   ...updatedListing.toObject(),
-          //   // ebayItemId: ebayResponse?.itemId ?? updatedListing.ebayItemId,
-          //   // ebaySandboxUrl: ebayResponse?.sandboxUrl ?? updatedListing.ebaySandboxUrl,
-          // },
+            ? "Draft product updated and synced with Amazon successfully"
+            : "Draft product updated locally without syncing to Amazon",
           amazonResponse,
         });
       }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Draft product updated successfully",
+        data: updatedListing,
+      });
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
-
-      if (error.message.includes("eBay")) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          message: `Error syncing Listing with eBay: ${error.message}`,
-        });
-      }
 
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
