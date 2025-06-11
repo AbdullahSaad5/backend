@@ -272,7 +272,7 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID;
+      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // Replace with your seller ID
 
       const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
@@ -344,7 +344,7 @@ export const amazonListingService = {
         throw new Error("Listing not found");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID;
+      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC";
       const sku = populatedListing.sku;
       const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
@@ -428,7 +428,7 @@ export const amazonListingService = {
     return amazonListingService.getItemFromAmazon(listing, ["issues"]);
   },
 
-  addItemOnAmazon: async (listing: any): Promise<string> => {
+  addItemOnAmazon: async (listing: any): Promise<any> => {
     try {
       const token = await getStoredAmazonAccessToken();
       if (!token) {
@@ -444,10 +444,9 @@ export const amazonListingService = {
         throw new Error("Listing not found or failed to populate");
       }
 
-      // Extract necessary fields from the populated listing
       const {
-        productInfo: { sku, item_name, brand, productCategory, product_description },
-        proodTectInfo: {
+        productInfo: { sku, item_name, brand, product_description },
+        prodTechInfo: {
           condition_type,
           color,
           model_name,
@@ -460,21 +459,24 @@ export const amazonListingService = {
           max_order_quantity,
           fulfillment_availability,
         },
-        prodPricing: { retailPrice },
-        prodDelivery: { deliveryTime },
-        prodSeo: { seoTitle, seoDescription },
-        prodMedia: { images, videos },
+        // prodPricing: { retailPrice },
+        // prodDelivery: { deliveryTime },
+        // prodSeo: { seoTitle, seoDescription },
+        // prodMedia: { images, videos },
       } = populatedListing;
-
+      const amzData = populatedListing;
       const marketplaceId = "A1F83G8C2ARO7P"; // Replace with your marketplace ID
       const sellerId = "A21DY98JS1BBQC"; // Replace with your seller ID
-      const categoryId = productCategory?.amazonCategoryId || "COMPUTER"; // Fallback if no category is found
-
+      const categoryId =
+        amzData.productInfo.productCategory.amazonCategoryId ||
+        amzData.productInfo.productCategory.categoryId ||
+        "NOTEBOOK_COMPUTER"; // Fallback if no category is found
+      console.log("categoryId is", categoryId);
       const productData = {
         productType: categoryId,
         requirements: "LISTING",
         attributes: {
-          condition_type: condition_type || "new_new",
+          condition_type: condition_type,
           item_name: item_name || [],
           brand: brand || [],
           manufacturer: [
@@ -512,27 +514,41 @@ export const amazonListingService = {
         }
       );
 
-      const result = await response.json();
+      const rawResponse = await response.text(); // Read the raw response from Amazon
+      console.log("🔍 Raw response from Amazon:", rawResponse);
+      const jsonObj = JSON.parse(rawResponse); // Parse the raw response
+
+      const status = jsonObj?.status;
+      const submissionId = jsonObj?.submissionId;
+      const issues = jsonObj?.issues;
+
       if (response.ok) {
-        return JSON.stringify({
-          status: 200,
-          statusText: "OK",
-          sku: sku,
-          response: result,
-        });
+        // If status is ACCEPTED, return the submissionId
+        if (status === "ACCEPTED" && submissionId) {
+          return {
+            status: 200,
+            statusText: "OK",
+            sku,
+            submissionId, // Return submissionId
+            response: rawResponse, // Return the raw response
+          };
+        }
       } else {
-        return JSON.stringify({
-          status: response.status,
-          statusText: response.statusText,
-          errorResponse: result,
-        });
+        // If there are issues, return them in the response
+        return {
+          status: 400,
+          statusText: "Failed to create listing",
+          errorResponse: issues || jsonObj,
+          response: rawResponse, // Return the raw response
+        };
       }
     } catch (error: any) {
       console.error("Error adding listing on Amazon:", error.message);
-      return JSON.stringify({
+
+      return {
         status: 500,
         message: error.message || "Error syncing with Amazon API",
-      });
+      };
     }
   },
 
@@ -554,7 +570,7 @@ export const amazonListingService = {
 
       const amazonData = populatedListing;
       const productType = amazonData.productInfo.productCategory.amazonProductType;
-      const sellerId = process.env.AMAZON_SELLER_ID; // You'll need this from your environment
+      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // You'll need this from your environment
       const sku = amazonData.sku; // Make sure your listing has an SKU field
       const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
