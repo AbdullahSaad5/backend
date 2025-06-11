@@ -35,22 +35,28 @@ export const prodInfoSchema = {
   ebayCategoryId: { type: String },
   amazonCategoryId: { type: String },
   // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  item_name: {
-    value: { type: String, required: true },
-    language_tag: { type: String, default: "en_UK" },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
-  },
-  product_description: {
-    value: { type: String, required: true },
-    language_tag: { type: String, default: "en_UK" },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
-  },
+  item_name: [
+    {
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_UK" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  product_description: [
+    {
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_UK" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
   inventoryImages: { type: [mediaSchema], _id: false },
   inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
-  brand: {
-    value: { type: String, required: true },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
-  },
+  brand: [
+    {
+      value: { type: String, required: true },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
 };
 
 // Main Inventory Schema
