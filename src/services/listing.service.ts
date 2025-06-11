@@ -19,26 +19,34 @@ export const listingService = {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
+      // Destructure the necessary fields from productInfo and stepData
+      const { kind, item_name, product_description, brand, amazonCategoryId, productCategory, sku } =
+        stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
-      if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
-        throw new Error("Invalid or missing 'kind' (listing type)");
+      if (!kind || !productCategory || !productCategory.$oid) {
+        throw new Error("Invalid or missing 'productCategory'");
+      }
+
+      // Check for required fields for the new schema (item_name, brand, etc.)
+      if (!item_name || !Array.isArray(item_name) || item_name.length === 0) {
+        throw new Error("Invalid or missing 'item_name' in productInfo");
       }
 
       const productInfo = {
         kind,
-        title: title || "",
+        item_name: item_name || [],
+        product_description: product_description || [],
+        brand: brand || [],
+        amazonCategoryId: amazonCategoryId || "",
+        productCategory: productCategory,
         sku: sku || "",
-        description: description || "",
-        brand: brand || "",
-        productCategory: productCategory || "",
       };
 
       const draftListingData: any = {
         status: "draft",
         isBlocked: false,
-        kind,
+        kind, // This should come from the front-end or other logic
         inventoryId,
         bundleId,
         listingType: stepData.listingType,
@@ -55,16 +63,14 @@ export const listingService = {
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
-
       console.log("listing has variatio  check : ", stepData.listingWithStock);
       console.log("draftListingData here there : ", draftListingData);
-
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
         delete draftListingData.prodTechInfo.ean;
       }
 
-      // Remove undefined values
+      // Remove undefined values from all nested objects
       Object.keys(draftListingData).forEach((key) => {
         if (typeof draftListingData[key] === "object" && draftListingData[key]) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
@@ -77,6 +83,10 @@ export const listingService = {
 
       console.log("draftListingData before save : ", draftListingData);
 
+      // Create and save the draft listing
+      if (!Listing.discriminators || !Listing.discriminators[kind]) {
+        throw new Error(`Invalid or missing discriminator for kind: ${kind}`);
+      }
       const draftListing = new Listing.discriminators[kind](draftListingData);
       await draftListing.save({ validateBeforeSave: false });
 
@@ -196,7 +206,7 @@ export const listingService = {
         }
       });
 
-      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });
