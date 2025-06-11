@@ -44,7 +44,7 @@ export const getAmazonCredentials = () => {
     return {
       clientId: process.env.AMAZON_CLIENT_ID_SANDBOX!,
       clientSecret: process.env.AMAZON_CLIENT_SECRET_SANDBOX!,
-      redirectUri: process.env.AMAZON_REDIRECT_URI_SANDBOX!,
+      redirectUri: "https://sandbox.sellingpartnerapi-eu.amazon.com",
       marketplaceId: "A1F83G8C2ARO7P",
       sellerId: "A21DY98JS1BBQC",
       useClient: "false",
@@ -54,7 +54,7 @@ export const getAmazonCredentials = () => {
   return {
     clientId: process.env.SELLING_PARTNER_APP_CLIENT_ID_PROD!,
     clientSecret: process.env.SELLING_PARTNER_APP_CLIENT_SECRET_PROD!,
-    redirectUri: process.env.SELLING_PARTNER_APP_REDIRECT_URI_PROD!,
+    redirectUri: "https://sellingpartnerapi-eu.amazon.com",
     marketplaceId: "A1F83G8C2ARO7P",
     sellerId: "A21DY98JS1BBQC",
     useClient: "true",
@@ -71,16 +71,16 @@ const SCOPES = [
   "sellingpartnerapi::reports",
   "sellingpartnerapi::finances",
 ];
-
+const { useClient } = getAmazonCredentials();
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
     const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
     // USE_CLIENT environment variable controls which token file to read
-    const useClient =
-      process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
-        ? process.env.USE_CLIENT === "true"
-        : true;
+    // const useClient =
+    //   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
+    //     ? process.env.USE_CLIENT === "true"
+    //     : true;
 
     const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
     let credentialsText;
