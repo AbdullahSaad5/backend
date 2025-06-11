@@ -21,20 +21,26 @@ const prodInfoSchema = {
 
   displayUnits: { type: Number, required: true },
 
-  item_name: {
-    value: { type: String, required: true },
-    language_tag: { type: String, default: "en_UK" },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
-  },
-  product_description: {
-    value: { type: String, required: true },
-    language_tag: { type: String, default: "en_UK" },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
-  },
-  brand: {
-    value: { type: String, required: true },
-    marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
-  },
+  item_name: [
+    {
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_UK" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  product_description: [
+    {
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_UK" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+  brand: [
+    {
+      value: { type: String, required: true },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
 };
 
 const prodMediaSchema = {
