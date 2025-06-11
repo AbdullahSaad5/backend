@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
-import { Inventory, Listing } from "@/models";
+import { Listing } from "@/models";
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
