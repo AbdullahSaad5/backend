@@ -461,6 +461,9 @@ export const amazonListingService = {
           fulfillment_availability,
         },
         prodPricing: { retailPrice },
+        prodDelivery: { deliveryTime },
+        prodSeo: { seoTitle, seoDescription },
+        prodMedia: { images, videos },
       } = populatedListing;
 
       const marketplaceId = "A1F83G8C2ARO7P"; // Replace with your marketplace ID
