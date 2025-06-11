@@ -435,199 +435,62 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sku = "DELL-XPS-13-9310"; // Your unique SKU
-      const sellerId = "A21DY98JS1BBQC"; // Sandbox seller ID
-      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
-      // A1F83G8C2ARO7P // UK marketplace
-      // ATVPDKIKX0DER // US marketplace
+      const populatedListing: any = await Listing.findById(listing._id)
+        .populate("prodPricing.selectedVariations.variationId")
+        .populate("productInfo.productCategory")
+        .lean();
+
+      if (!populatedListing) {
+        throw new Error("Listing not found or failed to populate");
+      }
+
+      // Extract necessary fields from the populated listing
+      const {
+        productInfo: { sku, item_name, brand, productCategory, product_description },
+        proodTectInfo: {
+          condition_type,
+          color,
+          model_name,
+          model_number,
+          generic_keyword,
+          memory_storage_capacity,
+          item_weight,
+          item_dimensions,
+          bullet_point,
+          max_order_quantity,
+          fulfillment_availability,
+        },
+        prodPricing: { retailPrice },
+      } = populatedListing;
+
+      const marketplaceId = "A1F83G8C2ARO7P"; // Replace with your marketplace ID
+      const sellerId = "A21DY98JS1BBQC"; // Replace with your seller ID
+      const categoryId = productCategory?.amazonCategoryId || "COMPUTER"; // Fallback if no category is found
+
       const productData = {
-        productType: "COMPUTER", // Changed from "LUGGAGE" to appropriate product type
-        requirements: "LISTING", // This is correct
+        productType: categoryId,
+        requirements: "LISTING",
         attributes: {
-          condition_type: [
-            {
-              value: "new_new",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_name: [
-            {
-              value: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
-              language_tag: "en_US",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          brand: [
-            {
-              value: "Dell",
-              marketplace_id: marketplaceId,
-            },
-          ],
+          condition_type: condition_type || "new_new",
+          item_name: item_name || [],
+          brand: brand || [],
           manufacturer: [
             {
-              value: "Dell Inc.",
+              value: brand?.[0]?.value || "Manufacturer Not Available",
               marketplace_id: marketplaceId,
             },
           ],
-          model_name: [
-            {
-              value: "XPS 13 9310",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          model_number: [
-            {
-              value: "XPS13-9310-i7-16-512",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          // processor_brand: [
-          //   {
-          //     value: "Intel",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          // processor_type: [
-          //   {
-          //     value: "Core i7",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          // processor_speed: [
-          //   {
-          //     value: "2.8",
-          //     unit: "GHz",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          system_memory_size: [
-            {
-              value: "16",
-              unit: "GB",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          system_memory_type: [
-            {
-              value: "DDR4",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          hard_drive_size: [
-            {
-              value: "512",
-              unit: "GB",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          hard_drive_interface: [
-            {
-              value: "SSD",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          display_size: [
-            {
-              value: "13.3",
-              unit: "inches",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          display_resolution: [
-            {
-              value: "1920x1080",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          operating_system: [
-            {
-              value: "Windows 11 Home",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          graphics_coprocessor: [
-            {
-              value: "Intel Iris Xe Graphics",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          connectivity_type: [
-            {
-              value: "Wi-Fi, Bluetooth",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_weight: [
-            {
-              value: "2.64",
-              unit: "pounds",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_dimensions: [
-            {
-              length: {
-                value: "11.64",
-                unit: "inches",
-              },
-              width: {
-                value: "7.82",
-                unit: "inches",
-              },
-              height: {
-                value: "0.58",
-                unit: "inches",
-              },
-              marketplace_id: marketplaceId,
-            },
-          ],
-          color: [
-            {
-              value: "Platinum Silver",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          bullet_point: [
-            {
-              value: "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "Windows 11 Home pre-installed with premium build quality",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          generic_keyword: [
-            {
-              value: "laptop computer notebook ultrabook portable",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          max_order_quantity: [
-            {
-              value: 10,
-              marketplace_id: marketplaceId,
-            },
-          ],
-          fulfillment_availability: [
-            {
-              fulfillment_channel_code: "DEFAULT",
-              quantity: 50,
-              marketplace_id: marketplaceId,
-            },
-          ],
+          model_name: model_name || [],
+          model_number: model_number || [],
+          product_description: product_description || [],
+          color: color || [],
+          memory_storage_capacity: memory_storage_capacity || [],
+          item_weight: item_weight || [],
+          item_dimensions: item_dimensions || [],
+          bullet_point: bullet_point || [],
+          max_order_quantity: max_order_quantity || [],
+          generic_keyword: generic_keyword || [],
+          fulfillment_availability: fulfillment_availability || [],
         },
       };
 
