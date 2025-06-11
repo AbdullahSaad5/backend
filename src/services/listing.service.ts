@@ -24,7 +24,7 @@ export const listingService = {
         stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
-      if (!kind || !productCategory || !productCategory.$oid) {
+      if (!kind || !productCategory || typeof productCategory !== "string" || !productCategory.trim()) {
         throw new Error("Invalid or missing 'productCategory'");
       }
 
