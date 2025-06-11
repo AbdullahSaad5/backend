@@ -332,20 +332,21 @@ export const amazonListingService = {
   },
 
   // GET Listing Item Function
-  getItemFromAmazon: async (listing: any, includedData?: string[]): Promise<string> => {
+  getItemFromAmazon: async (listingId: any, includedData?: string[]): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const populatedListing: any = await Listing.findById(listing._id).lean();
+      const populatedListing: any = await Listing.findById(listingId);
+      // console.log("Populated Listing:", populatedListing);
       if (!populatedListing) {
         throw new Error("Listing not found");
       }
 
       const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC";
-      const sku = populatedListing.sku;
+      const sku = populatedListing.amazonSku;
       const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
       if (!sellerId || !sku) {
@@ -370,8 +371,8 @@ export const amazonListingService = {
       }
 
       // Make GET API call
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
-
+      const apiUrl = `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}&marketplaceIds=${marketplaceId}`;
+      console.log("API URL:", apiUrl);
       const response = await fetch(apiUrl, {
         method: "GET",
         headers: {
@@ -381,7 +382,15 @@ export const amazonListingService = {
         },
       });
 
-      const result = await response.json();
+      // Log response details for debugging
+      console.log("Response Status:", response.status);
+      console.log("Response Body:", await response.text()); // Log response body
+
+      const result = await response.json().catch((err) => {
+        // If JSON parsing fails, log the raw response body
+        console.error("Error parsing JSON from Amazon API response", err);
+        return {};
+      });
 
       if (response.ok) {
         return JSON.stringify({
