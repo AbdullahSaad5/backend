@@ -24,21 +24,6 @@ export const listingController = {
         });
       }
 
-      // if (!mongoose.isValidObjectId(stepData.inventoryId)) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Invalid or missing 'inventoryId' in request payload",
-      //   });
-      // }
-
-      // Ensure inventoryId exists in database
-      // const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
-      // if (!inventoryExists) {
-      //   return res.status(StatusCodes.BAD_REQUEST).json({
-      //     success: false,
-      //     message: "Inventory ID does not exist",
-      //   });
-      // }
 
       const draftListing = await listingService.createDraftListingService(stepData);
 
@@ -175,6 +160,191 @@ export const listingController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
+      });
+    }
+  },
+
+  // Controller to check Amazon listing status by SKU
+  checkAmazonListingStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+      // const { sellerId } = req.query;
+      const sellerId = "A21DY98JS1BBQC";
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Call the checkListingStatus service function
+      const listingStatus = await amazonListingService.checkListingStatus(sku);
+
+      const listingStatusParsed = JSON.parse(listingStatus); // Parse the JSON string response
+
+      if (listingStatusParsed.status === 200) {
+        console.log(`✅ Successfully retrieved listing status for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing status retrieved successfully",
+          data: {
+            sku: sku,
+            sellerId: sellerId, // Use the provided sellerId or fallback to default
+            marketplaceId: "A1F83G8C2ARO7P", // Default marketplaceId for UK
+            listingData: listingStatusParsed.listingData,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve listing status for SKU: ${sku}`, listingStatusParsed);
+        res.status(listingStatusParsed.status).json({
+          success: false,
+          message: "Failed to retrieve listing status",
+          error: {
+            status: listingStatusParsed.status,
+            statusText: listingStatusParsed.statusText,
+            details: listingStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonListingStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking listing status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to check Amazon submission status by submission ID
+  checkAmazonSubmissionStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { submissionId } = req.params;
+
+      // Validate required parameters
+      if (!submissionId) {
+        res.status(400).json({
+          success: false,
+          message: "Submission ID parameter is required",
+        });
+        return;
+      }
+
+      // Call the getSubmissionStatus service function
+      const submissionStatus = await amazonListingService.getSubmissionStatus(submissionId);
+
+      const submissionStatusParsed = JSON.parse(submissionStatus); // Parse the JSON string response
+
+      if (submissionStatusParsed.status === 200) {
+        console.log(`✅ Successfully retrieved submission status for ID: ${submissionId}`);
+        res.status(200).json({
+          success: true,
+          message: "Submission status retrieved successfully",
+          data: {
+            submissionId: submissionId,
+            submissionStatus: submissionStatusParsed.submissionStatus,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve submission status for ID: ${submissionId}`, submissionStatusParsed);
+        res.status(submissionStatusParsed.status).json({
+          success: false,
+          message: "Failed to retrieve submission status",
+          error: {
+            status: submissionStatusParsed.status,
+            statusText: submissionStatusParsed.statusText,
+            details: submissionStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonSubmissionStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking submission status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to get all listings for a seller
+  getItemFromAmazon: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { listingId } = req.params; // Get listingId from the request parameters
+      const { includedData } = req.query; // Optional query parameter for included data
+
+      // Validate required parameters
+      if (!listingId) {
+        res.status(400).json({
+          success: false,
+          message: "Listing ID parameter is required",
+        });
+        return;
+      }
+
+      // Call the service to get item details from Amazon
+      const itemDetails: any = await amazonListingService.getItemFromAmazon(listingId, includedData as string[]);
+
+      // Send the response from the service
+      res.status(itemDetails.status).json(itemDetails);
+    } catch (error: any) {
+      console.error("Error in getItemFromAmazon:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while retrieving item from Amazon",
+        error: error.message,
+      });
+    }
+  },
+  // Controller to delete/deactivate a listing
+  deleteAmazonListing: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Call the deleteItemFromAmazon service function
+      const deletionStatus = await amazonListingService.deleteItemFromAmazon(sku);
+
+      const deletionStatusParsed = JSON.parse(deletionStatus); // Parse the JSON string response
+
+      if (deletionStatusParsed.status === 200) {
+        console.log(`✅ Successfully deleted listing for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing deleted successfully",
+          data: {
+            sku: sku,
+            deletionResult: deletionStatusParsed.response,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to delete listing for SKU: ${sku}`, deletionStatusParsed);
+        res.status(deletionStatusParsed.status).json({
+          success: false,
+          message: "Failed to delete listing",
+          error: {
+            status: deletionStatusParsed.status,
+            statusText: deletionStatusParsed.statusText,
+            details: deletionStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in deleteAmazonListing:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while deleting listing",
+        error: error.message,
       });
     }
   },

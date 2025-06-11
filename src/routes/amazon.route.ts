@@ -1,4 +1,5 @@
 import { amazonListingService } from "@/services";
+import { listingController } from "@/controllers";
 import { Router } from "express";
 
 export const amazon = (router: Router) => {
@@ -19,6 +20,8 @@ export const amazon = (router: Router) => {
   // router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchema);
   router.get("/get-parsed-schema/:productType", amazonListingService.getAmazonSchemaDummy);
   router.get("/get-original-schema/:productType", amazonListingService.getAmazonSchemaOriginal);
+  router.get("/check-amazon-listing-status/:sku", listingController.checkAmazonListingStatus);
+  // router.get("/check-amazon-submission-status/:submissionId", listingController.checkAmazonSubmissionStatus);
 
   // Additional routes can be added here as needed
   // For example:

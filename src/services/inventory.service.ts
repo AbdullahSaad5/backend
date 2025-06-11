@@ -46,24 +46,20 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-      const isMultiBrand =
-        stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
       const {
         kind,
-        productCategory,
-        title,
-        description,
+        item_name,
+        product_description,
         brand,
+        productCategory,
         inventoryImages,
         inventoryCondition,
         ebayCategoryId,
+        amazonCategoryId,
       } = stepData.productInfo;
 
-      if (
-        !kind ||
-        !Inventory.discriminators ||
-        !Inventory.discriminators[kind]
-      ) {
+      if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
         throw new Error("Invalid or missing 'kind' (inventory type)");
       }
 
@@ -72,11 +68,7 @@ export const inventoryService = {
       // Handle productCategory based on isPart
       if (isPart) {
         // For parts, accept eBay category ID (string or number)
-        if (
-          productCategory === undefined ||
-          productCategory === null ||
-          productCategory === ""
-        ) {
+        if (productCategory === undefined || productCategory === null || productCategory === "") {
           throw new Error("Invalid or missing 'productCategory' for part");
         }
         categoryId = productCategory.toString(); // Convert to string
@@ -95,9 +87,11 @@ export const inventoryService = {
       const productInfo = {
         productCategory: categoryId,
         // productSupplier: supplierId,
-        title: title || "",
-        description: description || "",
-        brand: brand || "",
+
+        item_name: item_name || [],
+        product_description: product_description || [],
+        brand: brand || [],
+        amazonCategoryId: amazonCategoryId || "",
         inventoryCondition: inventoryCondition || "",
         ebayCategoryId: ebayCategoryId || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
@@ -121,10 +115,7 @@ export const inventoryService = {
       console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
-        if (
-          typeof draftInventoryData[key] === "object" &&
-          draftInventoryData[key]
-        ) {
+        if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
           Object.keys(draftInventoryData[key]).forEach((subKey) => {
             if (draftInventoryData[key][subKey] === undefined) {
               delete draftInventoryData[key][subKey];
@@ -133,14 +124,9 @@ export const inventoryService = {
         }
       });
 
-      console.log(
-        "Final draftInventoryData before saving:",
-        draftInventoryData
-      );
+      console.log("Final draftInventoryData before saving:", draftInventoryData);
 
-      const draftInventory = new Inventory.discriminators[kind](
-        draftInventoryData
-      );
+      const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
       await draftInventory.save({ validateBeforeSave: false });
 
       return draftInventory;
@@ -167,10 +153,7 @@ export const inventoryService = {
         throw new Error("Draft inventory not found");
       }
 
-      console.log(
-        "Existing inventory before update:",
-        JSON.stringify(draftInventory, null, 2)
-      );
+      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
@@ -235,10 +218,7 @@ export const inventoryService = {
         }
       });
 
-      console.log(
-        "Final inventory object before save:",
-        JSON.stringify(draftInventory, null, 2)
-      );
+      console.log("Final inventory object before save:", JSON.stringify(draftInventory, null, 2));
 
       // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
@@ -277,9 +257,7 @@ export const inventoryService = {
 
   getFullInventoryById: async (id: string) => {
     try {
-      const inventory = await Inventory.findById(id).populate(
-        "productInfo.productCategory"
-      );
+      const inventory = await Inventory.findById(id).populate("productInfo.productCategory");
       // .populate("productInfo.productSupplier");
       // .lean();
 
@@ -309,9 +287,7 @@ export const inventoryService = {
       return await Inventory.find(condition)
         .populate("productInfo.productCategory")
         // .populate("productInfo.productSupplier")
-        .select(
-          "_id kind prodTechInfo brand model alias srno productCategory productInfo"
-        ) // ✅ Explicitly include prodTechInfo
+        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
@@ -337,11 +313,7 @@ export const inventoryService = {
   updateInventory: async (id: string, data: any) => {
     try {
       const updateQuery = { [`platformDetails.`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        updateQuery,
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -360,11 +332,7 @@ export const inventoryService = {
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        { isBlocked },
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isBlocked }, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -375,11 +343,7 @@ export const inventoryService = {
 
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        { isTemplate },
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -480,14 +444,9 @@ export const inventoryService = {
       }
 
       // 🟢 Category filter (from query param)
-      if (
-        filters.productCategory &&
-        mongoose.Types.ObjectId.isValid(filters.productCategory)
-      ) {
+      if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
         andConditions.push({
-          "productInfo.productCategory": new mongoose.Types.ObjectId(
-            filters.productCategory
-          ),
+          "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
         });
       }
 
@@ -522,10 +481,8 @@ export const inventoryService = {
       // Date filter
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate)))
-          dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate)))
-          dateFilter.$lte = new Date(endDate);
+        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
         if (Object.keys(dateFilter).length > 0) {
           andConditions.push({ createdAt: dateFilter });
         }
@@ -563,9 +520,7 @@ export const inventoryService = {
   },
 
   //bulk import inventory as CSV
-  bulkImportInventory: async (
-    validRows: { row: number; data: any }[]
-  ): Promise<void> => {
+  bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
@@ -577,9 +532,7 @@ export const inventoryService = {
         try {
           addLog(`Row [${i}] => #${row}`);
           if (!data || typeof data !== "object") {
-            console.log(
-              `⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`
-            );
+            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
           } else {
             console.log(`Data: ${JSON.stringify(data)}`);
           }
@@ -607,9 +560,7 @@ export const inventoryService = {
               }).select("_id");
 
               if (!matchedCategory) {
-                addLog(
-                  `❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`
-                );
+                addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
                 return null;
               }
 
@@ -631,14 +582,12 @@ export const inventoryService = {
                 ebayCategoryId: normalizedData.ebaycategoryid,
                 title: normalizedData.title,
                 description: normalizedData.description,
-                inventoryImages: (normalizedData.images || []).map(
-                  (url: string) => ({
-                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    size: 0,
-                    url,
-                    type: "image/jpeg",
-                  })
-                ),
+                inventoryImages: (normalizedData.images || []).map((url: string) => ({
+                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  size: 0,
+                  url,
+                  type: "image/jpeg",
+                })),
                 inventoryCondition: normalizedData.inventoryCondition || "new",
                 brand: brandList,
               };
@@ -664,27 +613,15 @@ export const inventoryService = {
               }
 
               // Set kind based on eBay ID
-              const productCategoryIds = new Set([
-                "177",
-                "179",
-                "80053",
-                "25321",
-                "44995",
-              ]);
-              const kindType = productCategoryIds.has(
-                normalizedData.ebaycategoryid?.toString()
-              )
-                ? "product"
-                : "part";
+              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
 
               // Set isPart based on kind
               const isPart = kindType === "part";
 
               // Set isVariation based on prodTechInfo["allow variations"]
               const allowVar = prodTechInfo["allow variations"];
-              const isVariation =
-                typeof allowVar === "string" &&
-                allowVar.trim().toLowerCase() === "yes";
+              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
               delete prodTechInfo["allow variations"]; // optional cleanup
 
               const docToInsert = {
@@ -701,9 +638,7 @@ export const inventoryService = {
                 productInfo,
               };
 
-              console.log(
-                `📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`
-              );
+              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
 
               return {
                 insertOne: {
@@ -720,9 +655,7 @@ export const inventoryService = {
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(
-        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
-      );
+      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
     }
@@ -730,8 +663,6 @@ export const inventoryService = {
 
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
-
-
 
     // Generate cache key based on export parameters
     const cacheKey = selectAllPages
@@ -774,24 +705,20 @@ export const inventoryService = {
 
     for (const item of items) {
       const ebayId = item.productInfo?.ebayCategoryId || "unknown";
-      const categoryName =
-        item.productInfo?.productCategory?.name || "Uncategorized";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
 
       const rawSheetKey = `${categoryName} (${ebayId})`;
       const sheetKey = sanitizeSheetName(rawSheetKey);
       const flatRow: Record<string, any> = {
         Title: item.productInfo?.title || "",
-        Description:
-          item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
+        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
         Brand: Array.isArray(item.productInfo?.brand)
           ? item.productInfo.brand.join(", ")
           : item.productInfo?.brand || "",
         InventoryCondition: item.productInfo?.inventoryCondition || "",
         "Allow Variations": item.isVariation ? "yes" : "no",
         Images: Array.isArray(item.productInfo?.inventoryImages)
-          ? item.productInfo.inventoryImages
-              .map((img: any) => img.url)
-              .join(", ")
+          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
           : "",
       };
 
@@ -845,11 +772,7 @@ export const inventoryService = {
     };
   },
 
-  bulkUpdateInventoryTaxAndDiscount: async (
-    inventoryIds: string[],
-    discountValue: number,
-    vat: number
-  ) => {
+  bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -868,9 +791,7 @@ export const inventoryService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error(
-          "No inventory were updated. Please verify inventory IDs and data."
-        );
+        throw new Error("No inventory were updated. Please verify inventory IDs and data.");
       }
 
       return result;
@@ -879,10 +800,7 @@ export const inventoryService = {
     }
   },
 
-  upsertInventoryPartsService: async (
-    inventoryId: string,
-    selectedVariations: any
-  ) => {
+  upsertInventoryPartsService: async (inventoryId: string, selectedVariations: any) => {
     return await Inventory.findByIdAndUpdate(
       inventoryId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -902,8 +820,7 @@ export const inventoryService = {
 
     const cartesianProduct = (arrays: any[][]) => {
       return arrays.reduce(
-        (acc, curr, index) =>
-          acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
+        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
         [{}]
       );
     };
@@ -913,13 +830,7 @@ export const inventoryService = {
 
   getAllOptions: async () => {
     try {
-      const skipProductInfoFields = [
-        "title",
-        "description",
-        "productCategory",
-        "ebayCategoryId",
-        "inventoryImages",
-      ];
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
 
       const kinds = await Inventory.distinct("kind");
       const seenFields = new Set<string>();
@@ -951,12 +862,8 @@ export const inventoryService = {
             values
               .filter((v) => v !== "" && v !== null && v !== undefined)
               .forEach((val) => {
-                const key =
-                  typeof val === "string"
-                    ? val.trim().toLowerCase()
-                    : String(val).toLowerCase();
-                if (!map.has(key))
-                  map.set(key, typeof val === "string" ? val.trim() : val);
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
               });
 
             return {
@@ -987,12 +894,8 @@ export const inventoryService = {
               values
                 .filter((v) => v !== "" && v !== null && v !== undefined)
                 .forEach((val) => {
-                  const k =
-                    typeof val === "string"
-                      ? val.trim().toLowerCase()
-                      : String(val).toLowerCase();
-                  if (!map.has(k))
-                    map.set(k, typeof val === "string" ? val.trim() : val);
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
                 });
 
               return {
