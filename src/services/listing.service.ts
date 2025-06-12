@@ -24,7 +24,7 @@ export const listingService = {
         stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
-      if (!kind || !productCategory || !productCategory.$oid) {
+      if (!kind || !productCategory || typeof productCategory !== "string" || !productCategory.trim()) {
         throw new Error("Invalid or missing 'productCategory'");
       }
 
@@ -188,6 +188,8 @@ export const listingService = {
       const topLevelFields = [
         "ebayItemId",
         "ebaySandboxUrl",
+        "amazonSubmissionId",
+        "amazonSku",
         "listingType",
         "listingWithStock",
         "inventoryId",
@@ -206,7 +208,7 @@ export const listingService = {
         }
       });
 
-      console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
+      // console.log("Final Listing object before save:", JSON.stringify(draftListing, null, 2));
 
       // Save updated Listing
       await draftListing.save({ validateBeforeSave: false });

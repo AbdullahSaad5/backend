@@ -1,3 +1,4 @@
+import _ from "lodash";
 import mongoose, { Schema, model } from "mongoose";
 
 export const mediaSchema = {
@@ -37,6 +38,7 @@ export const prodInfoSchema = {
   // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
   item_name: [
     {
+      _id: false,
       value: { type: String, required: true },
       language_tag: { type: String, default: "en_UK" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
@@ -44,6 +46,7 @@ export const prodInfoSchema = {
   ],
   product_description: [
     {
+       _id: false,
       value: { type: String, required: true },
       language_tag: { type: String, default: "en_UK" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
@@ -53,6 +56,7 @@ export const prodInfoSchema = {
   inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
   brand: [
     {
+       _id: false,
       value: { type: String, required: true },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
     },

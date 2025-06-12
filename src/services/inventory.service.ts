@@ -60,7 +60,7 @@ export const inventoryService = {
       } = stepData.productInfo;
 
       if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
-        throw new Error("Invalid or missing 'kind' (inventory type)");
+        throw new Error(`Invalid or missing discriminator for kind: ${kind}`);
       }
 
       let categoryId;
@@ -85,6 +85,7 @@ export const inventoryService = {
 
       // ✅ Ensure inventoryImages is correctly mapped inside productInfo
       const productInfo = {
+        kind,
         productCategory: categoryId,
         // productSupplier: supplierId,
 

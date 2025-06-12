@@ -4,6 +4,7 @@ import {
   getStoredAmazonAccessToken,
   refreshAmazonAccessToken,
   initializeAmazonCredentials,
+  getAmazonCredentials,
 } from "@/utils/amazon-helpers.util";
 import path from "path";
 import { promises as fs } from "fs";
@@ -12,7 +13,7 @@ import { Listing } from "@/models";
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-
+const { marketplaceId, sellerId, redirectUri } = getAmazonCredentials();
 export const amazonListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
@@ -167,7 +168,7 @@ export const amazonListingService = {
 
       // Get listing details
       const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
         {
           method: "GET",
           headers: {
@@ -221,17 +222,14 @@ export const amazonListingService = {
       const sellerId = "A21DY98JS1BBQC";
 
       // Check submission status
-      const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/submissions/${submissionId}`,
-        {
-          method: "GET",
-          headers: {
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-            "x-amzn-api-sandbox-only": "true", // Remove for production
-          },
-        }
-      );
+      const response = await fetch(`${redirectUri}/listings/2021-08-01/submissions/${submissionId}`, {
+        method: "GET",
+        headers: {
+          "x-amz-access-token": token,
+          "Content-Type": "application/json",
+          "x-amzn-api-sandbox-only": "true", // Remove for production
+        },
+      });
 
       const result = await response.json();
 
@@ -272,9 +270,7 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID;
-
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
+      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // Replace with your seller ID
 
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
@@ -294,7 +290,7 @@ export const amazonListingService = {
       }
 
       // Make DELETE API call
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
 
       const response = await fetch(apiUrl, {
         method: "DELETE",
@@ -332,21 +328,20 @@ export const amazonListingService = {
   },
 
   // GET Listing Item Function
-  getItemFromAmazon: async (listing: any, includedData?: string[]): Promise<string> => {
+  getItemFromAmazon: async (listingId: any, includedData?: string[]): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const populatedListing: any = await Listing.findById(listing._id).lean();
+      const populatedListing: any = await Listing.findById(listingId);
       if (!populatedListing) {
         throw new Error("Listing not found");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID;
-      const sku = populatedListing.sku;
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
+      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC";
+      const sku = populatedListing.amazonSku;
 
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
@@ -370,7 +365,8 @@ export const amazonListingService = {
       }
 
       // Make GET API call
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${encodedSku}?${queryParams.toString()}`;
+      // console.log("API URL:", apiUrl);
 
       const response = await fetch(apiUrl, {
         method: "GET",
@@ -381,7 +377,19 @@ export const amazonListingService = {
         },
       });
 
-      const result = await response.json();
+      // Log the response status and body for debugging
+      const responseBody = await response.text(); // Use text() to avoid body already consumed error
+      // console.log("Response Status:", response.status);
+      // console.log("Response Body:", responseBody);
+
+      // Try parsing JSON from the response body
+      let result;
+      try {
+        result = JSON.parse(responseBody);
+      } catch (err) {
+        console.error("Error parsing JSON from Amazon API response", err);
+        result = { error: "Failed to parse Amazon API response" };
+      }
 
       if (response.ok) {
         return JSON.stringify({
@@ -428,213 +436,81 @@ export const amazonListingService = {
     return amazonListingService.getItemFromAmazon(listing, ["issues"]);
   },
 
-  addItemOnAmazon: async (listing: any): Promise<string> => {
+  addItemOnAmazon: async (listing: any): Promise<any> => {
     try {
       const token = await getStoredAmazonAccessToken();
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sku = "DELL-XPS-13-9310"; // Your unique SKU
-      const sellerId = "A21DY98JS1BBQC"; // Sandbox seller ID
-      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
-      // A1F83G8C2ARO7P // UK marketplace
-      // ATVPDKIKX0DER // US marketplace
+      const populatedListing: any = await Listing.findById(listing._id)
+        .populate("prodPricing.selectedVariations.variationId")
+        .populate("productInfo.productCategory")
+        .lean();
+
+      if (!populatedListing) {
+        throw new Error("Listing not found or failed to populate");
+      }
+
+      const {
+        productInfo: { sku, item_name, brand, product_description },
+        prodTechInfo: {
+          condition_type,
+          color,
+          model_name,
+          model_number,
+          generic_keyword,
+          memory_storage_capacity,
+          item_weight,
+          item_dimensions,
+          bullet_point,
+          max_order_quantity,
+          fulfillment_availability,
+        },
+        // prodPricing: { retailPrice },
+        // prodDelivery: { deliveryTime },
+        // prodSeo: { seoTitle, seoDescription },
+        // prodMedia: { images, videos },
+      } = populatedListing;
+      const amzData = populatedListing;
+      const marketplaceId = "A1F83G8C2ARO7P"; // Replace with your marketplace ID
+      const sellerId = "A21DY98JS1BBQC"; // Replace with your seller ID
+      const categoryId =
+        amzData.productInfo.productCategory.amazonCategoryId ||
+        amzData.productInfo.productCategory.categoryId ||
+        "NOTEBOOK_COMPUTER"; // Fallback if no category is found
+      console.log("categoryId is", categoryId);
       const productData = {
-        productType: "COMPUTER", // Changed from "LUGGAGE" to appropriate product type
-        requirements: "LISTING", // This is correct
+        productType: categoryId,
+        requirements: "LISTING",
         attributes: {
-          condition_type: [
-            {
-              value: "new_new",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_name: [
-            {
-              value: "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
-              language_tag: "en_US",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          brand: [
-            {
-              value: "Dell",
-              marketplace_id: marketplaceId,
-            },
-          ],
+          condition_type: condition_type,
+          item_name: item_name || [],
+          brand: brand || [],
           manufacturer: [
             {
-              value: "Dell Inc.",
+              value: brand?.[0]?.value || "Manufacturer Not Available",
               marketplace_id: marketplaceId,
             },
           ],
-          model_name: [
-            {
-              value: "XPS 13 9310",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          model_number: [
-            {
-              value: "XPS13-9310-i7-16-512",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          // processor_brand: [
-          //   {
-          //     value: "Intel",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          // processor_type: [
-          //   {
-          //     value: "Core i7",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          // processor_speed: [
-          //   {
-          //     value: "2.8",
-          //     unit: "GHz",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          system_memory_size: [
-            {
-              value: "16",
-              unit: "GB",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          system_memory_type: [
-            {
-              value: "DDR4",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          hard_drive_size: [
-            {
-              value: "512",
-              unit: "GB",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          hard_drive_interface: [
-            {
-              value: "SSD",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          display_size: [
-            {
-              value: "13.3",
-              unit: "inches",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          display_resolution: [
-            {
-              value: "1920x1080",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          operating_system: [
-            {
-              value: "Windows 11 Home",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          graphics_coprocessor: [
-            {
-              value: "Intel Iris Xe Graphics",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          connectivity_type: [
-            {
-              value: "Wi-Fi, Bluetooth",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_weight: [
-            {
-              value: "2.64",
-              unit: "pounds",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          item_dimensions: [
-            {
-              length: {
-                value: "11.64",
-                unit: "inches",
-              },
-              width: {
-                value: "7.82",
-                unit: "inches",
-              },
-              height: {
-                value: "0.58",
-                unit: "inches",
-              },
-              marketplace_id: marketplaceId,
-            },
-          ],
-          color: [
-            {
-              value: "Platinum Silver",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          bullet_point: [
-            {
-              value: "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
-              marketplace_id: marketplaceId,
-            },
-            {
-              value: "Windows 11 Home pre-installed with premium build quality",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          generic_keyword: [
-            {
-              value: "laptop computer notebook ultrabook portable",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          max_order_quantity: [
-            {
-              value: 10,
-              marketplace_id: marketplaceId,
-            },
-          ],
-          fulfillment_availability: [
-            {
-              fulfillment_channel_code: "DEFAULT",
-              quantity: 50,
-              marketplace_id: marketplaceId,
-            },
-          ],
+          model_name: model_name || [],
+          model_number: model_number || [],
+          product_description: product_description || [],
+          color: color || [],
+          memory_storage_capacity: memory_storage_capacity || [],
+          item_weight: item_weight || [],
+          item_dimensions: item_dimensions || [],
+          bullet_point: bullet_point || [],
+          max_order_quantity: max_order_quantity || [],
+          generic_keyword: generic_keyword || [],
+          fulfillment_availability: fulfillment_availability || [],
         },
       };
 
       console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
 
       const response = await fetch(
-        `https://sandbox.sellingpartnerapi-eu.amazon.com/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
         {
           method: "PUT",
           headers: {
@@ -646,27 +522,41 @@ export const amazonListingService = {
         }
       );
 
-      const result = await response.json();
+      const rawResponse = await response.text(); // Read the raw response from Amazon
+      console.log("🔍 Raw response from Amazon:", rawResponse);
+      const jsonObj = JSON.parse(rawResponse); // Parse the raw response
+
+      const status = jsonObj?.status;
+      const submissionId = jsonObj?.submissionId;
+      const issues = jsonObj?.issues;
+
       if (response.ok) {
-        return JSON.stringify({
-          status: 200,
-          statusText: "OK",
-          sku: sku,
-          response: result,
-        });
+        // If status is ACCEPTED, return the submissionId
+        if (status === "ACCEPTED" && submissionId) {
+          return {
+            status: 200,
+            statusText: "OK",
+            sku,
+            submissionId, // Return submissionId
+            response: rawResponse, // Return the raw response
+          };
+        }
       } else {
-        return JSON.stringify({
-          status: response.status,
-          statusText: response.statusText,
-          errorResponse: result,
-        });
+        // If there are issues, return them in the response
+        return {
+          status: 400,
+          statusText: "Failed to create listing",
+          errorResponse: issues || jsonObj,
+          response: rawResponse, // Return the raw response
+        };
       }
     } catch (error: any) {
       console.error("Error adding listing on Amazon:", error.message);
-      return JSON.stringify({
+
+      return {
         status: 500,
         message: error.message || "Error syncing with Amazon API",
-      });
+      };
     }
   },
 
@@ -688,9 +578,7 @@ export const amazonListingService = {
 
       const amazonData = populatedListing;
       const productType = amazonData.productInfo.productCategory.amazonProductType;
-      const sellerId = process.env.AMAZON_SELLER_ID; // You'll need this from your environment
       const sku = amazonData.sku; // Make sure your listing has an SKU field
-      const marketplaceId = process.env.AMAZON_MARKETPLACE_ID || "A1F83G8C2ARO7P"; // UK marketplace
 
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
@@ -829,7 +717,7 @@ export const amazonListingService = {
       }
 
       // Make API call using the correct endpoint structure
-      const apiUrl = `${process.env.AMAZON_API_ENDPOINT}/listings/2021-08-01/items/${sellerId}/${sku}?${queryParams.toString()}`;
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?${queryParams.toString()}`;
 
       const response = await fetch(apiUrl, {
         method: "PATCH",
@@ -947,7 +835,6 @@ export const amazonListingService = {
       }
 
       // Accept dynamic marketplaceId and environment via query parameters
-      let marketplaceId = process.env.AMAZON_MARKETPLACE_ID; // Default UK here
 
       const env = process.env.AMAZON_TOKEN_ENV === "production" ? "production" : "sandbox";
       console.log(`Environment set to: ${env}`);

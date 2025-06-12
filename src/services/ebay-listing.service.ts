@@ -414,7 +414,7 @@ export const ebayListingService = {
       // console.log("variationXml", variationXml);
       const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
-
+      const title = ebayData.productInfo?.item_name?.[0]?.value;
       const retailPrice =
         ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
@@ -446,7 +446,7 @@ export const ebayListingService = {
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
-          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
            <Description>${escapeXml(listingDescriptionData)}</Description>

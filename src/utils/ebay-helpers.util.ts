@@ -1,8 +1,6 @@
 import EbayAuthToken from "ebay-oauth-nodejs-client";
 import fs from "fs";
 import dotenv from "dotenv";
-import path from "path";
-import { ref } from "@firebase/storage";
 
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });

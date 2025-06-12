@@ -39,19 +39,25 @@ const sellingPartnerEndpoint = AMAZON_ENDPOINTS[env].sellingPartner;
 
 `${sellingPartnerEndpoint}/some/api/path`;
 
-const getClientCredentials = () => {
+export const getAmazonCredentials = () => {
   if (process.env.AMAZON_TOKEN_ENV === "sandbox") {
     return {
       clientId: process.env.AMAZON_CLIENT_ID_SANDBOX!,
       clientSecret: process.env.AMAZON_CLIENT_SECRET_SANDBOX!,
-      redirectUri: process.env.AMAZON_REDIRECT_URI_SANDBOX!,
+      redirectUri: "https://sandbox.sellingpartnerapi-eu.amazon.com",
+      marketplaceId: "A1F83G8C2ARO7P",
+      sellerId: "A21DY98JS1BBQC",
+      useClient: "false",
     };
   }
   // default to production
   return {
     clientId: process.env.SELLING_PARTNER_APP_CLIENT_ID_PROD!,
     clientSecret: process.env.SELLING_PARTNER_APP_CLIENT_SECRET_PROD!,
-    redirectUri: process.env.SELLING_PARTNER_APP_REDIRECT_URI_PROD!,
+    redirectUri: "https://sellingpartnerapi-eu.amazon.com",
+    marketplaceId: "A1F83G8C2ARO7P",
+    sellerId: "A21DY98JS1BBQC",
+    useClient: "true",
   };
 };
 
@@ -65,16 +71,16 @@ const SCOPES = [
   "sellingpartnerapi::reports",
   "sellingpartnerapi::finances",
 ];
-
+const { useClient } = getAmazonCredentials();
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
     const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
     // USE_CLIENT environment variable controls which token file to read
-    const useClient =
-      process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
-        ? process.env.USE_CLIENT === "true"
-        : true;
+    // const useClient =
+    //   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
+    //     ? process.env.USE_CLIENT === "true"
+    //     : true;
 
     const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
     let credentialsText;
@@ -132,7 +138,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 };
 
 export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") => {
-  const { clientId, clientSecret } = getClientCredentials();
+  const { clientId, clientSecret } = getAmazonCredentials();
 
   const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
   const credentialsText = fs.readFileSync(tokenFile, "utf-8");
@@ -255,10 +261,10 @@ export const initializeAmazonCredentials = async (code: string, type: AmazonEnvi
     // params.append("client_secret", process.env.AMAZON_CLIENT_SECRET!);
     // params.append("redirect_uri", process.env.AMAZON_REDIRECT_URI!);
 
-    const { clientId, clientSecret } = getClientCredentials();
+    const { clientId, clientSecret } = getAmazonCredentials();
     params.append("client_id", clientId);
     params.append("client_secret", clientSecret);
-    // For redirectUri, add it to getClientCredentials() or read similarly
+
     params.append("redirect_uri", process.env.AMAZON_REDIRECT_URI!);
 
     const response = await axios.post(AMAZON_ENDPOINTS[type].auth, params.toString(), {
