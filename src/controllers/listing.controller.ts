@@ -4,7 +4,8 @@ import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
 import { Listing } from "@/models";
-
+import { getAmazonCredentials } from "@/utils/amazon-helpers.util";
+const { marketplaceId, sellerId } = getAmazonCredentials();
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
     try {
@@ -158,7 +159,6 @@ export const listingController = {
     try {
       const { sku } = req.params;
       // const { sellerId } = req.query;
-      const sellerId = "A21DY98JS1BBQC";
       // Validate required parameters
       if (!sku) {
         res.status(400).json({
@@ -179,9 +179,8 @@ export const listingController = {
           success: true,
           message: "Listing status retrieved successfully",
           data: {
-            sku: sku,
             sellerId: sellerId, // Use the provided sellerId or fallback to default
-            marketplaceId: "A1F83G8C2ARO7P", // Default marketplaceId for UK
+            marketplaceId: marketplaceId, // Default marketplaceId for UK
             listingData: listingStatusParsed.listingData,
           },
         });
