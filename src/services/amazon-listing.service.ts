@@ -577,23 +577,22 @@ export const amazonListingService = {
       );
       const rawResponse = await response.text(); // Read the raw response from Amazon
       console.log("🔍 Raw response from Amazon:", rawResponse);
-      const jsonObj = JSON.parse(rawResponse); // Parse the raw response
+      // const jsonObj = JSON.parse(rawResponse); // Parse the raw response
+      const jsonObj: any = rawResponse;
 
       const status = jsonObj?.status;
       const submissionId = jsonObj?.submissionId;
       const issues = jsonObj?.issues;
 
-      if (response.ok) {
-        // If status is ACCEPTED, return the submissionId
-        if (status === "ACCEPTED" && submissionId) {
-          return {
-            status: 200,
-            statusText: "OK",
-            sku,
-            submissionId, // Return submissionId
-            response: rawResponse, // Return the raw response
-          };
-        }
+      // If status is ACCEPTED, return the submissionId
+      if (status === "ACCEPTED" && submissionId) {
+        return {
+          status: 200,
+          statusText: "OK",
+          sku,
+          submissionId, // Return submissionId
+          response: rawResponse, // Return the raw response
+        };
       } else {
         // If there are issues, return them in the response
         return {
