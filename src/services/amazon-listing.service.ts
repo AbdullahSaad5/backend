@@ -504,32 +504,47 @@ export const amazonListingService = {
         throw new Error("Listing not found or failed to populate");
       }
 
+      // Destructure known attributes
       const {
         productInfo: { sku, item_name, brand, product_description },
         prodTechInfo: {
           condition_type,
-          color,
-          model_name,
-          model_number,
-          generic_keyword,
-          memory_storage_capacity,
-          item_weight,
-          item_dimensions,
-          bullet_point,
-          max_order_quantity,
-          fulfillment_availability,
+          // color,
+          // model_name,
+          // model_number,
+          // generic_keyword,
+          // memory_storage_capacity,
+          // item_weight,
+          // item_dimensions,
+          // bullet_point,
+          // max_order_quantity,
+          // fulfillment_availability,
         },
-        // prodPricing: { retailPrice },
-        // prodDelivery: { deliveryTime },
-        // prodSeo: { seoTitle, seoDescription },
-        // prodMedia: { images, videos },
       } = populatedListing;
-      const amzData = populatedListing;
+
+      // Extract other attributes from prodTechInfo that are not explicitly destructured
+      const otherProdTechInfo = { ...populatedListing.prodTechInfo };
+      delete otherProdTechInfo.condition_type;
+      // delete otherProdTechInfo.color;
+      // delete otherProdTechInfo.model_name;
+      // delete otherProdTechInfo.model_number;
+      // delete otherProdTechInfo.generic_keyword;
+      // delete otherProdTechInfo.memory_storage_capacity;
+      // delete otherProdTechInfo.item_weight;
+      // delete otherProdTechInfo.item_dimensions;
+      // delete otherProdTechInfo.bullet_point;
+      // delete otherProdTechInfo.max_order_quantity;
+      // delete otherProdTechInfo.fulfillment_availability;
+
+      // Get the category ID
       const categoryId =
-        amzData.productInfo.productCategory.amazonCategoryId ||
-        amzData.productInfo.productCategory.categoryId ||
+        populatedListing.productInfo.productCategory.amazonCategoryId ||
+        populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER"; // Fallback if no category is found
+
       console.log("categoryId is", categoryId);
+
+      // Build the productData object with destructured and other prodTechInfo attributes
       const productData = {
         productType: categoryId,
         requirements: "LISTING",
@@ -537,23 +552,25 @@ export const amazonListingService = {
           condition_type: condition_type,
           item_name: item_name || [],
           brand: brand || [],
-          manufacturer: [
-            {
-              value: brand?.[0]?.value || "Manufacturer Not Available",
-              marketplace_id: marketplaceId,
-            },
-          ],
-          model_name: model_name || [],
-          model_number: model_number || [],
+          // manufacturer: [
+          //   {
+          //     value: brand?.[0]?.value || "Manufacturer Not Available",
+          //     marketplace_id: marketplaceId,
+          //   },
+          // ],
+          // model_name: model_name || [],
+          // model_number: model_number || [],
           product_description: product_description || [],
-          color: color || [],
-          memory_storage_capacity: memory_storage_capacity || [],
-          item_weight: item_weight || [],
-          item_dimensions: item_dimensions || [],
-          bullet_point: bullet_point || [],
-          max_order_quantity: max_order_quantity || [],
-          generic_keyword: generic_keyword || [],
-          fulfillment_availability: fulfillment_availability || [],
+          // color: color || [],
+          // memory_storage_capacity: memory_storage_capacity || [],
+          // item_weight: item_weight || [],
+          // item_dimensions: item_dimensions || [],
+          // bullet_point: bullet_point || [],
+          // max_order_quantity: max_order_quantity || [],
+          // generic_keyword: generic_keyword || [],
+          // fulfillment_availability: fulfillment_availability || [],
+          // Spread other prodTechInfo attributes dynamically
+          ...otherProdTechInfo,
         },
       };
 
@@ -571,10 +588,12 @@ export const amazonListingService = {
           body: JSON.stringify(productData),
         }
       );
+
       console.log(
         "url is",
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
       );
+
       const rawResponse = await response.text(); // Read the raw response from Amazon
 
       // Log the raw response for debugging purposes
