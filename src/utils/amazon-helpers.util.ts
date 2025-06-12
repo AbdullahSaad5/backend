@@ -56,7 +56,7 @@ export const getAmazonCredentials = () => {
     clientSecret: process.env.SELLING_PARTNER_APP_CLIENT_SECRET_PROD!,
     redirectUri: "https://sellingpartnerapi-eu.amazon.com",
     marketplaceId: "A1F83G8C2ARO7P",
-    sellerId: "A21DY98JS1BBQC",
+    sellerId: "ALTKAQGINRXND",
     useClient: "true",
   };
 };
