@@ -82,9 +82,10 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
     let credentialsText;
     try {
       if (useClient) {
-        console.log("🔑 [CLIENT] Reading client token file");
+        console.log("🔑 [AMZ CLIENT] Reading client token file");
         credentialsText = fs.readFileSync("amazon_tokens_client.json", "utf-8");
       } else {
+        console.log("🔑 [AMZ SANDBOX] Reading sandbox token file");
         credentialsText = fs.readFileSync(tokenFile, "utf-8");
       }
     } catch (readError) {
