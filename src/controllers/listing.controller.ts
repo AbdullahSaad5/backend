@@ -290,6 +290,35 @@ export const listingController = {
       });
     }
   },
+  getAllItemsFromAmazon: async (req: Request, res: Response): Promise<void> => {
+    try {
+      // const { listingId } = req.params; // Get listingId from the request parameters
+      // const { includedData } = req.query; // Optional query parameter for included data
+
+      // Call the service to get item details from Amazon
+      const itemDetails: any = await amazonListingService.getAllItemsFromAmazon();
+
+      // Check if itemDetails has a status field and return accordingly
+      if (!itemDetails) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve all items details from Amazon",
+        });
+        return;
+      }
+
+      // Send the response from the service
+      const parsedItemDetails = JSON.parse(itemDetails); // Parse the JSON response if necessary
+      res.status(parsedItemDetails.status || 500).json(parsedItemDetails);
+    } catch (error: any) {
+      console.error("Error in getAllItemsFromAmazon route:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while retrieving item from Amazon",
+        error: error.message,
+      });
+    }
+  },
   // Controller to delete/deactivate a listing
   deleteAmazonListing: async (req: Request, res: Response): Promise<void> => {
     try {
