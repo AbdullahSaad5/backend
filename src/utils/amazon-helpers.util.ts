@@ -72,19 +72,14 @@ const SCOPES = [
   "sellingpartnerapi::finances",
 ];
 const { useClient } = getAmazonCredentials();
+//TODO: fix i to correectly refresh the token after every five minutes, not on each requeust
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
     const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-    // USE_CLIENT environment variable controls which token file to read
-    // const useClient =
-    //   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
-    //     ? process.env.USE_CLIENT === "true"
-    //     : true;
-
     const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
-    let credentialsText;
 
+    let credentialsText;
     try {
       if (useClient) {
         console.log("🔑 [CLIENT] Reading client token file");
@@ -105,7 +100,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       return null;
     }
 
-    const { access_token, generated_at, expires_in } = credentials;
+    const { access_token, generated_at, expires_in, refresh_token } = credentials;
 
     if (!access_token || !generated_at || !expires_in) {
       console.error("❌ Invalid or missing Amazon token fields.");
@@ -119,9 +114,23 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 
     if (timeRemaining <= bufferTime) {
       console.warn("⚠️ Amazon access token is expired or about to expire. Refreshing...");
+
+      // Refresh token
       const newToken = await refreshAmazonAccessToken(env);
       if (newToken?.access_token) {
-        console.log("✅ Amazon token refreshed.");
+        // Update token file with new values
+        credentials.access_token = newToken.access_token;
+        credentials.generated_at = Date.now(); // Set the new generated_at
+        credentials.refresh_token = newToken.refresh_token; // Update refresh token if available
+
+        try {
+          // Save the updated token back to the file
+          fs.writeFileSync(tokenFile, JSON.stringify(credentials, null, 2), "utf-8");
+          console.log("✅ Amazon token refreshed and saved.");
+        } catch (writeError) {
+          console.error("❌ Error saving the refreshed token:", writeError);
+        }
+
         return newToken.access_token;
       } else {
         console.error("❌ Failed to refresh Amazon token.");
