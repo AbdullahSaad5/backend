@@ -270,8 +270,6 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC"; // Replace with your seller ID
-
       if (!sellerId || !sku) {
         throw new Error("Missing required sellerId or SKU");
       }
@@ -340,7 +338,6 @@ export const amazonListingService = {
         throw new Error("Listing not found");
       }
 
-      const sellerId = process.env.AMAZON_SELLER_ID || "A21DY98JS1BBQC";
       const sku = populatedListing.amazonSku;
 
       if (!sellerId || !sku) {
@@ -411,6 +408,66 @@ export const amazonListingService = {
       return JSON.stringify({
         status: 500,
         message: error.message || "Error retrieving Amazon listing",
+      });
+    }
+  },
+  getAllItemsFromAmazon: async (): Promise<string> => {
+    try {
+      const token = await getStoredAmazonAccessToken();
+      if (!token) {
+        throw new Error("Missing or invalid Amazon access token");
+      }
+
+      if (!sellerId) {
+        throw new Error("Missing required sellerId");
+      }
+
+      // URL for retrieving all listings (can use pagination if necessary)
+      const apiUrl = `${redirectUri}/listings/2021-08-01/items/${sellerId}?marketplaceIds=${marketplaceId}&limit=100`; // Limit can be changed as required
+
+      // Make GET API call
+      const response = await fetch(apiUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "x-amz-access-token": token,
+          Accept: "application/json",
+        },
+      });
+
+      // Log the response status and body for debugging
+      const responseBody = await response.text(); // Use text() to avoid body already consumed error
+
+      // Try parsing JSON from the response body
+      let result;
+      try {
+        result = JSON.parse(responseBody);
+      } catch (err) {
+        console.error("Error parsing JSON from Amazon API response", err);
+        result = { error: "Failed to parse Amazon API response" };
+      }
+
+      if (response.ok) {
+        // Successfully retrieved listings, now return the data
+        return JSON.stringify({
+          status: response.status,
+          statusText: "Successfully retrieved all listings",
+          sellerId: sellerId,
+          response: result, // This will contain all the listings data
+        });
+      } else {
+        // If response is not okay, return the error response
+        return JSON.stringify({
+          status: response.status,
+          statusText: "Failed to retrieve listings",
+          errorResponse: result,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error retrieving all listings from Amazon:", error.message);
+      return JSON.stringify({
+        status: 500,
+        message: error.message || "Error retrieving Amazon listings",
       });
     }
   },
