@@ -320,3 +320,215 @@
   },
   "__v": 0
 }
+
+
+
+    "ram_memory": [
+      {
+        "installed_size": [
+          {
+            "value": "8.0",
+            "unit": "GB"
+          }
+        ],
+        "maximum_size": [
+          {
+            "value": "16.0",
+            "unit": "GB"
+          }
+        ],
+        "technology": [
+          {
+            "value": "DDR4",
+            "marketplace_id": "A1F83G8C2ARO7P"
+          }
+        ],
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+            "selectors": [
+                "marketplace_id"
+            ],
+            "items": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                    "installed_size": {
+                        "title": "RAM Memory Installed",
+                        "description": "Provide the size of the RAM memory installed",
+                        "examples": [
+                            "8.0 GB"
+                        ],
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "unit",
+                                "value"
+                            ],
+                            "properties": {
+                                "value": {
+                                    "title": "RAM Memory Installed",
+                                    "description": "Provide the size of the RAM memory installed as a numeric value",
+                                    "editable": true,
+                                    "hidden": false,
+                                    "examples": [
+                                        "8.0"
+                                    ],
+                                    "type": "number",
+                                    "maxLength": 5000
+                                },
+                                "unit": {
+                                    "title": "RAM Memory Installed Size Unit",
+                                    "description": "Select the corresponding unit",
+                                    "editable": true,
+                                    "hidden": false,
+                                    "examples": [
+                                        "GB, MB"
+                                    ],
+                                    "type": "string",
+                                    "enum": [
+                                        "bytes",
+                                        "GB",
+                                        "KB",
+                                        "MB",
+                                        "TB"
+                                    ],
+                                    "enumNames": [
+                                        "Bytes",
+                                        "GB",
+                                        "KB",
+                                        "MB",
+                                        "TB"
+                                    ]
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "marketplace_id": {
+                        "$ref": "#/$defs/marketplace_id"
+                    },
+                    "maximum_size": {
+                        "title": "Ram Memory Maximum Size",
+                        "description": "Provide the maximum RAM capacity supported by the product.",
+                        "examples": [
+                            "8.0 GB"
+                        ],
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "unit",
+                                "value"
+                            ],
+                            "properties": {
+                                "value": {
+                                    "title": "RAM Memory Maximum Size",
+                                    "description": "Provide the maximum RAM capacity supported by the product.",
+                                    "editable": true,
+                                    "hidden": false,
+                                    "examples": [
+                                        "8.0"
+                                    ],
+                                    "type": "number",
+                                    "maxLength": 5000
+                                },
+                                "unit": {
+                                    "title": "RAM Memory Maximum Size Unit",
+                                    "description": "Provide a unit of measure pertaining to the maximum amount of RAM the item can support",
+                                    "editable": true,
+                                    "hidden": false,
+                                    "examples": [
+                                        "GB, MB"
+                                    ],
+                                    "type": "string",
+                                    "enum": [
+                                        "GB",
+                                        "MB"
+                                    ],
+                                    "enumNames": [
+                                        "GB",
+                                        "MB"
+                                    ]
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "technology": {
+                        "title": "RAM Memory Technology",
+                        "description": "What is the technology of the memory chip?",
+                        "examples": [
+                            "DRAM, SORIMM"
+                        ],
+                        "type": "array",
+                        "minItems": 1,
+                        "minUniqueItems": 1,
+                        "maxUniqueItems": 3,
+                        "selectors": [
+                            "language_tag"
+                        ],
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "language_tag",
+                                "value"
+                            ],
+                            "properties": {
+                                "value": {
+                                    "title": "RAM Memory Technology",
+                                    "description": "Provide the type of RAM memory technology supported by the product",
+                                    "editable": true,
+                                    "hidden": false,
+                                    "examples": [
+                                        "DDR3"
+                                    ],
+                                    "type": "string",
+                                    "maxUtf8ByteLength": 2000,
+                                    "anyOf": [
+                                        {
+                                            "type": "string"
+                                        },
+                                        {
+                                            "type": "string",
+                                            "enum": [
+                                                "DDR2",
+                                                "DDR3",
+                                                "DDR4",
+                                                "DDR5",
+                                                "LPDDR2",
+                                                "LPDDR3",
+                                                "LPDDR4",
+                                                "LPDDR4X",
+                                                "LPDDR5"
+                                            ],
+                                            "enumNames": [
+                                                "DDR2",
+                                                "DDR3",
+                                                "DDR4",
+                                                "DDR5",
+                                                "LPDDR2",
+                                                "LPDDR3",
+                                                "LPDDR4",
+                                                "LPDDR4X",
+                                                "LPDDR5"
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "language_tag": {
+                                    "$ref": "#/$defs/language_tag"
+                                }
+                            },
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                "additionalProperties": false
+            }
+        },

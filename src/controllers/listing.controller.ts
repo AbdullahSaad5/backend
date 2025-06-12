@@ -126,13 +126,13 @@ export const listingController = {
             message: amazonResponse
               ? "Draft product updated and synced with Amazon successfully"
               : "Draft product updated locally without syncing to Amazon",
-            amazonResponse,
+            // amazonResponse,
           });
         } else {
           return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
             success: false,
             message: "Failed to sync with Amazon",
-            amazonResponse,
+            // amazonResponse,
             amazonErrors: amazonResponse?.errorResponse || "Unknown error",
           });
         }
