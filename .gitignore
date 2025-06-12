@@ -11,11 +11,12 @@ dist
 uploads
 .codegpt
 
+amazon_tokens_client.json
+amazon_tokens_sandbox.json
 
 
 
-
-fireabase-admin
+firebase-admin
 data
 diagram.excalidraw
 
