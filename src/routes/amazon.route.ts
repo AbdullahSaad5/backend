@@ -23,7 +23,7 @@ export const amazon = (router: Router) => {
   router.get("/check-amazon-listing-status/:sku", listingController.checkAmazonListingStatus);
   router.get("/get-item-from-amazon/:listingId", listingController.getItemFromAmazon);
   router.get("/get-all-items-from-amazon", listingController.getAllItemsFromAmazon);
-  // router.get("/check-amazon-submission-status/:submissionId", listingController.checkAmazonSubmissionStatus);
+  router.get("/check-amazon-submission-status/:submissionId", listingController.checkAmazonSubmissionStatus);
 
 
   // Additional routes can be added here as needed
