@@ -286,7 +286,7 @@ export const inventoryService = {
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
       return await Inventory.find(condition)
-        .populate("productInfo.productCategory")
+        .populate("productInfo.productCategory.name")
         // .populate("productInfo.productSupplier")
         .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
         .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
