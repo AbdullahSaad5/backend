@@ -120,15 +120,22 @@ export const listingController = {
             amazonSku: amazonResponse.sku, // Save SKU
             amazonResponse: amazonResponse.response, // Save full response
           });
-        }
 
-        return res.status(StatusCodes.OK).json({
-          success: true,
-          message: amazonResponse
-            ? "Draft product updated and synced with Amazon successfully"
-            : "Draft product updated locally without syncing to Amazon",
-          amazonResponse,
-        });
+          return res.status(StatusCodes.OK).json({
+            success: true,
+            message: amazonResponse
+              ? "Draft product updated and synced with Amazon successfully"
+              : "Draft product updated locally without syncing to Amazon",
+            amazonResponse,
+          });
+        } else {
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Failed to sync with Amazon",
+            amazonResponse,
+            amazonErrors: amazonResponse?.errorResponse || "Unknown error",
+          });
+        }
       }
 
       return res.status(StatusCodes.OK).json({

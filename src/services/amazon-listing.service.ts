@@ -576,10 +576,19 @@ export const amazonListingService = {
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
       );
       const rawResponse = await response.text(); // Read the raw response from Amazon
-      console.log("🔍 Raw response from Amazon:", rawResponse);
-      // const jsonObj = JSON.parse(rawResponse); // Parse the raw response
-      const jsonObj: any = rawResponse;
 
+      // Log the raw response for debugging purposes
+      console.log("🔍 Raw response from Amazon:", rawResponse);
+
+      // Attempt to parse the raw response as JSON
+      let jsonObj: any = {};
+      try {
+        jsonObj = JSON.parse(rawResponse); // Parse the raw response
+      } catch (error) {
+        console.error("Error parsing the response as JSON:", error);
+      }
+
+      // Extract necessary fields from the response
       const status = jsonObj?.status;
       const submissionId = jsonObj?.submissionId;
       const issues = jsonObj?.issues;
@@ -591,7 +600,7 @@ export const amazonListingService = {
           statusText: "OK",
           sku,
           submissionId, // Return submissionId
-          response: rawResponse, // Return the raw response
+          response: jsonObj, // Return the parsed response as an object (formatted)
         };
       } else {
         // If there are issues, return them in the response
@@ -599,7 +608,7 @@ export const amazonListingService = {
           status: 400,
           statusText: "Failed to create listing",
           errorResponse: issues || jsonObj,
-          response: rawResponse, // Return the raw response
+          response: jsonObj, // Return the parsed response as an object (formatted)
         };
       }
     } catch (error: any) {
