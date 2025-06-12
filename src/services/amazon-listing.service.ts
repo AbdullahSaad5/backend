@@ -174,7 +174,7 @@ export const amazonListingService = {
           headers: {
             "x-amz-access-token": token,
             "Content-Type": "application/json",
-            "x-amzn-api-sandbox-only": "true", // Remove for production
+            "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false",
           },
         }
       );
@@ -227,7 +227,7 @@ export const amazonListingService = {
         headers: {
           "x-amz-access-token": token,
           "Content-Type": "application/json",
-          "x-amzn-api-sandbox-only": "true", // Remove for production
+          "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false",
         },
       });
 
@@ -573,7 +573,7 @@ export const amazonListingService = {
           headers: {
             "x-amz-access-token": token,
             "Content-Type": "application/json",
-            "x-amzn-api-sandbox-only": "true",
+            "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false", // Use sandbox mode if type is SANDBOX
           },
           body: JSON.stringify(productData),
         }
