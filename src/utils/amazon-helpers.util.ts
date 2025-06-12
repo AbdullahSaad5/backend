@@ -47,7 +47,7 @@ export const getAmazonCredentials = () => {
       redirectUri: "https://sandbox.sellingpartnerapi-eu.amazon.com",
       marketplaceId: "A1F83G8C2ARO7P",
       sellerId: "A21DY98JS1BBQC",
-      useClient: "false",
+      useClient: false,
     };
   }
   // default to production
@@ -57,7 +57,7 @@ export const getAmazonCredentials = () => {
     redirectUri: "https://sellingpartnerapi-eu.amazon.com",
     marketplaceId: "A1F83G8C2ARO7P",
     sellerId: "ALTKAQGINRXND",
-    useClient: "true",
+    useClient: true,
   };
 };
 
