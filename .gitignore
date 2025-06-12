@@ -1,6 +1,7 @@
 node_modules
 public
 .env*
+.env.dev
 !.env.template
 *.log
 .DS_Store
