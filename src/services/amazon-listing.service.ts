@@ -163,9 +163,6 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
-      const sellerId = "A21DY98JS1BBQC"; // Your seller ID
-      const marketplaceId = "A1F83G8C2ARO7P"; // UK marketplace
-
       // Get listing details
       const response = await fetch(
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues,offers,fulfillmentAvailability,procurement`,
@@ -218,8 +215,6 @@ export const amazonListingService = {
       if (!token) {
         throw new Error("Missing or invalid Amazon access token");
       }
-
-      const sellerId = "A21DY98JS1BBQC";
 
       // Check submission status
       const response = await fetch(`${redirectUri}/listings/2021-08-01/submissions/${submissionId}`, {
@@ -530,8 +525,6 @@ export const amazonListingService = {
         // prodMedia: { images, videos },
       } = populatedListing;
       const amzData = populatedListing;
-      const marketplaceId = "A1F83G8C2ARO7P"; // Replace with your marketplace ID
-      const sellerId = "A21DY98JS1BBQC"; // Replace with your seller ID
       const categoryId =
         amzData.productInfo.productCategory.amazonCategoryId ||
         amzData.productInfo.productCategory.categoryId ||
@@ -567,7 +560,7 @@ export const amazonListingService = {
       console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
 
       const response = await fetch(
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`,
         {
           method: "PUT",
           headers: {
@@ -578,7 +571,10 @@ export const amazonListingService = {
           body: JSON.stringify(productData),
         }
       );
-
+      console.log(
+        "url is",
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
+      );
       const rawResponse = await response.text(); // Read the raw response from Amazon
       console.log("🔍 Raw response from Amazon:", rawResponse);
       const jsonObj = JSON.parse(rawResponse); // Parse the raw response
