@@ -6,6 +6,7 @@ dotenv.config({
 
 export const processVariationsUtility = {
   // Function to process attributes based on the category
+  // Enhanced processAttributesByCategory function
   processAttributesByCategory: (categoryName: string, attributes: any) => {
     switch (categoryName) {
       case "NOTEBOOK_COMPUTER":
@@ -23,48 +24,69 @@ export const processVariationsUtility = {
 
     const attributesObj = attributes instanceof Map ? Object.fromEntries(attributes) : attributes;
 
-    // Ensure display attribute exists
+    // Ensure display attribute exists and has valid data
     if (attributesObj.display && Array.isArray(attributesObj.display)) {
-      processedAttributes.display = processVariationsUtility.processDisplayAttribute(attributesObj.display);
+      const displayResult = processVariationsUtility.processDisplayAttribute(attributesObj.display);
+      if (displayResult.length > 0) {
+        processedAttributes.display = displayResult;
+      }
     }
 
     // Processing for RAM memory (handling `installed_size`, `maximum_size`)
-    if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory)) {
-      processedAttributes.ram_memory = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
+    if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
+      const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
+      if (ramResult.length > 0) {
+        processedAttributes.ram_memory = ramResult;
+      }
     }
 
     // Processing for processor_description (just extracting the value)
-    if (attributesObj.processor_description && Array.isArray(attributesObj.processor_description)) {
-      processedAttributes.processor_description = processVariationsUtility.processProcessorDescription(
-        attributesObj.processor_description
-      );
+    if (
+      attributesObj.processor_description &&
+      Array.isArray(attributesObj.processor_description) &&
+      attributesObj.processor_description.length > 0
+    ) {
+      const processorResult = processVariationsUtility.processProcessorDescription(attributesObj.processor_description);
+      if (processorResult.length > 0) {
+        processedAttributes.processor_description = processorResult;
+      }
     }
 
     // Processing for solid_state_storage_drive (concatenate `capacity` values)
-    if (attributesObj.solid_state_storage_drive && Array.isArray(attributesObj.solid_state_storage_drive)) {
-      processedAttributes.solid_state_storage_drive = processVariationsUtility.processSolidStateStorageDrive(
-        attributesObj.solid_state_storage_drive
-      );
+    if (
+      attributesObj.solid_state_storage_drive &&
+      Array.isArray(attributesObj.solid_state_storage_drive) &&
+      attributesObj.solid_state_storage_drive.length > 0
+    ) {
+      const ssdResult = processVariationsUtility.processSolidStateStorageDrive(attributesObj.solid_state_storage_drive);
+      if (ssdResult.length > 0) {
+        processedAttributes.solid_state_storage_drive = ssdResult;
+      }
     }
 
     // Processing for memory_storage_capacity (concatenate `value` and `unit`)
-    if (attributesObj.memory_storage_capacity && Array.isArray(attributesObj.memory_storage_capacity)) {
-      processedAttributes.memory_storage_capacity = processVariationsUtility.processMemoryStorageCapacity(
-        attributesObj.memory_storage_capacity
-      );
+    if (
+      attributesObj.memory_storage_capacity &&
+      Array.isArray(attributesObj.memory_storage_capacity) &&
+      attributesObj.memory_storage_capacity.length > 0
+    ) {
+      const memoryResult = processVariationsUtility.processMemoryStorageCapacity(attributesObj.memory_storage_capacity);
+      if (memoryResult.length > 0) {
+        processedAttributes.memory_storage_capacity = memoryResult;
+      }
     }
 
-    // Returning the processed attributes
+    // Returning only the processed attributes that have valid data
     return processedAttributes;
   },
 
-  // **Placeholder for future categories**
+    // **Placeholder for future categories**
   processOtherCategoryAttributes: (attributes: any) => {
     // Implement logic for other categories as needed.
     // For example, if there's a "smartphone" category, process its attributes differently.
     return {};
   },
-  // Function to process 'display' attribute
+  // Enhanced function to process 'display' attribute with original structure
   processDisplayAttribute: (attribute: any[]) => {
     console.log("Processing display attribute:", attribute);
 
@@ -91,7 +113,7 @@ export const processVariationsUtility = {
     return displayVariations;
   },
 
-  // Function to process 'processor_description' attribute
+  // Enhanced function to process 'processor_description' attribute
   processProcessorDescription: (attribute: any[]) => {
     return attribute.map((item) => ({
       displayValue: item.value,
@@ -138,4 +160,6 @@ export const processVariationsUtility = {
 
     return ramVariations;
   },
+
+
 };

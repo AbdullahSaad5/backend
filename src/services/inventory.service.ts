@@ -815,9 +815,30 @@ export const inventoryService = {
   },
 
   // Function to generate all possible combinations of multi-select attributes
+  // Enhanced generateCombinations function in inventoryService
   generateCombinations: async (processedAttributes: any) => {
+    console.log("Generating combinations from processed attributes:", processedAttributes);
+
     const attributeKeys = Object.keys(processedAttributes);
+    console.log("Attribute keys:", attributeKeys);
+
+    if (attributeKeys.length === 0) {
+      console.log("No attribute keys found, returning empty array");
+      return [];
+    }
+
     const attributeValues = attributeKeys.map((key) => processedAttributes[key]);
+    console.log(
+      "Attribute values lengths:",
+      attributeValues.map((arr) => arr.length)
+    );
+
+    // Check if any attribute has no values
+    const hasEmptyAttribute = attributeValues.some((arr) => arr.length === 0);
+    if (hasEmptyAttribute) {
+      console.log("Found empty attribute, cannot generate combinations");
+      return [];
+    }
 
     const combinations: any[] = [];
 
@@ -851,6 +872,8 @@ export const inventoryService = {
     }
 
     generateCombinationsRecursive({}, {}, 0);
+
+    console.log(`Generated ${combinations.length} combinations`);
     return combinations;
   },
   getAllOptions: async () => {
