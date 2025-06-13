@@ -38,15 +38,17 @@ const WorkShift = new Schema<IWorkshift>({
   },
   mode: {
     type: String,
-    required: true,
-    enum: ["On Site", "Hybrid", "Remote"],
-    default: "On Site",
+    required: [true, "Work mode is required"],
+    enum: {
+      values: ["On Site", "Hybrid", "Remote"],
+      message: "Work mode must be either On Site, Hybrid, or Remote",
+    },
   },
   employees: [
     {
-      type: Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: [true, "At least one employee is required"],
     },
   ],
   isActive: {
@@ -56,11 +58,14 @@ const WorkShift = new Schema<IWorkshift>({
   createdBy: {
     type: Types.ObjectId,
     ref: "User",
-    required: true, // Added required
   },
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  userType: { 
+    type: Schema.Types.ObjectId, 
+    ref: "UserCategory"  // Must match what's in User model
   },
   updatedAt: {
     type: Date,
