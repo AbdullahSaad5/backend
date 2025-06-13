@@ -745,7 +745,7 @@ export const inventoryController = {
       const cacheKey = `variations:${id}`; // Cache key based on inventory ID
 
       // **Fetch inventory item first**
-      const inventoryItem: any = await Inventory.findById(id).lean();
+      const inventoryItem: any = await Inventory.findById(id).populate("productInfo.productCategory");
 
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
@@ -757,8 +757,9 @@ export const inventoryController = {
       }
 
       // **Check product category**
-      const categoryName = inventoryItem.productInfo?.productCategory?.name;
-      if (categoryName !== "NOTEBOOK_COMPUTERS") {
+      const categoryName = inventoryItem.productInfo?.productCategory?.amazonCategoryId;
+      console.log("Category Name:", categoryName);
+      if (categoryName !== "NOTEBOOK_COMPUTER") {
         return res.status(400).json({ message: "Invalid product category for variations" });
       }
 
