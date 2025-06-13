@@ -6,6 +6,7 @@ dotenv.config({
 
 export const processVariationsUtility = {
   // Function to process attributes based on the category
+  // Enhanced processAttributesByCategory function
   processAttributesByCategory: (categoryName: string, attributes: any) => {
     switch (categoryName) {
       case "NOTEBOOK_COMPUTER":
@@ -17,7 +18,7 @@ export const processVariationsUtility = {
     }
   },
 
-  // Function to process the 'NOTEBOOK_COMPUTER' category
+  // Enhanced processNotebookComputerAttributes function
   processNotebookComputerAttributes: (attributes: any) => {
     const processedAttributes: any = {};
 
@@ -27,6 +28,7 @@ export const processVariationsUtility = {
     if (attributesObj.display && Array.isArray(attributesObj.display)) {
       processedAttributes.display = processVariationsUtility.processDisplayAttribute(attributesObj.display);
     }
+
     // Processing for RAM memory (handling `installed_size`, `maximum_size`)
     if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory)) {
       processedAttributes.ram_memory = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
@@ -67,31 +69,74 @@ export const processVariationsUtility = {
   processDisplayAttribute: (attribute: any[]) => {
     console.log("Processing display attribute:", attribute);
 
-    // Flatten the array to extract `size` values as a combination of value and unit
-    const sizes = attribute.flatMap((item) => item.size.map((size: any) => `${size.value} ${size.unit}`));
+    // Create variations for each size while preserving original structure
+    const displayVariations: any[] = [];
 
-    return sizes;
+    attribute.forEach((displayItem) => {
+      displayItem.size.forEach((sizeItem: any) => {
+        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+
+        // Create a new display object with only the selected size but preserve all other properties
+        const newDisplayItem = {
+          ...displayItem,
+          size: [sizeItem], // Only include the selected size
+        };
+
+        displayVariations.push({
+          displayValue: displayValue,
+          originalStructure: [newDisplayItem], // Keep as array like in DB
+        });
+      });
+    });
+
+    return displayVariations;
   },
 
   // Function to process 'processor_description' attribute
   processProcessorDescription: (attribute: any[]) => {
-    return attribute.map((item) => item.value);
+    return attribute.map((item) => ({
+      displayValue: item.value,
+      originalStructure: [item], // Keep as array like in DB
+    }));
   },
 
-  // Function to process 'memory_storage_capacity' attribute
+  // Enhanced function to process 'memory_storage_capacity' attribute
   processMemoryStorageCapacity: (attribute: any[]) => {
-    return attribute.map((item) => `${item.value} ${item.unit}`);
+    return attribute.map((item) => ({
+      displayValue: `${item.value} ${item.unit}`,
+      originalStructure: [item], // Keep as array like in DB
+    }));
   },
 
-  // Function to process 'solid_state_storage_drive' attribute
+  // Enhanced function to process 'solid_state_storage_drive' attribute
   processSolidStateStorageDrive: (attribute: any[]) => {
-    return attribute.map((item) => `${item.capacity.value} ${item.capacity.unit}`);
+    return attribute.map((item) => ({
+      displayValue: `${item.capacity.value} ${item.capacity.unit}`,
+      originalStructure: [item], // Keep as array like in DB
+    }));
   },
 
-  // Function to process 'ram_memory' attribute
+  // Enhanced function to process 'ram_memory' attribute
   processRamMemory: (attribute: any[]) => {
-    return attribute.flatMap((item) =>
-      item.installed_size.map((installed: any) => `${installed.value} ${installed.unit}`)
-    );
+    const ramVariations: any[] = [];
+
+    attribute.forEach((ramItem) => {
+      ramItem.installed_size.forEach((installedSize: any) => {
+        const displayValue = `${installedSize.value} ${installedSize.unit}`;
+
+        // Create a new ram object with the selected installed_size but preserve all other properties
+        const newRamItem = {
+          ...ramItem,
+          installed_size: [installedSize], // Only include the selected installed_size
+        };
+
+        ramVariations.push({
+          displayValue: displayValue,
+          originalStructure: [newRamItem], // Keep as array like in DB
+        });
+      });
+    });
+
+    return ramVariations;
   },
 };
