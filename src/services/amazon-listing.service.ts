@@ -583,7 +583,8 @@ export const amazonListingService = {
           headers: {
             "x-amz-access-token": token,
             "Content-Type": "application/json",
-            "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false", // Use sandbox mode if type is SANDBOX
+            // "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false" // Use sandbox mode if type is SANDBOX
+            "x-amzn-api-sandbox-only": "true",
           },
           body: JSON.stringify(productData),
         }
