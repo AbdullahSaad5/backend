@@ -6,6 +6,7 @@ import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { Bundle } from "@/models/bundle.model";
+import { processVariationsUtility } from "@/utils/processVariation.util";
 
 export const inventoryController = {
   // Controller - inventoryController.js
@@ -758,24 +759,12 @@ export const inventoryController = {
 
       // **Check product category**
       const categoryName = inventoryItem.productInfo?.productCategory?.amazonCategoryId;
-      console.log("Category Name:", categoryName);
-      if (categoryName !== "NOTEBOOK_COMPUTER") {
-        return res.status(400).json({ message: "Invalid product category for variations" });
+      if (!categoryName) {
+        return res.status(400).json({ message: "Product category not found" });
       }
 
-      // **Define attributes for variation generation based on category**
-      let selectedAttributes: any[] = [];
-      if (categoryName === "NOTEBOOK_COMPUTERS") {
-        // Define the attributes for this category
-        selectedAttributes = [
-          "brand",
-          "display",
-          "processor_description",
-          "memory_storage_capacity",
-          "solid_state_storage_drive",
-          "ram_memory",
-        ];
-      }
+      console.log("Category Name:", categoryName);
+
       // **Handle search queries properly**
       const searchFilters: Record<string, string[]> = {}; // Allow multiple values per key
       if (searchQueries) {
@@ -796,36 +785,31 @@ export const inventoryController = {
       const cachedVariations = await redis.get(cacheKey);
       let allVariations;
 
-      if (cachedVariations) {
-        allVariations = JSON.parse(cachedVariations);
-        console.log("Cache hit: Returning variations from cache.");
-      } else {
-        // **Extract productTechInfo and filter only selected attributes**
-        const attributes = inventoryItem.prodTechInfo?.toObject?.() || inventoryItem.prodTechInfo;
+      // if (cachedVariations) {
+      //   allVariations = JSON.parse(cachedVariations);
+      //   console.log("Cache hit: Returning variations from cache.");
+      // } else {
+      // **Extract productTechInfo and filter only selected attributes**
+      const attributes = inventoryItem.prodTechInfo?.toObject?.() || inventoryItem.prodTechInfo;
 
-        if (!attributes || typeof attributes !== "object") {
-          return res.status(400).json({ message: "Invalid or missing prodTechInfo" });
-        }
-
-        // Filter only the selected attributes for variations
-        const filteredAttributes = selectedAttributes.reduce((acc: any, attr) => {
-          if (attributes[attr] && Array.isArray(attributes[attr]) && attributes[attr].length > 0) {
-            acc[attr] = attributes[attr];
-          }
-          return acc;
-        }, {});
-
-        if (Object.keys(filteredAttributes).length === 0) {
-          return res.status(400).json({ message: "No valid attributes found for variations" });
-        }
-
-        // **Generate variations dynamically using the filtered attributes**
-        allVariations = await inventoryService.generateCombinations(filteredAttributes);
-
-        // **Cache generated variations in Redis (TTL: 1 hour)**
-        await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
-        console.log("Cache miss: Generated and cached all variations.");
+      if (!attributes || typeof attributes !== "object") {
+        return res.status(400).json({ message: "Invalid or missing prodTechInfo" });
       }
+
+      // **Process attributes dynamically based on category**
+      const processedAttributes = processVariationsUtility.processAttributesByCategory(categoryName, attributes);
+      console.log("Processed Attributes:", processedAttributes);
+      if (Object.keys(processedAttributes).length === 0) {
+        return res.status(400).json({ message: "No valid attributes found for variations" });
+      }
+
+      // **Generate variations dynamically using the processed attributes**
+      allVariations = await inventoryService.generateCombinations(processedAttributes);
+
+      // **Cache generated variations in Redis (TTL: 1 hour)**
+      await redis.setex(cacheKey, 3600, JSON.stringify(allVariations));
+      console.log("Cache miss: Generated and cached all variations.");
+      // }
 
       // **Apply dynamic search filters (allow multiple values per filter)**
       if (Object.keys(searchFilters).length > 0) {
