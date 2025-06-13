@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
-import { Bundle } from "@/models/bundle.model";
 import { processVariationsUtility } from "@/utils/processVariation.util";
 
 export const inventoryController = {

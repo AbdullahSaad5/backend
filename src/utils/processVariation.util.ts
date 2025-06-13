@@ -6,7 +6,6 @@ dotenv.config({
 
 export const processVariationsUtility = {
   // Function to process attributes based on the category
-  // Enhanced processAttributesByCategory function
   processAttributesByCategory: (categoryName: string, attributes: any) => {
     switch (categoryName) {
       case "NOTEBOOK_COMPUTER":
