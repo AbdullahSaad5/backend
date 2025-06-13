@@ -14,7 +14,6 @@ import { productBrand } from "./product-brand.route";
 import { listing } from "./listing.route";
 import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
-import { workshift } from "./workshift.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
 import { document } from "./documents.route"
@@ -39,6 +38,7 @@ import { ebay } from "./ebay.route";
 import { amazon } from "./amazon.route";
 import { complaintcategory } from "./complaintcategory.route";
 import { expense } from "./expense.route";
+import { workshift } from "./workshift.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";

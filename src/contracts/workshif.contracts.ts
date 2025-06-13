@@ -11,6 +11,7 @@ export interface IWorkshift extends Document{
     createdBy?: string;  
     createdAt?: Date;   
     updatedAt?: Date; 
+    userType?:string;
 }
 
 export type WorkShift = Model<IWorkshift>
