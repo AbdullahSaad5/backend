@@ -756,11 +756,29 @@ export const inventoryController = {
         return res.status(400).json({ message: "Variations are not enabled for this inventory item" });
       }
 
+      // **Check product category**
+      const categoryName = inventoryItem.productInfo?.productCategory?.name;
+      if (categoryName !== "NOTEBOOK_COMPUTERS") {
+        return res.status(400).json({ message: "Invalid product category for variations" });
+      }
+
+      // **Define attributes for variation generation based on category**
+      let selectedAttributes: any[] = [];
+      if (categoryName === "NOTEBOOK_COMPUTERS") {
+        // Define the attributes for this category
+        selectedAttributes = [
+          "brand",
+          "display",
+          "processor_description",
+          "memory_storage_capacity",
+          "solid_state_storage_drive",
+          "ram_memory",
+        ];
+      }
       // **Handle search queries properly**
       const searchFilters: Record<string, string[]> = {}; // Allow multiple values per key
       if (searchQueries) {
         const searchArray = Array.isArray(searchQueries) ? searchQueries : [searchQueries];
-
         searchArray.forEach((filter: any) => {
           const [key, value] = filter.split(":");
           if (key && value) {
@@ -781,42 +799,23 @@ export const inventoryController = {
         allVariations = JSON.parse(cachedVariations);
         console.log("Cache hit: Returning variations from cache.");
       } else {
-        // **Extract multi-select attributes**
+        // **Extract productTechInfo and filter only selected attributes**
         const attributes = inventoryItem.prodTechInfo?.toObject?.() || inventoryItem.prodTechInfo;
 
         if (!attributes || typeof attributes !== "object") {
-          // console.log("❌ prodTechInfo is missing or not an object");
           return res.status(400).json({ message: "Invalid or missing prodTechInfo" });
         }
-        // console.log("✅ prodTechInfo keys:", attributes);
 
-        // 1. Normalize keys when building multi-select attributes
-        const multiSelectAttributes = Object.keys(attributes).reduce((acc: any, key) => {
-          const value = attributes[key];
-
-          // ✅ Include only arrays with more than one item
-          if (Array.isArray(value) && value.length > 1) {
-            acc[key.toLowerCase()] = value;
-          } else {
-            console.log(`❌ Skipped ${key}: Not array or array length <= 1`);
-          }
-
-          return acc;
-        }, {});
-        //TODO: to change the logic , first confirm attribute from eebay, whether variation is allowed  , of not then create variation on that attribute
-        // 2. Normalize excluded attributes
-        const excludedAttributes = ["brand", "Features", "features"];
-
-        // 3. Filter out excluded keys
-        const filteredAttributes = Object.keys(multiSelectAttributes).reduce((acc: any, key) => {
-          if (!excludedAttributes.includes(key)) {
-            acc[key] = multiSelectAttributes[key];
+        // Filter only the selected attributes for variations
+        const filteredAttributes = selectedAttributes.reduce((acc: any, attr) => {
+          if (attributes[attr] && Array.isArray(attributes[attr]) && attributes[attr].length > 0) {
+            acc[attr] = attributes[attr];
           }
           return acc;
         }, {});
 
         if (Object.keys(filteredAttributes).length === 0) {
-          return res.status(400).json({ message: "No multi-select attributes found for variations" });
+          return res.status(400).json({ message: "No valid attributes found for variations" });
         }
 
         // **Generate variations dynamically using the filtered attributes**
@@ -833,7 +832,6 @@ export const inventoryController = {
           return Object.keys(searchFilters).every((key) => {
             const filterValues = searchFilters[key];
             const variationValue = variation[key]?.toString().toLowerCase();
-            // Check if the variation's value matches any of the filter values for the key
             return filterValues.includes(variationValue);
           });
         });
@@ -848,17 +846,16 @@ export const inventoryController = {
       // **Return response**
       return res.status(200).json({
         message: "Variations fetched",
-        totalCombinations, // 🔥 Total combinations (before pagination)
+        totalCombinations, // Total combinations (before pagination)
         variations: paginatedVariations,
         currentPage: page,
         totalPages: Math.ceil(totalCombinations / limit),
       });
     } catch (error) {
-      console.error("❌ Error generating variations:", error);
+      console.error("Error generating variations:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
   // Controller to fetch selectable options for attributes
   getAllOptions: async (req: Request, res: Response) => {
     try {
