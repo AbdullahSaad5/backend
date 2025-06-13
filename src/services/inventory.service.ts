@@ -815,20 +815,44 @@ export const inventoryService = {
   },
 
   // Function to generate all possible combinations of multi-select attributes
-  generateCombinations: async (attributes: Record<string, any>) => {
-    const keys = Object.keys(attributes);
-    const values = Object.values(attributes);
+  generateCombinations: async (processedAttributes: any) => {
+    const attributeKeys = Object.keys(processedAttributes);
+    const attributeValues = attributeKeys.map((key) => processedAttributes[key]);
 
-    const cartesianProduct = (arrays: any[][]) => {
-      return arrays.reduce(
-        (acc, curr, index) => acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
-        [{}]
-      );
-    };
+    const combinations: any[] = [];
 
-    return cartesianProduct(values);
+    function generateCombinationsRecursive(current: any, actualAttributes: any, index: number) {
+      if (index === attributeKeys.length) {
+        // Create the final combination with display values and actual_attributes
+        const combination = {
+          ...current,
+          actual_attributes: { ...actualAttributes },
+        };
+        combinations.push(combination);
+        return;
+      }
+
+      const currentAttribute = attributeKeys[index];
+      const currentValues = attributeValues[index];
+
+      for (const valueObj of currentValues) {
+        const newCurrent = {
+          ...current,
+          [currentAttribute]: valueObj.displayValue, // For display/filtering
+        };
+
+        const newActualAttributes = {
+          ...actualAttributes,
+          [currentAttribute]: valueObj.originalStructure, // Original DB structure
+        };
+
+        generateCombinationsRecursive(newCurrent, newActualAttributes, index + 1);
+      }
+    }
+
+    generateCombinationsRecursive({}, {}, 0);
+    return combinations;
   },
-
   getAllOptions: async () => {
     try {
       const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
