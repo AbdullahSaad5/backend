@@ -518,7 +518,7 @@ export const ebayListingService = {
       const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
 
       if (itemId) {
-        const rawTitle = ebayData.productInfo?.title || "item";
+        const rawTitle = ebayData.productInfo?.item_name?.[0]?.value || "item";
         const safeTitle = rawTitle.replace(/\//g, " ").split(" ").join("-");
         const sandboxUrl =
           type === "production"
@@ -583,7 +583,7 @@ export const ebayListingService = {
       }
 
       // console.log("variationXml", variationXml);
-
+      const title = ebayData.productInfo?.item_name?.[0]?.value;
       const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
@@ -620,7 +620,7 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
-          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
           <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
 
@@ -814,8 +814,8 @@ export const ebayListingService = {
 };
 const generateListingDescription = (ebayData: any) => {
   const defaultData = {
-    title: ebayData?.productInfo?.title ?? "A TEST product",
-    description: ebayData?.productInfo?.description ?? "No description available.",
+    title: ebayData.productInfo?.item_name?.[0]?.value ?? "A TEST product",
+    description: ebayData?.productInfo?.description?.[0].value ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
     retailPrice:
       (ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice) ?? 10.0,
