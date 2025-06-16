@@ -86,9 +86,9 @@ export const convertToEbayFormat = {
       },
     },
 
-    // Dimensions - split into length, width, and thickness
-    item_length: {
-      ebayField: "Item Length",
+    // Dimensions - map to multiple eBay fields (Item Length, Item Width, Item Thickness)
+    item_length_width_thickness: {
+      ebayField: "Dimensions", // This is a placeholder; actual fields are set in converter
       converter: (data: Map<string, any>) => {
         const item_length_width_thickness = data.get("item_length_width_thickness");
         if (
@@ -96,39 +96,22 @@ export const convertToEbayFormat = {
           !Array.isArray(item_length_width_thickness) ||
           item_length_width_thickness.length === 0
         )
-          return "";
-        const dims = item_length_width_thickness[0];
-        return dims.length ? `${dims.length.value}${dims.length.unit}` : "";
-      },
-    },
+          return {};
 
-    item_width: {
-      ebayField: "Item Width",
-      converter: (data: Map<string, any>) => {
-        const item_length_width_thickness = data.get("item_length_width_thickness");
-        if (
-          !item_length_width_thickness ||
-          !Array.isArray(item_length_width_thickness) ||
-          item_length_width_thickness.length === 0
-        )
-          return "";
         const dims = item_length_width_thickness[0];
-        return dims.width ? `${dims.width.value}${dims.width.unit}` : "";
-      },
-    },
+        const result: { [key: string]: string } = {};
 
-    item_thickness: {
-      ebayField: "Item Thickness",
-      converter: (data: Map<string, any>) => {
-        const item_length_width_thickness = data.get("item_length_width_thickness");
-        if (
-          !item_length_width_thickness ||
-          !Array.isArray(item_length_width_thickness) ||
-          item_length_width_thickness.length === 0
-        )
-          return "";
-        const dims = item_length_width_thickness[0];
-        return dims.thickness ? `${dims.thickness.value}${dims.thickness.unit}` : "";
+        if (dims.length) {
+          result["Item Length"] = `${dims.length.value}${dims.length.unit}`;
+        }
+        if (dims.width) {
+          result["Item Width"] = `${dims.width.value}${dims.width.unit}`;
+        }
+        if (dims.thickness) {
+          result["Item Thickness"] = `${dims.thickness.value}${dims.thickness.unit}`;
+        }
+
+        return result;
       },
     },
 
@@ -324,7 +307,6 @@ export const convertToEbayFormat = {
   /**
    * Check if a field exists in the field mappings
    * @param {string} fieldName - The Amazon field name to check
-   * @returns {boolean} - Whether the field exists in mappings
    */
   hasFieldMapping: (fieldName: string) => {
     return fieldName in convertToEbayFormat.fieldMappings;
@@ -332,11 +314,10 @@ export const convertToEbayFormat = {
 
   /**
    * Convert a specific Amazon field to eBay format
-   * @param {Map<string, any>} prodTechInfo - The Amazon product data
+   * @param {Map<string, any>} prodData - The Amazon product data
    * @param {string} amazonFieldName - The Amazon field name to convert
-   * @returns {string|string[]|""} - The converted eBay value (string, array of strings, or empty string)
    */
-  convertField: (prodTechInfo: Map<string, any>, amazonFieldName: string) => {
+  convertField: (prodData: Map<string, any>, amazonFieldName: string) => {
     const mapping =
       convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
 
@@ -346,7 +327,7 @@ export const convertToEbayFormat = {
     }
 
     try {
-      return mapping.converter(prodTechInfo);
+      return mapping.converter(prodData);
     } catch (error) {
       console.error(`Error converting field ${amazonFieldName}:`, error);
       return "";
@@ -355,27 +336,26 @@ export const convertToEbayFormat = {
 
   /**
    * Transform entire Amazon prodTechInfo to eBay format
-   * @param {Map<string, any>} prodTechInfo - The Amazon product technical information
+   * @param {Map<string, any>} prodData - The Amazon product technical information
    * @returns {Object} - eBay-compatible data with simple strings/arrays
    */
-  transformProdTechInfo: (prodTechInfo: Map<string, any>) => {
-    console.log("Converting Amazon data to eBay format:", prodTechInfo);
+  transformProdTechInfo: (prodData: Map<string, any>) => {
+    console.log("Converting Amazon data to eBay format:", prodData);
     const ebayData: any = {};
 
-    // Process each Amazon field that has a mapping
-    for (const amazonFieldName of prodTechInfo.keys()) {
+    for (const amazonFieldName of prodData.keys()) {
       if (convertToEbayFormat.hasFieldMapping(amazonFieldName)) {
         const mapping =
           convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
-        const ebayValue = convertToEbayFormat.convertField(prodTechInfo, amazonFieldName);
+        const ebayValue = convertToEbayFormat.convertField(prodData, amazonFieldName);
 
-        // Only add non-empty values
-        if (ebayValue !== "" && ebayValue !== null && ebayValue !== undefined) {
-          // For arrays, only add if not empty
+        // Handle special case for item_length_width_thickness returning multiple fields
+        if (typeof ebayValue === "object" && !Array.isArray(ebayValue) && ebayValue !== null) {
+          Object.assign(ebayData, ebayValue);
+        } else if (ebayValue !== "" && ebayValue !== null && ebayValue !== undefined) {
           if (Array.isArray(ebayValue) && ebayValue.length === 0) {
             continue;
           }
-
           ebayData[mapping.ebayField] = ebayValue;
         }
       } else {
@@ -389,15 +369,17 @@ export const convertToEbayFormat = {
 
   /**
    * Get all available eBay field names from mappings
-   * @returns {string[]} - Array of eBay field names
    */
   getEbayFieldNames: () => {
-    return Object.values(convertToEbayFormat.fieldMappings).map((mapping) => mapping.ebayField);
+    return Object.values(convertToEbayFormat.fieldMappings)
+      .flatMap((mapping: any) =>
+        mapping.ebayField === "Dimensions" ? ["Item Length", "Item Width", "Item Thickness"] : mapping.ebayField
+      )
+      .filter((field: string) => field);
   },
 
   /**
    * Get all available Amazon field names from mappings
-   * @returns {string[]} - Array of Amazon field names
    */
   getAmazonFieldNames: () => {
     return Object.keys(convertToEbayFormat.fieldMappings);
