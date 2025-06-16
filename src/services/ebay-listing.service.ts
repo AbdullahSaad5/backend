@@ -945,7 +945,6 @@ function generateItemSpecifics(
 
   return itemSpecifics.join("");
 }
-
 function escapeXml(unsafe: any): string {
   if (unsafe == null) return "";
   return String(unsafe)

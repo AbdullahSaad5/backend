@@ -285,12 +285,12 @@ export const convertToEbayFormat = {
     },
 
     // Features - convert to array of strings
-    bullet_point: {
+    special_feature: {
       ebayField: "Features",
       converter: (data: Map<string, any>) => {
-        const bullet_point = data.get("bullet_point");
-        if (!bullet_point || !Array.isArray(bullet_point)) return [];
-        return bullet_point.map((item: any) => item.value || item);
+        const special_feature = data.get("special_feature");
+        if (!special_feature || !Array.isArray(special_feature)) return [];
+        return special_feature.map((item: any) => item.value || item);
       },
     },
 
