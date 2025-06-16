@@ -13,99 +13,134 @@ export const convertToEbayFormat = {
     // Basic product info - convert to simple strings
     manufacturer: {
       ebayField: "Manufacturer",
-      converter: (data: any) => {
-        if (!data.manufacturer) return "";
-        return Array.isArray(data.manufacturer) ? data.manufacturer[0]?.value || "" : data.manufacturer;
+      converter: (data: Map<string, any>) => {
+        const manufacturer = data.get("manufacturer");
+        if (!manufacturer) return "";
+        return Array.isArray(manufacturer) ? manufacturer[0]?.value || "" : manufacturer;
       },
     },
 
     model_name: {
       ebayField: "Model",
-      converter: (data: any) => {
-        if (!data.model_name) return "";
-        return Array.isArray(data.model_name) ? data.model_name[0]?.value || "" : data.model_name;
+      converter: (data: Map<string, any>) => {
+        const model_name = data.get("model_name");
+        if (!model_name) return "";
+        return Array.isArray(model_name) ? model_name[0]?.value || "" : model_name;
       },
     },
 
     model_number: {
       ebayField: "Model Number",
-      converter: (data: any) => {
-        if (!data.model_number) return "";
-        return Array.isArray(data.model_number) ? data.model_number[0]?.value || "" : data.model_number;
+      converter: (data: Map<string, any>) => {
+        const model_number = data.get("model_number");
+        if (!model_number) return "";
+        return Array.isArray(model_number) ? model_number[0]?.value || "" : model_number;
       },
     },
 
     color: {
       ebayField: "Colour",
-      converter: (data: any) => {
-        if (!data.color) return "";
-        return Array.isArray(data.color) ? data.color[0]?.value || "" : data.color;
+      converter: (data: Map<string, any>) => {
+        const color = data.get("color");
+        if (!color) return "";
+        return Array.isArray(color) ? color[0]?.value || "" : color;
       },
     },
 
     condition_type: {
       ebayField: "Condition",
-      converter: (data: any) => {
-        if (!data.condition_type) return "";
-        return Array.isArray(data.condition_type) ? data.condition_type[0]?.value || "" : data.condition_type;
+      converter: (data: Map<string, any>) => {
+        const condition_type = data.get("condition_type");
+        if (!condition_type) return "";
+        return Array.isArray(condition_type) ? condition_type[0]?.value || "" : condition_type;
       },
     },
 
     country_of_origin: {
       ebayField: "Country/Region of Manufacture",
-      converter: (data: any) => {
-        if (!data.country_of_origin) return "";
-        return Array.isArray(data.country_of_origin) ? data.country_of_origin[0]?.value || "" : data.country_of_origin;
+      converter: (data: Map<string, any>) => {
+        const country_of_origin = data.get("country_of_origin");
+        if (!country_of_origin) return "";
+        return Array.isArray(country_of_origin) ? country_of_origin[0]?.value || "" : country_of_origin;
       },
     },
 
     // Weight - convert to simple string with unit
     item_weight: {
       ebayField: "Weight",
-      converter: (data: any) => {
-        if (!data.item_weight || !Array.isArray(data.item_weight) || data.item_weight.length === 0) return "";
-        const weight = data.item_weight[0];
+      converter: (data: Map<string, any>) => {
+        const item_weight = data.get("item_weight");
+        if (!item_weight || !Array.isArray(item_weight) || item_weight.length === 0) return "";
+        const weight = item_weight[0];
         return `${weight.value} ${weight.unit}`;
       },
     },
 
     item_display_weight: {
       ebayField: "Display Weight",
-      converter: (data: any) => {
-        if (
-          !data.item_display_weight ||
-          !Array.isArray(data.item_display_weight) ||
-          data.item_display_weight.length === 0
-        )
-          return "";
-        const weight = data.item_display_weight[0];
+      converter: (data: Map<string, any>) => {
+        const item_display_weight = data.get("item_display_weight");
+        if (!item_display_weight || !Array.isArray(item_display_weight) || item_display_weight.length === 0) return "";
+        const weight = item_display_weight[0];
         return `${weight.value} ${weight.unit}`;
       },
     },
 
-    // Dimensions - convert to simple string
-    item_length_width_thickness: {
-      ebayField: "Dimensions",
-      converter: (data: any) => {
+    // Dimensions - split into length, width, and thickness
+    item_length: {
+      ebayField: "Item Length",
+      converter: (data: Map<string, any>) => {
+        const item_length_width_thickness = data.get("item_length_width_thickness");
         if (
-          !data.item_length_width_thickness ||
-          !Array.isArray(data.item_length_width_thickness) ||
-          data.item_length_width_thickness.length === 0
+          !item_length_width_thickness ||
+          !Array.isArray(item_length_width_thickness) ||
+          item_length_width_thickness.length === 0
         )
           return "";
-        const dims = data.item_length_width_thickness[0];
-        return `${dims.length.value}${dims.length.unit} x ${dims.width.value}${dims.width.unit} x ${dims.thickness.value}${dims.thickness.unit}`;
+        const dims = item_length_width_thickness[0];
+        return dims.length ? `${dims.length.value}${dims.length.unit}` : "";
+      },
+    },
+
+    item_width: {
+      ebayField: "Item Width",
+      converter: (data: Map<string, any>) => {
+        const item_length_width_thickness = data.get("item_length_width_thickness");
+        if (
+          !item_length_width_thickness ||
+          !Array.isArray(item_length_width_thickness) ||
+          item_length_width_thickness.length === 0
+        )
+          return "";
+        const dims = item_length_width_thickness[0];
+        return dims.width ? `${dims.width.value}${dims.width.unit}` : "";
+      },
+    },
+
+    item_thickness: {
+      ebayField: "Item Thickness",
+      converter: (data: Map<string, any>) => {
+        const item_length_width_thickness = data.get("item_length_width_thickness");
+        if (
+          !item_length_width_thickness ||
+          !Array.isArray(item_length_width_thickness) ||
+          item_length_width_thickness.length === 0
+        )
+          return "";
+        const dims = item_length_width_thickness[0];
+        return dims.thickness ? `${dims.thickness.value}${dims.thickness.unit}` : "";
       },
     },
 
     // Display size - extract only size as simple string
     display: {
       ebayField: "Screen Size",
-      converter: (data: any) => {
-        if (!data.display || !Array.isArray(data.display) || data.display.length === 0) return "";
-        const display = data.display[0];
-        if (display.size && Array.isArray(display.size) && display.size.length > 0) {
-          return `${display.size[0].value} ${display.size[0].unit}`;
+      converter: (data: Map<string, any>) => {
+        const display = data.get("display");
+        if (!display || !Array.isArray(display) || display.length === 0) return "";
+        const displayData = display[0];
+        if (displayData.size && Array.isArray(displayData.size) && displayData.size.length > 0) {
+          return `${displayData.size[0].value} ${displayData.size[0].unit}`;
         }
         return "";
       },
@@ -114,15 +149,16 @@ export const convertToEbayFormat = {
     // Display resolution
     display_resolution: {
       ebayField: "Maximum Resolution",
-      converter: (data: any) => {
-        if (!data.display || !Array.isArray(data.display) || data.display.length === 0) return "";
-        const display = data.display[0];
+      converter: (data: Map<string, any>) => {
+        const display = data.get("display");
+        if (!display || !Array.isArray(display) || display.length === 0) return "";
+        const displayData = display[0];
         if (
-          display.resolution_maximum &&
-          Array.isArray(display.resolution_maximum) &&
-          display.resolution_maximum.length > 0
+          displayData.resolution_maximum &&
+          Array.isArray(displayData.resolution_maximum) &&
+          displayData.resolution_maximum.length > 0
         ) {
-          return display.resolution_maximum[0].value || "";
+          return displayData.resolution_maximum[0].value || "";
         }
         return "";
       },
@@ -131,14 +167,11 @@ export const convertToEbayFormat = {
     // Memory capacity - convert to simple string
     memory_storage_capacity: {
       ebayField: "Hard Drive Capacity",
-      converter: (data: any) => {
-        if (
-          !data.memory_storage_capacity ||
-          !Array.isArray(data.memory_storage_capacity) ||
-          data.memory_storage_capacity.length === 0
-        )
+      converter: (data: Map<string, any>) => {
+        const memory_storage_capacity = data.get("memory_storage_capacity");
+        if (!memory_storage_capacity || !Array.isArray(memory_storage_capacity) || memory_storage_capacity.length === 0)
           return "";
-        const memory = data.memory_storage_capacity[0];
+        const memory = memory_storage_capacity[0];
         return `${memory.value} ${memory.unit}`;
       },
     },
@@ -146,14 +179,15 @@ export const convertToEbayFormat = {
     // SSD capacity - convert to simple string
     solid_state_storage_drive: {
       ebayField: "SSD Capacity",
-      converter: (data: any) => {
+      converter: (data: Map<string, any>) => {
+        const solid_state_storage_drive = data.get("solid_state_storage_drive");
         if (
-          !data.solid_state_storage_drive ||
-          !Array.isArray(data.solid_state_storage_drive) ||
-          data.solid_state_storage_drive.length === 0
+          !solid_state_storage_drive ||
+          !Array.isArray(solid_state_storage_drive) ||
+          solid_state_storage_drive.length === 0
         )
           return "";
-        const ssd = data.solid_state_storage_drive[0];
+        const ssd = solid_state_storage_drive[0];
         return `${ssd.capacity.value} ${ssd.capacity.unit}`;
       },
     },
@@ -161,9 +195,10 @@ export const convertToEbayFormat = {
     // RAM size - convert to simple string
     ram_memory: {
       ebayField: "RAM Size",
-      converter: (data: any) => {
-        if (!data.ram_memory || !Array.isArray(data.ram_memory) || data.ram_memory.length === 0) return "";
-        const ram = data.ram_memory[0];
+      converter: (data: Map<string, any>) => {
+        const ram_memory = data.get("ram_memory");
+        if (!ram_memory || !Array.isArray(ram_memory) || ram_memory.length === 0) return "";
+        const ram = ram_memory[0];
         if (ram.installed_size && Array.isArray(ram.installed_size) && ram.installed_size.length > 0) {
           return `${ram.installed_size[0].value} ${ram.installed_size[0].unit}`;
         }
@@ -174,9 +209,10 @@ export const convertToEbayFormat = {
     // CPU - combine into simple processor string
     cpu_model: {
       ebayField: "Processor",
-      converter: (data: any) => {
-        if (!data.cpu_model || !Array.isArray(data.cpu_model) || data.cpu_model.length === 0) return "";
-        const cpu = data.cpu_model[0];
+      converter: (data: Map<string, any>) => {
+        const cpu_model = data.get("cpu_model");
+        if (!cpu_model || !Array.isArray(cpu_model) || cpu_model.length === 0) return "";
+        const cpu = cpu_model[0];
 
         const manufacturer = cpu.manufacturer?.[0]?.value || "";
         const family = cpu.family?.[0]?.value || "";
@@ -190,9 +226,10 @@ export const convertToEbayFormat = {
     // CPU Speed - convert to simple string
     cpu_speed: {
       ebayField: "Processor Speed",
-      converter: (data: any) => {
-        if (!data.cpu_model || !Array.isArray(data.cpu_model) || data.cpu_model.length === 0) return "";
-        const cpu = data.cpu_model[0];
+      converter: (data: Map<string, any>) => {
+        const cpu_model = data.get("cpu_model");
+        if (!cpu_model || !Array.isArray(cpu_model) || cpu_model.length === 0) return "";
+        const cpu = cpu_model[0];
         if (cpu.speed && Array.isArray(cpu.speed) && cpu.speed.length > 0) {
           return `${cpu.speed[0].value} ${cpu.speed[0].unit}`;
         }
@@ -203,81 +240,83 @@ export const convertToEbayFormat = {
     // Graphics - convert to simple string
     graphics_description: {
       ebayField: "Graphics Processing Type",
-      converter: (data: any) => {
-        if (!data.graphics_description) return "";
-        return Array.isArray(data.graphics_description)
-          ? data.graphics_description[0]?.value || ""
-          : data.graphics_description;
+      converter: (data: Map<string, any>) => {
+        const graphics_description = data.get("graphics_description");
+        if (!graphics_description) return "";
+        return Array.isArray(graphics_description) ? graphics_description[0]?.value || "" : graphics_description;
       },
     },
 
     graphics_processor_manufacturer: {
       ebayField: "GPU Manufacturer",
-      converter: (data: any) => {
-        if (!data.graphics_processor_manufacturer) return "";
-        return Array.isArray(data.graphics_processor_manufacturer)
-          ? data.graphics_processor_manufacturer[0]?.value || ""
-          : data.graphics_processor_manufacturer;
+      converter: (data: Map<string, any>) => {
+        const graphics_processor_manufacturer = data.get("graphics_processor_manufacturer");
+        if (!graphics_processor_manufacturer) return "";
+        return Array.isArray(graphics_processor_manufacturer)
+          ? graphics_processor_manufacturer[0]?.value || ""
+          : graphics_processor_manufacturer;
       },
     },
 
     // Operating System - convert to simple string
     operating_system: {
       ebayField: "Operating System",
-      converter: (data: any) => {
-        if (!data.operating_system) return "";
-        return Array.isArray(data.operating_system) ? data.operating_system[0]?.value || "" : data.operating_system;
+      converter: (data: Map<string, any>) => {
+        const operating_system = data.get("operating_system");
+        if (!operating_system) return "";
+        return Array.isArray(operating_system) ? operating_system[0]?.value || "" : operating_system;
       },
     },
 
     // Warranty - convert to simple string
     warranty_description: {
       ebayField: "Manufacturer Warranty",
-      converter: (data: any) => {
-        if (!data.warranty_description) return "";
-        return Array.isArray(data.warranty_description)
-          ? data.warranty_description[0]?.value || ""
-          : data.warranty_description;
+      converter: (data: Map<string, any>) => {
+        const warranty_description = data.get("warranty_description");
+        if (!warranty_description) return "";
+        return Array.isArray(warranty_description) ? warranty_description[0]?.value || "" : warranty_description;
       },
     },
 
     // Features - convert to array of strings
     bullet_point: {
       ebayField: "Features",
-      converter: (data: any) => {
-        if (!data.bullet_point || !Array.isArray(data.bullet_point)) return [];
-        return data.bullet_point.map((item: any) => item.value || item);
+      converter: (data: Map<string, any>) => {
+        const bullet_point = data.get("bullet_point");
+        if (!bullet_point || !Array.isArray(bullet_point)) return [];
+        return bullet_point.map((item: any) => item.value || item);
       },
     },
 
     // Keywords - convert to simple string
     generic_keyword: {
       ebayField: "Keywords",
-      converter: (data: any) => {
-        if (!data.generic_keyword) return "";
-        return Array.isArray(data.generic_keyword) ? data.generic_keyword[0]?.value || "" : data.generic_keyword;
+      converter: (data: Map<string, any>) => {
+        const generic_keyword = data.get("generic_keyword");
+        if (!generic_keyword) return "";
+        return Array.isArray(generic_keyword) ? generic_keyword[0]?.value || "" : generic_keyword;
       },
     },
 
     // Max order quantity - convert to simple string/number
     max_order_quantity: {
       ebayField: "Max Order Quantity",
-      converter: (data: any) => {
-        if (!data.max_order_quantity) return "";
-        return Array.isArray(data.max_order_quantity)
-          ? data.max_order_quantity[0]?.value || ""
-          : data.max_order_quantity;
+      converter: (data: Map<string, any>) => {
+        const max_order_quantity = data.get("max_order_quantity");
+        if (!max_order_quantity) return "";
+        return Array.isArray(max_order_quantity) ? max_order_quantity[0]?.value || "" : max_order_quantity;
       },
     },
 
     // Category - convert to simple string
     recommended_browse_nodes: {
       ebayField: "Category",
-      converter: (data: any) => {
-        if (!data.recommended_browse_nodes) return "";
-        return Array.isArray(data.recommended_browse_nodes)
-          ? data.recommended_browse_nodes[0]?.value || ""
-          : data.recommended_browse_nodes;
+      converter: (data: Map<string, any>) => {
+        const recommended_browse_nodes = data.get("recommended_browse_nodes");
+        if (!recommended_browse_nodes) return "";
+        return Array.isArray(recommended_browse_nodes)
+          ? recommended_browse_nodes[0]?.value || ""
+          : recommended_browse_nodes;
       },
     },
   },
@@ -293,11 +332,11 @@ export const convertToEbayFormat = {
 
   /**
    * Convert a specific Amazon field to eBay format
-   * @param {Object} prodTechInfo - The Amazon product data
+   * @param {Map<string, any>} prodTechInfo - The Amazon product data
    * @param {string} amazonFieldName - The Amazon field name to convert
    * @returns {string|string[]|""} - The converted eBay value (string, array of strings, or empty string)
    */
-  convertField: (prodTechInfo: any, amazonFieldName: string) => {
+  convertField: (prodTechInfo: Map<string, any>, amazonFieldName: string) => {
     const mapping =
       convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
 
@@ -316,15 +355,15 @@ export const convertToEbayFormat = {
 
   /**
    * Transform entire Amazon prodTechInfo to eBay format
-   * @param {Object} prodTechInfo - The Amazon product technical information
+   * @param {Map<string, any>} prodTechInfo - The Amazon product technical information
    * @returns {Object} - eBay-compatible data with simple strings/arrays
    */
-  transformProdTechInfo: (prodTechInfo: any) => {
+  transformProdTechInfo: (prodTechInfo: Map<string, any>) => {
     console.log("Converting Amazon data to eBay format:", prodTechInfo);
     const ebayData: any = {};
 
     // Process each Amazon field that has a mapping
-    Object.keys(prodTechInfo).forEach((amazonFieldName) => {
+    for (const amazonFieldName of prodTechInfo.keys()) {
       if (convertToEbayFormat.hasFieldMapping(amazonFieldName)) {
         const mapping =
           convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
@@ -334,7 +373,7 @@ export const convertToEbayFormat = {
         if (ebayValue !== "" && ebayValue !== null && ebayValue !== undefined) {
           // For arrays, only add if not empty
           if (Array.isArray(ebayValue) && ebayValue.length === 0) {
-            return;
+            continue;
           }
 
           ebayData[mapping.ebayField] = ebayValue;
@@ -342,7 +381,7 @@ export const convertToEbayFormat = {
       } else {
         console.log(`Amazon field '${amazonFieldName}' not mapped, skipping...`);
       }
-    });
+    }
 
     console.log("Converted eBay data:", ebayData);
     return ebayData;

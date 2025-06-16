@@ -83,8 +83,8 @@ export const listingService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variations check: ", stepData.listingWithStock);
-      console.log("draftListingData here there: ", draftListingData);
+      // console.log("listing has variations check: ", stepData.listingWithStock);
+      // console.log("draftListingData here there: ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
