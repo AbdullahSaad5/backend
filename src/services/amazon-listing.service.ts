@@ -597,6 +597,7 @@ export const amazonListingService = {
     // Step 1: Create parent listing
     const parentResult = await amazonListingService.createParentListing(populatedListing, token);
     results.push(parentResult);
+    console.log("parent listing creation  result", parentResult);
 
     if (parentResult.status !== 200) {
       return {
@@ -694,11 +695,11 @@ export const amazonListingService = {
         // Price and inventory
         price: [
           {
-            value: variation.price?.toString() || "0",
-            currency: "USD",
+            value: variation.retailPrice || "10",
+            currency: "GBP",
           },
         ],
-        quantity: [{ value: variation.quantity?.toString() || "0" }],
+        quantity: [{ value: variation.listingQuantity || "0" }],
 
         // Other common attributes
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
@@ -810,7 +811,7 @@ export const amazonListingService = {
 
   // Generate child SKU
   generateChildSku: (parentSku: string, variation: any): string => {
-    const variationDetails = variation.variationId;
+    const variationDetails = variation.variationId.populate();
     const suffix = [variationDetails.RAM, variationDetails.ROM, variationDetails.CPU, variationDetails.GPU]
       .filter(Boolean)
       .join("-")
@@ -835,6 +836,7 @@ export const amazonListingService = {
 
   // Send data to Amazon API
   sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
+    console.log("payload before sending to Amazon", productData);
     try {
       const response = await fetch(
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
@@ -856,7 +858,7 @@ export const amazonListingService = {
       );
 
       const rawResponse = await response.text();
-      console.log("🔍 Raw response from Amazon:", rawResponse);
+      // console.log("🔍 Raw response from Amazon:", rawResponse);
 
       let jsonObj: any = {};
       try {
@@ -1200,7 +1202,7 @@ export const amazonListingService = {
 
       const responseData = await response.json();
 
-      // console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
+      console.log("✅ Raw Amazon product types:", responseData); // Optional debug log
 
       const transformedCategories = (responseData.productTypes || []).map((category: any) => ({
         id: category.name,
