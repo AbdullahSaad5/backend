@@ -48,7 +48,7 @@ export const convertToEbayFormat = {
     },
 
     condition_type: {
-      ebayField: "Condition",
+      ebayField: "condition",
       converter: (data: Map<string, any>) => {
         const condition_type = data.get("condition_type");
         if (!condition_type) return "";
@@ -98,7 +98,7 @@ export const convertToEbayFormat = {
 
     // Dimensions - map to multiple eBay fields (Item Length, Item Width, Item Thickness)
     item_length_width_thickness: {
-      ebayField: "Dimensions",
+      ebayField: "dimensions",
       converter: (data: Map<string, any>) => {
         const item_length_width_thickness = data.get("item_length_width_thickness");
         if (
@@ -112,13 +112,13 @@ export const convertToEbayFormat = {
         const result: { [key: string]: string } = {};
 
         if (dims.length) {
-          result["Item_Length"] = `${dims.length.value}${dims.length.unit}`;
+          result["item_length"] = `${dims.length.value}${dims.length.unit}`;
         }
         if (dims.width) {
-          result["Item_Width"] = `${dims.width.value}${dims.width.unit}`;
+          result["item_width"] = `${dims.width.value}${dims.width.unit}`;
         }
         if (dims.thickness) {
-          result["Item_Thickness"] = `${dims.thickness.value}${dims.thickness.unit}`;
+          result["item_thickness"] = `${dims.thickness.value}${dims.thickness.unit}`;
         }
 
         return result;
@@ -484,7 +484,7 @@ export const convertToEbayFormat = {
   getEbayFieldNames: () => {
     return Object.values(convertToEbayFormat.fieldMappings)
       .flatMap((mapping: any) =>
-        mapping.ebayField === "Dimensions" ? ["Item Length", "Item Width", "Item Thickness"] : mapping.ebayField
+        mapping.ebayField === "Dimensions" ? ["item_length", "item_width", "item_thickness"] : mapping.ebayField
       )
       .filter((field: string) => field);
   },
