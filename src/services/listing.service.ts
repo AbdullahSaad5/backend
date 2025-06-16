@@ -39,8 +39,21 @@ export const listingService = {
         throw new Error(`Inventory with ID ${inventoryId} not found`);
       }
 
-      const prodTechInfoFromInventory = inventory.prodTechInfo || {};
-      console.log("prodteectinfo from inventoory", prodTechInfoFromInventory);
+      // Get prodTechInfo from inventory (without any modification yet)
+      let prodTechInfoFromInventory = inventory.prodTechInfo;
+
+      // If publishToEbay is true, flatten the prodTechInfo
+      if (stepData.publishToEbay) {
+        prodTechInfoFromInventory = Array.from(inventory.prodTechInfo.entries()).reduce(
+          (acc: any, [key, value]: any) => {
+            // Flatten the Map into key-value pairs
+            acc[key] = value.map((item: any) => item.value || item).filter(Boolean); // Flatten arrays and filter out falsy values
+            return acc;
+          },
+          {}
+        );
+      }
+
       const productInfo = {
         kind,
         item_name: item_name || [],
@@ -67,7 +80,7 @@ export const listingService = {
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
-        prodTechInfo: { ...prodTechInfoFromInventory, ...stepData.prodTechInfo }, // Merge prodTechInfo from inventory with stepData.prodTechInfo
+        prodTechInfo: prodTechInfoFromInventory, // Either the original or flattened version
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
