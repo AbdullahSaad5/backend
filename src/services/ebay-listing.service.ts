@@ -907,17 +907,20 @@ function generateItemSpecifics(
       const lowerKey = key.toLowerCase();
       const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
 
+      // Remove underscores and replace with spaces
+      const humanReadableKey = formattedKey.replace(/_/g, " ");
+
       const isVariationAttr = variationAttributeNames.has(lowerKey);
       const isForced = sectionForceInclude.includes(lowerKey);
       const isExcluded = sectionExclude.includes(lowerKey);
 
       if (isVariationAttr && !isForced) {
-        console.log(`⛔ Skipped (in variation): ${formattedKey}`);
+        console.log(`⛔ Skipped (in variation): ${humanReadableKey}`);
         continue;
       }
 
       if (isExcluded) {
-        console.log(`⛔ Excluded: ${formattedKey}`);
+        console.log(`⛔ Excluded: ${humanReadableKey}`);
         continue;
       }
 
@@ -932,7 +935,7 @@ function generateItemSpecifics(
 
         itemSpecifics.push(`
           <NameValueList>
-            <Name>${formattedKey}</Name>
+            <Name>${humanReadableKey}</Name>
             <Value>${finalValue}</Value>
           </NameValueList>
         `);
