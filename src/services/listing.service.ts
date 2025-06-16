@@ -1,4 +1,4 @@
-import { Listing, ProductCategory, User } from "@/models";
+import { Inventory, Listing, ProductCategory, User } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
@@ -33,6 +33,14 @@ export const listingService = {
         throw new Error("Invalid or missing 'item_name' in productInfo");
       }
 
+      // Retrieve inventory data based on inventoryId
+      const inventory: any = await Inventory.findById(inventoryId); // Assuming you're using a database like MongoDB
+      if (!inventory) {
+        throw new Error(`Inventory with ID ${inventoryId} not found`);
+      }
+
+      const prodTechInfoFromInventory = inventory.prodTechInfo || {};
+      console.log("prodteectinfo from inventoory", prodTechInfoFromInventory);
       const productInfo = {
         kind,
         item_name: item_name || [],
@@ -59,12 +67,14 @@ export const listingService = {
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
-        prodTechInfo: stepData.prodTechInfo || {},
+        prodTechInfo: { ...prodTechInfoFromInventory, ...stepData.prodTechInfo }, // Merge prodTechInfo from inventory with stepData.prodTechInfo
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
-      console.log("listing has variatio  check : ", stepData.listingWithStock);
+
+      console.log("listing has variations check : ", stepData.listingWithStock);
       console.log("draftListingData here there : ", draftListingData);
+
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
         delete draftListingData.prodTechInfo.ean;
