@@ -5,6 +5,8 @@ import fs from "fs";
 // import { newToken } from "./ebay-listing.service";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 import { parseStringPromise } from "xml2js";
+
+import { convertToEbayFormat } from "@/utils/convertToEbayFormat.util";
 export const listingService = {
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
@@ -44,14 +46,8 @@ export const listingService = {
 
       // If publishToEbay is true, flatten the prodTechInfo
       if (stepData.publishToEbay) {
-        prodTechInfoFromInventory = Array.from(inventory.prodTechInfo.entries()).reduce(
-          (acc: any, [key, value]: any) => {
-            // Flatten the Map into key-value pairs
-            acc[key] = value.map((item: any) => item.value || item).filter(Boolean); // Flatten arrays and filter out falsy values
-            return acc;
-          },
-          {}
-        );
+        prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
+        console.log(prodTechInfoFromInventory);
       }
 
       const productInfo = {
