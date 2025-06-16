@@ -3,168 +3,364 @@ import dotenv from "dotenv";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
+
 export const convertToEbayFormat = {
   /**
-   * Utility function to transform complex product data structure into eBay-compatible format
-   * Handles array-of-objects structure and converts to simple key-value pairs for XML generation
+   * Field mapping configuration for Amazon to eBay conversion
+   * Each mapping defines how to extract Amazon's complex structure into eBay's simple format
    */
+  fieldMappings: {
+    // Basic product info - convert to simple strings
+    manufacturer: {
+      ebayField: "Manufacturer",
+      converter: (data: any) => {
+        if (!data.manufacturer) return "";
+        return Array.isArray(data.manufacturer) ? data.manufacturer[0]?.value || "" : data.manufacturer;
+      },
+    },
 
-  /**
-   * Extract value from array-of-objects structure
-   * @param {Array|string|number} data - The data to extract from
-   * @returns {string|number|null} - Extracted value
-   */
-  extractValue: (data: any) => {
-    // If data is already a simple value, return it
-    if (!Array.isArray(data)) {
-      return data;
-    }
+    model_name: {
+      ebayField: "Model",
+      converter: (data: any) => {
+        if (!data.model_name) return "";
+        return Array.isArray(data.model_name) ? data.model_name[0]?.value || "" : data.model_name;
+      },
+    },
 
-    // If empty array, return null
-    if (data.length === 0) {
-      return null;
-    }
+    model_number: {
+      ebayField: "Model Number",
+      converter: (data: any) => {
+        if (!data.model_number) return "";
+        return Array.isArray(data.model_number) ? data.model_number[0]?.value || "" : data.model_number;
+      },
+    },
 
-    // Return the first item's value
-    return data[0]?.value || data[0] || null;
+    color: {
+      ebayField: "Colour",
+      converter: (data: any) => {
+        if (!data.color) return "";
+        return Array.isArray(data.color) ? data.color[0]?.value || "" : data.color;
+      },
+    },
+
+    condition_type: {
+      ebayField: "Condition",
+      converter: (data: any) => {
+        if (!data.condition_type) return "";
+        return Array.isArray(data.condition_type) ? data.condition_type[0]?.value || "" : data.condition_type;
+      },
+    },
+
+    country_of_origin: {
+      ebayField: "Country/Region of Manufacture",
+      converter: (data: any) => {
+        if (!data.country_of_origin) return "";
+        return Array.isArray(data.country_of_origin) ? data.country_of_origin[0]?.value || "" : data.country_of_origin;
+      },
+    },
+
+    // Weight - convert to simple string with unit
+    item_weight: {
+      ebayField: "Weight",
+      converter: (data: any) => {
+        if (!data.item_weight || !Array.isArray(data.item_weight) || data.item_weight.length === 0) return "";
+        const weight = data.item_weight[0];
+        return `${weight.value} ${weight.unit}`;
+      },
+    },
+
+    item_display_weight: {
+      ebayField: "Display Weight",
+      converter: (data: any) => {
+        if (
+          !data.item_display_weight ||
+          !Array.isArray(data.item_display_weight) ||
+          data.item_display_weight.length === 0
+        )
+          return "";
+        const weight = data.item_display_weight[0];
+        return `${weight.value} ${weight.unit}`;
+      },
+    },
+
+    // Dimensions - convert to simple string
+    item_length_width_thickness: {
+      ebayField: "Dimensions",
+      converter: (data: any) => {
+        if (
+          !data.item_length_width_thickness ||
+          !Array.isArray(data.item_length_width_thickness) ||
+          data.item_length_width_thickness.length === 0
+        )
+          return "";
+        const dims = data.item_length_width_thickness[0];
+        return `${dims.length.value}${dims.length.unit} x ${dims.width.value}${dims.width.unit} x ${dims.thickness.value}${dims.thickness.unit}`;
+      },
+    },
+
+    // Display size - extract only size as simple string
+    display: {
+      ebayField: "Screen Size",
+      converter: (data: any) => {
+        if (!data.display || !Array.isArray(data.display) || data.display.length === 0) return "";
+        const display = data.display[0];
+        if (display.size && Array.isArray(display.size) && display.size.length > 0) {
+          return `${display.size[0].value} ${display.size[0].unit}`;
+        }
+        return "";
+      },
+    },
+
+    // Display resolution
+    display_resolution: {
+      ebayField: "Maximum Resolution",
+      converter: (data: any) => {
+        if (!data.display || !Array.isArray(data.display) || data.display.length === 0) return "";
+        const display = data.display[0];
+        if (
+          display.resolution_maximum &&
+          Array.isArray(display.resolution_maximum) &&
+          display.resolution_maximum.length > 0
+        ) {
+          return display.resolution_maximum[0].value || "";
+        }
+        return "";
+      },
+    },
+
+    // Memory capacity - convert to simple string
+    memory_storage_capacity: {
+      ebayField: "Hard Drive Capacity",
+      converter: (data: any) => {
+        if (
+          !data.memory_storage_capacity ||
+          !Array.isArray(data.memory_storage_capacity) ||
+          data.memory_storage_capacity.length === 0
+        )
+          return "";
+        const memory = data.memory_storage_capacity[0];
+        return `${memory.value} ${memory.unit}`;
+      },
+    },
+
+    // SSD capacity - convert to simple string
+    solid_state_storage_drive: {
+      ebayField: "SSD Capacity",
+      converter: (data: any) => {
+        if (
+          !data.solid_state_storage_drive ||
+          !Array.isArray(data.solid_state_storage_drive) ||
+          data.solid_state_storage_drive.length === 0
+        )
+          return "";
+        const ssd = data.solid_state_storage_drive[0];
+        return `${ssd.capacity.value} ${ssd.capacity.unit}`;
+      },
+    },
+
+    // RAM size - convert to simple string
+    ram_memory: {
+      ebayField: "RAM Size",
+      converter: (data: any) => {
+        if (!data.ram_memory || !Array.isArray(data.ram_memory) || data.ram_memory.length === 0) return "";
+        const ram = data.ram_memory[0];
+        if (ram.installed_size && Array.isArray(ram.installed_size) && ram.installed_size.length > 0) {
+          return `${ram.installed_size[0].value} ${ram.installed_size[0].unit}`;
+        }
+        return "";
+      },
+    },
+
+    // CPU - combine into simple processor string
+    cpu_model: {
+      ebayField: "Processor",
+      converter: (data: any) => {
+        if (!data.cpu_model || !Array.isArray(data.cpu_model) || data.cpu_model.length === 0) return "";
+        const cpu = data.cpu_model[0];
+
+        const manufacturer = cpu.manufacturer?.[0]?.value || "";
+        const family = cpu.family?.[0]?.value || "";
+        const model = cpu.model_number?.[0]?.value || "";
+        const generation = cpu.generation?.[0]?.value || "";
+
+        return `${manufacturer} ${generation} ${family} ${model}`.trim().replace(/\s+/g, " ");
+      },
+    },
+
+    // CPU Speed - convert to simple string
+    cpu_speed: {
+      ebayField: "Processor Speed",
+      converter: (data: any) => {
+        if (!data.cpu_model || !Array.isArray(data.cpu_model) || data.cpu_model.length === 0) return "";
+        const cpu = data.cpu_model[0];
+        if (cpu.speed && Array.isArray(cpu.speed) && cpu.speed.length > 0) {
+          return `${cpu.speed[0].value} ${cpu.speed[0].unit}`;
+        }
+        return "";
+      },
+    },
+
+    // Graphics - convert to simple string
+    graphics_description: {
+      ebayField: "Graphics Processing Type",
+      converter: (data: any) => {
+        if (!data.graphics_description) return "";
+        return Array.isArray(data.graphics_description)
+          ? data.graphics_description[0]?.value || ""
+          : data.graphics_description;
+      },
+    },
+
+    graphics_processor_manufacturer: {
+      ebayField: "GPU Manufacturer",
+      converter: (data: any) => {
+        if (!data.graphics_processor_manufacturer) return "";
+        return Array.isArray(data.graphics_processor_manufacturer)
+          ? data.graphics_processor_manufacturer[0]?.value || ""
+          : data.graphics_processor_manufacturer;
+      },
+    },
+
+    // Operating System - convert to simple string
+    operating_system: {
+      ebayField: "Operating System",
+      converter: (data: any) => {
+        if (!data.operating_system) return "";
+        return Array.isArray(data.operating_system) ? data.operating_system[0]?.value || "" : data.operating_system;
+      },
+    },
+
+    // Warranty - convert to simple string
+    warranty_description: {
+      ebayField: "Manufacturer Warranty",
+      converter: (data: any) => {
+        if (!data.warranty_description) return "";
+        return Array.isArray(data.warranty_description)
+          ? data.warranty_description[0]?.value || ""
+          : data.warranty_description;
+      },
+    },
+
+    // Features - convert to array of strings
+    bullet_point: {
+      ebayField: "Features",
+      converter: (data: any) => {
+        if (!data.bullet_point || !Array.isArray(data.bullet_point)) return [];
+        return data.bullet_point.map((item: any) => item.value || item);
+      },
+    },
+
+    // Keywords - convert to simple string
+    generic_keyword: {
+      ebayField: "Keywords",
+      converter: (data: any) => {
+        if (!data.generic_keyword) return "";
+        return Array.isArray(data.generic_keyword) ? data.generic_keyword[0]?.value || "" : data.generic_keyword;
+      },
+    },
+
+    // Max order quantity - convert to simple string/number
+    max_order_quantity: {
+      ebayField: "Max Order Quantity",
+      converter: (data: any) => {
+        if (!data.max_order_quantity) return "";
+        return Array.isArray(data.max_order_quantity)
+          ? data.max_order_quantity[0]?.value || ""
+          : data.max_order_quantity;
+      },
+    },
+
+    // Category - convert to simple string
+    recommended_browse_nodes: {
+      ebayField: "Category",
+      converter: (data: any) => {
+        if (!data.recommended_browse_nodes) return "";
+        return Array.isArray(data.recommended_browse_nodes)
+          ? data.recommended_browse_nodes[0]?.value || ""
+          : data.recommended_browse_nodes;
+      },
+    },
   },
 
   /**
-   * Extract multiple values from array-of-objects structure
-   * @param {Array} data - The array data to extract from
-   * @returns {Array} - Array of extracted values
+   * Check if a field exists in the field mappings
+   * @param {string} fieldName - The Amazon field name to check
+   * @returns {boolean} - Whether the field exists in mappings
    */
-  extractMultipleValues: (data: any) => {
-    if (!Array.isArray(data)) {
-      return [data];
-    }
-
-    return data.map((item) => item.value || item);
+  hasFieldMapping: (fieldName: string) => {
+    return fieldName in convertToEbayFormat.fieldMappings;
   },
 
   /**
-   * Transform product data to eBay-compatible format
-   * @param {Object | any} productData - The complex product data structure
-   * @param {Object} options - Transformation options
-   * @returns {Object} - Simplified data structure for eBay XML
+   * Convert a specific Amazon field to eBay format
+   * @param {Object} prodTechInfo - The Amazon product data
+   * @param {string} amazonFieldName - The Amazon field name to convert
+   * @returns {string|string[]|""} - The converted eBay value (string, array of strings, or empty string)
    */
-  transformToEbayFormat: (productData: any, options = {}) => {
-    const { includeAllVariants = false }: any = options;
+  convertField: (prodTechInfo: any, amazonFieldName: string) => {
+    const mapping =
+      convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
 
-    const transformed: any = {};
-
-    // Handle productInfo section
-    if (productData.productInfo) {
-      const info = productData.productInfo;
-
-      // Simple fields
-      transformed.sku = info.sku;
-
-      // Extract values from array-of-objects
-      transformed.title = convertToEbayFormat.extractValue(info.item_name);
-      transformed.description = convertToEbayFormat.extractValue(info.product_description);
-      transformed.brand = convertToEbayFormat.extractValue(info.brand);
-
-      // Handle multiple values if needed
-      if (includeAllVariants) {
-        transformed.allTitles = convertToEbayFormat.extractMultipleValues(info.item_name);
-        transformed.allDescriptions = convertToEbayFormat.extractMultipleValues(info.product_description);
-      }
+    if (!mapping) {
+      console.warn(`No mapping found for Amazon field: ${amazonFieldName}`);
+      return "";
     }
 
-    // Handle prodTechInfo section
-    if (productData.prodTechInfo) {
-      const techInfo = productData.prodTechInfo;
-
-      // Basic info
-      transformed.manufacturer = convertToEbayFormat.extractValue(techInfo.manufacturer);
-      transformed.modelName = convertToEbayFormat.extractValue(techInfo.model_name);
-      transformed.modelNumber = convertToEbayFormat.extractValue(techInfo.model_number);
-      transformed.color = convertToEbayFormat.extractValue(techInfo.color);
-      transformed.condition = convertToEbayFormat.extractValue(techInfo.condition_type);
-      transformed.countryOfOrigin = convertToEbayFormat.extractValue(techInfo.country_of_origin);
-
-      // Weight and dimensions
-      if (techInfo.item_weight && techInfo.item_weight[0]) {
-        transformed.weight = `${techInfo.item_weight[0].value} ${techInfo.item_weight[0].unit}`;
-      }
-
-      if (techInfo.item_dimensions && techInfo.item_dimensions[0]) {
-        const dims = techInfo.item_dimensions[0];
-        transformed.dimensions = {
-          length: `${dims.length.value} ${dims.length.unit}`,
-          width: `${dims.width.value} ${dims.width.unit}`,
-          height: `${dims.height.value} ${dims.height.unit}`,
-        };
-      }
-
-      // Memory capacity
-      if (techInfo.memory_storage_capacity && techInfo.memory_storage_capacity[0]) {
-        const memory = techInfo.memory_storage_capacity[0];
-        transformed.memoryCapacity = `${memory.value} ${memory.unit}`;
-      }
-
-      // CPU information
-      if (techInfo.cpu_model && techInfo.cpu_model[0]) {
-        const cpu = techInfo.cpu_model[0];
-        transformed.processor = {
-          manufacturer: convertToEbayFormat.extractValue(cpu.manufacturer),
-          family: convertToEbayFormat.extractValue(cpu.family),
-          model: convertToEbayFormat.extractValue(cpu.model_number),
-          speed: cpu.speed ? `${cpu.speed[0].value} ${cpu.speed[0].unit}` : null,
-          maxSpeed: cpu.speed_maximum ? `${cpu.speed_maximum[0].value} ${cpu.speed_maximum[0].unit}` : null,
-          generation: convertToEbayFormat.extractValue(cpu.generation),
-          codename: convertToEbayFormat.extractValue(cpu.codename),
-        };
-      }
-
-      // Display information
-      if (techInfo.display && techInfo.display[0]) {
-        const display = techInfo.display[0];
-        transformed.display = {
-          size: display.size ? `${display.size[0].value} ${display.size[0].unit}` : null,
-          resolution: convertToEbayFormat.extractValue(display.resolution_maximum),
-          technology: convertToEbayFormat.extractValue(display.technology),
-          type: convertToEbayFormat.extractValue(display.type),
-        };
-      }
-
-      // Storage information
-      if (techInfo.solid_state_storage_drive && techInfo.solid_state_storage_drive[0]) {
-        const storage = techInfo.solid_state_storage_drive[0];
-        transformed.storage = {
-          capacity: `${storage.capacity.value} ${storage.capacity.unit}`,
-          formFactor: storage.form_factor,
-          interface: storage.interface,
-          maxReadSpeed: storage.maximum_sequential_read
-            ? `${storage.maximum_sequential_read.value} ${storage.maximum_sequential_read.unit}`
-            : null,
-          maxWriteSpeed: storage.maximum_sequential_write
-            ? `${storage.maximum_sequential_write.value} ${storage.maximum_sequential_write.unit}`
-            : null,
-        };
-      }
-
-      // Bullet points for features
-      if (techInfo.bullet_point) {
-        transformed.features = techInfo.bullet_point.map((item: any) => item.value);
-      }
-
-      // Inventory and fulfillment
-      transformed.maxOrderQuantity = convertToEbayFormat.extractValue(techInfo.max_order_quantity);
-
-      if (techInfo.fulfillment_availability) {
-        transformed.inventory = techInfo.fulfillment_availability.map((item: any) => ({
-          channel: item.fulfillment_channel_code,
-          quantity: item.quantity,
-        }));
-      }
-
-      // Keywords and categories
-      transformed.keywords = convertToEbayFormat.extractValue(techInfo.generic_keyword);
-      transformed.category = convertToEbayFormat.extractValue(techInfo.recommended_browse_nodes);
+    try {
+      return mapping.converter(prodTechInfo);
+    } catch (error) {
+      console.error(`Error converting field ${amazonFieldName}:`, error);
+      return "";
     }
+  },
 
-    return transformed;
+  /**
+   * Transform entire Amazon prodTechInfo to eBay format
+   * @param {Object} prodTechInfo - The Amazon product technical information
+   * @returns {Object} - eBay-compatible data with simple strings/arrays
+   */
+  transformProdTechInfo: (prodTechInfo: any) => {
+    console.log("Converting Amazon data to eBay format:", prodTechInfo);
+    const ebayData: any = {};
+
+    // Process each Amazon field that has a mapping
+    Object.keys(prodTechInfo).forEach((amazonFieldName) => {
+      if (convertToEbayFormat.hasFieldMapping(amazonFieldName)) {
+        const mapping =
+          convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
+        const ebayValue = convertToEbayFormat.convertField(prodTechInfo, amazonFieldName);
+
+        // Only add non-empty values
+        if (ebayValue !== "" && ebayValue !== null && ebayValue !== undefined) {
+          // For arrays, only add if not empty
+          if (Array.isArray(ebayValue) && ebayValue.length === 0) {
+            return;
+          }
+
+          ebayData[mapping.ebayField] = ebayValue;
+        }
+      } else {
+        console.log(`Amazon field '${amazonFieldName}' not mapped, skipping...`);
+      }
+    });
+
+    console.log("Converted eBay data:", ebayData);
+    return ebayData;
+  },
+
+  /**
+   * Get all available eBay field names from mappings
+   * @returns {string[]} - Array of eBay field names
+   */
+  getEbayFieldNames: () => {
+    return Object.values(convertToEbayFormat.fieldMappings).map((mapping) => mapping.ebayField);
+  },
+
+  /**
+   * Get all available Amazon field names from mappings
+   * @returns {string[]} - Array of Amazon field names
+   */
+  getAmazonFieldNames: () => {
+    return Object.keys(convertToEbayFormat.fieldMappings);
   },
 };

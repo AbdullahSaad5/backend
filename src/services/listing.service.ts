@@ -15,7 +15,7 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data in listing : ", stepData);
+      console.log("step Data in listing: ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
@@ -47,7 +47,9 @@ export const listingService = {
       // If publishToEbay is true, flatten the prodTechInfo
       if (stepData.publishToEbay) {
         prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
-        console.log(prodTechInfoFromInventory);
+        console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
+      } else {
+        console.log("Using original prodTechInfo for Amazon or other platforms:", prodTechInfoFromInventory);
       }
 
       const productInfo = {
@@ -81,8 +83,8 @@ export const listingService = {
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variations check : ", stepData.listingWithStock);
-      console.log("draftListingData here there : ", draftListingData);
+      console.log("listing has variations check: ", stepData.listingWithStock);
+      console.log("draftListingData here there: ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
@@ -100,7 +102,7 @@ export const listingService = {
         }
       });
 
-      console.log("draftListingData before save : ", draftListingData);
+      console.log("draftListingData before save: ", draftListingData);
 
       // Create and save the draft listing
       if (!Listing.discriminators || !Listing.discriminators[kind]) {
