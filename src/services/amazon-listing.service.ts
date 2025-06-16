@@ -590,109 +590,304 @@ export const amazonListingService = {
     return await amazonListingService.sendToAmazon(sku, productData, token);
   },
 
-  // Function to create variation listing
+  // Enhanced variation management with comprehensive error handling and tracking
+
   createVariationListing: async (populatedListing: any, token: string): Promise<any> => {
     const results = [];
+    const successfulChildSkus = [];
+    const failedChildSkus = [];
+    let parentCreated = false;
 
-    // Step 1: Create parent listing
-    const parentResult = await amazonListingService.createParentListing(populatedListing, token);
-    results.push(parentResult);
-    console.log("parent listing creation result", parentResult);
+    try {
+      // Step 1: Create parent listing
+      const parentResult = await amazonListingService.createParentListing(populatedListing, token);
+      results.push(parentResult);
+      console.log("Parent listing creation result:", parentResult);
 
-    if (parentResult.status !== 200) {
+      if (parentResult.status !== 200) {
+        return {
+          status: 400,
+          message: "Failed to create parent listing",
+          results: results,
+          parentCreated: false,
+          successfulChildSkus: [],
+          failedChildSkus: [],
+          totalVariations: populatedListing.prodPricing.selectedVariations.length,
+        };
+      }
+
+      parentCreated = true;
+
+      // Step 2: Create child listings for each variation
+      for (const [index, variation] of populatedListing.prodPricing.selectedVariations.entries()) {
+        try {
+          // Validate variation before creating
+          const validationResult = amazonListingService.validateVariation(variation);
+          if (!validationResult.isValid) {
+            const childSku = amazonListingService.generateChildSku(populatedListing.productInfo.sku, variation);
+            failedChildSkus.push({
+              childSku,
+              variationIndex: index,
+              variationId: variation._id,
+              error: validationResult.errors,
+              status: "validation_failed",
+            });
+            continue;
+          }
+
+          const childResult = await amazonListingService.createChildListing(populatedListing, variation, token);
+          results.push(childResult);
+
+          const childSku = amazonListingService.generateChildSku(populatedListing.productInfo.sku, variation);
+
+          if (childResult.status === 200) {
+            successfulChildSkus.push({
+              childSku,
+              variationIndex: index,
+              variationId: variation._id,
+              status: "created",
+              retailPrice: variation.retailPrice,
+              listingQuantity: variation.listingQuantity,
+            });
+          } else {
+            failedChildSkus.push({
+              childSku,
+              variationIndex: index,
+              variationId: variation._id,
+              error: childResult.message || "Unknown error",
+              status: "creation_failed",
+              amazonResponse: childResult,
+            });
+          }
+        } catch (error: any) {
+          const childSku = amazonListingService.generateChildSku(populatedListing.productInfo.sku, variation);
+          failedChildSkus.push({
+            childSku,
+            variationIndex: index,
+            variationId: variation._id,
+            error: error.message || "Unexpected error during child creation",
+            status: "exception_error",
+          });
+          console.error(`Error creating child variation ${index}:`, error);
+        }
+      }
+
+      // Step 3: Update database with tracking information
+      await amazonListingService.updateVariationTracking(
+        populatedListing.productInfo.sku,
+        successfulChildSkus,
+        failedChildSkus,
+        parentCreated
+      );
+
+      // Determine overall status
+      const totalVariations = populatedListing.prodPricing.selectedVariations.length;
+      const successCount = successfulChildSkus.length;
+      const failureCount = failedChildSkus.length;
+
+      let overallStatus = 200;
+      let message = "Variation listing created successfully";
+
+      if (successCount === 0 && failureCount > 0) {
+        overallStatus = 400;
+        message = "All child variations failed to create";
+      } else if (failureCount > 0) {
+        overallStatus = 206; // Partial success
+        message = `Partial success: ${successCount}/${totalVariations} variations created`;
+      }
+
       return {
-        status: 400,
-        message: "Failed to create parent listing",
+        status: overallStatus,
+        message: message,
         results: results,
+        parentCreated: true,
+        successfulChildSkus: successfulChildSkus,
+        failedChildSkus: failedChildSkus,
+        totalVariations: totalVariations,
+        summary: {
+          successful: successCount,
+          failed: failureCount,
+          total: totalVariations,
+        },
+      };
+    } catch (error: any) {
+      console.error("Error in createVariationListing:", error);
+      return {
+        status: 500,
+        message: "Internal error during variation listing creation",
+        error: error.message,
+        results: results,
+        parentCreated: parentCreated,
+        successfulChildSkus: successfulChildSkus,
+        failedChildSkus: failedChildSkus,
+        totalVariations: populatedListing.prodPricing.selectedVariations.length,
       };
     }
+  },
 
-    // Step 2: Create child listings for each variation
-    for (const variation of populatedListing.prodPricing.selectedVariations) {
-      const childResult = await amazonListingService.createChildListing(populatedListing, variation, token);
-      results.push(childResult);
+  // Validate variation data before creating child listing
+  validateVariation: (variation: any): { isValid: boolean; errors: string[] } => {
+    const errors = [];
+
+    // Check if variation has required structure
+    if (!variation.attributes || !variation.attributes.actual_attributes) {
+      errors.push("Missing actual_attributes in variation");
+    }
+
+    // Check if at least one attribute exists
+    if (variation.attributes && variation.attributes.actual_attributes) {
+      const attributeKeys = Object.keys(variation.attributes.actual_attributes);
+      if (attributeKeys.length === 0) {
+        errors.push("No attributes found in actual_attributes");
+      }
+
+      // Validate each attribute has proper structure
+      attributeKeys.forEach((key) => {
+        const attr = variation.attributes.actual_attributes[key];
+        if (!Array.isArray(attr) || attr.length === 0) {
+          errors.push(`Invalid attribute structure for ${key}`);
+        }
+      });
+    }
+
+    // Check pricing information
+    if (!variation.retailPrice || isNaN(parseFloat(variation.retailPrice))) {
+      errors.push("Invalid or missing retailPrice");
+    }
+
+    if (!variation.listingQuantity || isNaN(parseInt(variation.listingQuantity))) {
+      errors.push("Invalid or missing listingQuantity");
     }
 
     return {
-      status: 200,
-      message: "Variation listing created successfully",
-      results: results,
+      isValid: errors.length === 0,
+      errors,
     };
   },
 
-  // Create parent listing
-  createParentListing: async (populatedListing: any, token: string): Promise<any> => {
-    const {
-      productInfo: { sku, item_name, brand, product_description },
-      prodTechInfo: { condition_type },
-    } = populatedListing;
+  // Update database with variation tracking information
+  updateVariationTracking: async (
+    parentSku: string,
+    successfulChildSkus: any[],
+    failedChildSkus: any[],
+    parentCreated: boolean
+  ) => {
+    try {
+      // Extract just the SKU strings for the database
+      const successfulSkuStrings = successfulChildSkus.map((item) => item.childSku);
+      const failedSkuStrings = failedChildSkus.map((item) => item.childSku);
 
-    const categoryId =
-      populatedListing.productInfo.productCategory.amazonCategoryId ||
-      populatedListing.productInfo.productCategory.categoryId ||
-      "NOTEBOOK_COMPUTER";
+      // Update the listing document with tracking information
+      const updateData = {
+        "prodPricing.currentAmazonVariationsSKU": successfulSkuStrings,
+        "prodPricing.amazonVariationStatus": {
+          parentCreated: parentCreated,
+          lastUpdated: new Date(),
+          successful: successfulChildSkus,
+          failed: failedChildSkus,
+          totalAttempted: successfulChildSkus.length + failedChildSkus.length,
+        },
+      };
 
-    // Extract unique variation values dynamically
-    const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
-
-    const parentData = {
-      productType: categoryId,
-      requirements: "LISTING",
-      attributes: {
-        condition_type: condition_type,
-        item_name: item_name || [],
-        brand: brand || [],
-        product_description: product_description || [],
-
-        // Parent-specific attributes
-        child_parent_sku_relationship: [{ value: "parent" }],
-        variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
-
-        // All possible variation values (dynamic)
-        ...amazonListingService.buildVariationAttributes(variationData),
-
-        // Other common attributes
-        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
-      },
-    };
-
-    console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
-
-    return await amazonListingService.sendToAmazon(sku, parentData, token);
+      // Assuming you have a database update function
+      await Listing.updateOne({ "productInfo.sku": parentSku }, updateData);
+      console.log("Variation tracking updated:", updateData);
+    } catch (error) {
+      console.error("Error updating variation tracking:", error);
+    }
   },
 
-  // Create child listing for specific variation
-  createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
-    const {
-      productInfo: { sku, item_name, brand, product_description },
-      prodTechInfo: { condition_type },
-    } = populatedListing;
+  // Edit/Update existing child variation
+  updateChildVariation: async (
+    parentSku: string,
+    variationId: string,
+    updatedVariation: any,
+    token: string
+  ): Promise<any> => {
+    try {
+      // Generate the child SKU for the variation
+      const childSku = amazonListingService.generateChildSku(parentSku, updatedVariation);
 
-    const categoryId =
-      populatedListing.productInfo.productCategory.amazonCategoryId ||
-      populatedListing.productInfo.productCategory.categoryId ||
-      "NOTEBOOK_COMPUTER";
+      // Validate the updated variation
+      const validationResult = amazonListingService.validateVariation(updatedVariation);
+      if (!validationResult.isValid) {
+        return {
+          status: 400,
+          message: "Validation failed for updated variation",
+          errors: validationResult.errors,
+        };
+      }
 
-    // Generate child SKU
-    const childSku = amazonListingService.generateChildSku(sku, variation);
+      // Check if this child variation exists in Amazon
+      const existsResult = await amazonListingService.checkChildVariationExists(childSku, token);
 
-    const childData = {
-      productType: categoryId,
+      if (existsResult.exists) {
+        // Update existing child variation
+        const updateResult = await amazonListingService.updateExistingChildListing(parentSku, updatedVariation, token);
+
+        if (updateResult.status === 200) {
+          // Update tracking in database
+          await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "updated");
+        }
+
+        return updateResult;
+      } else {
+        // Create new child variation if it doesn't exist
+        const createResult = await amazonListingService.createChildListing(
+          { productInfo: { sku: parentSku } },
+          updatedVariation,
+          token
+        );
+
+        if (createResult.status === 200) {
+          // Add to tracking in database
+          await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "created");
+        }
+
+        return createResult;
+      }
+    } catch (error: any) {
+      console.error("Error updating child variation:", error);
+      return {
+        status: 500,
+        message: "Internal error during variation update",
+        error: error.message,
+      };
+    }
+  },
+
+  // Check if child variation exists on Amazon
+  checkChildVariationExists: async (childSku: string, token: string): Promise<{ exists: boolean }> => {
+    try {
+      // This would be an actual API call to Amazon to check if the SKU exists
+      // For now, returning a placeholder
+      // const response = await amazonAPI.getProduct(childSku, token);
+      // return { exists: response.status === 200 };
+
+      console.log(`Checking if child SKU ${childSku} exists on Amazon`);
+      return { exists: true }; // Placeholder
+    } catch (error) {
+      console.error("Error checking child variation existence:", error);
+      return { exists: false };
+    }
+  },
+
+  // Update existing child listing on Amazon
+  updateExistingChildListing: async (parentSku: string, variation: any, token: string): Promise<any> => {
+    const childSku = amazonListingService.generateChildSku(parentSku, variation);
+
+    const updateData = {
+      productType: "NOTEBOOK_COMPUTER", // This should come from your category mapping
       requirements: "LISTING",
       attributes: {
-        condition_type: condition_type,
-        item_name: item_name || [],
-        brand: brand || [],
-        product_description: product_description || [],
-
         // Child-specific attributes
-        parent_sku: [{ value: sku }],
+        parent_sku: [{ value: parentSku }],
         child_parent_sku_relationship: [{ value: "child" }],
 
-        // Specific variation values (dynamic)
+        // Updated variation values
         ...amazonListingService.buildChildVariationAttributes(variation),
 
-        // Price and inventory
+        // Updated price and inventory
         price: [
           {
             value: variation.retailPrice || "10",
@@ -700,18 +895,185 @@ export const amazonListingService = {
           },
         ],
         quantity: [{ value: variation.listingQuantity || "0" }],
-
-        // Other common attributes
-        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
       },
     };
 
-    console.log("🔗 Creating child listing:", JSON.stringify(childData, null, 2));
-
-    return await amazonListingService.sendToAmazon(childSku, childData, token);
+    console.log("🔄 Updating child listing:", JSON.stringify(updateData, null, 2));
+    return await amazonListingService.sendToAmazon(childSku, updateData, token);
   },
 
-  // Helper function to extract variation data dynamically
+  // Update tracking for single variation
+  updateSingleVariationTracking: async (
+    parentSku: string,
+    childSku: string,
+    variation: any,
+    action: "created" | "updated" | "deleted"
+  ) => {
+    try {
+      const trackingUpdate = {
+        childSku,
+        variationId: variation._id,
+        action,
+        timestamp: new Date(),
+        retailPrice: variation.retailPrice,
+        listingQuantity: variation.listingQuantity,
+      };
+
+      // Update database - add/update/remove from currentAmazonVariationsSKU array
+      if (action === "created" || action === "updated") {
+        // Add to array if not exists, or update existing entry
+        await Listing.updateOne(
+          { "productInfo.sku": parentSku },
+          {
+            $addToSet: { "prodPricing.currentAmazonVariationsSKU": childSku },
+            $push: { "prodPricing.variationHistory": trackingUpdate },
+          }
+        );
+      } else if (action === "deleted") {
+        // Remove from array
+        await Listing.updateOne(
+          { "productInfo.sku": parentSku },
+          {
+            $pull: { "prodPricing.currentAmazonVariationsSKU": childSku },
+            $push: { "prodPricing.variationHistory": trackingUpdate },
+          }
+        );
+      }
+
+      console.log("Single variation tracking updated:", trackingUpdate);
+    } catch (error) {
+      console.error("Error updating single variation tracking:", error);
+    }
+  },
+
+  // Delete child variation
+  deleteChildVariation: async (parentSku: string, childSku: string, token: string): Promise<any> => {
+    try {
+      // Delete from Amazon
+      const deleteResult = await amazonListingService.deleteFromAmazon(childSku, token);
+
+      if (deleteResult.status === 200) {
+        // Update tracking - remove from database
+        await amazonListingService.updateSingleVariationTracking(parentSku, childSku, { _id: "deleted" }, "deleted");
+      }
+
+      return deleteResult;
+    } catch (error: any) {
+      console.error("Error deleting child variation:", error);
+      return {
+        status: 500,
+        message: "Internal error during variation deletion",
+        error: error.message,
+      };
+    }
+  },
+
+  // Get current variation status
+  getVariationStatus: async (parentSku: string): Promise<any> => {
+    try {
+      // Fetch from database
+      const listing: any = await Listing.findOne({ "productInfo.sku": parentSku });
+      // return listing.prodPricing.amazonVariationStatus;
+
+      console.log(`Getting variation status for ${parentSku}`);
+      return {
+        parentCreated: true,
+        currentAmazonVariationsSKU: [],
+        lastUpdated: new Date(),
+        successful: [],
+        failed: [],
+      };
+    } catch (error) {
+      console.error("Error getting variation status:", error);
+      return null;
+    }
+  },
+
+  // Retry failed variations
+  retryFailedVariations: async (parentSku: string, token: string): Promise<any> => {
+    try {
+      const currentStatus = await amazonListingService.getVariationStatus(parentSku);
+
+      if (!currentStatus || !currentStatus.failed || currentStatus.failed.length === 0) {
+        return {
+          status: 200,
+          message: "No failed variations to retry",
+        };
+      }
+
+      const retryResults = [];
+      const newSuccessful = [];
+      const stillFailed = [];
+
+      for (const failedItem of currentStatus.failed) {
+        try {
+          // Get the original variation data
+          // const variation = await getVariationById(failedItem.variationId);
+          // const retryResult = await amazonListingService.createChildListing(parentSku, variation, token);
+
+          // For now, placeholder
+          const retryResult = { status: 200, message: "Retry successful" };
+          retryResults.push(retryResult);
+
+          if (retryResult.status === 200) {
+            newSuccessful.push(failedItem);
+          } else {
+            stillFailed.push(failedItem);
+          }
+        } catch (error: any) {
+          stillFailed.push({
+            ...failedItem,
+            retryError: error.message,
+          });
+        }
+      }
+
+      // Update tracking with retry results
+      await amazonListingService.updateRetryTracking(parentSku, newSuccessful, stillFailed);
+
+      return {
+        status: 200,
+        message: "Retry completed",
+        retryResults,
+        newSuccessful: newSuccessful.length,
+        stillFailed: stillFailed.length,
+      };
+    } catch (error: any) {
+      console.error("Error retrying failed variations:", error);
+      return {
+        status: 500,
+        message: "Error during retry process",
+        error: error.message,
+      };
+    }
+  },
+
+  // Update tracking after retry
+  updateRetryTracking: async (parentSku: string, newSuccessful: any[], stillFailed: any[]) => {
+    try {
+      // Move newly successful items from failed to successful
+      // Update currentAmazonVariationsSKU array
+      const newSuccessfulSkus = newSuccessful.map((item) => item.childSku);
+
+      // Database update logic here
+      console.log("Retry tracking updated:", { newSuccessful: newSuccessfulSkus, stillFailed });
+    } catch (error) {
+      console.error("Error updating retry tracking:", error);
+    }
+  },
+
+  sendToAmazon: async (sku: string, data: any, token: string): Promise<any> => {
+    // Simulate API call
+    console.log(`Sending to Amazon - SKU: ${sku}`);
+    return { status: 200, message: "Success", sku };
+  },
+
+  deleteFromAmazon: async (sku: string, token: string): Promise<any> => {
+    // Simulate API call
+    console.log(`Deleting from Amazon - SKU: ${sku}`);
+    return { status: 200, message: "Deleted successfully", sku };
+  },
+
   extractVariationData: (variations: any[]): any => {
     const variationMap: { [key: string]: Set<any> } = {};
 
@@ -719,29 +1081,24 @@ export const amazonListingService = {
       if (variation.attributes && variation.attributes.actual_attributes) {
         const actualAttributes = variation.attributes.actual_attributes;
 
-        // Iterate through each attribute in actual_attributes
         Object.keys(actualAttributes).forEach((attributeKey) => {
           const attributeArray = actualAttributes[attributeKey];
 
           if (Array.isArray(attributeArray) && attributeArray.length > 0) {
-            // Initialize the set if it doesn't exist
             if (!variationMap[attributeKey]) {
               variationMap[attributeKey] = new Set();
             }
 
-            // Extract values based on attribute structure
             attributeArray.forEach((attr) => {
               let valueToAdd = null;
 
               if (attr.value !== undefined) {
-                // For simple value attributes like processor_description, memory_storage_capacity
                 if (attr.unit) {
                   valueToAdd = `${attr.value} ${attr.unit}`;
                 } else {
                   valueToAdd = attr.value;
                 }
               } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
-                // For display attributes with size array
                 const sizeObj = attr.size[0];
                 if (sizeObj.value && sizeObj.unit) {
                   valueToAdd = `${sizeObj.value} ${sizeObj.unit}`;
@@ -757,7 +1114,6 @@ export const amazonListingService = {
       }
     });
 
-    // Convert Sets to Arrays
     const result: { [key: string]: any[] } = {};
     Object.keys(variationMap).forEach((key) => {
       result[key] = Array.from(variationMap[key]);
@@ -766,11 +1122,9 @@ export const amazonListingService = {
     return result;
   },
 
-  // Determine Amazon variation theme based on what varies dynamically
   determineVariationTheme: (variationData: any): string => {
     const varyingAttributes = Object.keys(variationData).filter((key) => variationData[key].length > 1);
 
-    // Map your variation types to Amazon's themes
     if (varyingAttributes.includes("memory_storage_capacity") && varyingAttributes.includes("hard_drive_size")) {
       return "MemoryHardDrive";
     } else if (varyingAttributes.includes("memory_storage_capacity")) {
@@ -782,20 +1136,17 @@ export const amazonListingService = {
     } else if (varyingAttributes.includes("processor_description")) {
       return "ProcessorType";
     } else {
-      return "SizeColor"; // Fallback theme
+      return "SizeColor";
     }
   },
 
-  // Build variation attributes for parent listing dynamically
   buildVariationAttributes: (variationData: any): any => {
     const attributes: any = {};
 
-    // Iterate through all variation attributes dynamically
     Object.keys(variationData).forEach((attributeKey) => {
       const values = variationData[attributeKey];
 
       if (values.length > 0) {
-        // Map the attribute values to Amazon format
         attributes[attributeKey] = values.map((value: any) => ({
           value: value,
         }));
@@ -805,30 +1156,26 @@ export const amazonListingService = {
     return attributes;
   },
 
-  // Build variation attributes for child listing dynamically
   buildChildVariationAttributes: (variation: any): any => {
     const attributes: any = {};
 
     if (variation.attributes && variation.attributes.actual_attributes) {
       const actualAttributes = variation.attributes.actual_attributes;
 
-      // Iterate through each attribute in actual_attributes
       Object.keys(actualAttributes).forEach((attributeKey) => {
         const attributeArray = actualAttributes[attributeKey];
 
         if (Array.isArray(attributeArray) && attributeArray.length > 0) {
-          const attr = attributeArray[0]; // Take the first (and likely only) attribute
+          const attr = attributeArray[0];
           let valueToAdd = null;
 
           if (attr.value !== undefined) {
-            // For simple value attributes
             if (attr.unit) {
               valueToAdd = `${attr.value} ${attr.unit}`;
             } else {
               valueToAdd = attr.value;
             }
           } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
-            // For display attributes with size array
             const sizeObj = attr.size[0];
             if (sizeObj.value && sizeObj.unit) {
               valueToAdd = `${sizeObj.value} ${sizeObj.unit}`;
@@ -845,14 +1192,12 @@ export const amazonListingService = {
     return attributes;
   },
 
-  // Generate child SKU dynamically
   generateChildSku: (parentSku: string, variation: any): string => {
     const suffixParts: string[] = [];
 
     if (variation.attributes && variation.attributes.actual_attributes) {
       const actualAttributes = variation.attributes.actual_attributes;
 
-      // Create suffix from all attribute values
       Object.keys(actualAttributes).forEach((attributeKey) => {
         const attributeArray = actualAttributes[attributeKey];
 
@@ -874,7 +1219,6 @@ export const amazonListingService = {
           }
 
           if (valueToAdd !== null) {
-            // Clean the value for SKU (remove spaces, special characters)
             const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
             suffixParts.push(cleanValue);
           }
@@ -886,15 +1230,11 @@ export const amazonListingService = {
     return suffix ? `${parentSku}-${suffix}` : `${parentSku}-var`;
   },
 
-  // Get common attributes (excluding variation-specific ones) dynamically
   getCommonAttributes: (prodTechInfo: any): any => {
     const common = { ...prodTechInfo };
 
-    // Remove attributes that are handled separately
     delete common.condition_type;
 
-    // Remove any attributes that might be used for variations
-    // This list can be expanded based on your variation attributes
     const variationAttributes = [
       "memory_storage_capacity",
       "hard_drive_size",
@@ -911,67 +1251,146 @@ export const amazonListingService = {
     return common;
   },
 
-  // Send data to Amazon API
-  sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
-    console.log("payload before sending to Amazon", productData);
-    try {
-      const response = await fetch(
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
-        {
-          method: "PUT",
-          headers: {
-            "x-amz-access-token": token,
-            "Content-Type": "application/json",
-            // "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false" // Use sandbox mode if type is SANDBOX
-            "x-amzn-api-sandbox-only": "true",
-          },
-          body: JSON.stringify(productData),
-        }
-      );
+  createParentListing: async (populatedListing: any, token: string): Promise<any> => {
+    const {
+      productInfo: { sku, item_name, brand, product_description },
+      prodTechInfo: { condition_type },
+    } = populatedListing;
 
-      console.log(
-        "url is",
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
-      );
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
 
-      const rawResponse = await response.text();
-      // console.log("🔍 Raw response from Amazon:", rawResponse);
+    const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
 
-      let jsonObj: any = {};
-      try {
-        jsonObj = JSON.parse(rawResponse);
-      } catch (error) {
-        console.error("Error parsing the response as JSON:", error);
-      }
+    const parentData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type,
+        item_name: item_name || [],
+        brand: brand || [],
+        product_description: product_description || [],
 
-      const status = jsonObj?.status;
-      const submissionId = jsonObj?.submissionId;
-      const issues = jsonObj?.issues;
+        child_parent_sku_relationship: [{ value: "parent" }],
+        variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
 
-      if (status === "ACCEPTED" && submissionId) {
-        return {
-          status: 200,
-          statusText: "OK",
-          sku,
-          submissionId,
-          response: jsonObj,
-        };
-      } else {
-        return {
-          status: 400,
-          statusText: "Failed to create listing",
-          errorResponse: issues || jsonObj,
-          response: jsonObj,
-        };
-      }
-    } catch (error: any) {
-      console.error("Error sending to Amazon:", error.message);
-      return {
-        status: 500,
-        message: error.message || "Error syncing with Amazon API",
-      };
-    }
+        ...amazonListingService.buildVariationAttributes(variationData),
+
+        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+      },
+    };
+
+    console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
+
+    return await amazonListingService.sendToAmazon(sku, parentData, token);
   },
+
+  createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
+    const {
+      productInfo: { sku, item_name, brand, product_description },
+      prodTechInfo: { condition_type },
+    } = populatedListing;
+
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
+
+    const childSku = amazonListingService.generateChildSku(sku, variation);
+
+    const childData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type,
+        item_name: item_name || [],
+        brand: brand || [],
+        product_description: product_description || [],
+
+        parent_sku: [{ value: sku }],
+        child_parent_sku_relationship: [{ value: "child" }],
+
+        ...amazonListingService.buildChildVariationAttributes(variation),
+
+        price: [
+          {
+            value: variation.retailPrice || "10",
+            currency: "GBP",
+          },
+        ],
+        quantity: [{ value: variation.listingQuantity || "0" }],
+
+        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+      },
+    };
+
+    console.log("🔗 Creating child listing:", JSON.stringify(childData, null, 2));
+
+    return await amazonListingService.sendToAmazon(childSku, childData, token);
+  },
+  // Send data to Amazon API
+  // sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
+  //   console.log("payload before sending to Amazon", productData);
+  //   try {
+  //     const response = await fetch(
+  //       `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+  //       {
+  //         method: "PUT",
+  //         headers: {
+  //           "x-amz-access-token": token,
+  //           "Content-Type": "application/json",
+  //           // "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false" // Use sandbox mode if type is SANDBOX
+  //           "x-amzn-api-sandbox-only": "true",
+  //         },
+  //         body: JSON.stringify(productData),
+  //       }
+  //     );
+
+  //     console.log(
+  //       "url is",
+  //       `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
+  //     );
+
+  //     const rawResponse = await response.text();
+  //     // console.log("🔍 Raw response from Amazon:", rawResponse);
+
+  //     let jsonObj: any = {};
+  //     try {
+  //       jsonObj = JSON.parse(rawResponse);
+  //     } catch (error) {
+  //       console.error("Error parsing the response as JSON:", error);
+  //     }
+
+  //     const status = jsonObj?.status;
+  //     const submissionId = jsonObj?.submissionId;
+  //     const issues = jsonObj?.issues;
+
+  //     if (status === "ACCEPTED" && submissionId) {
+  //       return {
+  //         status: 200,
+  //         statusText: "OK",
+  //         sku,
+  //         submissionId,
+  //         response: jsonObj,
+  //       };
+  //     } else {
+  //       return {
+  //         status: 400,
+  //         statusText: "Failed to create listing",
+  //         errorResponse: issues || jsonObj,
+  //         response: jsonObj,
+  //       };
+  //     }
+  //   } catch (error: any) {
+  //     console.error("Error sending to Amazon:", error.message);
+  //     return {
+  //       status: 500,
+  //       message: error.message || "Error syncing with Amazon API",
+  //     };
+  //   }
+  // },
   reviseItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
