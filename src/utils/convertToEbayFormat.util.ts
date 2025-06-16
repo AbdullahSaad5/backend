@@ -437,7 +437,6 @@ export const convertToEbayFormat = {
    * @returns {Object} - eBay-compatible data with simple strings/arrays
    */
   transformProdTechInfo: (prodData: Map<string, any>) => {
-    // console.log("Converting Amazon data to eBay format:", prodData);
     const ebayData: any = {};
 
     for (const amazonFieldName of prodData.keys()) {
@@ -448,7 +447,7 @@ export const convertToEbayFormat = {
       }
 
       if (convertToEbayFormat.hasFieldMapping(amazonFieldName)) {
-        // Handle explicit mappings
+        // ✅ Handle mapped fields
         const mapping =
           convertToEbayFormat.fieldMappings[amazonFieldName as keyof typeof convertToEbayFormat.fieldMappings];
         const ebayValue = convertToEbayFormat.convertField(prodData, amazonFieldName);
@@ -462,10 +461,10 @@ export const convertToEbayFormat = {
           ebayData[mapping.ebayField] = ebayValue;
         }
       } else {
-        // Handle unmapped fields dynamically
+        // ✅ Handle unmapped fields using snake_case names
         const ebayValue = convertToEbayFormat.dynamicFieldConverter(prodData, amazonFieldName);
         if (ebayValue !== "" && ebayValue !== null && ebayValue !== undefined) {
-          const ebayFieldName = convertToEbayFormat.toTitleCase(amazonFieldName);
+          const ebayFieldName = convertToEbayFormat.toSnakeCase(amazonFieldName);
           ebayData[ebayFieldName] = ebayValue;
           console.log(`Dynamically mapped Amazon field '${amazonFieldName}' to eBay field '${ebayFieldName}'`);
         } else {
@@ -474,8 +473,14 @@ export const convertToEbayFormat = {
       }
     }
 
-    // console.log("Converted eBay data:", ebayData);
     return ebayData;
+  },
+  toSnakeCase: (str: string): string => {
+    return str
+      .replace(/\s+/g, "_") // spaces to underscores
+      .replace(/([a-z])([A-Z])/g, "$1_$2") // camelCase to snake_case
+      .replace(/__+/g, "_") // multiple underscores to one
+      .toLowerCase();
   },
 
   /**
