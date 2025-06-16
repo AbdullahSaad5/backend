@@ -597,7 +597,7 @@ export const amazonListingService = {
     // Step 1: Create parent listing
     const parentResult = await amazonListingService.createParentListing(populatedListing, token);
     results.push(parentResult);
-    console.log("parent listing creation  result", parentResult);
+    console.log("parent listing creation result", parentResult);
 
     if (parentResult.status !== 200) {
       return {
@@ -632,7 +632,7 @@ export const amazonListingService = {
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
 
-    // Extract unique variation values
+    // Extract unique variation values dynamically
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
 
     const parentData = {
@@ -648,7 +648,7 @@ export const amazonListingService = {
         child_parent_sku_relationship: [{ value: "parent" }],
         variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
 
-        // All possible variation values
+        // All possible variation values (dynamic)
         ...amazonListingService.buildVariationAttributes(variationData),
 
         // Other common attributes
@@ -689,7 +689,7 @@ export const amazonListingService = {
         parent_sku: [{ value: sku }],
         child_parent_sku_relationship: [{ value: "child" }],
 
-        // Specific variation values
+        // Specific variation values (dynamic)
         ...amazonListingService.buildChildVariationAttributes(variation),
 
         // Price and inventory
@@ -711,125 +711,202 @@ export const amazonListingService = {
     return await amazonListingService.sendToAmazon(childSku, childData, token);
   },
 
-  // Helper function to extract variation data
+  // Helper function to extract variation data dynamically
   extractVariationData: (variations: any[]): any => {
-    const variationMap = {
-      RAM: new Set(),
-      ROM: new Set(),
-      CPU: new Set(),
-      GPU: new Set(),
-    };
+    const variationMap: { [key: string]: Set<any> } = {};
 
     variations.forEach((variation) => {
-      const variationDetails = variation.variationId;
-      if (variationDetails.RAM) variationMap.RAM.add(variationDetails.RAM);
-      if (variationDetails.ROM) variationMap.ROM.add(variationDetails.ROM);
-      if (variationDetails.CPU) variationMap.CPU.add(variationDetails.CPU);
-      if (variationDetails.GPU) variationMap.GPU.add(variationDetails.GPU);
+      if (variation.attributes && variation.attributes.actual_attributes) {
+        const actualAttributes = variation.attributes.actual_attributes;
+
+        // Iterate through each attribute in actual_attributes
+        Object.keys(actualAttributes).forEach((attributeKey) => {
+          const attributeArray = actualAttributes[attributeKey];
+
+          if (Array.isArray(attributeArray) && attributeArray.length > 0) {
+            // Initialize the set if it doesn't exist
+            if (!variationMap[attributeKey]) {
+              variationMap[attributeKey] = new Set();
+            }
+
+            // Extract values based on attribute structure
+            attributeArray.forEach((attr) => {
+              let valueToAdd = null;
+
+              if (attr.value !== undefined) {
+                // For simple value attributes like processor_description, memory_storage_capacity
+                if (attr.unit) {
+                  valueToAdd = `${attr.value} ${attr.unit}`;
+                } else {
+                  valueToAdd = attr.value;
+                }
+              } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
+                // For display attributes with size array
+                const sizeObj = attr.size[0];
+                if (sizeObj.value && sizeObj.unit) {
+                  valueToAdd = `${sizeObj.value} ${sizeObj.unit}`;
+                }
+              }
+
+              if (valueToAdd !== null) {
+                variationMap[attributeKey].add(valueToAdd);
+              }
+            });
+          }
+        });
+      }
     });
 
     // Convert Sets to Arrays
-    return {
-      RAM: Array.from(variationMap.RAM),
-      ROM: Array.from(variationMap.ROM),
-      CPU: Array.from(variationMap.CPU),
-      GPU: Array.from(variationMap.GPU),
-    };
+    const result: { [key: string]: any[] } = {};
+    Object.keys(variationMap).forEach((key) => {
+      result[key] = Array.from(variationMap[key]);
+    });
+
+    return result;
   },
 
-  // Determine Amazon variation theme based on what varies
+  // Determine Amazon variation theme based on what varies dynamically
   determineVariationTheme: (variationData: any): string => {
     const varyingAttributes = Object.keys(variationData).filter((key) => variationData[key].length > 1);
 
     // Map your variation types to Amazon's themes
-    if (varyingAttributes.includes("RAM") && varyingAttributes.includes("ROM")) {
+    if (varyingAttributes.includes("memory_storage_capacity") && varyingAttributes.includes("hard_drive_size")) {
       return "MemoryHardDrive";
-    } else if (varyingAttributes.includes("RAM")) {
+    } else if (varyingAttributes.includes("memory_storage_capacity")) {
       return "Memory";
-    } else if (varyingAttributes.includes("ROM")) {
+    } else if (varyingAttributes.includes("hard_drive_size")) {
       return "HardDrive";
+    } else if (varyingAttributes.includes("display")) {
+      return "Size";
+    } else if (varyingAttributes.includes("processor_description")) {
+      return "ProcessorType";
     } else {
       return "SizeColor"; // Fallback theme
     }
   },
 
-  // Build variation attributes for parent listing
+  // Build variation attributes for parent listing dynamically
   buildVariationAttributes: (variationData: any): any => {
     const attributes: any = {};
 
-    if (variationData.RAM.length > 0) {
-      attributes.memory_storage_capacity = variationData.RAM.map((ram: string) => ({
-        value: ram,
-      }));
-    }
+    // Iterate through all variation attributes dynamically
+    Object.keys(variationData).forEach((attributeKey) => {
+      const values = variationData[attributeKey];
 
-    if (variationData.ROM.length > 0) {
-      attributes.hard_drive_size = variationData.ROM.map((rom: string) => ({
-        value: rom,
-      }));
-    }
-
-    // For CPU and GPU, you might need custom attributes or use generic ones
-    if (variationData.CPU.length > 0) {
-      attributes.processor_type = variationData.CPU.map((cpu: string) => ({
-        value: cpu,
-      }));
-    }
-
-    if (variationData.GPU.length > 0) {
-      attributes.graphics_card_ram_size = variationData.GPU.map((gpu: string) => ({
-        value: gpu,
-      }));
-    }
+      if (values.length > 0) {
+        // Map the attribute values to Amazon format
+        attributes[attributeKey] = values.map((value: any) => ({
+          value: value,
+        }));
+      }
+    });
 
     return attributes;
   },
 
-  // Build variation attributes for child listing
+  // Build variation attributes for child listing dynamically
   buildChildVariationAttributes: (variation: any): any => {
     const attributes: any = {};
-    const variationDetails = variation.variationId;
 
-    if (variationDetails.RAM) {
-      attributes.memory_storage_capacity = [{ value: variationDetails.RAM }];
-    }
+    if (variation.attributes && variation.attributes.actual_attributes) {
+      const actualAttributes = variation.attributes.actual_attributes;
 
-    if (variationDetails.ROM) {
-      attributes.hard_drive_size = [{ value: variationDetails.ROM }];
-    }
+      // Iterate through each attribute in actual_attributes
+      Object.keys(actualAttributes).forEach((attributeKey) => {
+        const attributeArray = actualAttributes[attributeKey];
 
-    if (variationDetails.CPU) {
-      attributes.processor_type = [{ value: variationDetails.CPU }];
-    }
+        if (Array.isArray(attributeArray) && attributeArray.length > 0) {
+          const attr = attributeArray[0]; // Take the first (and likely only) attribute
+          let valueToAdd = null;
 
-    if (variationDetails.GPU) {
-      attributes.graphics_card_ram_size = [{ value: variationDetails.GPU }];
+          if (attr.value !== undefined) {
+            // For simple value attributes
+            if (attr.unit) {
+              valueToAdd = `${attr.value} ${attr.unit}`;
+            } else {
+              valueToAdd = attr.value;
+            }
+          } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
+            // For display attributes with size array
+            const sizeObj = attr.size[0];
+            if (sizeObj.value && sizeObj.unit) {
+              valueToAdd = `${sizeObj.value} ${sizeObj.unit}`;
+            }
+          }
+
+          if (valueToAdd !== null) {
+            attributes[attributeKey] = [{ value: valueToAdd }];
+          }
+        }
+      });
     }
 
     return attributes;
   },
 
-  // Generate child SKU
+  // Generate child SKU dynamically
   generateChildSku: (parentSku: string, variation: any): string => {
-    const variationDetails = variation.variationId.populate();
-    const suffix = [variationDetails.RAM, variationDetails.ROM, variationDetails.CPU, variationDetails.GPU]
-      .filter(Boolean)
-      .join("-")
-      .replace(/\s+/g, "");
+    const suffixParts: string[] = [];
 
-    return `${parentSku}-${suffix}`;
+    if (variation.attributes && variation.attributes.actual_attributes) {
+      const actualAttributes = variation.attributes.actual_attributes;
+
+      // Create suffix from all attribute values
+      Object.keys(actualAttributes).forEach((attributeKey) => {
+        const attributeArray = actualAttributes[attributeKey];
+
+        if (Array.isArray(attributeArray) && attributeArray.length > 0) {
+          const attr = attributeArray[0];
+          let valueToAdd = null;
+
+          if (attr.value !== undefined) {
+            if (attr.unit) {
+              valueToAdd = `${attr.value}${attr.unit}`;
+            } else {
+              valueToAdd = String(attr.value);
+            }
+          } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
+            const sizeObj = attr.size[0];
+            if (sizeObj.value && sizeObj.unit) {
+              valueToAdd = `${sizeObj.value}${sizeObj.unit}`;
+            }
+          }
+
+          if (valueToAdd !== null) {
+            // Clean the value for SKU (remove spaces, special characters)
+            const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+            suffixParts.push(cleanValue);
+          }
+        }
+      });
+    }
+
+    const suffix = suffixParts.join("-");
+    return suffix ? `${parentSku}-${suffix}` : `${parentSku}-var`;
   },
 
-  // Get common attributes (excluding variation-specific ones)
+  // Get common attributes (excluding variation-specific ones) dynamically
   getCommonAttributes: (prodTechInfo: any): any => {
     const common = { ...prodTechInfo };
 
     // Remove attributes that are handled separately
     delete common.condition_type;
-    delete common.memory_storage_capacity;
-    delete common.hard_drive_size;
-    delete common.processor_type;
-    delete common.graphics_card_ram_size;
+
+    // Remove any attributes that might be used for variations
+    // This list can be expanded based on your variation attributes
+    const variationAttributes = [
+      "memory_storage_capacity",
+      "hard_drive_size",
+      "processor_type",
+      "graphics_card_ram_size",
+      "display",
+      "processor_description",
+    ];
+
+    variationAttributes.forEach((attr) => {
+      delete common[attr];
+    });
 
     return common;
   },
