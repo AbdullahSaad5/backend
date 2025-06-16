@@ -47,9 +47,9 @@ export const listingService = {
       // If publishToEbay is true, flatten the prodTechInfo
       if (stepData.publishToEbay) {
         prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
-        console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
+        // console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
       } else {
-        console.log("Using original prodTechInfo for Amazon or other platforms:", prodTechInfoFromInventory);
+        // console.log("Using original prodTechInfo for Amazon or other platforms:", prodTechInfoFromInventory);
       }
 
       const productInfo = {
