@@ -1,6 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
-import { boolean } from "zod";
 
 export const mediaSchema = {
   id: { type: String },

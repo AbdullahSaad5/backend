@@ -488,6 +488,7 @@ export const amazonListingService = {
     return amazonListingService.getItemFromAmazon(listing, ["issues"]);
   },
 
+  // Enhanced function to handle both simple and variation listings
   addItemOnAmazon: async (listing: any): Promise<any> => {
     try {
       const token = await getStoredAmazonAccessToken();
@@ -504,80 +505,339 @@ export const amazonListingService = {
         throw new Error("Listing not found or failed to populate");
       }
 
-      // Destructure known attributes
-      const {
-        productInfo: { sku, item_name, brand, product_description },
-        prodTechInfo: {
-          condition_type,
-          // color,
-          // model_name,
-          // model_number,
-          // generic_keyword,
-          // memory_storage_capacity,
-          // item_weight,
-          // item_dimensions,
-          // bullet_point,
-          // max_order_quantity,
-          // fulfillment_availability,
-        },
-      } = populatedListing;
+      // Check if listing has variations
+      const hasVariations = populatedListing.listingHasVariations;
 
-      // Extract other attributes from prodTechInfo that are not explicitly destructured
-      const otherProdTechInfo = { ...populatedListing.prodTechInfo };
-      delete otherProdTechInfo.condition_type;
-      // delete otherProdTechInfo.color;
-      // delete otherProdTechInfo.model_name;
-      // delete otherProdTechInfo.model_number;
-      // delete otherProdTechInfo.generic_keyword;
-      // delete otherProdTechInfo.memory_storage_capacity;
-      // delete otherProdTechInfo.item_weight;
-      // delete otherProdTechInfo.item_dimensions;
-      // delete otherProdTechInfo.bullet_point;
-      // delete otherProdTechInfo.max_order_quantity;
-      // delete otherProdTechInfo.fulfillment_availability;
-
-      // Get the category ID
-      const categoryId =
-        populatedListing.productInfo.productCategory.amazonCategoryId ||
-        populatedListing.productInfo.productCategory.categoryId ||
-        "NOTEBOOK_COMPUTER"; // Fallback if no category is found
-
-      console.log("categoryId is", categoryId);
-
-      // Build the productData object with destructured and other prodTechInfo attributes
-      const productData = {
-        productType: categoryId,
-        requirements: "LISTING",
-        attributes: {
-          condition_type: condition_type,
-          item_name: item_name || [],
-          brand: brand || [],
-          // manufacturer: [
-          //   {
-          //     value: brand?.[0]?.value || "Manufacturer Not Available",
-          //     marketplace_id: marketplaceId,
-          //   },
-          // ],
-          // model_name: model_name || [],
-          // model_number: model_number || [],
-          product_description: product_description || [],
-          // color: color || [],
-          // memory_storage_capacity: memory_storage_capacity || [],
-          // item_weight: item_weight || [],
-          // item_dimensions: item_dimensions || [],
-          // bullet_point: bullet_point || [],
-          // max_order_quantity: max_order_quantity || [],
-          // generic_keyword: generic_keyword || [],
-          // fulfillment_availability: fulfillment_availability || [],
-          // Spread other prodTechInfo attributes dynamically
-          ...otherProdTechInfo,
-        },
+      if (hasVariations) {
+        return await amazonListingService.createVariationListing(populatedListing, token);
+      } else {
+        return await amazonListingService.createSimpleListing(populatedListing, token);
+      }
+    } catch (error: any) {
+      console.error("Error adding listing on Amazon:", error.message);
+      return {
+        status: 500,
+        message: error.message || "Error syncing with Amazon API",
       };
+    }
+  },
 
-      console.log("🔗 Preparing to create Amazon listing with data:", JSON.stringify(productData, null, 2));
+  // Function to create simple listing (your existing logic)
+  createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
+    const {
+      productInfo: { sku, item_name, brand, product_description },
+      prodTechInfo: {
+        condition_type,
+        // color,
+        // model_name,
+        // model_number,
+        // generic_keyword,
+        // memory_storage_capacity,
+        // item_weight,
+        // item_dimensions,
+        // bullet_point,
+        // max_order_quantity,
+        // fulfillment_availability,
+      },
+    } = populatedListing;
 
+    const otherProdTechInfo = { ...populatedListing.prodTechInfo };
+    delete otherProdTechInfo.condition_type;
+    // delete otherProdTechInfo.color;
+    // delete otherProdTechInfo.model_name;
+    // delete otherProdTechInfo.model_number;
+    // delete otherProdTechInfo.generic_keyword;
+    // delete otherProdTechInfo.memory_storage_capacity;
+    // delete otherProdTechInfo.item_weight;
+    // delete otherProdTechInfo.item_dimensions;
+    // delete otherProdTechInfo.bullet_point;
+    // delete otherProdTechInfo.max_order_quantity;
+    // delete otherProdTechInfo.fulfillment_availability;
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
+
+    const productData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type,
+        item_name: item_name || [],
+        brand: brand || [],
+        // manufacturer: [
+        //   {
+        //     value: brand?.[0]?.value || "Manufacturer Not Available",
+        //     marketplace_id: marketplaceId,
+        //   },
+        // ],
+        // model_name: model_name || [],
+        // model_number: model_number || [],s
+        product_description: product_description || [],
+        // color: color || [],
+        // memory_storage_capacity: memory_storage_capacity || [],
+        // item_weight: item_weight || [],
+        // item_dimensions: item_dimensions || [],
+        // bullet_point: bullet_point || [],
+        // max_order_quantity: max_order_quantity || [],
+        // generic_keyword: generic_keyword || [],
+        // fulfillment_availability: fulfillment_availability || [],
+        // Spread other prodTechInfo attributes dynamically
+        ...otherProdTechInfo,
+      },
+    };
+
+    return await amazonListingService.sendToAmazon(sku, productData, token);
+  },
+
+  // Function to create variation listing
+  createVariationListing: async (populatedListing: any, token: string): Promise<any> => {
+    const results = [];
+
+    // Step 1: Create parent listing
+    const parentResult = await amazonListingService.createParentListing(populatedListing, token);
+    results.push(parentResult);
+
+    if (parentResult.status !== 200) {
+      return {
+        status: 400,
+        message: "Failed to create parent listing",
+        results: results,
+      };
+    }
+
+    // Step 2: Create child listings for each variation
+    for (const variation of populatedListing.prodPricing.selectedVariations) {
+      const childResult = await amazonListingService.createChildListing(populatedListing, variation, token);
+      results.push(childResult);
+    }
+
+    return {
+      status: 200,
+      message: "Variation listing created successfully",
+      results: results,
+    };
+  },
+
+  // Create parent listing
+  createParentListing: async (populatedListing: any, token: string): Promise<any> => {
+    const {
+      productInfo: { sku, item_name, brand, product_description },
+      prodTechInfo: { condition_type },
+    } = populatedListing;
+
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
+
+    // Extract unique variation values
+    const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
+
+    const parentData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type,
+        item_name: item_name || [],
+        brand: brand || [],
+        product_description: product_description || [],
+
+        // Parent-specific attributes
+        child_parent_sku_relationship: [{ value: "parent" }],
+        variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
+
+        // All possible variation values
+        ...amazonListingService.buildVariationAttributes(variationData),
+
+        // Other common attributes
+        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+      },
+    };
+
+    console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
+
+    return await amazonListingService.sendToAmazon(sku, parentData, token);
+  },
+
+  // Create child listing for specific variation
+  createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
+    const {
+      productInfo: { sku, item_name, brand, product_description },
+      prodTechInfo: { condition_type },
+    } = populatedListing;
+
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
+
+    // Generate child SKU
+    const childSku = amazonListingService.generateChildSku(sku, variation);
+
+    const childData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type,
+        item_name: item_name || [],
+        brand: brand || [],
+        product_description: product_description || [],
+
+        // Child-specific attributes
+        parent_sku: [{ value: sku }],
+        child_parent_sku_relationship: [{ value: "child" }],
+
+        // Specific variation values
+        ...amazonListingService.buildChildVariationAttributes(variation),
+
+        // Price and inventory
+        price: [
+          {
+            value: variation.price?.toString() || "0",
+            currency: "USD",
+          },
+        ],
+        quantity: [{ value: variation.quantity?.toString() || "0" }],
+
+        // Other common attributes
+        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+      },
+    };
+
+    console.log("🔗 Creating child listing:", JSON.stringify(childData, null, 2));
+
+    return await amazonListingService.sendToAmazon(childSku, childData, token);
+  },
+
+  // Helper function to extract variation data
+  extractVariationData: (variations: any[]): any => {
+    const variationMap = {
+      RAM: new Set(),
+      ROM: new Set(),
+      CPU: new Set(),
+      GPU: new Set(),
+    };
+
+    variations.forEach((variation) => {
+      const variationDetails = variation.variationId;
+      if (variationDetails.RAM) variationMap.RAM.add(variationDetails.RAM);
+      if (variationDetails.ROM) variationMap.ROM.add(variationDetails.ROM);
+      if (variationDetails.CPU) variationMap.CPU.add(variationDetails.CPU);
+      if (variationDetails.GPU) variationMap.GPU.add(variationDetails.GPU);
+    });
+
+    // Convert Sets to Arrays
+    return {
+      RAM: Array.from(variationMap.RAM),
+      ROM: Array.from(variationMap.ROM),
+      CPU: Array.from(variationMap.CPU),
+      GPU: Array.from(variationMap.GPU),
+    };
+  },
+
+  // Determine Amazon variation theme based on what varies
+  determineVariationTheme: (variationData: any): string => {
+    const varyingAttributes = Object.keys(variationData).filter((key) => variationData[key].length > 1);
+
+    // Map your variation types to Amazon's themes
+    if (varyingAttributes.includes("RAM") && varyingAttributes.includes("ROM")) {
+      return "MemoryHardDrive";
+    } else if (varyingAttributes.includes("RAM")) {
+      return "Memory";
+    } else if (varyingAttributes.includes("ROM")) {
+      return "HardDrive";
+    } else {
+      return "SizeColor"; // Fallback theme
+    }
+  },
+
+  // Build variation attributes for parent listing
+  buildVariationAttributes: (variationData: any): any => {
+    const attributes: any = {};
+
+    if (variationData.RAM.length > 0) {
+      attributes.memory_storage_capacity = variationData.RAM.map((ram: string) => ({
+        value: ram,
+      }));
+    }
+
+    if (variationData.ROM.length > 0) {
+      attributes.hard_drive_size = variationData.ROM.map((rom: string) => ({
+        value: rom,
+      }));
+    }
+
+    // For CPU and GPU, you might need custom attributes or use generic ones
+    if (variationData.CPU.length > 0) {
+      attributes.processor_type = variationData.CPU.map((cpu: string) => ({
+        value: cpu,
+      }));
+    }
+
+    if (variationData.GPU.length > 0) {
+      attributes.graphics_card_ram_size = variationData.GPU.map((gpu: string) => ({
+        value: gpu,
+      }));
+    }
+
+    return attributes;
+  },
+
+  // Build variation attributes for child listing
+  buildChildVariationAttributes: (variation: any): any => {
+    const attributes: any = {};
+    const variationDetails = variation.variationId;
+
+    if (variationDetails.RAM) {
+      attributes.memory_storage_capacity = [{ value: variationDetails.RAM }];
+    }
+
+    if (variationDetails.ROM) {
+      attributes.hard_drive_size = [{ value: variationDetails.ROM }];
+    }
+
+    if (variationDetails.CPU) {
+      attributes.processor_type = [{ value: variationDetails.CPU }];
+    }
+
+    if (variationDetails.GPU) {
+      attributes.graphics_card_ram_size = [{ value: variationDetails.GPU }];
+    }
+
+    return attributes;
+  },
+
+  // Generate child SKU
+  generateChildSku: (parentSku: string, variation: any): string => {
+    const variationDetails = variation.variationId;
+    const suffix = [variationDetails.RAM, variationDetails.ROM, variationDetails.CPU, variationDetails.GPU]
+      .filter(Boolean)
+      .join("-")
+      .replace(/\s+/g, "");
+
+    return `${parentSku}-${suffix}`;
+  },
+
+  // Get common attributes (excluding variation-specific ones)
+  getCommonAttributes: (prodTechInfo: any): any => {
+    const common = { ...prodTechInfo };
+
+    // Remove attributes that are handled separately
+    delete common.condition_type;
+    delete common.memory_storage_capacity;
+    delete common.hard_drive_size;
+    delete common.processor_type;
+    delete common.graphics_card_ram_size;
+
+    return common;
+  },
+
+  // Send data to Amazon API
+  sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
+    try {
       const response = await fetch(
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`,
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
         {
           method: "PUT",
           headers: {
@@ -595,52 +855,44 @@ export const amazonListingService = {
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
       );
 
-      const rawResponse = await response.text(); // Read the raw response from Amazon
-
-      // Log the raw response for debugging purposes
+      const rawResponse = await response.text();
       console.log("🔍 Raw response from Amazon:", rawResponse);
 
-      // Attempt to parse the raw response as JSON
       let jsonObj: any = {};
       try {
-        jsonObj = JSON.parse(rawResponse); // Parse the raw response
+        jsonObj = JSON.parse(rawResponse);
       } catch (error) {
         console.error("Error parsing the response as JSON:", error);
       }
 
-      // Extract necessary fields from the response
       const status = jsonObj?.status;
       const submissionId = jsonObj?.submissionId;
       const issues = jsonObj?.issues;
 
-      // If status is ACCEPTED, return the submissionId
       if (status === "ACCEPTED" && submissionId) {
         return {
           status: 200,
           statusText: "OK",
           sku,
-          submissionId, // Return submissionId
-          response: jsonObj, // Return the parsed response as an object (formatted)
+          submissionId,
+          response: jsonObj,
         };
       } else {
-        // If there are issues, return them in the response
         return {
           status: 400,
           statusText: "Failed to create listing",
           errorResponse: issues || jsonObj,
-          response: jsonObj, // Return the parsed response as an object (formatted)
+          response: jsonObj,
         };
       }
     } catch (error: any) {
-      console.error("Error adding listing on Amazon:", error.message);
-
+      console.error("Error sending to Amazon:", error.message);
       return {
         status: 500,
         message: error.message || "Error syncing with Amazon API",
       };
     }
   },
-
   reviseItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
