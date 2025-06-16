@@ -12,5 +12,5 @@ export const revenue = (router: Router) => {
 
   router.get("/:id", RevenueController.getRevenueById);
 
-  router.patch("/block/:id",RevenueController.updateRevenue);
+ router.patch("/block/:id", RevenueController.updateRevenue); 
 };
