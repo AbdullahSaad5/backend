@@ -1229,14 +1229,14 @@ export const amazonListingService = {
         item_name: item_name || [],
         brand: brand || [],
         product_description: product_description || [],
-
-        child_parent_sku_relationship: [{ value: "parent" }],
-        // variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
-        variation_theme: [
+        parentage_level: [
           {
-            name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+            value: "parent",
           },
         ],
+        child_parent_sku_relationship: [{ value: "parent" }],
+        // variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
+
         // externally_assigned_product_identifier: [
         //   {
         //     type: "gtin",
@@ -1246,7 +1246,11 @@ export const amazonListingService = {
         // ],
         ...amazonListingService.prepareImageLocators(populatedListing),
         ...amazonListingService.buildVariationAttributes(variationData),
-
+        variation_theme: [
+          {
+            name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+          },
+        ],
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
       },
     };
