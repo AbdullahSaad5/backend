@@ -51,9 +51,9 @@ const WorkShift = new Schema<IWorkshift>({
       required: [true, "At least one employee is required"],
     },
   ],
-  isActive: {
+   isBlocked: {
     type: Boolean,
-    default: true,
+    default: false,
   },
   createdBy: {
     type: Types.ObjectId,
