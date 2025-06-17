@@ -7,7 +7,7 @@ export interface IWorkshift extends Document{
     endTime: string;   
     mode: 'On Site' | 'Hybrid' | 'Remote';
     employees: string[]; 
-    isActive?: boolean;  
+    isBlocked?: boolean;  
     createdBy?: string;  
     createdAt?: Date;   
     updatedAt?: Date; 

@@ -526,33 +526,12 @@ export const amazonListingService = {
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
     const {
       productInfo: { sku, item_name, brand, product_description },
-      prodTechInfo: {
-        condition_type,
-        // color,
-        // model_name,
-        // model_number,
-        // generic_keyword,
-        // memory_storage_capacity,
-        // item_weight,
-        // item_dimensions,
-        // bullet_point,
-        // max_order_quantity,
-        // fulfillment_availability,
-      },
+      prodTechInfo: { condition_type },
     } = populatedListing;
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
     delete otherProdTechInfo.condition_type;
-    // delete otherProdTechInfo.color;
-    // delete otherProdTechInfo.model_name;
-    // delete otherProdTechInfo.model_number;
-    // delete otherProdTechInfo.generic_keyword;
-    // delete otherProdTechInfo.memory_storage_capacity;
-    // delete otherProdTechInfo.item_weight;
-    // delete otherProdTechInfo.item_dimensions;
-    // delete otherProdTechInfo.bullet_point;
-    // delete otherProdTechInfo.max_order_quantity;
-    // delete otherProdTechInfo.fulfillment_availability;
+
     const categoryId =
       populatedListing.productInfo.productCategory.amazonCategoryId ||
       populatedListing.productInfo.productCategory.categoryId ||
@@ -565,24 +544,9 @@ export const amazonListingService = {
         condition_type: condition_type,
         item_name: item_name || [],
         brand: brand || [],
-        // manufacturer: [
-        //   {
-        //     value: brand?.[0]?.value || "Manufacturer Not Available",
-        //     marketplace_id: marketplaceId,
-        //   },
-        // ],
-        // model_name: model_name || [],
-        // model_number: model_number || [],s
+
         product_description: product_description || [],
-        // color: color || [],
-        // memory_storage_capacity: memory_storage_capacity || [],
-        // item_weight: item_weight || [],
-        // item_dimensions: item_dimensions || [],
-        // bullet_point: bullet_point || [],
-        // max_order_quantity: max_order_quantity || [],
-        // generic_keyword: generic_keyword || [],
-        // fulfillment_availability: fulfillment_availability || [],
-        // Spread other prodTechInfo attributes dynamically
+
         ...otherProdTechInfo,
       },
     };
@@ -1265,12 +1229,28 @@ export const amazonListingService = {
         item_name: item_name || [],
         brand: brand || [],
         product_description: product_description || [],
-
+        parentage_level: [
+          {
+            value: "parent",
+          },
+        ],
         child_parent_sku_relationship: [{ value: "parent" }],
-        variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
+        // variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
 
+        // externally_assigned_product_identifier: [
+        //   {
+        //     type: "gtin",
+        //     value: "01234567890512",
+        //     marketplace_id: "A1F83G8C2ARO7P",
+        //   },
+        // ],
+        ...amazonListingService.prepareImageLocators(populatedListing),
         ...amazonListingService.buildVariationAttributes(variationData),
-
+        variation_theme: [
+          {
+            name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+          },
+        ],
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
       },
     };
@@ -1303,7 +1283,20 @@ export const amazonListingService = {
         product_description: product_description || [],
 
         parent_sku: [{ value: sku }],
-        child_parent_sku_relationship: [{ value: "child" }],
+
+        child_parent_sku_relationship: [
+          {
+            child_relationship_type: "variation",
+            marketplace_id: "A1F83G8C2ARO7P",
+            parent_sku: sku,
+          },
+        ],
+        parentage_level: [
+          {
+            value: "child",
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ],
 
         ...amazonListingService.buildChildVariationAttributes(variation),
 
@@ -1343,7 +1336,7 @@ export const amazonListingService = {
 
       console.log(
         "url is",
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
       );
 
       const rawResponse = await response.text();
@@ -1713,5 +1706,43 @@ export const amazonListingService = {
         details: error.message,
       });
     }
+  },
+
+  prepareImageLocators: (populatedListing: any) => {
+    // Destructure the images from prodMedia
+    const { images } = populatedListing.prodMedia;
+
+    // Check if there are images in the array
+    if (!images || images.length === 0) {
+      throw new Error("No images found in prodMedia");
+    }
+
+    // Initialize the payload object that will hold the locators
+    let payload: any = {};
+
+    // Ensure there is at least one image to use as the main product image
+    if (images.length > 0) {
+      // Main product image (first image in the array)
+      payload.main_product_image_locator = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: images[0].url, // Use the first image's URL as the main image
+        },
+      ];
+    }
+
+    // Other product image locators (remaining images)
+    images.slice(1).forEach((image: any, index: any) => {
+      const locatorKey = `other_product_image_locator_${index + 1}`; // other_product_image_locator_1, 2, 3, etc.
+      payload[locatorKey] = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: image.url, // Use the current image's URL
+        },
+      ];
+    });
+
+    // Return the populated payload
+    return payload;
   },
 };
