@@ -1061,13 +1061,6 @@ export const amazonListingService = {
       console.error("Error updating retry tracking:", error);
     }
   },
-
-  sendToAmazon: async (sku: string, data: any, token: string): Promise<any> => {
-    // Simulate API call
-    console.log(`Sending to Amazon - SKU: ${sku}`);
-    return { status: 200, message: "Success", sku };
-  },
-
   deleteFromAmazon: async (sku: string, token: string): Promise<any> => {
     // Simulate API call
     console.log(`Deleting from Amazon - SKU: ${sku}`);
@@ -1331,66 +1324,66 @@ export const amazonListingService = {
     return await amazonListingService.sendToAmazon(childSku, childData, token);
   },
   // Send data to Amazon API
-  // sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
-  //   console.log("payload before sending to Amazon", productData);
-  //   try {
-  //     const response = await fetch(
-  //       `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
-  //       {
-  //         method: "PUT",
-  //         headers: {
-  //           "x-amz-access-token": token,
-  //           "Content-Type": "application/json",
-  //           // "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false" // Use sandbox mode if type is SANDBOX
-  //           "x-amzn-api-sandbox-only": "true",
-  //         },
-  //         body: JSON.stringify(productData),
-  //       }
-  //     );
+  sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
+    console.log("payload before sending to Amazon", productData);
+    try {
+      const response = await fetch(
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
+        {
+          method: "PUT",
+          headers: {
+            "x-amz-access-token": token,
+            "Content-Type": "application/json",
+            // "x-amzn-api-sandbox-only": type === "SANDBOX" ? "true" : "false" // Use sandbox mode if type is SANDBOX
+            "x-amzn-api-sandbox-only": "true",
+          },
+          body: JSON.stringify(productData),
+        }
+      );
 
-  //     console.log(
-  //       "url is",
-  //       `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
-  //     );
+      console.log(
+        "url is",
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
+      );
 
-  //     const rawResponse = await response.text();
-  //     // console.log("🔍 Raw response from Amazon:", rawResponse);
+      const rawResponse = await response.text();
+      // console.log("🔍 Raw response from Amazon:", rawResponse);
 
-  //     let jsonObj: any = {};
-  //     try {
-  //       jsonObj = JSON.parse(rawResponse);
-  //     } catch (error) {
-  //       console.error("Error parsing the response as JSON:", error);
-  //     }
+      let jsonObj: any = {};
+      try {
+        jsonObj = JSON.parse(rawResponse);
+      } catch (error) {
+        console.error("Error parsing the response as JSON:", error);
+      }
 
-  //     const status = jsonObj?.status;
-  //     const submissionId = jsonObj?.submissionId;
-  //     const issues = jsonObj?.issues;
+      const status = jsonObj?.status;
+      const submissionId = jsonObj?.submissionId;
+      const issues = jsonObj?.issues;
 
-  //     if (status === "ACCEPTED" && submissionId) {
-  //       return {
-  //         status: 200,
-  //         statusText: "OK",
-  //         sku,
-  //         submissionId,
-  //         response: jsonObj,
-  //       };
-  //     } else {
-  //       return {
-  //         status: 400,
-  //         statusText: "Failed to create listing",
-  //         errorResponse: issues || jsonObj,
-  //         response: jsonObj,
-  //       };
-  //     }
-  //   } catch (error: any) {
-  //     console.error("Error sending to Amazon:", error.message);
-  //     return {
-  //       status: 500,
-  //       message: error.message || "Error syncing with Amazon API",
-  //     };
-  //   }
-  // },
+      if (status === "ACCEPTED" && submissionId) {
+        return {
+          status: 200,
+          statusText: "OK",
+          sku,
+          submissionId,
+          response: jsonObj,
+        };
+      } else {
+        return {
+          status: 400,
+          statusText: "Failed to create listing",
+          errorResponse: issues || jsonObj,
+          response: jsonObj,
+        };
+      }
+    } catch (error: any) {
+      console.error("Error sending to Amazon:", error.message);
+      return {
+        status: 500,
+        message: error.message || "Error syncing with Amazon API",
+      };
+    }
+  },
   reviseItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
