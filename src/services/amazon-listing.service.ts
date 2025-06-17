@@ -1267,8 +1267,19 @@ export const amazonListingService = {
         product_description: product_description || [],
 
         child_parent_sku_relationship: [{ value: "parent" }],
-        variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
-
+        // variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
+        variation_theme: [
+          {
+            name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+          },
+        ],
+        // externally_assigned_product_identifier: [
+        //   {
+        //     type: "gtin",
+        //     value: "01234567890512",
+        //     marketplace_id: "A1F83G8C2ARO7P",
+        //   },
+        // ],
         ...amazonListingService.buildVariationAttributes(variationData),
 
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
@@ -1303,7 +1314,20 @@ export const amazonListingService = {
         product_description: product_description || [],
 
         parent_sku: [{ value: sku }],
-        child_parent_sku_relationship: [{ value: "child" }],
+
+        child_parent_sku_relationship: [
+          {
+            child_relationship_type: "variation",
+            marketplace_id: "A1F83G8C2ARO7P",
+            parent_sku: sku,
+          },
+        ],
+        parentage_level: [
+          {
+            value: "child",
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ],
 
         ...amazonListingService.buildChildVariationAttributes(variation),
 
@@ -1343,7 +1367,7 @@ export const amazonListingService = {
 
       console.log(
         "url is",
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123_DUMMY"}?marketplaceIds=${marketplaceId}`
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
       );
 
       const rawResponse = await response.text();
