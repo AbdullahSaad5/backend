@@ -82,6 +82,45 @@ const prodPricingSchema = {
   ],
 
   currentEbayVariationsSKU: { type: [String] },
+  currentAmazonVariationsSKU: { type: [String] },
+  amazonVariationStatus: {
+    parentCreated: { type: Boolean, default: false },
+    lastUpdated: { type: Date, default: Date.now },
+    totalAttempted: { type: Number, default: 0 },
+    successful: [
+      {
+        childSku: String,
+        variationIndex: Number,
+        variationId: String,
+        status: String,
+        retailPrice: String,
+        listingQuantity: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    failed: [
+      {
+        childSku: String,
+        variationIndex: Number,
+        variationId: String,
+        error: String,
+        status: String,
+        amazonResponse: Object,
+        failedAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  variationHistory: [
+    {
+      childSku: String,
+      variationId: String,
+      action: { type: String, enum: ["created", "updated", "deleted"] },
+      timestamp: { type: Date, default: Date.now },
+      retailPrice: String,
+      listingQuantity: String,
+      details: Object,
+    },
+  ],
   selectedVariations: [
     {
       _id: false,

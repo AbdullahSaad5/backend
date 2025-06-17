@@ -42,6 +42,7 @@ import { workshift } from "./workshift.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
+import { salaryStructure } from "./salaryStructure.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -91,6 +92,7 @@ const routes: {
   faqsPolicy,
   chat,
   revenue,
+  salaryStructure,
   // discriminator,
 };
 
