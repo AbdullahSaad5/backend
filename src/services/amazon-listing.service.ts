@@ -1192,12 +1192,13 @@ export const amazonListingService = {
     // Map varying attributes to Amazon theme names
     const mappedAttributes = varyingAttributes.map((attr) => attributeToThemeMap[attr] || attr).filter((attr) => attr); // Remove undefined mappings
 
-    // if (mappedAttributes.length === 0) {
-    //   return "SIZE"; // Default fallback if no varying attributes
-    // }
+    // Throw error if no varying attributes are found
+    if (mappedAttributes.length === 0) {
+      throw new Error("No valid varying attributes found in variationData");
+    }
 
     // Find the best matching theme
-    let bestMatch = "SIZE"; // Default fallback
+    let bestMatch: string | null = null;
     let maxMatchingAttributes = 0;
 
     for (const theme of allowedThemes) {
@@ -1213,6 +1214,11 @@ export const amazonListingService = {
         maxMatchingAttributes = matchingAttributes;
         bestMatch = theme;
       }
+    }
+
+    // Throw error if no valid theme is found
+    if (!bestMatch) {
+      throw new Error(`No matching variation theme found for attributes: ${mappedAttributes.join(", ")}`);
     }
 
     return bestMatch;
