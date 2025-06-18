@@ -545,6 +545,20 @@ export const amazonListingService = {
         item_name: item_name || [],
         brand: brand || [],
 
+        // child_parent_sku_relationship: [
+        //   {
+        //     child_relationship_type: "variation",
+        //     marketplace_id: "A1F83G8C2ARO7P",
+        //     parent_sku: "ABC-456_TEST",
+        //   },
+        // ],
+        // parentage_level: [
+        //   {
+        //     value: "child",
+        //     marketplace_id: "A1F83G8C2ARO7P",
+        //   },
+        // ],
+
         product_description: product_description || [],
 
         ...otherProdTechInfo,
@@ -1244,7 +1258,7 @@ export const amazonListingService = {
         //     marketplace_id: "A1F83G8C2ARO7P",
         //   },
         // ],
-        ...amazonListingService.prepareImageLocators(populatedListing),
+        // ...amazonListingService.prepareImageLocators(populatedListing),
         ...amazonListingService.buildVariationAttributes(variationData),
         variation_theme: [
           {
@@ -1281,9 +1295,6 @@ export const amazonListingService = {
         item_name: item_name || [],
         brand: brand || [],
         product_description: product_description || [],
-
-        parent_sku: [{ value: sku }],
-
         child_parent_sku_relationship: [
           {
             child_relationship_type: "variation",
