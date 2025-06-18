@@ -1,4 +1,4 @@
-import { Inventory, ProductCategory, Stock, User } from "@/models";
+import { Inventory, ProductCategory, Stock, User } from "@/models";//getInventoryByCondition
 import { Parser } from "json2csv";
 import mongoose from "mongoose";
 import crypto from "crypto";
@@ -283,19 +283,33 @@ export const inventoryService = {
   },
 
   //getting all template inventory name and their id
-  getInventoryByCondition: async (condition: Record<string, any>) => {
-    try {
-      return await Inventory.find(condition)
-        .populate("productInfo.productCategory.name")
-        // .populate("productInfo.productSupplier")
-        .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
-        .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
-    } catch (error) {
-      console.error("Error fetching inventory by condition:", error);
-      throw new Error("Failed to fetch inventory by condition");
-    }
-  },
+  // getInventoryByCondition: async (condition: Record<string, any>) => {
+  //   try {
+  //     return await Inventory.find(condition)
+  //       .populate("productInfo.productCategory.name")
+  //       // .populate("productInfo.productSupplier")
+  //       .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+  //       .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
+  //   } catch (error) {
+  //     console.error("Error fetching inventory by condition:", error);
+  //     throw new Error("Failed to fetch inventory by condition");
+  //   }
+  // },
 
+  getInventoryByCondition: async (condition: Record<string, any>) => {
+  try {
+    return await Inventory.find(condition)
+      .populate({
+        path: 'productInfo.productCategory',
+        select: 'name ebayCategoryId amazonCategoryId' // Add other fields you need
+      })
+      .select('_id kind prodTechInfo brand model alias srno productInfo')
+      .lean();
+  } catch (error) {
+    console.error("Error fetching inventory by condition:", error);
+    throw new Error("Failed to fetch inventory by condition");
+  }
+},
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
@@ -414,8 +428,8 @@ export const inventoryService = {
       // 🔎 Search logic
       if (searchQuery) {
         const searchConditions: any[] = [
-          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
-          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+         { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
