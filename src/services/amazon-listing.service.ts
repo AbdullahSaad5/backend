@@ -612,7 +612,6 @@ export const amazonListingService = {
             });
             continue;
           }
-
           const childResult = await amazonListingService.createChildListing(populatedListing, variation, token);
           results.push(childResult);
 
@@ -1094,21 +1093,129 @@ export const amazonListingService = {
   },
 
   determineVariationTheme: (variationData: any): string => {
-    const varyingAttributes = Object.keys(variationData).filter((key) => variationData[key].length > 1);
+    // Define attribute to Amazon theme mapping
+    const attributeToThemeMap: { [key: string]: string } = {
+      display: "DISPLAY_SIZE",
+      memory_storage_capacity: "MEMORY_STORAGE_CAPACITY",
+      hard_drive: "HARD_DISK_SIZE",
+      computer_memory: "COMPUTER_MEMORY_SIZE", //actually RAM Size
+      processor_description: "PROCESSOR_DESCRIPTION",
+      color: "COLOR_NAME",
+      ram_memory: "RAM_MEMORY_INSTALLED_SIZE",
+      graphics_coprocessor: "GRAPHICS_COPROCESSOR",
+      graphics_description: "GRAPHICS_DESCRIPTION",
+      operating_system: "OPERATING_SYSTEM",
+      size: "SIZE_NAME",
+    };
 
-    if (varyingAttributes.includes("memory_storage_capacity") && varyingAttributes.includes("hard_drive_size")) {
-      return "MemoryHardDrive";
-    } else if (varyingAttributes.includes("memory_storage_capacity")) {
-      return "Memory";
-    } else if (varyingAttributes.includes("hard_drive_size")) {
-      return "HardDrive";
-    } else if (varyingAttributes.includes("display")) {
-      return "Size";
-    } else if (varyingAttributes.includes("processor_description")) {
-      return "ProcessorType";
-    } else {
-      return "SizeColor";
+    // Amazon's allowed variation themes
+    const allowedThemes = [
+      "COLOR/DISPLAY_SIZE",
+      "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY",
+      "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE",
+      "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR",
+      "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+      "COLOR_NAME/HARD_DISK_SIZE",
+      "COLOR_NAME/SIZE_NAME/STYLE_NAME/CONFIGURATION",
+      "COLOR",
+      "COLOR_NAME",
+      "COLOR_NAME/CAPACITY",
+      "COLOR_NAME/CONFIGURATION",
+      "COLOR_NAME/OPERATING_SYSTEM",
+      "COLOR_NAME/PATTERN_NAME",
+      "COLOR_NAME/SIZE_NAME",
+      "COLOR_NAME/SIZE_NAME/CONFIGURATION",
+      "COLOR_NAME/SIZE_NAME/PATTERN_NAME",
+      "COLOR_NAME/SIZE_NAME/PATTERN_NAME/CONFIGURATION",
+      "COLOR_NAME/SIZE_NAME/STYLE_NAME",
+      "COLOR_NAME/SIZE_NAME/STYLE_NAME/PATTERN_NAME",
+      "COLOR_NAME/STYLE_NAME",
+      "COLOR_NAME/STYLE_NAME/CONFIGURATION",
+      "COLOR_NAME/STYLE_NAME/PATTERN_NAME",
+      "COLOR_NAME/STYLE_NAME/PATTERN_NAME/CONFIGURATION",
+      "COMPUTER_MEMORY_SIZE",
+      "COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE",
+      "COMPUTER_MEMORY_SIZE/STYLE_NAME/DISPLAY_RESOLUTION_MAXIMUM",
+      "CONFIGURATION",
+      "CONFIGURATION/COLOR_NAME",
+      "CONFIGURATION/SIZE_NAME",
+      "CONFIGURATION/STYLE_NAME",
+      "DIGITAL_STORAGE_CAPACITY",
+      "DIGITAL_STORAGE_CAPACITY/CONFIGURATION",
+      "DISPLAY_SIZE",
+      "DISPLAY_SIZE/SIZE_NAME/STYLE_NAME",
+      "EDITION",
+      "GRAPHICS_DESCRIPTION/SIZE_NAME/STYLE_NAME",
+      "GRAPHICS_DESCRIPTION/STYLE_NAME",
+      "HARD_DISK_SIZE",
+      "MEMORY_STORAGE_CAPACITY",
+      "MEMORY_STORAGE_CAPACITY/COLOR_NAME/PRODUCT_GRADE",
+      "MODEL",
+      "MODEL/COLOR_NAME",
+      "MODEL/SIZE_NAME",
+      "MODEL_NAME",
+      "MODEL_NAME/CONFIGURATION",
+      "NUMBER_OF_ITEMS",
+      "OPERATING_SYSTEM",
+      "PROCESSOR_DESCRIPTION",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE/GRAPHICS_DESCRIPTION",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE/GRAPHICS_DESCRIPTION/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE/OPERATING_SYSTEM",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/HARD_DISK_SIZE/SOFTWARE_INCLUDED/COLOR_NAME",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/SIZE_NAME/DISPLAY_RESOLUTION_MAXIMUM/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/SIZE_NAME/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/COMPUTER_MEMORY_SIZE/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/GRAPHICS_DESCRIPTION",
+      "PROCESSOR_DESCRIPTION/GRAPHICS_DESCRIPTION/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/HARD_DISK_SIZE",
+      "PROCESSOR_DESCRIPTION/HARD_DISK_SIZE/DISPLAY_RESOLUTION_MAXIMUM",
+      "PROCESSOR_DESCRIPTION/HARD_DISK_SIZE/GRAPHICS_DESCRIPTION",
+      "PROCESSOR_DESCRIPTION/HARD_DISK_SIZE/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/OPERATING_SYSTEM",
+      "PROCESSOR_DESCRIPTION/SIZE_NAME",
+      "PROCESSOR_DESCRIPTION/SIZE_NAME/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/SIZE_NAME/STYLE_NAME/COLOR_NAME",
+      "PROCESSOR_DESCRIPTION/SOFTWARE_INCLUDED/COLOR_NAME",
+      "PROCESSOR_DESCRIPTION/STYLE_NAME",
+      "PROCESSOR_DESCRIPTION/STYLE_NAME/COLOR_NAME",
+      "SIZE",
+      "SIZE/COLOR",
+    ];
+
+    // Get varying attributes (attributes with more than one value)
+    const varyingAttributes = Object.keys(variationData).filter(
+      (key) => Array.isArray(variationData[key]) && variationData[key].length > 1
+    );
+
+    // Map varying attributes to Amazon theme names
+    const mappedAttributes = varyingAttributes.map((attr) => attributeToThemeMap[attr] || attr).filter((attr) => attr); // Remove undefined mappings
+
+    // if (mappedAttributes.length === 0) {
+    //   return "SIZE"; // Default fallback if no varying attributes
+    // }
+
+    // Find the best matching theme
+    let bestMatch = "SIZE"; // Default fallback
+    let maxMatchingAttributes = 0;
+
+    for (const theme of allowedThemes) {
+      const themeAttributes = theme.split("/");
+      const matchingAttributes = mappedAttributes.filter((attr) => themeAttributes.includes(attr)).length;
+
+      // Check if the theme is a valid match (all theme attributes must be in mappedAttributes)
+      const isValidMatch =
+        matchingAttributes === themeAttributes.length &&
+        themeAttributes.every((attr) => mappedAttributes.includes(attr));
+
+      if (isValidMatch && matchingAttributes > maxMatchingAttributes) {
+        maxMatchingAttributes = matchingAttributes;
+        bestMatch = theme;
+      }
     }
+
+    return bestMatch;
   },
 
   buildVariationAttributes: (variationData: any): any => {
@@ -1208,18 +1315,16 @@ export const amazonListingService = {
 
     const variationAttributes = [
       "memory_storage_capacity",
-      "hard_drive_size",
-      "processor_type",
-      "graphics_card_ram_size",
+      "hard_drive",
       "display",
       "color",
       "processor_description",
-      "computer_memory_size",
+      "computer_memory",
       "graphics_description",
       "graphics_coprocessor",
       "operating_system",
-      "display_resolution_maximum",
-      "ram_memory_installed_size",
+      "ram_memory",
+      "size",
     ];
 
     variationAttributes.forEach((attr) => {
@@ -1241,7 +1346,7 @@ export const amazonListingService = {
       "NOTEBOOK_COMPUTER";
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
-
+    const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
     const parentData = {
       productType: categoryId,
       requirements: "LISTING",
@@ -1260,7 +1365,7 @@ export const amazonListingService = {
             child_relationship_type: "variation",
           },
         ],
-        // variation_theme: [{ name: amazonListingService.determineVariationTheme(variationData) }],
+        variation_theme: [{ name: selectedVariationTheme }],
 
         // externally_assigned_product_identifier: [
         //   {
@@ -1271,11 +1376,11 @@ export const amazonListingService = {
         // ],
         // ...amazonListingService.prepareImageLocators(populatedListing),
         ...amazonListingService.buildVariationAttributes(variationData),
-        variation_theme: [
-          {
-            name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
-          },
-        ],
+        // variation_theme: [
+        //   {
+        //     name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
+        //   },
+        // ],
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
       },
     };
@@ -1295,7 +1400,8 @@ export const amazonListingService = {
       populatedListing.productInfo.productCategory.amazonCategoryId ||
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
-
+    const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
+    const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
     const childSku = amazonListingService.generateChildSku(sku, variation);
 
     const childData = {
@@ -1313,6 +1419,7 @@ export const amazonListingService = {
             parent_sku: sku,
           },
         ],
+        variation_theme: [{ name: selectedVariationTheme }],
         parentage_level: [
           {
             value: "child",
