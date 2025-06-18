@@ -125,5 +125,80 @@ export const complaintService = {
 
 
 
+  
+  addNoteToComplaint: (
+    id: string,
+    noteData: {
+      image?: string[];
+      description: string;
+      notedBy: Types.ObjectId;
+    }
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          notes: {
+            ...noteData,
+            notedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    ).populate("notes.notedBy", "name email");
+  },
+
+  deleteNoteFromComplaint: (id: string, noteId: string) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: {
+          notes: { _id: noteId },
+        },
+      },
+      { new: true }
+    );
+  },
+
+  addResolutionToComplaint: (
+    id: string,
+    resolutionData: {
+      image?: string[];
+      description: string;
+      resolvedBy: Types.ObjectId;
+    }
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $set: { status: "Closed" },
+        $push: {
+          resolution: {
+            ...resolutionData,
+            resolvedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    )
+      .populate("assignedTo", "name email")
+      .populate("resolution.resolvedBy", "name email")
+      .populate("userId", "name email");
+  },
+
+  deleteResolutionFromComplaint: (id: string, resolutionId: string) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: {
+          resolution: { _id: resolutionId },
+        },
+        $set: { status: "In Progress" }, // Reset status if resolution is deleted
+      },
+      { new: true }
+    );
+  },
+
+
 
 };

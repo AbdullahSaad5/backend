@@ -31,6 +31,15 @@ export const complaint = (router: Router) => {
   router.patch("/:id/resolve", complaintController.resolveComplaint);
 
   router.patch("/:id/note", complaintController.noteComplaint);
+
+
+  // Note routes
+  router.post("/:id/notes", complaintController.addNote);
+  router.delete("/:id/notes/:noteId", complaintController.deleteNote);
+
+  // Resolution routes
+  router.post("/:id/resolutions", complaintController.addResolution);
+  router.delete("/:id/resolutions/:resolutionId", complaintController.deleteResolution);
 };
 
 // Create complaint

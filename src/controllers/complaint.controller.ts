@@ -354,4 +354,113 @@ const complaintdata = {...req.body, userId};
   },
 
   
+  addNote: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { notedBy, description, image } = req.body;
+
+      if (!description) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Note description is required",
+        });
+      }
+
+      const updatedComplaint = await complaintService.addNoteToComplaint(id, {
+        image,
+        description,
+        notedBy: new Types.ObjectId(notedBy),
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note added successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error adding note:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to add note",
+      });
+    }
+  },
+
+  deleteNote: async (req: Request, res: Response) => {
+    try {
+      const { id, noteId } = req.params;
+      const updatedComplaint = await complaintService.deleteNoteFromComplaint(
+        id,
+        noteId
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note deleted successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete note",
+      });
+    }
+  },
+
+  addResolution: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { resolvedBy, description, image } = req.body;
+
+      if (!description) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Resolution description is required",
+        });
+      }
+
+      const updatedComplaint = await complaintService.addResolutionToComplaint(
+        id,
+        {
+          image,
+          description,
+          resolvedBy: new Types.ObjectId(resolvedBy),
+        }
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution added successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error adding resolution:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to add resolution",
+      });
+    }
+  },
+
+  deleteResolution: async (req: Request, res: Response) => {
+    try {
+      const { id, resolutionId } = req.params;
+      const updatedComplaint =
+        await complaintService.deleteResolutionFromComplaint(id, resolutionId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution deleted successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error deleting resolution:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete resolution",
+      });
+    }
+  },
+  
 };
