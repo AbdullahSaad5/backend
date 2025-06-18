@@ -375,6 +375,7 @@ export const inventoryController = {
 
       // Properly access the category name
       const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
+      const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
 
       const prodInfo = template.prodTechInfo || {};
       let fields: string[] = [];
@@ -421,7 +422,7 @@ export const inventoryController = {
       const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
       const srno = (index + 1).toString().padStart(2, "0");
       const templateName = 
-        ` ${kind === "part" ? "PART" : "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
       return { templateName, inventoryId, templateAlias };
     });
