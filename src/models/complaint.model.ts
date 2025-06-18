@@ -42,7 +42,7 @@ const complaintSchema = new Schema<IComplaint>({
     },
     default: [],
   },
-  notes: [
+ notes: [
     {
       image: {
         type: [String],
@@ -56,11 +56,14 @@ const complaintSchema = new Schema<IComplaint>({
         type: String,
         trim: true,
       },
-      notedBy: {
-        type: Schema.Types.ObjectId,
-        ref: "User",
+       notedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+    },
+      notedAt: {
+        type: Date,
+        default: Date.now,
       },
-      notedAt: Date,
     },
   ],
 
@@ -86,17 +89,24 @@ const complaintSchema = new Schema<IComplaint>({
     {
       description: {
         type: String,
-        trim:true,
+        trim: true,
       },
-      image: { type: [String], trim: true, validate: {
-        validator: (urls: string[]) => urls.length <= 10,
-        message: "Cannot attach more than 10 files",
-      }, },
+      image: {
+        type: [String],
+        trim: true,
+        validate: {
+          validator: (urls: string[]) => urls.length <= 10,
+          message: "Cannot attach more than 10 files",
+        },
+      },
       resolvedBy: {
         type: Schema.Types.ObjectId,
         ref: "User",
       },
-      // resolvedAt: Date,
+      resolvedAt: {
+        type: Date,
+        default: Date.now,
+      },
     },
   ],
   userId: {
