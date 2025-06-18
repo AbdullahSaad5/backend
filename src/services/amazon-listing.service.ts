@@ -1212,7 +1212,14 @@ export const amazonListingService = {
       "processor_type",
       "graphics_card_ram_size",
       "display",
+      "color",
       "processor_description",
+      "computer_memory_size",
+      "graphics_description",
+      "graphics_coprocessor",
+      "operating_system",
+      "display_resolution_maximum",
+      "ram_memory_installed_size",
     ];
 
     variationAttributes.forEach((attr) => {
@@ -1248,8 +1255,12 @@ export const amazonListingService = {
             value: "parent",
           },
         ],
-        child_parent_sku_relationship: [{ value: "parent" }],
-        // variation_theme: [{ value: amazonListingService.determineVariationTheme(variationData) }],
+        child_parent_sku_relationship: [
+          {
+            child_relationship_type: "variation",
+          },
+        ],
+        // variation_theme: [{ name: amazonListingService.determineVariationTheme(variationData) }],
 
         // externally_assigned_product_identifier: [
         //   {
