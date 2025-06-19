@@ -936,41 +936,26 @@ export const amazonListingService = {
 
     return attributes;
   },
-
   buildChildVariationAttributes: (variation: any): any => {
-    const attributes: any = {};
+    console.log("Building variation attributes for:", variation);
 
-    if (variation.attributes && variation.attributes.actual_attributes) {
-      const actualAttributes = variation.attributes.actual_attributes;
-
-      Object.keys(actualAttributes).forEach((attributeKey) => {
-        const attributeArray = actualAttributes[attributeKey];
-
-        if (Array.isArray(attributeArray) && attributeArray.length > 0) {
-          const attr = attributeArray[0];
-          let valueToAdd = null;
-
-          if (attr.value !== undefined) {
-            if (attr.unit) {
-              valueToAdd = `${attr.value} ${attr.unit}`;
-            } else {
-              valueToAdd = attr.value;
-            }
-          } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
-            const sizeObj = attr.size[0];
-            if (sizeObj.value && sizeObj.unit) {
-              valueToAdd = `${sizeObj.value} ${sizeObj.unit}`;
-            }
-          }
-
-          if (valueToAdd !== null) {
-            attributes[attributeKey] = [{ value: valueToAdd }];
-          }
-        }
-      });
+    // Check if variation has attributes and log them
+    if (variation && variation.variationId.attributes) {
+      console.log("Variation attributes:", variation.variationId.attributes);
+    } else {
+      console.log("No variation attributes found");
     }
 
-    return attributes;
+    // Check if actual_attributes is present
+    if (variation && variation.variationId.attributes && variation.variationId.attributes.actual_attributes) {
+      console.log("Actual attributes found:", variation.variationId.attributes.actual_attributes);
+
+      // Return actual_attributes directly
+      return variation.variationId.attributes.actual_attributes;
+    } else {
+      console.log("No actual_attributes found");
+      return {}; // Return empty if actual_attributes is missing
+    }
   },
   generateChildSku: (variation: any): string => {
     const suffixParts: string[] = [];
@@ -1045,32 +1030,22 @@ export const amazonListingService = {
     // Return the final SKU or fallback to "var" if no valid suffix is found
     return suffix || "var";
   },
-  getCommonAttributes: (prodTechInfo: any): any => {
+  getCommonAttributes: (prodTechInfo: any, variation: any): any => {
     const common = { ...prodTechInfo };
 
-    delete common.condition_type;
+    // Dynamically get the attributes using buildChildVariationAttributes
+    const variationAttributes = Object.keys(amazonListingService.buildChildVariationAttributes(variation));
 
-    const variationAttributes = [
-      "memory_storage_capacity",
-      "hard_disk",
-      "display",
-      "color",
-      "processor_description",
-      "computer_memory",
-      "graphics_description",
-      "graphics_coprocessor",
-      "operating_system",
-      "ram_memory",
-      "size",
-    ];
+    // Log the keys of actual attributes
+    console.log("Dynamic Variation Attributes: ", variationAttributes);
 
+    // Delete these dynamic attributes from the common object
     variationAttributes.forEach((attr) => {
       delete common[attr];
     });
 
     return common;
   },
-
   createParentListing: async (populatedListing: any, token: string): Promise<any> => {
     const {
       productInfo: { sku, item_name, brand, product_description },
@@ -1114,7 +1089,7 @@ export const amazonListingService = {
         // ],
         // ...amazonListingService.prepareImageLocators(populatedListing),
         // ...amazonListingService.buildVariationAttributes(variationData),
-        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+        ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo, variationData),
       },
     };
 
@@ -1140,7 +1115,7 @@ export const amazonListingService = {
 
       // Get variation theme (you'll need to implement this based on your existing logic)
       const variationData = amazonListingService.extractVariationData([variation]);
-      console.log("here child var data", JSON.stringify(variationData));
+      // console.log("here child var data", JSON.stringify(variationData));
       const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
 
       const childData = {
@@ -1166,14 +1141,32 @@ export const amazonListingService = {
             },
           ],
           ...amazonListingService.buildChildVariationAttributes(variation),
-          price: [
+          purchasable_offer: [
             {
-              value: variation.retailPrice || 10,
+              audience: "ALL",
+              marketplace_id: "A1F83G8C2ARO7P",
               currency: "GBP",
+              our_price: [
+                {
+                  schedule: [
+                    {
+                      value_with_tax: variation.retailPrice || 10,
+                    },
+                  ],
+                },
+              ],
             },
           ],
-          quantity: [{ value: variation.listingQuantity || 0 }],
-          ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
+          fulfillment_availability: [
+            {
+              fulfillment_channel_code: "DEFAULT",
+              lead_time_to_ship_max_days: 20,
+              // quantity: variation.listingQuantity,
+              is_inventory_available: false,
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo, variation),
         },
       };
 
@@ -1202,7 +1195,7 @@ export const amazonListingService = {
 
   // Send data to Amazon API
   sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
-    console.log("payload before sending to Amazon", productData);
+    // console.log("payload before sending to Amazon", productData);
     try {
       const response = await fetch(
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
@@ -1218,10 +1211,10 @@ export const amazonListingService = {
         }
       );
 
-      console.log(
-        "url is",
-        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
-      );
+      // console.log(
+      //   "url is",
+      //   `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
+      // );
 
       const rawResponse = await response.text();
       // console.log("🔍 Raw response from Amazon:", rawResponse);
@@ -1668,10 +1661,28 @@ export const amazonListingService = {
   // Helper function to add SKU to tracking array
   addSkuToTracking: async (listingId: string, childSku: string): Promise<void> => {
     try {
-      await Listing.findByIdAndUpdate(listingId, {
-        $addToSet: { "prodPricing.currentAmazonVariationsSKU": childSku },
-      });
-      console.log(`Added child SKU ${childSku} to tracking for listing ${listingId}`);
+      // Fetch the current listing to check the array
+      const listing: any = await Listing.findById(listingId);
+
+      if (!listing) {
+        throw new Error("Listing not found");
+      }
+
+      // Check if the SKU is already in the array
+      const existingSkus = listing.prodPricing.currentAmazonVariationsSKU;
+
+      // If the SKU is not in the array, push it to the end (next available index)
+      if (!existingSkus.includes(childSku)) {
+        // Manually update the prodPricing.currentAmazonVariationsSKU field
+        listing.prodPricing.currentAmazonVariationsSKU.push(childSku);
+
+        // Manually saving the updated listing
+        await listing.save({ validateBeforeSave: false });
+
+        console.log(`Added child SKU ${childSku} to tracking for listing ${listingId}`);
+      } else {
+        console.log(`Child SKU ${childSku} is already in the tracking list.`);
+      }
     } catch (error) {
       console.error("Error adding SKU to tracking:", error);
       throw error;
