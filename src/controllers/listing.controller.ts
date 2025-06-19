@@ -65,28 +65,135 @@ export const listingController = {
 
       let ebayResponse: any;
       let amazonResponse: any;
+
+      // Step 2: Handle Amazon listing if published and enabled
       if (updatedListing.status === "published" && updatedListing.publishToAmazon === true) {
-        // Listing is marked as 'published' → Create new item on Amazon
-        amazonResponse = await amazonListingService.addItemOnAmazon(updatedListing);
+        console.log("Processing Amazon listing...");
+
+        try {
+          amazonResponse = await amazonListingService.addItemOnAmazon(updatedListing);
+
+          // Handle successful Amazon response
+          if (amazonResponse.status === 200) {
+            const updateData: any = {};
+
+            // For variation listings
+            if (updatedListing.listingHasVariations) {
+              // Parent was created successfully
+              if (amazonResponse.parentCreated && !updatedListing.amazonSku) {
+                updateData.amazonSku = updatedListing.productInfo.sku;
+              }
+
+              // Update submission info if available
+              if (amazonResponse.submissionId) {
+                updateData.amazonSubmissionId = amazonResponse.submissionId;
+              }
+
+              updateData.amazonResponse = amazonResponse;
+
+              // Update the listing with Amazon info
+              await listingService.updateDraftListing(updatedListing._id, updateData);
+
+              return res.status(StatusCodes.OK).json({
+                success: true,
+                message: amazonResponse.message || "Amazon variation listing processed successfully",
+                amazonResponse: {
+                  status: amazonResponse.status,
+                  message: amazonResponse.message,
+                  summary: amazonResponse.summary,
+                  parentCreated: amazonResponse.parentCreated,
+                  isUpdateFlow: amazonResponse.isUpdateFlow,
+                  totalVariations: amazonResponse.totalVariations,
+                  successfulChildSkus: amazonResponse.successfulChildSkus?.length || 0,
+                  failedChildSkus: amazonResponse.failedChildSkus?.length || 0,
+                },
+              });
+            } else {
+              // Simple listing
+              if (amazonResponse.submissionId) {
+                updateData.amazonSubmissionId = amazonResponse.submissionId;
+                updateData.amazonSku = amazonResponse.sku;
+                updateData.amazonResponse = amazonResponse.response;
+              }
+
+              await listingService.updateDraftListing(updatedListing._id, updateData);
+
+              return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Amazon listing created successfully",
+              });
+            }
+          }
+          // Handle partial success (206)
+          else if (amazonResponse.status === 206) {
+            const updateData: any = {};
+
+            if (amazonResponse.parentCreated && !updatedListing.amazonSku) {
+              updateData.amazonSku = updatedListing.productInfo.sku;
+            }
+
+            if (amazonResponse.submissionId) {
+              updateData.amazonSubmissionId = amazonResponse.submissionId;
+            }
+
+            updateData.amazonResponse = amazonResponse;
+            await listingService.updateDraftListing(updatedListing._id, updateData);
+
+            return res.status(StatusCodes.PARTIAL_CONTENT).json({
+              success: true,
+              message: amazonResponse.message || "Partial success with Amazon listing",
+              amazonResponse: {
+                status: amazonResponse.status,
+                message: amazonResponse.message,
+                summary: amazonResponse.summary,
+                parentCreated: amazonResponse.parentCreated,
+                isUpdateFlow: amazonResponse.isUpdateFlow,
+                failedChildSkus: amazonResponse.failedChildSkus,
+                totalVariations: amazonResponse.totalVariations,
+              },
+            });
+          }
+          // Handle errors
+          else {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: amazonResponse.message || "Failed to sync with Amazon",
+              amazonError: {
+                status: amazonResponse.status,
+                message: amazonResponse.message,
+                error: amazonResponse.error,
+                parentCreated: amazonResponse.parentCreated,
+                isUpdateFlow: amazonResponse.isUpdateFlow || false,
+                failedChildSkus: amazonResponse.failedChildSkus,
+                results: amazonResponse.results,
+              },
+            });
+          }
+        } catch (amazonError: any) {
+          console.error("Amazon API Error:", amazonError);
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Amazon API error occurred",
+            error: amazonError.message,
+          });
+        }
       }
-      // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
+
+      // Step 3: Handle eBay listing if needed
       if (updatedListing.ebayItemId) {
-        // Listing already exists on eBay → Update it
+        // Update existing eBay listing
         ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
       } else if (updatedListing.status === "published" && updatedListing.publishToEbay === true) {
-        // Listing is marked as 'published' → Create new item on eBay
+        // Create new eBay listing
         ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
       }
 
+      // Handle eBay response
       if (ebayResponse) {
         if (typeof ebayResponse === "string") {
           ebayResponse = JSON.parse(ebayResponse);
         }
 
-        //  if (amazonResponse) {
-        // if (typeof ebayResponse === "string") {
-        //   ebayResponse = JSON.parse(ebayResponse);
-        // }
         const ackValue =
           ebayResponse?.response?.ReviseItemResponse?.Ack || ebayResponse?.response?.AddFixedPriceItemResponse?.Ack;
 
@@ -104,12 +211,12 @@ export const listingController = {
           });
         }
 
-        // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+        // Update eBay item ID if it's a new listing
         if (ebayResponse && !updatedListing.ebayItemId && ebayResponse.itemId) {
           await listingService.updateDraftListing(updatedListing._id, {
             ebayItemId: ebayResponse.itemId,
             ebaySandboxUrl: ebayResponse.sandboxUrl,
-            ebayResponse, // optional: store raw response
+            ebayResponse,
           });
         }
       }
@@ -138,7 +245,6 @@ export const listingController = {
           });
         }
       }
-
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Draft product updated successfully",
