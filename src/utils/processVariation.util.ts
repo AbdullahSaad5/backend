@@ -18,7 +18,6 @@ export const processVariationsUtility = {
     }
   },
 
-  // Enhanced processNotebookComputerAttributes function
   processNotebookComputerAttributes: (attributes: any) => {
     const processedAttributes: any = {};
 
@@ -31,6 +30,7 @@ export const processVariationsUtility = {
         processedAttributes.display = displayResult;
       }
     }
+
     // Ensure computer memory attribute exists and has valid data
     if (attributesObj.computer_memory && Array.isArray(attributesObj.computer_memory)) {
       const displayResult = processVariationsUtility.processComputerMemoryAttribute(attributesObj.computer_memory);
@@ -38,6 +38,7 @@ export const processVariationsUtility = {
         processedAttributes.computer_memory = displayResult;
       }
     }
+
     // Ensure hard_disk attribute exists and has valid data
     if (attributesObj.hard_disk && Array.isArray(attributesObj.hard_disk)) {
       const displayResult = processVariationsUtility.processHardDiskAttribute(attributesObj.hard_disk);
@@ -45,6 +46,7 @@ export const processVariationsUtility = {
         processedAttributes.hard_disk = displayResult;
       }
     }
+
     // Processing for RAM memory
     if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
       const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
@@ -71,7 +73,9 @@ export const processVariationsUtility = {
       Array.isArray(attributesObj.solid_state_storage_drive) &&
       attributesObj.solid_state_storage_drive.length > 0
     ) {
-      const ssdResult = processVariationsUtility.processSolidStateStorageDrive(attributesObj.solid_state_storage_drive);
+      const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
+        attributesObj.solid_state_storage_drive
+      );
       if (ssdResult.length > 0) {
         processedAttributes.solid_state_storage_drive = ssdResult;
       }
@@ -83,7 +87,9 @@ export const processVariationsUtility = {
       Array.isArray(attributesObj.memory_storage_capacity) &&
       attributesObj.memory_storage_capacity.length > 0
     ) {
-      const memoryResult = processVariationsUtility.processMemoryStorageCapacity(attributesObj.memory_storage_capacity);
+      const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
+        attributesObj.memory_storage_capacity
+      );
       if (memoryResult.length > 0) {
         processedAttributes.memory_storage_capacity = memoryResult;
       }
@@ -103,7 +109,6 @@ export const processVariationsUtility = {
   processDisplayAttribute: (attribute: any[]) => {
     console.log("Processing display attribute:", attribute);
 
-    // Create variations for each size while preserving original structure
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
@@ -112,7 +117,6 @@ export const processVariationsUtility = {
         displayItem.size.forEach((sizeItem: any) => {
           const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-          // Create a new display object with only the selected size but preserve all other properties
           const newDisplayItem = {
             ...displayItem,
             size: [sizeItem], // Only include the selected size
@@ -131,7 +135,6 @@ export const processVariationsUtility = {
   processComputerMemoryAttribute: (attribute: any[]) => {
     console.log("Processing Computer Memory attribute:", attribute);
 
-    // Create variations for each size while preserving original structure
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
@@ -139,7 +142,6 @@ export const processVariationsUtility = {
         displayItem.size.forEach((sizeItem: any) => {
           const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-          // Create a new display object with only the selected size but preserve all other properties
           const newDisplayItem = {
             ...displayItem,
             size: [sizeItem], // Only include the selected size
@@ -156,9 +158,8 @@ export const processVariationsUtility = {
     return displayVariations;
   },
   processHardDiskAttribute: (attribute: any[]) => {
-    console.log("Processing HArd Disk attribute:", attribute);
+    console.log("Processing Hard Disk attribute:", attribute);
 
-    // Create variations for each size while preserving original structure
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
@@ -166,7 +167,6 @@ export const processVariationsUtility = {
         displayItem.size.forEach((sizeItem: any) => {
           const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-          // Create a new display object with only the selected size but preserve all other properties
           const newDisplayItem = {
             ...displayItem,
             size: [sizeItem], // Only include the selected size
@@ -204,6 +204,9 @@ export const processVariationsUtility = {
         originalStructure: [item], // Keep as array like in DB
       }));
     }
+
+    // Return an empty array if there is only one item
+    return [];
   },
 
   // Enhanced function to process 'solid_state_storage_drive' attribute
@@ -214,6 +217,9 @@ export const processVariationsUtility = {
         originalStructure: [item], // Keep as array like in DB
       }));
     }
+
+    // Return an empty array if there is only one item
+    return [];
   },
 
   // Enhanced function to process 'ram_memory' attribute
@@ -225,7 +231,6 @@ export const processVariationsUtility = {
         ramItem.installed_size.forEach((installedSize: any) => {
           const displayValue = `${installedSize.value} ${installedSize.unit}`;
 
-          // Create a new ram object with the selected installed_size but preserve all other properties
           const newRamItem = {
             ...ramItem,
             installed_size: [installedSize], // Only include the selected installed_size
