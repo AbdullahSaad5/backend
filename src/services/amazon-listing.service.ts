@@ -1556,13 +1556,13 @@ export const amazonListingService = {
   // Validate variation data before creating child listing
   validateVariation: (variation: any): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
-
+    // console.log("variaion Validate:::", variation);
     if (!variation) {
       errors.push("Variation object is null or undefined");
       return { isValid: false, errors };
     }
 
-    if (!variation._id) {
+    if (!variation?.variationId?._id) {
       errors.push("Variation ID is missing");
     }
 
@@ -1574,7 +1574,7 @@ export const amazonListingService = {
       errors.push("Valid listing quantity is required");
     }
 
-    if (!variation.attributes || !variation.attributes.actual_attributes) {
+    if (!variation?.variationId?.attributes || !variation?.variationId?.attributes.actual_attributes) {
       errors.push("Variation attributes are missing");
     } else {
       const actualAttributes = variation.attributes.actual_attributes;
