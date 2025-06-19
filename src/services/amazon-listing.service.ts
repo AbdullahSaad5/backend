@@ -635,7 +635,7 @@ export const amazonListingService = {
       for (const [index, variation] of populatedListing.prodPricing.selectedVariations.entries()) {
         try {
           // Generate child SKU for this variation
-          const childSku = amazonListingService.generateChildSku(parentSku, variation);
+          const childSku = amazonListingService.generateChildSku(variation);
 
           // Check if this child already exists in Amazon
           if (currentAmazonSkus.includes(childSku)) {
@@ -695,7 +695,7 @@ export const amazonListingService = {
             });
           }
         } catch (error: any) {
-          const childSku = amazonListingService.generateChildSku(parentSku, variation);
+          const childSku = amazonListingService.generateChildSku(variation);
           failedChildSkus.push({
             childSku,
             variationIndex: index,
@@ -1031,45 +1031,79 @@ export const amazonListingService = {
 
     return attributes;
   },
-
-  generateChildSku: (parentSku: string, variation: any): string => {
+  generateChildSku: (variation: any): string => {
     const suffixParts: string[] = [];
 
-    if (variation.attributes && variation.attributes.actual_attributes) {
-      const actualAttributes = variation.attributes.actual_attributes;
+    // Log the initial variation object to inspect the structure
+    // console.log("Initial Variation:", JSON.stringify(variation, null, 2));
 
-      Object.keys(actualAttributes).forEach((attributeKey) => {
-        const attributeArray = actualAttributes[attributeKey];
+    // Define attributes that should be processed as sizes
+    const sizeAttributes = ["computer_memory", "hard_disk"];
 
-        if (Array.isArray(attributeArray) && attributeArray.length > 0) {
-          const attr = attributeArray[0];
-          let valueToAdd = null;
+    // Check if variationId and attributes exist
+    if (variation?.variationId?.attributes) {
+      const attributes = variation.variationId.attributes;
+      // console.log("Attributes:", JSON.stringify(attributes, null, 2));
 
-          if (attr.value !== undefined) {
-            if (attr.unit) {
-              valueToAdd = `${attr.value}${attr.unit}`;
+      // Iterate over the attributes object to process each key
+      Object.keys(attributes).forEach((attributeKey) => {
+        // Skip actual_attributes
+        if (attributeKey === "actual_attributes") {
+          console.log("Skipping actual_attributes key.");
+          return;
+        }
+
+        const attributeValue = attributes[attributeKey];
+
+        // Log the attribute key and its value
+        // console.log(`Processing attribute: ${attributeKey} with value: ${attributeValue}`);
+
+        // Process only if attributeValue is a string and not empty
+        if (typeof attributeValue === "string" && attributeValue !== "") {
+          // Check if the attribute is a size-related attribute
+          if (sizeAttributes.includes(attributeKey)) {
+            // Process size pattern like "16 GB", "256 GB"
+            const sizeMatch = attributeValue.match(/(\d+)\s*(\w+)/);
+
+            if (sizeMatch) {
+              const value = sizeMatch[1];
+              const unit = sizeMatch[2];
+              const valueToAdd = `${value}${unit}`;
+              // console.log(`Found size: ${valueToAdd}`);
+
+              // Clean and add to suffix parts
+              const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+              suffixParts.push(cleanValue);
             } else {
-              valueToAdd = String(attr.value);
+              // If no size pattern, clean and add the value directly
+              const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+              // console.log(`Using value: ${cleanValue}`);
+              suffixParts.push(cleanValue);
             }
-          } else if (attr.size && Array.isArray(attr.size) && attr.size.length > 0) {
-            const sizeObj = attr.size[0];
-            if (sizeObj.value && sizeObj.unit) {
-              valueToAdd = `${sizeObj.value}${sizeObj.unit}`;
-            }
-          }
-
-          if (valueToAdd !== null) {
-            const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+          } else {
+            // For non-size attributes, clean and add the value directly
+            const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+            // console.log(`Using value: ${cleanValue}`);
             suffixParts.push(cleanValue);
           }
+        } else {
+          console.log(`Skipping invalid or empty value for attribute: ${attributeKey}`);
         }
       });
+    } else {
+      console.log("No attributes found in variation.variationId.");
     }
 
-    const suffix = suffixParts.join("-");
-    return suffix ? `${parentSku}-${suffix}` : `${parentSku}-var`;
-  },
+    // Log the suffix parts after processing all attributes
+    // console.log("Generated Suffix Parts:", suffixParts);
 
+    // Join the suffix parts to form the final SKU suffix
+    const suffix = suffixParts.join("-");
+    console.log("Final SKU Suffix:", suffix);
+
+    // Return the final SKU or fallback to "var" if no valid suffix is found
+    return suffix || "var";
+  },
   getCommonAttributes: (prodTechInfo: any): any => {
     const common = { ...prodTechInfo };
 
@@ -1160,11 +1194,11 @@ export const amazonListingService = {
         populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER";
 
-      const childSku = amazonListingService.generateChildSku(sku, variation);
+      const childSku = amazonListingService.generateChildSku(variation);
 
       // Get variation theme (you'll need to implement this based on your existing logic)
       const variationData = amazonListingService.extractVariationData([variation]);
-      console.log("here var data", variationData);
+      console.log("here child var data", variationData);
       const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
 
       const childData = {
@@ -1218,7 +1252,7 @@ export const amazonListingService = {
         status: 500,
         message: error.message || "Internal error creating child listing",
         error: error.message,
-        childSku: amazonListingService.generateChildSku(populatedListing.productInfo.sku, variation),
+        childSku: amazonListingService.generateChildSku(variation),
         variationId: variation._id,
       };
     }
