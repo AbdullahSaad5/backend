@@ -702,152 +702,23 @@ export const amazonListingService = {
     }
   },
 
-  // Validate variation data before creating child listing
-  validateVariation: (variation: any): { isValid: boolean; errors: string[] } => {
-    const errors = [];
-
-    // Check if variation has required structure
-    if (!variation.attributes || !variation.attributes.actual_attributes) {
-      errors.push("Missing actual_attributes in variation");
-    }
-
-    // Check if at least one attribute exists
-    if (variation.attributes && variation.attributes.actual_attributes) {
-      const attributeKeys = Object.keys(variation.attributes.actual_attributes);
-      if (attributeKeys.length === 0) {
-        errors.push("No attributes found in actual_attributes");
-      }
-
-      // Validate each attribute has proper structure
-      attributeKeys.forEach((key) => {
-        const attr = variation.attributes.actual_attributes[key];
-        if (!Array.isArray(attr) || attr.length === 0) {
-          errors.push(`Invalid attribute structure for ${key}`);
-        }
-      });
-    }
-
-    // Check pricing information
-    if (!variation.retailPrice || isNaN(parseFloat(variation.retailPrice))) {
-      errors.push("Invalid or missing retailPrice");
-    }
-
-    if (!variation.listingQuantity || isNaN(parseInt(variation.listingQuantity))) {
-      errors.push("Invalid or missing listingQuantity");
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
-  },
-
-  // Update database with variation tracking information
-  updateVariationTracking: async (
-    parentSku: string,
-    successfulChildSkus: any[],
-    failedChildSkus: any[],
-    parentCreated: boolean
-  ) => {
-    try {
-      // Extract just the SKU strings for the database
-      const successfulSkuStrings = successfulChildSkus.map((item) => item.childSku);
-      const failedSkuStrings = failedChildSkus.map((item) => item.childSku);
-
-      // Update the listing document with tracking information
-      const updateData = {
-        "prodPricing.currentAmazonVariationsSKU": successfulSkuStrings,
-        "prodPricing.amazonVariationStatus": {
-          parentCreated: parentCreated,
-          lastUpdated: new Date(),
-          successful: successfulChildSkus,
-          failed: failedChildSkus,
-          totalAttempted: successfulChildSkus.length + failedChildSkus.length,
-        },
-      };
-
-      // Assuming you have a database update function
-      await Listing.updateOne({ "productInfo.sku": parentSku }, updateData);
-      console.log("Variation tracking updated:", updateData);
-    } catch (error) {
-      console.error("Error updating variation tracking:", error);
-    }
-  },
-
   // Edit/Update existing child variation
-  updateChildVariation: async (
-    parentSku: string,
-    variationId: string,
-    updatedVariation: any,
-    token: string
-  ): Promise<any> => {
-    try {
-      // Generate the child SKU for the variation
-      const childSku = amazonListingService.generateChildSku(parentSku, updatedVariation);
 
-      // Validate the updated variation
-      const validationResult = amazonListingService.validateVariation(updatedVariation);
-      if (!validationResult.isValid) {
-        return {
-          status: 400,
-          message: "Validation failed for updated variation",
-          errors: validationResult.errors,
-        };
-      }
+  // // Check if child variation exists on Amazon
+  // checkChildVariationExists: async (childSku: string, token: string): Promise<{ exists: boolean }> => {
+  //   try {
+  //     // This would be an actual API call to Amazon to check if the SKU exists
+  //     // For now, returning a placeholder
+  //     // const response = await amazonAPI.getProduct(childSku, token);
+  //     // return { exists: response.status === 200 };
 
-      // Check if this child variation exists in Amazon
-      const existsResult = await amazonListingService.checkChildVariationExists(childSku, token);
-
-      if (existsResult.exists) {
-        // Update existing child variation
-        const updateResult = await amazonListingService.updateExistingChildListing(parentSku, updatedVariation, token);
-
-        if (updateResult.status === 200) {
-          // Update tracking in database
-          await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "updated");
-        }
-
-        return updateResult;
-      } else {
-        // Create new child variation if it doesn't exist
-        const createResult = await amazonListingService.createChildListing(
-          { productInfo: { sku: parentSku } },
-          updatedVariation,
-          token
-        );
-
-        if (createResult.status === 200) {
-          // Add to tracking in database
-          await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "created");
-        }
-
-        return createResult;
-      }
-    } catch (error: any) {
-      console.error("Error updating child variation:", error);
-      return {
-        status: 500,
-        message: "Internal error during variation update",
-        error: error.message,
-      };
-    }
-  },
-
-  // Check if child variation exists on Amazon
-  checkChildVariationExists: async (childSku: string, token: string): Promise<{ exists: boolean }> => {
-    try {
-      // This would be an actual API call to Amazon to check if the SKU exists
-      // For now, returning a placeholder
-      // const response = await amazonAPI.getProduct(childSku, token);
-      // return { exists: response.status === 200 };
-
-      console.log(`Checking if child SKU ${childSku} exists on Amazon`);
-      return { exists: true }; // Placeholder
-    } catch (error) {
-      console.error("Error checking child variation existence:", error);
-      return { exists: false };
-    }
-  },
+  //     console.log(`Checking if child SKU ${childSku} exists on Amazon`);
+  //     return { exists: true }; // Placeholder
+  //   } catch (error) {
+  //     console.error("Error checking child variation existence:", error);
+  //     return { exists: false };
+  //   }
+  // },
 
   // Update existing child listing on Amazon
   updateExistingChildListing: async (parentSku: string, variation: any, token: string): Promise<any> => {
@@ -1406,8 +1277,6 @@ export const amazonListingService = {
       populatedListing.productInfo.productCategory.amazonCategoryId ||
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
-    const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
-    const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
     const childSku = amazonListingService.generateChildSku(sku, variation);
 
     const childData = {
@@ -1512,6 +1381,7 @@ export const amazonListingService = {
       };
     }
   },
+
   reviseItemOnAmazon: async (listing: any): Promise<string> => {
     try {
       const token = await getStoredAmazonAccessToken();
@@ -1745,6 +1615,102 @@ export const amazonListingService = {
     }
   },
 
+  // Validate variation data before creating child listing
+  validateVariation: (variation: any): { isValid: boolean; errors: string[] } => {
+    const errors = [];
+
+    // Check if variation has required structure
+    if (!variation.attributes || !variation.attributes.actual_attributes) {
+      errors.push("Missing actual_attributes in variation");
+    }
+
+    // Check if at least one attribute exists
+    if (variation.attributes && variation.attributes.actual_attributes) {
+      const attributeKeys = Object.keys(variation.attributes.actual_attributes);
+      if (attributeKeys.length === 0) {
+        errors.push("No attributes found in actual_attributes");
+      }
+
+      // Validate each attribute has proper structure
+      attributeKeys.forEach((key) => {
+        const attr = variation.attributes.actual_attributes[key];
+        if (!Array.isArray(attr) || attr.length === 0) {
+          errors.push(`Invalid attribute structure for ${key}`);
+        }
+      });
+    }
+
+    // Check pricing information
+    if (!variation.retailPrice || isNaN(parseFloat(variation.retailPrice))) {
+      errors.push("Invalid or missing retailPrice");
+    }
+
+    if (!variation.listingQuantity || isNaN(parseInt(variation.listingQuantity))) {
+      errors.push("Invalid or missing listingQuantity");
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  },
+  // updateChildVariation: async (
+  //   parentSku: string,
+  //   // variationId: string,
+  //   updatedVariation: any,
+  //   token: string
+  // ): Promise<any> => {
+  //   try {
+  //     // Generate the child SKU for the variation
+  //     const childSku = amazonListingService.generateChildSku(parentSku, updatedVariation);
+
+  //     // Validate the updated variation
+  //     const validationResult = amazonListingService.validateVariation(updatedVariation);
+  //     if (!validationResult.isValid) {
+  //       return {
+  //         status: 400,
+  //         message: "Validation failed for updated variation",
+  //         errors: validationResult.errors,
+  //       };
+  //     }
+
+  //     // Check if this child variation exists in Amazon
+  //     const existsResult = await amazonListingService.checkChildVariationExists(childSku, token);
+
+  //     if (existsResult.exists) {
+  //       // Update existing child variation
+  //       const updateResult = await amazonListingService.updateExistingChildListing(parentSku, updatedVariation, token);
+
+  //       if (updateResult.status === 200) {
+  //         // Update tracking in database
+  //         await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "updated");
+  //       }
+
+  //       return updateResult;
+  //     } else {
+  //       // Create new child variation if it doesn't exist
+  //       const createResult = await amazonListingService.createChildListing(
+  //         { productInfo: { sku: parentSku } },
+  //         updatedVariation,
+  //         token
+  //       );
+
+  //       if (createResult.status === 200) {
+  //         // Add to tracking in database
+  //         await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "created");
+  //       }
+
+  //       return createResult;
+  //     }
+  //   } catch (error: any) {
+  //     console.error("Error updating child variation:", error);
+  //     return {
+  //       status: 500,
+  //       message: "Internal error during variation update",
+  //       error: error.message,
+  //     };
+  //   }
+  // },
   // Helper function to map Amazon error codes to human-readable messages
   getAmazonErrorMessage(errors: any[]): string {
     if (!errors || errors.length === 0) {
