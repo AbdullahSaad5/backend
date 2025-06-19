@@ -69,12 +69,12 @@ export const guideController = {
 
   getAllGuides: async (req: Request, res: Response) => {
     try {
-      const { category, isBlocked, search } = req.query;
+      const { category, search, isBlocked } = req.query;
 
       const guides = await guideService.getAllGuides({
         ...(category && { category: category as string }),
-        ...(isBlocked !== undefined && { isBlocked: isBlocked === 'true' }),
         ...(search && { search: search as string }),
+        ...(isBlocked !== undefined && { isBlocked: isBlocked === "true" }),
       });
 
       res.status(StatusCodes.OK).json({
@@ -159,7 +159,7 @@ export const guideController = {
 
       res.status(StatusCodes.OK).json({
         success: true,
-        message: `Guide ${updatedGuide.isBlocked ? 'blocked' : 'unblocked'} successfully`,
+        message: `Guide ${updatedGuide.isBlocked ? "blocked" : "unblocked"} successfully`,
         data: updatedGuide,
       });
     } catch (error) {

@@ -19,7 +19,7 @@ export const guideService = {
    * Get guide by ID
    */
   getGuideById: async (id: string): Promise<IGuide | null> => {
-    return GuideModel.findById(id).populate('category', 'title');
+    return GuideModel.findById(id);
   },
 
   /**
@@ -28,38 +28,40 @@ export const guideService = {
   getAllGuides: async (
     filters: {
       category?: string;
-      isBlocked?: boolean;
       search?: string;
+      isBlocked?: boolean;
     } = {}
   ): Promise<IGuide[]> => {
     const query: any = {};
-  
+
     if (filters.category) query.category = filters.category;
     if (filters.isBlocked !== undefined) query.isBlocked = filters.isBlocked;
-    
     if (filters.search) {
       query.$or = [
-        { title: { $regex: filters.search, $options: 'i' } },
-        { description: { $regex: filters.search, $options: 'i' } }
+        { title: { $regex: filters.search, $options: "i" } },
+        { description: { $regex: filters.search, $options: "i" } },
+        { content: { $regex: filters.search, $options: "i" } },
       ];
     }
-  
-    return GuideModel.find(query)
-      .populate('category', 'title')
-      .sort({ createdAt: -1 });
+
+    return GuideModel.find(query).sort({ createdAt: -1 });
   },
 
   /**
-   * Update an existing guide
+   * Update a guide
    */
   updateGuide: async (
     id: string,
     updateData: Partial<IGuide>
   ): Promise<IGuide | null> => {
-    return GuideModel.findByIdAndUpdate(id, updateData, {
-      new: true,
-      runValidators: true,
-    }).populate('category', 'title');
+    return GuideModel.findByIdAndUpdate(
+      id,
+      { ...updateData, updatedAt: new Date() },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
   },
 
   /**
@@ -75,8 +77,11 @@ export const guideService = {
   toggleBlockStatus: async (id: string): Promise<IGuide | null> => {
     const guide = await GuideModel.findById(id);
     if (!guide) return null;
-    
-    guide.isBlocked = !guide.isBlocked;
-    return guide.save();
+
+    return GuideModel.findByIdAndUpdate(
+      id,
+      { isBlocked: !guide.isBlocked, updatedAt: new Date() },
+      { new: true }
+    );
   },
 };

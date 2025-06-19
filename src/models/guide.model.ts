@@ -14,8 +14,7 @@ const guideSchema = new Schema<IGuide, IGuideModel>({
     trim: true,
   },
   category: {
-    type: Schema.Types.ObjectId,
-    ref: "GuideCategory",
+    type: String,
     required: [true, "Category is required"],
   },
   content: {
@@ -26,9 +25,19 @@ const guideSchema = new Schema<IGuide, IGuideModel>({
     type: Boolean,
     default: false,
   },
-}, { timestamps: true });
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
 
-export const GuideModel = model<IGuide, IGuideModel>(
-  "Guide",
-  guideSchema
-);
+guideSchema.pre("save", function(next) {
+  this.updatedAt = new Date();
+  next();
+});
+
+export const GuideModel = model<IGuide, IGuideModel>("Guide", guideSchema);
