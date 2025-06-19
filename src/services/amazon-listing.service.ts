@@ -803,66 +803,6 @@ export const amazonListingService = {
       return null;
     }
   },
-
-  // Retry failed variations
-  retryFailedVariations: async (parentSku: string, token: string): Promise<any> => {
-    try {
-      const currentStatus = await amazonListingService.getVariationStatus(parentSku);
-
-      if (!currentStatus || !currentStatus.failed || currentStatus.failed.length === 0) {
-        return {
-          status: 200,
-          message: "No failed variations to retry",
-        };
-      }
-
-      const retryResults = [];
-      const newSuccessful = [];
-      const stillFailed = [];
-
-      for (const failedItem of currentStatus.failed) {
-        try {
-          // Get the original variation data
-          // const variation = await getVariationById(failedItem.variationId);
-          // const retryResult = await amazonListingService.createChildListing(parentSku, variation, token);
-
-          // For now, placeholder
-          const retryResult = { status: 200, message: "Retry successful" };
-          retryResults.push(retryResult);
-
-          if (retryResult.status === 200) {
-            newSuccessful.push(failedItem);
-          } else {
-            stillFailed.push(failedItem);
-          }
-        } catch (error: any) {
-          stillFailed.push({
-            ...failedItem,
-            retryError: error.message,
-          });
-        }
-      }
-
-      // Update tracking with retry results
-      await amazonListingService.updateRetryTracking(parentSku, newSuccessful, stillFailed);
-
-      return {
-        status: 200,
-        message: "Retry completed",
-        retryResults,
-        newSuccessful: newSuccessful.length,
-        stillFailed: stillFailed.length,
-      };
-    } catch (error: any) {
-      console.error("Error retrying failed variations:", error);
-      return {
-        status: 500,
-        message: "Error during retry process",
-        error: error.message,
-      };
-    }
-  },
-
   // Update tracking after retry
   updateRetryTracking: async (parentSku: string, newSuccessful: any[], stillFailed: any[]) => {
     try {
@@ -1183,6 +1123,7 @@ export const amazonListingService = {
   },
 
   createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
+    console.log("in creeate child listinng function");
     try {
       const {
         productInfo: { sku, item_name, brand, product_description },
