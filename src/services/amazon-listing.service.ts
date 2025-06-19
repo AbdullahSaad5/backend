@@ -636,7 +636,7 @@ export const amazonListingService = {
         try {
           // Generate child SKU for this variation
           const childSku = amazonListingService.generateChildSku(variation);
-
+          console.log("child SKU", childSku);
           // Check if this child already exists in Amazon
           if (currentAmazonSkus.includes(childSku)) {
             console.log(`Child SKU ${childSku} already exists - skipping creation`);
@@ -655,6 +655,7 @@ export const amazonListingService = {
           // Validate variation before creating
           const validationResult = amazonListingService.validateVariation(variation);
           if (!validationResult.isValid) {
+            console.log("reesult");
             failedChildSkus.push({
               childSku,
               variationIndex: index,
@@ -824,7 +825,7 @@ export const amazonListingService = {
   },
 
   determineVariationTheme: (variationData: any): string => {
-    console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
+    // console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
 
     // Define attribute to Amazon theme mapping
     const attributeToThemeMap: { [key: string]: string } = {
@@ -869,14 +870,14 @@ export const amazonListingService = {
 
     // Extract top-level attributes (keys of the first object in variationData)
     const parentAttributes = variationData[0] ? Object.keys(variationData[0]) : [];
-    console.log("Parent Attributes extracted:", parentAttributes);
+    // console.log("Parent Attributes extracted:", parentAttributes);
 
     // Map parent attributes to Amazon theme names
     const mappedAttributes = parentAttributes
       .map((attr) => attributeToThemeMap[attr] || attr) // Map to theme names or keep original attribute name
       .filter((attr) => attr); // Remove undefined mappings
 
-    console.log("Mapped Attributes:", mappedAttributes);
+    // console.log("Mapped Attributes:", mappedAttributes);
 
     // Throw error if no valid varying attributes are found
     if (mappedAttributes.length === 0) {
@@ -898,13 +899,13 @@ export const amazonListingService = {
       // Check if all theme attributes exist in the mapped attributes (order does not matter)
       const isValidMatch = [...themeSet].every((attr) => mappedSet.has(attr));
 
-      console.log(`Checking theme: ${theme}`);
-      console.log("Matching Attributes (order-agnostic):", isValidMatch);
+      // console.log(`Checking theme: ${theme}`);
+      // console.log("Matching Attributes (order-agnostic):", isValidMatch);
 
       // If it's a valid match and has the most matching attributes, update bestMatch
       if (isValidMatch) {
         const matchingAttributes = themeAttributes.filter((attr) => mappedSet.has(attr)).length;
-        console.log("Matching Attribute Count:", matchingAttributes);
+        // console.log("Matching Attribute Count:", matchingAttributes);
 
         if (matchingAttributes > maxMatchingAttributes) {
           maxMatchingAttributes = matchingAttributes;
@@ -989,7 +990,7 @@ export const amazonListingService = {
       Object.keys(attributes).forEach((attributeKey) => {
         // Skip actual_attributes
         if (attributeKey === "actual_attributes") {
-          console.log("Skipping actual_attributes key.");
+          // console.log("Skipping actual_attributes key.");
           return;
         }
 
@@ -1039,7 +1040,7 @@ export const amazonListingService = {
 
     // Join the suffix parts to form the final SKU suffix
     const suffix = suffixParts.join("-");
-    console.log("Final SKU Suffix:", suffix);
+    // console.log("Final SKU Suffix:", suffix);
 
     // Return the final SKU or fallback to "var" if no valid suffix is found
     return suffix || "var";
@@ -1139,7 +1140,7 @@ export const amazonListingService = {
 
       // Get variation theme (you'll need to implement this based on your existing logic)
       const variationData = amazonListingService.extractVariationData([variation]);
-      console.log("here child var data", variationData);
+      console.log("here child var data", JSON.stringify(variationData));
       const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
 
       const childData = {
@@ -1497,7 +1498,7 @@ export const amazonListingService = {
   // Validate variation data before creating child listing
   validateVariation: (variation: any): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
-    // console.log("variaion Validate:::", variation);
+
     if (!variation) {
       errors.push("Variation object is null or undefined");
       return { isValid: false, errors };
@@ -1515,11 +1516,12 @@ export const amazonListingService = {
       errors.push("Valid listing quantity is required");
     }
 
-    if (!variation?.variationId?.attributes || !variation?.variationId?.attributes.actual_attributes) {
+    // Check if the 'attributes' exists
+    if (!variation?.variationId?.attributes) {
       errors.push("Variation attributes are missing");
     } else {
-      const actualAttributes = variation.attributes.actual_attributes;
-      const attributeKeys = Object.keys(actualAttributes);
+      const attributes = variation?.variationId?.attributes;
+      const attributeKeys = Object.keys(attributes);
 
       if (attributeKeys.length === 0) {
         errors.push("No variation attributes found");
@@ -1527,12 +1529,11 @@ export const amazonListingService = {
         // Validate each attribute has proper structure
         let hasValidAttribute = false;
         attributeKeys.forEach((key) => {
-          const attributeArray = actualAttributes[key];
-          if (Array.isArray(attributeArray) && attributeArray.length > 0) {
-            const attr = attributeArray[0];
-            if (attr.value !== undefined || (attr.size && Array.isArray(attr.size) && attr.size.length > 0)) {
-              hasValidAttribute = true;
-            }
+          const attributeValue = attributes[key];
+
+          // Validate that the attribute value is not empty or undefined
+          if (attributeValue !== undefined && attributeValue !== "") {
+            hasValidAttribute = true;
           }
         });
 
@@ -1547,7 +1548,6 @@ export const amazonListingService = {
       errors,
     };
   },
-
   getAmazonCategories: async (req: Request, res: Response) => {
     try {
       const token = await getStoredAmazonAccessToken();
