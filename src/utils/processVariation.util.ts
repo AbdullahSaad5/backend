@@ -31,8 +31,21 @@ export const processVariationsUtility = {
         processedAttributes.display = displayResult;
       }
     }
-
-    // Processing for RAM memory (handling `installed_size`, `maximum_size`)
+    // Ensure computer memory attribute exists and has valid data
+    if (attributesObj.computer_memory && Array.isArray(attributesObj.computer_memory)) {
+      const displayResult = processVariationsUtility.processComputerMemoryAttribute(attributesObj.computer_memory);
+      if (displayResult.length > 0) {
+        processedAttributes.computer_memory = displayResult;
+      }
+    }
+    // Ensure hard_disk attribute exists and has valid data
+    if (attributesObj.hard_disk && Array.isArray(attributesObj.hard_disk)) {
+      const displayResult = processVariationsUtility.processHardDiskAttribute(attributesObj.hard_disk);
+      if (displayResult.length > 0) {
+        processedAttributes.hard_disk = displayResult;
+      }
+    }
+    // Processing for RAM memory
     if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
       const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
       if (ramResult.length > 0) {
@@ -80,7 +93,7 @@ export const processVariationsUtility = {
     return processedAttributes;
   },
 
-    // **Placeholder for future categories**
+  // **Placeholder for future categories**
   processOtherCategoryAttributes: (attributes: any) => {
     // Implement logic for other categories as needed.
     // For example, if there's a "smartphone" category, process its attributes differently.
@@ -112,7 +125,56 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
+  processComputerMemoryAttribute: (attribute: any[]) => {
+    console.log("Processing Computer Memory attribute:", attribute);
 
+    // Create variations for each size while preserving original structure
+    const displayVariations: any[] = [];
+
+    attribute.forEach((displayItem) => {
+      displayItem.size.forEach((sizeItem: any) => {
+        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+
+        // Create a new display object with only the selected size but preserve all other properties
+        const newDisplayItem = {
+          ...displayItem,
+          size: [sizeItem], // Only include the selected size
+        };
+
+        displayVariations.push({
+          displayValue: displayValue,
+          originalStructure: [newDisplayItem], // Keep as array like in DB
+        });
+      });
+    });
+
+    return displayVariations;
+  },
+  processHardDiskAttribute: (attribute: any[]) => {
+    console.log("Processing HArd Disk attribute:", attribute);
+
+    // Create variations for each size while preserving original structure
+    const displayVariations: any[] = [];
+
+    attribute.forEach((displayItem) => {
+      displayItem.size.forEach((sizeItem: any) => {
+        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+
+        // Create a new display object with only the selected size but preserve all other properties
+        const newDisplayItem = {
+          ...displayItem,
+          size: [sizeItem], // Only include the selected size
+        };
+
+        displayVariations.push({
+          displayValue: displayValue,
+          originalStructure: [newDisplayItem], // Keep as array like in DB
+        });
+      });
+    });
+
+    return displayVariations;
+  },
   // Enhanced function to process 'processor_description' attribute
   processProcessorDescription: (attribute: any[]) => {
     return attribute.map((item) => ({
@@ -160,6 +222,4 @@ export const processVariationsUtility = {
 
     return ramVariations;
   },
-
-
 };
