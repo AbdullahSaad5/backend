@@ -31,10 +31,33 @@ export const complaintService = {
     return complaint;
   },
 
-  getAllComplaints: () => {
-    return ComplaintModel.find();
-  },
-
+  // getAllComplaints: () => {
+  //   return ComplaintModel.find();
+  // },
+ // In complaint.service.ts
+getAllComplaints: async () => {
+  return ComplaintModel.find()
+    .populate({
+      path: 'category',
+      select: 'title description image' // Fields you want from Category
+    })
+    .populate({
+      path: 'assignedTo',
+      select: 'firstName lastName email' // Fields from User
+    })
+    .populate({
+      path: 'userId',
+      select: 'firstName lastName email' // Fields from User
+    })
+    .populate({
+      path: 'resolution.resolvedBy',
+      select: 'firstName lastName email'
+    })
+    .populate({
+      path: 'notes.notedBy',
+      select: 'firstName lastName email'
+    });
+},
   getComplaintById: (id: string) => {
     return ComplaintModel.findById(id);
   },

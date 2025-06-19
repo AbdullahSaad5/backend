@@ -109,6 +109,10 @@ const complaintSchema = new Schema<IComplaint>({
       },
     },
   ],
+  isEscalated: {
+    type: Boolean,
+    default: false,
+  },
   userId: {
     type: Schema.Types.ObjectId,
     ref: "User",

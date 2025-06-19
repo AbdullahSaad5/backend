@@ -69,60 +69,36 @@ const complaintdata = {...req.body, userId};
     }
   },
 
-  // getAllComplaints: async (req: any, res: Response) => {
+
+
+  // getAllComplaints: async (req: Request, res: Response) => {
   //   try {
-  //     const {
-  //       status,
-  //       priority,
-  //       category,
-  //       assignedTo,
-  //       fromDate,
-  //       toDate
-  //     } = req.query;
-
-  //     // Only allow admins/managers to filter by assignedTo
-  //     const canFilterByAssignment = req.user.role === "admin" || req.user.role === "manager";
-
-  //     const complaints = await complaintService.getAllComplaints({
-  //       ...(status && { status: status as IComplaint["status"] }),
-  //       ...(priority && { priority: priority as IComplaint["priority"] }),
-  //       ...(category && { category: category as string }),
-  //       ...(canFilterByAssignment && assignedTo && { assignedTo: assignedTo as string }),
-  //       ...(!canFilterByAssignment && { $or: [
-  //         { createdBy: req.user._id },
-  //         { assignedTo: req.user._id }
-  //       ]}),
-  //       ...(fromDate && { fromDate: new Date(fromDate as string) }),
-  //       ...(toDate && { toDate: new Date(toDate as string) })
-  //     });
-
-  //     res.status(StatusCodes.OK).json({
-  //       success: true,
-  //       count: complaints.length,
-  //       data: complaints
-  //     });
+  //     const categories = await complaintService.getAllComplaints();
+  //     console.log(categories);
+  //     res.status(StatusCodes.OK).json({ success: true, data: categories });
   //   } catch (error) {
-  //     console.error("Error fetching complaints:", error);
-  //     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-  //       success: false,
-  //       message: "Failed to fetch complaints"
-  //     });
+  //     console.error("View Categories Error:", error);
+  //     res
+  //       .status(StatusCodes.INTERNAL_SERVER_ERROR)
+  //       .json({ success: false, message: "Error getting all Blog categories" });
   //   }
   // },
 
   getAllComplaints: async (req: Request, res: Response) => {
-    try {
-      const categories = await complaintService.getAllComplaints();
-      console.log(categories);
-      res.status(StatusCodes.OK).json({ success: true, data: categories });
-    } catch (error) {
-      console.error("View Categories Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting all Blog categories" });
-    }
-  },
-
+  try {
+    const complaints = await complaintService.getAllComplaints();
+    res.status(StatusCodes.OK).json({ 
+      success: true, 
+      data: complaints 
+    });
+  } catch (error) {
+    console.error("Error fetching complaints:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to fetch complaints"
+    });
+  }
+},
   updateComplaint: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
