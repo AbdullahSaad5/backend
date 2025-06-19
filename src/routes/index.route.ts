@@ -43,6 +43,8 @@ import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
 import { salaryStructure } from "./salaryStructure.route";
+import { guidescategory } from "./guidescategory.route";
+import { guide } from "./guide.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -93,6 +95,8 @@ const routes: {
   chat,
   revenue,
   salaryStructure,
+  guidescategory,
+  guide,
   // discriminator,
 };
 
