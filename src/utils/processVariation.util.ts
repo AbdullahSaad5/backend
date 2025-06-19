@@ -107,20 +107,23 @@ export const processVariationsUtility = {
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
-      displayItem.size.forEach((sizeItem: any) => {
-        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+      // Check if the size array contains more than one item
+      if (displayItem.size && displayItem.size.length > 1) {
+        displayItem.size.forEach((sizeItem: any) => {
+          const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-        // Create a new display object with only the selected size but preserve all other properties
-        const newDisplayItem = {
-          ...displayItem,
-          size: [sizeItem], // Only include the selected size
-        };
+          // Create a new display object with only the selected size but preserve all other properties
+          const newDisplayItem = {
+            ...displayItem,
+            size: [sizeItem], // Only include the selected size
+          };
 
-        displayVariations.push({
-          displayValue: displayValue,
-          originalStructure: [newDisplayItem], // Keep as array like in DB
+          displayVariations.push({
+            displayValue: displayValue,
+            originalStructure: [newDisplayItem], // Keep as array like in DB
+          });
         });
-      });
+      }
     });
 
     return displayVariations;
@@ -132,20 +135,22 @@ export const processVariationsUtility = {
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
-      displayItem.size.forEach((sizeItem: any) => {
-        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+      if (displayItem.size && displayItem.size.length > 1) {
+        displayItem.size.forEach((sizeItem: any) => {
+          const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-        // Create a new display object with only the selected size but preserve all other properties
-        const newDisplayItem = {
-          ...displayItem,
-          size: [sizeItem], // Only include the selected size
-        };
+          // Create a new display object with only the selected size but preserve all other properties
+          const newDisplayItem = {
+            ...displayItem,
+            size: [sizeItem], // Only include the selected size
+          };
 
-        displayVariations.push({
-          displayValue: displayValue,
-          originalStructure: [newDisplayItem], // Keep as array like in DB
+          displayVariations.push({
+            displayValue: displayValue,
+            originalStructure: [newDisplayItem], // Keep as array like in DB
+          });
         });
-      });
+      }
     });
 
     return displayVariations;
@@ -157,46 +162,58 @@ export const processVariationsUtility = {
     const displayVariations: any[] = [];
 
     attribute.forEach((displayItem) => {
-      displayItem.size.forEach((sizeItem: any) => {
-        const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+      if (displayItem.size && displayItem.size.length > 1) {
+        displayItem.size.forEach((sizeItem: any) => {
+          const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
 
-        // Create a new display object with only the selected size but preserve all other properties
-        const newDisplayItem = {
-          ...displayItem,
-          size: [sizeItem], // Only include the selected size
-        };
+          // Create a new display object with only the selected size but preserve all other properties
+          const newDisplayItem = {
+            ...displayItem,
+            size: [sizeItem], // Only include the selected size
+          };
 
-        displayVariations.push({
-          displayValue: displayValue,
-          originalStructure: [newDisplayItem], // Keep as array like in DB
+          displayVariations.push({
+            displayValue: displayValue,
+            originalStructure: [newDisplayItem], // Keep as array like in DB
+          });
         });
-      });
+      }
     });
 
     return displayVariations;
   },
   // Enhanced function to process 'processor_description' attribute
   processProcessorDescription: (attribute: any[]) => {
-    return attribute.map((item) => ({
-      displayValue: item.value,
-      originalStructure: [item], // Keep as array like in DB
-    }));
+    // Only process if the attribute array has more than one item
+    if (attribute.length > 1) {
+      return attribute.map((item) => ({
+        displayValue: item.value,
+        originalStructure: [item], // Keep as array like in DB
+      }));
+    }
+
+    // If there's only one item, return an empty array or skip variations
+    return [];
   },
 
   // Enhanced function to process 'memory_storage_capacity' attribute
   processMemoryStorageCapacity: (attribute: any[]) => {
-    return attribute.map((item) => ({
-      displayValue: `${item.value} ${item.unit}`,
-      originalStructure: [item], // Keep as array like in DB
-    }));
+    if (attribute.length > 1) {
+      return attribute.map((item) => ({
+        displayValue: `${item.value} ${item.unit}`,
+        originalStructure: [item], // Keep as array like in DB
+      }));
+    }
   },
 
   // Enhanced function to process 'solid_state_storage_drive' attribute
   processSolidStateStorageDrive: (attribute: any[]) => {
-    return attribute.map((item) => ({
-      displayValue: `${item.capacity.value} ${item.capacity.unit}`,
-      originalStructure: [item], // Keep as array like in DB
-    }));
+    if (attribute.length > 1) {
+      return attribute.map((item) => ({
+        displayValue: `${item.capacity.value} ${item.capacity.unit}`,
+        originalStructure: [item], // Keep as array like in DB
+      }));
+    }
   },
 
   // Enhanced function to process 'ram_memory' attribute
@@ -204,20 +221,22 @@ export const processVariationsUtility = {
     const ramVariations: any[] = [];
 
     attribute.forEach((ramItem) => {
-      ramItem.installed_size.forEach((installedSize: any) => {
-        const displayValue = `${installedSize.value} ${installedSize.unit}`;
+      if (ramItem.installed_size && ramItem.installed_size.length > 1) {
+        ramItem.installed_size.forEach((installedSize: any) => {
+          const displayValue = `${installedSize.value} ${installedSize.unit}`;
 
-        // Create a new ram object with the selected installed_size but preserve all other properties
-        const newRamItem = {
-          ...ramItem,
-          installed_size: [installedSize], // Only include the selected installed_size
-        };
+          // Create a new ram object with the selected installed_size but preserve all other properties
+          const newRamItem = {
+            ...ramItem,
+            installed_size: [installedSize], // Only include the selected installed_size
+          };
 
-        ramVariations.push({
-          displayValue: displayValue,
-          originalStructure: [newRamItem], // Keep as array like in DB
+          ramVariations.push({
+            displayValue: displayValue,
+            originalStructure: [newRamItem], // Keep as array like in DB
+          });
         });
-      });
+      }
     });
 
     return ramVariations;
