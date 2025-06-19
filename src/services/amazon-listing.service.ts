@@ -1188,7 +1188,7 @@ export const amazonListingService = {
         requestData: childData,
       };
     } catch (error: any) {
-      console.error("Error in createChildListing:", error);
+      console.error("Error in create Child Listing:", error);
       return {
         status: 500,
         message: error.message || "Internal error creating child listing",
