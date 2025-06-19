@@ -761,99 +761,6 @@ export const amazonListingService = {
       };
     }
   },
-
-  // Edit/Update existing child variation
-
-  // // Check if child variation exists on Amazon
-  // checkChildVariationExists: async (childSku: string, token: string): Promise<{ exists: boolean }> => {
-  //   try {
-  //     // This would be an actual API call to Amazon to check if the SKU exists
-  //     // For now, returning a placeholder
-  //     // const response = await amazonAPI.getProduct(childSku, token);
-  //     // return { exists: response.status === 200 };
-
-  //     console.log(`Checking if child SKU ${childSku} exists on Amazon`);
-  //     return { exists: true }; // Placeholder
-  //   } catch (error) {
-  //     console.error("Error checking child variation existence:", error);
-  //     return { exists: false };
-  //   }
-  // },
-
-  // Update existing child listing on Amazon
-  // updateExistingChildListing: async (parentSku: string, variation: any, token: string): Promise<any> => {
-  //   const childSku = amazonListingService.generateChildSku(parentSku, variation);
-
-  //   const updateData = {
-  //     productType: "NOTEBOOK_COMPUTER", // This should come from your category mapping
-  //     requirements: "LISTING",
-  //     attributes: {
-  //       // Child-specific attributes
-  //       parent_sku: [{ value: parentSku }],
-  //       child_parent_sku_relationship: [{ value: "child" }],
-
-  //       // Updated variation values
-  //       ...amazonListingService.buildChildVariationAttributes(variation),
-
-  //       // Updated price and inventory
-  //       price: [
-  //         {
-  //           value: variation.retailPrice || "10",
-  //           currency: "GBP",
-  //         },
-  //       ],
-  //       quantity: [{ value: variation.listingQuantity || "0" }],
-  //     },
-  //   };
-
-  //   console.log("🔄 Updating child listing:", JSON.stringify(updateData, null, 2));
-  //   return await amazonListingService.sendToAmazon(childSku, updateData, token);
-  // },
-
-  // Update tracking for single variation
-  // updateSingleVariationTracking: async (
-  //   parentSku: string,
-  //   childSku: string,
-  //   variation: any,
-  //   action: "created" | "updated" | "deleted"
-  // ) => {
-  //   try {
-  //     const trackingUpdate = {
-  //       childSku,
-  //       variationId: variation._id,
-  //       action,
-  //       timestamp: new Date(),
-  //       retailPrice: variation.retailPrice,
-  //       listingQuantity: variation.listingQuantity,
-  //     };
-
-  //     // Update database - add/update/remove from currentAmazonVariationsSKU array
-  //     if (action === "created" || action === "updated") {
-  //       // Add to array if not exists, or update existing entry
-  //       await Listing.updateOne(
-  //         { "productInfo.sku": parentSku },
-  //         {
-  //           $addToSet: { "prodPricing.currentAmazonVariationsSKU": childSku },
-  //           $push: { "prodPricing.variationHistory": trackingUpdate },
-  //         }
-  //       );
-  //     } else if (action === "deleted") {
-  //       // Remove from array
-  //       await Listing.updateOne(
-  //         { "productInfo.sku": parentSku },
-  //         {
-  //           $pull: { "prodPricing.currentAmazonVariationsSKU": childSku },
-  //           $push: { "prodPricing.variationHistory": trackingUpdate },
-  //         }
-  //       );
-  //     }
-
-  //     console.log("Single variation tracking updated:", trackingUpdate);
-  //   } catch (error) {
-  //     console.error("Error updating single variation tracking:", error);
-  //   }
-  // },
-
   // Delete child variation
   deleteChildVariation: async (parentSku: string, childSku: string, token: string): Promise<any> => {
     try {
@@ -1232,11 +1139,6 @@ export const amazonListingService = {
         // ],
         // ...amazonListingService.prepareImageLocators(populatedListing),
         // ...amazonListingService.buildVariationAttributes(variationData),
-        // variation_theme: [
-        //   {
-        //     name: "COLOR/DISPLAY_SIZE/MEMORY_STORAGE_CAPACITY/RAM_MEMORY_INSTALLED_SIZE/GRAPHICS_COPROCESSOR/OPERATING_SYSTEM",
-        //   },
-        // ],
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo),
       },
     };
@@ -1669,93 +1571,6 @@ export const amazonListingService = {
       isValid: errors.length === 0,
       errors,
     };
-  },
-  // updateChildVariation: async (
-  //   parentSku: string,
-  //   // variationId: string,
-  //   updatedVariation: any,
-  //   token: string
-  // ): Promise<any> => {
-  //   try {
-  //     // Generate the child SKU for the variation
-  //     const childSku = amazonListingService.generateChildSku(parentSku, updatedVariation);
-
-  //     // Validate the updated variation
-  //     const validationResult = amazonListingService.validateVariation(updatedVariation);
-  //     if (!validationResult.isValid) {
-  //       return {
-  //         status: 400,
-  //         message: "Validation failed for updated variation",
-  //         errors: validationResult.errors,
-  //       };
-  //     }
-
-  //     // Check if this child variation exists in Amazon
-  //     const existsResult = await amazonListingService.checkChildVariationExists(childSku, token);
-
-  //     if (existsResult.exists) {
-  //       // Update existing child variation
-  //       const updateResult = await amazonListingService.updateExistingChildListing(parentSku, updatedVariation, token);
-
-  //       if (updateResult.status === 200) {
-  //         // Update tracking in database
-  //         await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "updated");
-  //       }
-
-  //       return updateResult;
-  //     } else {
-  //       // Create new child variation if it doesn't exist
-  //       const createResult = await amazonListingService.createChildListing(
-  //         { productInfo: { sku: parentSku } },
-  //         updatedVariation,
-  //         token
-  //       );
-
-  //       if (createResult.status === 200) {
-  //         // Add to tracking in database
-  //         await amazonListingService.updateSingleVariationTracking(parentSku, childSku, updatedVariation, "created");
-  //       }
-
-  //       return createResult;
-  //     }
-  //   } catch (error: any) {
-  //     console.error("Error updating child variation:", error);
-  //     return {
-  //       status: 500,
-  //       message: "Internal error during variation update",
-  //       error: error.message,
-  //     };
-  //   }
-  // },
-  // Helper function to map Amazon error codes to human-readable messages
-  getAmazonErrorMessage(errors: any[]): string {
-    if (!errors || errors.length === 0) {
-      return "Unknown error from Amazon";
-    }
-
-    const error = errors[0];
-    switch (error.code) {
-      case "InvalidInput":
-        return `Invalid input: ${error.message}`;
-      case "InvalidSKU":
-        return `Invalid SKU: ${error.message}`;
-      case "InvalidPrice":
-        return `Invalid price: ${error.message}`;
-      case "InvalidQuantity":
-        return `Invalid quantity: ${error.message}`;
-      case "InvalidProductType":
-        return `Invalid product type: ${error.message}`;
-      case "InvalidAttribute":
-        return `Invalid attribute: ${error.message}`;
-      case "MissingRequiredAttribute":
-        return `Missing required attribute: ${error.message}`;
-      case "DuplicateSKU":
-        return `Duplicate SKU: ${error.message}`;
-      case "ServiceUnavailable":
-        return `Service unavailable: ${error.message}`;
-      default:
-        return `Amazon error occurred: ${error.message || "Unknown error"}`;
-    }
   },
 
   getAmazonCategories: async (req: Request, res: Response) => {
