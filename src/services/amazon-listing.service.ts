@@ -836,7 +836,7 @@ export const amazonListingService = {
       computer_memory: "COMPUTER_MEMORY_SIZE", // actually RAM Size
       processor_description: "PROCESSOR_DESCRIPTION",
       color: "COLOR_NAME",
-      ram_memory: "RAM_MEMORY_INSTALLED_SIZE",
+      // ram_memory: "RAM_MEMORY_INSTALLED_SIZE",
       graphics_coprocessor: "GRAPHICS_COPROCESSOR",
       graphics_description: "GRAPHICS_DESCRIPTION",
       operating_system: "OPERATING_SYSTEM",
@@ -1212,10 +1212,10 @@ export const amazonListingService = {
         }
       );
 
-      // console.log(
-      //   "url is",
-      //   `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
-      // );
+      console.log(
+        "url is",
+        `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku || "ABC-123-DUMMY"}?marketplaceIds=${marketplaceId}`
+      );
 
       const rawResponse = await response.text();
       console.log("🔍 Raw response from Amazon:", rawResponse);

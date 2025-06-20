@@ -48,12 +48,12 @@ export const processVariationsUtility = {
     }
 
     // Processing for RAM memory
-    if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
-      const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
-      if (ramResult.length > 0) {
-        processedAttributes.ram_memory = ramResult;
-      }
-    }
+    // if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
+    //   const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
+    //   if (ramResult.length > 0) {
+    //     processedAttributes.ram_memory = ramResult;
+    //   }
+    // }
 
     // Processing for processor_description (just extracting the value)
     if (
@@ -223,27 +223,27 @@ export const processVariationsUtility = {
   },
 
   // Enhanced function to process 'ram_memory' attribute
-  processRamMemory: (attribute: any[]) => {
-    const ramVariations: any[] = [];
+  // processRamMemory: (attribute: any[]) => {
+  //   const ramVariations: any[] = [];
 
-    attribute.forEach((ramItem) => {
-      if (ramItem.installed_size && ramItem.installed_size.length > 1) {
-        ramItem.installed_size.forEach((installedSize: any) => {
-          const displayValue = `${installedSize.value} ${installedSize.unit}`;
+  //   attribute.forEach((ramItem) => {
+  //     if (ramItem.installed_size && ramItem.installed_size.length > 1) {
+  //       ramItem.installed_size.forEach((installedSize: any) => {
+  //         const displayValue = `${installedSize.value} ${installedSize.unit}`;
 
-          const newRamItem = {
-            ...ramItem,
-            installed_size: [installedSize], // Only include the selected installed_size
-          };
+  //         const newRamItem = {
+  //           ...ramItem,
+  //           installed_size: [installedSize], // Only include the selected installed_size
+  //         };
 
-          ramVariations.push({
-            displayValue: displayValue,
-            originalStructure: [newRamItem], // Keep as array like in DB
-          });
-        });
-      }
-    });
+  //         ramVariations.push({
+  //           displayValue: displayValue,
+  //           originalStructure: [newRamItem], // Keep as array like in DB
+  //         });
+  //       });
+  //     }
+  //   });
 
-    return ramVariations;
-  },
+  //   return ramVariations;
+  // },
 };
