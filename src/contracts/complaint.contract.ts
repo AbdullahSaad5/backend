@@ -9,6 +9,7 @@ export interface IComplaint extends Document {
     image?:string[],
     description?: string, 
     notedBy?: Types.ObjectId,
+    notedAt?: Date;
   }];
   assignedTo?: string;
   createDate?: Date;
@@ -19,7 +20,9 @@ export interface IComplaint extends Document {
     image?:string[];
     description?: string;
     resolvedBy?: Types.ObjectId;
+    resolvedAt?: Date;
   }];
+  isEscalated: boolean;
   userId?: string;
 }
 export type complaintModel = Model<IComplaint>;

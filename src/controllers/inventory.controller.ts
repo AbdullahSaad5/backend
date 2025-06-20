@@ -244,53 +244,157 @@ export const inventoryController = {
   },
 
   //Get All Template Inventory Names
+  // getAllTemplateInventoryNames: async (req: Request, res: Response) => {
+  //   try {
+  //     const templates = await inventoryService.getInventoryByCondition({
+  //       isTemplate: true,
+  //     });
+
+  //     // console.log("templatestemplates : ", templates);
+
+  //     if (!templates.length) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({
+  //         success: false,
+  //         message: "No templates found",
+  //       });
+  //     }
+
+  //     const templateList = templates.map((template: any, index: number) => {
+  //       // console.log("templatetemplate : ", template);
+
+  //       const inventoryId = template._id;
+  //       const templateAlias = template.alias;
+
+  //       // console.log("templateListNAme : " , templateAlias)
+
+  //       const kind = (template.kind || "UNKNOWN").toLowerCase();
+
+  //       // const itemCategory = template.productInfo.productCategory?.name;
+  //       const itemCategory = template.productInfo?.productCategory?.name || 
+  //                    template.productInfo?.productCategory?.toString() || 
+  //                    "UNKNOWN";
+
+  //       // console.log("kindiiii : ", kind);
+
+  //       // ✅ Ensure correct access to prodTechInfo
+  //       const prodInfo = (template as any).prodTechInfo || {};
+  //       let fields: string[] = [];
+
+  //       switch (itemCategory) {
+  //         case "laptops":
+  //     fields = [
+  //       prodInfo.processor_description?.[0]?.value,
+  //       prodInfo.model_name?.[0]?.value,
+  //       prodInfo.ssd_capacity?.[0]?.value,
+  //       prodInfo.hard_disk?.[0]?.value,
+  //       prodInfo.warranty_description?.[0]?.value,
+  //       prodInfo.operating_system?.[0]?.value
+  //     ];
+  //     break;
+    // case "all in one":
+    //   fields = [
+    //     prodInfo.type?.[0]?.value,
+    //     prodInfo.memory?.[0]?.value,
+    //     prodInfo.processor_description?.[0]?.value,
+    //     prodInfo.operating_system?.[0]?.value
+    //   ];
+
+    //       case "mini pc":
+    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+    //         break;
+    //       case "computers":
+    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+    //         break;
+    //       case "projectors":
+    //         fields = [prodInfo.type, prodInfo.model];
+    //         break;
+    //       case "monitors":
+    //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
+    //         break;
+    //       case "gaming pc":
+    //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
+    //         break;
+    //       case "network equipments":
+    //         fields = [prodInfo.networkType, prodInfo.processorType];
+    //         break;
+  //         default:
+  //           fields = ["UNKNOWN"];
+  //       }
+
+  //       console.log("fields : ", fields);
+
+  //       const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+  //       const srno = (index + 1).toString().padStart(2, "0");
+  //       const templateName =
+  //         ` ${kind === "part" ? "PART" : "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+
+  //       console.log("templateNametemplateName : ", templateName);
+
+  //       return { templateName, inventoryId, templateAlias };
+  //     });
+
+  //     // Sorting based on numerical value at the end of templateName
+  //     templateList.sort((a, b) => {
+  //       const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+  //       const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+  //       return numB - numA;
+  //     });
+
+  //     // console.log("templateList : " , templateList)
+
+  //     return res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Templates fetched successfully",
+  //       data: templateList,
+  //     });
+  //   } catch (error: any) {
+  //     console.error("Error fetching templates:", error);
+  //     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: error.message || "Error fetching templates",
+  //     });
+  //   }
+  // },
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
-    try {
-      const templates = await inventoryService.getInventoryByCondition({
-        isTemplate: true,
+  try {
+    const templates = await inventoryService.getInventoryByCondition({
+      isTemplate: true,
+    });
+
+    if (!templates.length) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "No templates found",
       });
+    }
 
-      // console.log("templatestemplates : ", templates);
+    const templateList = templates.map((template: any, index: number) => {
+      const inventoryId = template._id;
+      const templateAlias = template.alias;
+      const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-      if (!templates.length) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "No templates found",
-        });
-      }
+      // Properly access the category name
+      const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
+      const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
 
-      const templateList = templates.map((template: any, index: number) => {
-        // console.log("templatetemplate : ", template);
+      const prodInfo = template.prodTechInfo || {};
+      let fields: string[] = [];
 
-        const inventoryId = template._id;
-        const templateAlias = template.alias;
-
-        // console.log("templateListNAme : " , templateAlias)
-
-        const kind = (template.kind || "UNKNOWN").toLowerCase();
-
-        const itemCategory = template.productInfo.productCategory?.name;
-
-        // console.log("kindiiii : ", kind);
-
-        // ✅ Ensure correct access to prodTechInfo
-        const prodInfo = (template as any).prodTechInfo || {};
-        let fields: string[] = [];
-
-        switch (itemCategory) {
-          case "laptops":
-            fields = [
-              prodInfo.processor,
-              prodInfo.model,
-              prodInfo.ssdCapacity,
-              prodInfo.hardDriveCapacity,
-              prodInfo.manufacturerWarranty,
-              prodInfo.operatingSystem,
-            ];
-            break;
-          case "all in one":
-            fields = [prodInfo.Type, prodInfo.Memory, prodInfo.processor, prodInfo.operatingSystem];
-            break;
+      // Use proper field access based on your actual data structure
+      switch (itemCategory.toLowerCase()) {
+        case "laptops":
+          fields = [
+            prodInfo.processor_description?.[0]?.value || prodInfo.processor,
+            prodInfo.model_name?.[0]?.value || prodInfo.model,
+          ];
+          break;
+              case "all in one":
+      fields = [
+        prodInfo.type?.[0]?.value,
+        prodInfo.memory?.[0]?.value,
+        prodInfo.processor_description?.[0]?.value,
+        prodInfo.operating_system?.[0]?.value
+      ];
 
           case "mini pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
@@ -310,44 +414,39 @@ export const inventoryController = {
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
-          default:
-            fields = ["UNKNOWN"];
-        }
+        // Add other cases
+        default:
+          fields = ["UNKNOWN"];
+      }
 
-        console.log("fields : ", fields);
+      const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+      const srno = (index + 1).toString().padStart(2, "0");
+      const templateName = 
+        ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-        const srno = (index + 1).toString().padStart(2, "0");
-        const templateName =
-          ` ${kind === "part" ? "PART" : "PRODUCT"} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+      return { templateName, inventoryId, templateAlias };
+    });
 
-        console.log("templateNametemplateName : ", templateName);
+    // Sorting logic remains the same
+    templateList.sort((a, b) => {
+      const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+      const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+      return numB - numA;
+    });
 
-        return { templateName, inventoryId, templateAlias };
-      });
-
-      // Sorting based on numerical value at the end of templateName
-      templateList.sort((a, b) => {
-        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
-        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
-        return numB - numA;
-      });
-
-      // console.log("templateList : " , templateList)
-
-      return res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Templates fetched successfully",
-        data: templateList,
-      });
-    } catch (error: any) {
-      console.error("Error fetching templates:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: error.message || "Error fetching templates",
-      });
-    }
-  },
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Templates fetched successfully",
+      data: templateList,
+    });
+  } catch (error: any) {
+    console.error("Error fetching templates:", error);
+    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: error.message || "Error fetching templates",
+    });
+  }
+},
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {

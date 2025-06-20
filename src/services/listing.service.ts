@@ -437,8 +437,8 @@ export const listingService = {
       if (searchQuery) {
         // Base search fields
         query.$or = [
-          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
-          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+           { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
