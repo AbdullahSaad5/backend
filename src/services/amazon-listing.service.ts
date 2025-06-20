@@ -524,6 +524,7 @@ export const amazonListingService = {
 
   // Function to create simple listing (your existing logic)
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
+    console.log("in simple listitng");
     const {
       productInfo: { sku, item_name, brand, product_description },
       prodTechInfo: { condition_type },
@@ -825,7 +826,7 @@ export const amazonListingService = {
   },
 
   determineVariationTheme: (variationData: any): string => {
-    // console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
+    console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
 
     // Define attribute to Amazon theme mapping
     const attributeToThemeMap: { [key: string]: string } = {
@@ -870,14 +871,14 @@ export const amazonListingService = {
 
     // Extract top-level attributes (keys of the first object in variationData)
     const parentAttributes = variationData[0] ? Object.keys(variationData[0]) : [];
-    // console.log("Parent Attributes extracted:", parentAttributes);
+    console.log("Parent Attributes extracted:", parentAttributes);
 
     // Map parent attributes to Amazon theme names
     const mappedAttributes = parentAttributes
       .map((attr) => attributeToThemeMap[attr] || attr) // Map to theme names or keep original attribute name
       .filter((attr) => attr); // Remove undefined mappings
 
-    // console.log("Mapped Attributes:", mappedAttributes);
+    console.log("Mapped Attributes:", mappedAttributes);
 
     // Throw error if no valid varying attributes are found
     if (mappedAttributes.length === 0) {
@@ -899,13 +900,13 @@ export const amazonListingService = {
       // Check if all theme attributes exist in the mapped attributes (order does not matter)
       const isValidMatch = [...themeSet].every((attr) => mappedSet.has(attr));
 
-      // console.log(`Checking theme: ${theme}`);
-      // console.log("Matching Attributes (order-agnostic):", isValidMatch);
+      console.log(`Checking theme: ${theme}`);
+      console.log("Matching Attributes (order-agnostic):", isValidMatch);
 
       // If it's a valid match and has the most matching attributes, update bestMatch
       if (isValidMatch) {
         const matchingAttributes = themeAttributes.filter((attr) => mappedSet.has(attr)).length;
-        // console.log("Matching Attribute Count:", matchingAttributes);
+        console.log("Matching Attribute Count:", matchingAttributes);
 
         if (matchingAttributes > maxMatchingAttributes) {
           maxMatchingAttributes = matchingAttributes;
@@ -1058,7 +1059,7 @@ export const amazonListingService = {
       "NOTEBOOK_COMPUTER";
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
-    // console.log("here var data", variationData);
+    console.log("here var data", variationData);
     const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
     const parentData = {
       productType: categoryId,
@@ -1195,7 +1196,7 @@ export const amazonListingService = {
 
   // Send data to Amazon API
   sendToAmazon: async (sku: string, productData: any, token: string): Promise<any> => {
-    // console.log("payload before sending to Amazon", productData);
+    console.log("payload before sending to Amazon", productData);
     try {
       const response = await fetch(
         `${redirectUri}/listings/2021-08-01/items/${sellerId}/${sku}?marketplaceIds=${marketplaceId}`,
@@ -1217,7 +1218,7 @@ export const amazonListingService = {
       // );
 
       const rawResponse = await response.text();
-      // console.log("🔍 Raw response from Amazon:", rawResponse);
+      console.log("🔍 Raw response from Amazon:", rawResponse);
 
       let jsonObj: any = {};
       try {
