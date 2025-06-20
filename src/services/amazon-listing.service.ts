@@ -826,7 +826,7 @@ export const amazonListingService = {
   },
 
   determineVariationTheme: (variationData: any): string => {
-    console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
+    // console.log("variationData in determineVariationTheme", JSON.stringify(variationData, null, 2));
 
     // Define attribute to Amazon theme mapping
     const attributeToThemeMap: { [key: string]: string } = {
@@ -871,14 +871,14 @@ export const amazonListingService = {
 
     // Extract top-level attributes (keys of the first object in variationData)
     const parentAttributes = variationData[0] ? Object.keys(variationData[0]) : [];
-    console.log("Parent Attributes extracted:", parentAttributes);
+    // console.log("Parent Attributes extracted:", parentAttributes);
 
     // Map parent attributes to Amazon theme names
     const mappedAttributes = parentAttributes
       .map((attr) => attributeToThemeMap[attr] || attr) // Map to theme names or keep original attribute name
       .filter((attr) => attr); // Remove undefined mappings
 
-    console.log("Mapped Attributes:", mappedAttributes);
+    // console.log("Mapped Attributes:", mappedAttributes);
 
     // Throw error if no valid varying attributes are found
     if (mappedAttributes.length === 0) {
@@ -900,10 +900,10 @@ export const amazonListingService = {
       // Check if all theme attributes exist in the mapped attributes (order does not matter)
       const isValidMatch = [...themeSet].every((attr) => mappedSet.has(attr));
 
-      console.log(`Checking theme: ${theme}`);
-      console.log("Matching Attributes (order-agnostic):", isValidMatch);
+      // console.log(`Checking theme: ${theme}`);
+      // console.log("Matching Attributes (order-agnostic):", isValidMatch);
 
-      // If it's a valid match and has the most matching attributes, update bestMatch
+      // If it's a valid match and has the most matching attribustes, update bestMatch
       if (isValidMatch) {
         const matchingAttributes = themeAttributes.filter((attr) => mappedSet.has(attr)).length;
         console.log("Matching Attribute Count:", matchingAttributes);
@@ -922,34 +922,36 @@ export const amazonListingService = {
 
     return bestMatch;
   },
-  buildVariationAttributes: (variationData: any): any => {
+  buildVariationAttributes: (variationData: any[]): any => {
+    // console.log("variation Data in build variation attributes function", variationData);
     const attributes: any = {};
 
-    Object.keys(variationData).forEach((attributeKey) => {
-      const values = variationData[attributeKey];
-
-      if (values.length > 0) {
-        attributes[attributeKey] = values.map((value: any) => ({
-          value: value,
-        }));
-      }
+    // Iterate over each variation object in the array
+    variationData.forEach((variation) => {
+      // Get all keys from the variation object
+      Object.keys(variation).forEach((attributeKey) => {
+        // Add the key to attributes with an empty array as a placeholder
+        if (!attributes[attributeKey]) {
+          attributes[attributeKey] = [];
+        }
+      });
     });
 
     return attributes;
   },
   buildChildVariationAttributes: (variation: any): any => {
-    console.log("Building variation attributes for:", variation);
+    // console.log("Building Child variation attributes for:", variation);
 
     // Check if variation has attributes and log them
-    if (variation && variation.variationId.attributes) {
-      console.log("Variation attributes:", variation.variationId.attributes);
-    } else {
-      console.log("No variation attributes found");
-    }
+    // if (variation && variation.variationId.attributes) {
+    //   console.log("Variation attributes:", variation.variationId.attributes);
+    // } else {
+    //   console.log("No variation attributes found");
+    // }
 
     // Check if actual_attributes is present
     if (variation && variation.variationId.attributes && variation.variationId.attributes.actual_attributes) {
-      console.log("Actual attributes found:", variation.variationId.attributes.actual_attributes);
+      // console.log("Actual attributes found:", variation.variationId.attributes.actual_attributes);
 
       // Return actual_attributes directly
       return variation.variationId.attributes.actual_attributes;
@@ -1035,6 +1037,23 @@ export const amazonListingService = {
     const common = { ...prodTechInfo };
 
     // Dynamically get the attributes using buildChildVariationAttributes
+    const variationAttributes = Object.keys(amazonListingService.buildVariationAttributes(variation));
+
+    // Log the keys of actual attributes
+    console.log("Dynamic Variation Attributes: ", variationAttributes);
+
+    // Delete these dynamic attributes from the common object
+    variationAttributes.forEach((attr) => {
+      delete common[attr];
+    });
+
+    return common;
+  },
+
+  getChildCommonAttributes: (prodTechInfo: any, variation: any): any => {
+    const common = { ...prodTechInfo };
+
+    // Dynamically get the attributes using buildChildVariationAttributes
     const variationAttributes = Object.keys(amazonListingService.buildChildVariationAttributes(variation));
 
     // Log the keys of actual attributes
@@ -1089,7 +1108,7 @@ export const amazonListingService = {
         //   },
         // ],
         // ...amazonListingService.prepareImageLocators(populatedListing),
-        // ...amazonListingService.buildVariationAttributes(variationData),
+
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo, variationData),
       },
     };
@@ -1167,7 +1186,7 @@ export const amazonListingService = {
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
-          ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo, variation),
+          ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
         },
       };
 
