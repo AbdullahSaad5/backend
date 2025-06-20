@@ -24,6 +24,8 @@ export const user = (router: Router) => {
   // route for delete user using id
   router.delete("/:id", userValidation.validateId, userController.deleteUser);
 
+    // route for update user
+  router.patch("/escalate/:id", userValidation.updateUser, userController.updateUser);
   // route for toggle block status
   router.patch("/block/:id", userController.toggleBlock);
 

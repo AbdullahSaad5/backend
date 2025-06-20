@@ -22,6 +22,7 @@ export interface IComplaint extends Document {
     resolvedBy?: Types.ObjectId;
     resolvedAt?: Date;
   }];
+  isEscalated: boolean;
   userId?: string;
 }
 export type complaintModel = Model<IComplaint>;
