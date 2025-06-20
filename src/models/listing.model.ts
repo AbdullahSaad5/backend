@@ -14,7 +14,7 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  sku: { type: String, required: true },
+  sku: { type: String },
 
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
 
