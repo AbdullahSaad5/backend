@@ -831,7 +831,7 @@ export const amazonListingService = {
     // Define attribute to Amazon theme mapping
     const attributeToThemeMap: { [key: string]: string } = {
       display: "DISPLAY_SIZE",
-      memory_storage_capacity: "MEMORY_STORAGE_CAPACITY",
+      // memory_storage_capacity: "MEMORY_STORAGE_CAPACITY",
       hard_disk: "HARD_DISK_SIZE",
       computer_memory: "COMPUTER_MEMORY_SIZE", // actually RAM Size
       processor_description: "PROCESSOR_DESCRIPTION",

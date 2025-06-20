@@ -82,18 +82,18 @@ export const processVariationsUtility = {
     }
 
     // Processing for memory_storage_capacity (concatenate `value` and `unit`)
-    if (
-      attributesObj.memory_storage_capacity &&
-      Array.isArray(attributesObj.memory_storage_capacity) &&
-      attributesObj.memory_storage_capacity.length > 0
-    ) {
-      const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
-        attributesObj.memory_storage_capacity
-      );
-      if (memoryResult.length > 0) {
-        processedAttributes.memory_storage_capacity = memoryResult;
-      }
-    }
+    // if (
+    //   attributesObj.memory_storage_capacity &&
+    //   Array.isArray(attributesObj.memory_storage_capacity) &&
+    //   attributesObj.memory_storage_capacity.length > 0
+    // ) {
+    //   const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
+    //     attributesObj.memory_storage_capacity
+    //   );
+    //   if (memoryResult.length > 0) {
+    //     processedAttributes.memory_storage_capacity = memoryResult;
+    //   }
+    // }
 
     // Returning only the processed attributes that have valid data
     return processedAttributes;
@@ -196,18 +196,18 @@ export const processVariationsUtility = {
     return [];
   },
 
-  // Enhanced function to process 'memory_storage_capacity' attribute
-  processMemoryStorageCapacity: (attribute: any[]) => {
-    if (attribute.length > 1) {
-      return attribute.map((item) => ({
-        displayValue: `${item.value} ${item.unit}`,
-        originalStructure: [item], // Keep as array like in DB
-      }));
-    }
+  // // Enhanced function to process 'memory_storage_capacity' attribute
+  // processMemoryStorageCapacity: (attribute: any[]) => {
+  //   if (attribute.length > 1) {
+  //     return attribute.map((item) => ({
+  //       displayValue: `${item.value} ${item.unit}`,
+  //       originalStructure: [item], // Keep as array like in DB
+  //     }));
+  //   }
 
-    // Return an empty array if there is only one item
-    return [];
-  },
+  //   // Return an empty array if there is only one item
+  //   return [];
+  // },
 
   // Enhanced function to process 'solid_state_storage_drive' attribute
   processSolidStateStorageDrive: (attribute: any[]) => {
