@@ -240,9 +240,9 @@ const seedData = async () => {
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
 
-      // "MANAGE_BUNDLES",
-      // "ADD_BUNDLES",
-      // "VIEW_BUNDLES",
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
 
       // "GAMERS_COMMUNITY",
       // "VIEW_BLOGS_CATEGORY",
@@ -261,7 +261,7 @@ const seedData = async () => {
 
       // "MANAGE_TICKETING",
 
-      // "MANAGE_DOCUMENTS",
+      "MANAGE_DOCUMENTS",
 
       // "MANAGE_POLICIES",
       // "VIEW_CUSTOM_POLICIES",
