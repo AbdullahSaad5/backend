@@ -1,7 +1,9 @@
-import { Model, Document } from "mongoose";
+
+
+import { Document, Types ,Model} from "mongoose";
 
 export interface IFaq extends Document {
-    category: string;
+    category: Types.ObjectId; // Changed from string to ObjectId reference
     question: string;
     answer: string;
     isBlocked: boolean;
