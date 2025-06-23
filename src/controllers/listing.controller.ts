@@ -162,6 +162,7 @@ export const listingController = {
                 status: amazonResponse.status,
                 message: amazonResponse.message,
                 error: amazonResponse.error,
+                issues: amazonResponse.errorResponse || [],
                 parentCreated: amazonResponse.parentCreated,
                 isUpdateFlow: amazonResponse.isUpdateFlow || false,
                 failedChildSkus: amazonResponse.failedChildSkus,
