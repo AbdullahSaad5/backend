@@ -40,15 +40,15 @@ export const prodInfoSchema = {
     {
       _id: false,
       value: { type: String, required: true },
-      language_tag: { type: String, default: "en_UK" },
+      language_tag: { type: String, default: "en_GB" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
     },
   ],
   product_description: [
     {
-       _id: false,
+      _id: false,
       value: { type: String, required: true },
-      language_tag: { type: String, default: "en_UK" },
+      language_tag: { type: String, default: "en_GB" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
     },
   ],
@@ -56,7 +56,7 @@ export const prodInfoSchema = {
   inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
   brand: [
     {
-       _id: false,
+      _id: false,
       value: { type: String, required: true },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
     },

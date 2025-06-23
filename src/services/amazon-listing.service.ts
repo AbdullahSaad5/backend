@@ -526,8 +526,8 @@ export const amazonListingService = {
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
     console.log("in simple listitng");
     const {
-      productInfo: { sku, item_name, brand, product_description },
-      prodTechInfo: { condition_type },
+      productInfo: { sku, item_name, brand, product_description, condition_type },
+      // prodTechInfo: { condition_type },
     } = populatedListing;
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
@@ -542,7 +542,7 @@ export const amazonListingService = {
       productType: categoryId,
       requirements: "LISTING",
       attributes: {
-        condition_type: condition_type,
+        condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
 
@@ -1068,8 +1068,8 @@ export const amazonListingService = {
   },
   createParentListing: async (populatedListing: any, token: string): Promise<any> => {
     const {
-      productInfo: { sku, item_name, brand, product_description },
-      prodTechInfo: { condition_type },
+      productInfo: { sku, item_name, brand, product_description, condition_type },
+      // prodTechInfo: { condition_type },
     } = populatedListing;
 
     const categoryId =
@@ -1084,7 +1084,7 @@ export const amazonListingService = {
       productType: categoryId,
       requirements: "LISTING",
       attributes: {
-        condition_type: condition_type,
+        condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
         product_description: product_description || [],
@@ -1122,8 +1122,8 @@ export const amazonListingService = {
     console.log("in creeate child listing function's variation", variation);
     try {
       const {
-        productInfo: { sku, item_name, brand, product_description },
-        prodTechInfo: { condition_type },
+        productInfo: { sku, item_name, brand, product_description, condition_type },
+        // prodTechInfo: { condition_type },
       } = populatedListing;
 
       const categoryId =
@@ -1142,7 +1142,7 @@ export const amazonListingService = {
         productType: categoryId,
         requirements: "LISTING",
         attributes: {
-          condition_type: condition_type || [{ value: "New" }],
+          condition_type: condition_type || [{ value: "new_new" }],
           item_name: item_name || [],
           brand: brand || [],
           product_description: product_description || [],

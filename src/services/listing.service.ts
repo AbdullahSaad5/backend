@@ -22,7 +22,7 @@ export const listingService = {
       }
 
       // Destructure the necessary fields from productInfo and stepData
-      const { kind, item_name, product_description, brand, amazonCategoryId, productCategory, sku } =
+      const { kind, item_name, product_description, condition_type, brand, amazonCategoryId, productCategory, sku } =
         stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
@@ -56,6 +56,7 @@ export const listingService = {
         kind,
         item_name: item_name || [],
         product_description: product_description || [],
+        condition_type: condition_type || "new_new",
         brand: brand || [],
         amazonCategoryId: amazonCategoryId || "",
         productCategory: productCategory,
@@ -437,7 +438,7 @@ export const listingService = {
       if (searchQuery) {
         // Base search fields
         query.$or = [
-           { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
           { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
