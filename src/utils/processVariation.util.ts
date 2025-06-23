@@ -48,12 +48,12 @@ export const processVariationsUtility = {
     }
 
     // Processing for RAM memory
-    if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
-      const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
-      if (ramResult.length > 0) {
-        processedAttributes.ram_memory = ramResult;
-      }
-    }
+    // if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
+    //   const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
+    //   if (ramResult.length > 0) {
+    //     processedAttributes.ram_memory = ramResult;
+    //   }
+    // }
 
     // Processing for processor_description (just extracting the value)
     if (
@@ -82,18 +82,18 @@ export const processVariationsUtility = {
     }
 
     // Processing for memory_storage_capacity (concatenate `value` and `unit`)
-    if (
-      attributesObj.memory_storage_capacity &&
-      Array.isArray(attributesObj.memory_storage_capacity) &&
-      attributesObj.memory_storage_capacity.length > 0
-    ) {
-      const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
-        attributesObj.memory_storage_capacity
-      );
-      if (memoryResult.length > 0) {
-        processedAttributes.memory_storage_capacity = memoryResult;
-      }
-    }
+    // if (
+    //   attributesObj.memory_storage_capacity &&
+    //   Array.isArray(attributesObj.memory_storage_capacity) &&
+    //   attributesObj.memory_storage_capacity.length > 0
+    // ) {
+    //   const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
+    //     attributesObj.memory_storage_capacity
+    //   );
+    //   if (memoryResult.length > 0) {
+    //     processedAttributes.memory_storage_capacity = memoryResult;
+    //   }
+    // }
 
     // Returning only the processed attributes that have valid data
     return processedAttributes;
@@ -196,18 +196,18 @@ export const processVariationsUtility = {
     return [];
   },
 
-  // Enhanced function to process 'memory_storage_capacity' attribute
-  processMemoryStorageCapacity: (attribute: any[]) => {
-    if (attribute.length > 1) {
-      return attribute.map((item) => ({
-        displayValue: `${item.value} ${item.unit}`,
-        originalStructure: [item], // Keep as array like in DB
-      }));
-    }
+  // // Enhanced function to process 'memory_storage_capacity' attribute
+  // processMemoryStorageCapacity: (attribute: any[]) => {
+  //   if (attribute.length > 1) {
+  //     return attribute.map((item) => ({
+  //       displayValue: `${item.value} ${item.unit}`,
+  //       originalStructure: [item], // Keep as array like in DB
+  //     }));
+  //   }
 
-    // Return an empty array if there is only one item
-    return [];
-  },
+  //   // Return an empty array if there is only one item
+  //   return [];
+  // },
 
   // Enhanced function to process 'solid_state_storage_drive' attribute
   processSolidStateStorageDrive: (attribute: any[]) => {
@@ -223,27 +223,27 @@ export const processVariationsUtility = {
   },
 
   // Enhanced function to process 'ram_memory' attribute
-  processRamMemory: (attribute: any[]) => {
-    const ramVariations: any[] = [];
+  // processRamMemory: (attribute: any[]) => {
+  //   const ramVariations: any[] = [];
 
-    attribute.forEach((ramItem) => {
-      if (ramItem.installed_size && ramItem.installed_size.length > 1) {
-        ramItem.installed_size.forEach((installedSize: any) => {
-          const displayValue = `${installedSize.value} ${installedSize.unit}`;
+  //   attribute.forEach((ramItem) => {
+  //     if (ramItem.installed_size && ramItem.installed_size.length > 1) {
+  //       ramItem.installed_size.forEach((installedSize: any) => {
+  //         const displayValue = `${installedSize.value} ${installedSize.unit}`;
 
-          const newRamItem = {
-            ...ramItem,
-            installed_size: [installedSize], // Only include the selected installed_size
-          };
+  //         const newRamItem = {
+  //           ...ramItem,
+  //           installed_size: [installedSize], // Only include the selected installed_size
+  //         };
 
-          ramVariations.push({
-            displayValue: displayValue,
-            originalStructure: [newRamItem], // Keep as array like in DB
-          });
-        });
-      }
-    });
+  //         ramVariations.push({
+  //           displayValue: displayValue,
+  //           originalStructure: [newRamItem], // Keep as array like in DB
+  //         });
+  //       });
+  //     }
+  //   });
 
-    return ramVariations;
-  },
+  //   return ramVariations;
+  // },
 };
