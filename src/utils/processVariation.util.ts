@@ -193,9 +193,94 @@ export const processVariationsUtility = {
 
   // **Placeholder for future categories**
   processOtherCategoryAttributes: (attributes: any) => {
-    // Implement logic for other categories as needed.
-    // For example, if there's a "smartphone" category, process its attributes differently.
-    return {};
+    const processedAttributes: any = {};
+
+    const attributesObj = attributes instanceof Map ? Object.fromEntries(attributes) : attributes;
+
+    // Processing for RAM memory
+    if (attributesObj.ram_memory && Array.isArray(attributesObj.ram_memory) && attributesObj.ram_memory.length > 0) {
+      const ramResult = processVariationsUtility.processRamMemory(attributesObj.ram_memory);
+      if (ramResult.length > 0) {
+        processedAttributes.ram_memory = ramResult;
+      }
+    }
+
+    //1- Processing for processor_description (just extracting the value)
+    if (
+      attributesObj.processor_description &&
+      Array.isArray(attributesObj.processor_description) &&
+      attributesObj.processor_description.length > 0
+    ) {
+      const processorResult = processVariationsUtility.processProcessorDescription(attributesObj.processor_description);
+      if (processorResult.length > 0) {
+        processedAttributes.processor_description = processorResult;
+      }
+    }
+
+    //2- Processing for graphics_coprocessor (just extracting the value)
+    if (
+      attributesObj.graphics_coprocessor &&
+      Array.isArray(attributesObj.graphics_coprocessor) &&
+      attributesObj.graphics_coprocessor.length > 0
+    ) {
+      const processorResult = processVariationsUtility.processGraphicsCoProcessor(attributesObj.graphics_coprocessor);
+      if (processorResult.length > 0) {
+        processedAttributes.graphics_coprocessor = processorResult;
+      }
+    }
+
+    //3- Ensure hard_disk attribute exists and has valid data
+    if (attributesObj.hard_disk && Array.isArray(attributesObj.hard_disk) && attributesObj.hard_disk.length > 0) {
+      const displayResult = processVariationsUtility.processHardDiskAttribute(attributesObj.hard_disk);
+      if (displayResult.length > 0) {
+        processedAttributes.hard_disk = displayResult;
+      }
+    }
+
+    //4- Processing for memory_storage_capacity (concatenate `value` and `unit`)
+    if (
+      attributesObj.memory_storage_capacity &&
+      Array.isArray(attributesObj.memory_storage_capacity) &&
+      attributesObj.memory_storage_capacity.length > 0
+    ) {
+      const memoryResult: any = processVariationsUtility.processMemoryStorageCapacity(
+        attributesObj.memory_storage_capacity
+      );
+      if (memoryResult.length > 0) {
+        processedAttributes.memory_storage_capacity = memoryResult;
+      }
+    }
+
+    //5- Ensure computer_memory attribute exists and has valid data
+    if (attributesObj.computer_memory && Array.isArray(attributesObj.computer_memory)) {
+      const displayResult = processVariationsUtility.processComputerMemoryAttribute(attributesObj.computer_memory);
+      if (displayResult.length > 0) {
+        processedAttributes.computer_memory = displayResult;
+      }
+    }
+    //6- Ensure display attribute exists and has valid data
+    if (attributesObj.display && Array.isArray(attributesObj.display)) {
+      const displayResult = processVariationsUtility.processDisplayAttribute(attributesObj.display);
+      if (displayResult.length > 0) {
+        processedAttributes.display = displayResult;
+      }
+    }
+    // Processing for solid_state_storage_drive (concatenate `capacity` values)
+    if (
+      attributesObj.solid_state_storage_drive &&
+      Array.isArray(attributesObj.solid_state_storage_drive) &&
+      attributesObj.solid_state_storage_drive.length > 0
+    ) {
+      const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
+        attributesObj.solid_state_storage_drive
+      );
+      if (ssdResult.length > 0) {
+        processedAttributes.solid_state_storage_drive = ssdResult;
+      }
+    }
+
+    // Returning only the processed attributes that have valid data
+    return processedAttributes;
   },
   // Enhanced function to process 'display' attribute with original structure
   processDisplayAttribute: (attribute: any[]) => {
@@ -328,27 +413,27 @@ export const processVariationsUtility = {
   },
 
   // Enhanced function to process 'ram_memory' attribute
-  // processRamMemory: (attribute: any[]) => {
-  //   const ramVariations: any[] = [];
+  processRamMemory: (attribute: any[]) => {
+    const ramVariations: any[] = [];
 
-  //   attribute.forEach((ramItem) => {
-  //     if (ramItem.installed_size && ramItem.installed_size.length > 1) {
-  //       ramItem.installed_size.forEach((installedSize: any) => {
-  //         const displayValue = `${installedSize.value} ${installedSize.unit}`;
+    attribute.forEach((ramItem) => {
+      if (ramItem.installed_size && ramItem.installed_size.length > 1) {
+        ramItem.installed_size.forEach((installedSize: any) => {
+          const displayValue = `${installedSize.value} ${installedSize.unit}`;
 
-  //         const newRamItem = {
-  //           ...ramItem,
-  //           installed_size: [installedSize], // Only include the selected installed_size
-  //         };
+          const newRamItem = {
+            ...ramItem,
+            installed_size: [installedSize], // Only include the selected installed_size
+          };
 
-  //         ramVariations.push({
-  //           displayValue: displayValue,
-  //           originalStructure: [newRamItem], // Keep as array like in DB
-  //         });
-  //       });
-  //     }
-  //   });
+          ramVariations.push({
+            displayValue: displayValue,
+            originalStructure: [newRamItem], // Keep as array like in DB
+          });
+        });
+      }
+    });
 
-  //   return ramVariations;
-  // },
+    return ramVariations;
+  },
 };
