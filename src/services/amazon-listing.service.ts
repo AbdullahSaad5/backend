@@ -1119,7 +1119,7 @@ export const amazonListingService = {
   },
 
   createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
-    console.log("in creeate child listinng function");
+    console.log("in creeate child listing function's variation", variation);
     try {
       const {
         productInfo: { sku, item_name, brand, product_description },
