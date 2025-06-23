@@ -1,9 +1,10 @@
-import { Document, Model } from "mongoose";
+
+import { Document, Types ,Model} from "mongoose";
 
 export interface IGuide extends Document {
   title: string;
   description: string;
-  category: string;
+  category: Types.ObjectId; // Changed from string to ObjectId reference
   content: string;
   isBlocked: boolean;
   createdAt: Date;

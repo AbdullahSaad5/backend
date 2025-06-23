@@ -1,3 +1,4 @@
+// src/models/guide.model.ts
 import { Schema, model } from "mongoose";
 import { IGuide, IGuideModel } from "@/contracts/guide.contract";
 
@@ -14,7 +15,8 @@ const guideSchema = new Schema<IGuide, IGuideModel>({
     trim: true,
   },
   category: {
-    type: String,
+    type: Schema.Types.ObjectId, // Changed to ObjectId
+    ref: "GuidesCategory", // Reference to GuidesCategory model
     required: [true, "Category is required"],
   },
   content: {
@@ -25,19 +27,6 @@ const guideSchema = new Schema<IGuide, IGuideModel>({
     type: Boolean,
     default: false,
   },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-guideSchema.pre("save", function(next) {
-  this.updatedAt = new Date();
-  next();
-});
+}, { timestamps: true }); // Using timestamps instead of manual createdAt/updatedAt
 
 export const GuideModel = model<IGuide, IGuideModel>("Guide", guideSchema);

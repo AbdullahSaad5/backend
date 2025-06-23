@@ -18,6 +18,8 @@ export const bundle = (router: Router) => {
 
   // Route to update a bundle by ID
   router.patch("/:id", bundleController.updateBundleById);
+// Route to update status
+  router.patch("/block/:id", bundleController.updateBundleById);
 
   // Route to delete a bundle by ID
   router.delete("/:id", bundleController.deleteBundleById);

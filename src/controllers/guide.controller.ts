@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { guideService } from "@/services/guide.service";
+import { isValidObjectId } from "mongoose";
 
 export const guideController = {
   createGuide: async (req: Request, res: Response) => {
@@ -21,6 +22,14 @@ export const guideController = {
         });
       }
 
+      // Validate category ID format
+      if (!isValidObjectId(category)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid category ID format",
+        });
+      }
+
       const newGuide = await guideService.createGuide({
         title,
         description,
@@ -33,7 +42,13 @@ export const guideController = {
         message: "Guide created successfully",
         data: newGuide,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'CastError') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid category ID",
+        });
+      }
       console.error("Error creating guide:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
@@ -45,6 +60,14 @@ export const guideController = {
   getGuide: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      if (!isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid guide ID format",
+        });
+      }
+
       const guide = await guideService.getGuideById(id);
 
       if (!guide) {
@@ -71,6 +94,14 @@ export const guideController = {
     try {
       const { category, search, isBlocked } = req.query;
 
+      // Validate category ID format if provided
+      if (category && !isValidObjectId(category as string)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid category ID format",
+        });
+      }
+
       const guides = await guideService.getAllGuides({
         ...(category && { category: category as string }),
         ...(search && { search: search as string }),
@@ -96,6 +127,21 @@ export const guideController = {
       const { id } = req.params;
       const updateData = req.body;
 
+      if (!isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid guide ID format",
+        });
+      }
+
+      // Validate category ID format if provided in update
+      if (updateData.category && !isValidObjectId(updateData.category)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid category ID format",
+        });
+      }
+
       const updatedGuide = await guideService.updateGuide(id, updateData);
 
       if (!updatedGuide) {
@@ -110,7 +156,13 @@ export const guideController = {
         message: "Guide updated successfully",
         data: updatedGuide,
       });
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'CastError') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid ID format",
+        });
+      }
       console.error("Error updating guide:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
@@ -122,6 +174,14 @@ export const guideController = {
   deleteGuide: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+
+      if (!isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid guide ID format",
+        });
+      }
+
       const deletedGuide = await guideService.deleteGuide(id);
 
       if (!deletedGuide) {
@@ -145,29 +205,5 @@ export const guideController = {
     }
   },
 
-  toggleBlockStatus: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const updatedGuide = await guideService.toggleBlockStatus(id);
-
-      if (!updatedGuide) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Guide not found",
-        });
-      }
-
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: `Guide ${updatedGuide.isBlocked ? "blocked" : "unblocked"} successfully`,
-        data: updatedGuide,
-      });
-    } catch (error) {
-      console.error("Error toggling guide block status:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to toggle guide block status",
-      });
-    }
-  },
+  
 };

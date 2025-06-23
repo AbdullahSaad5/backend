@@ -2,9 +2,10 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { FaqService } from "@/services/faq.service";
+import { FaqModel } from "@/models/faq.model";
 
 export const FaqController = {
-  createFaq: async (req: Request, res: Response) => {
+    createFaq: async (req: Request, res: Response) => {
     try {
       const { category, question, answer } = req.body;
       
@@ -16,11 +17,12 @@ export const FaqController = {
       }
 
       const newFaq = await FaqService.createFaq(category, question, answer);
+      const populatedFaq = await FaqModel.findById(newFaq._id).populate('category', 'title _id');
 
       res.status(StatusCodes.CREATED).json({ 
         success: true, 
         message: "FAQ created successfully", 
-        data: newFaq 
+        data: populatedFaq 
       });
     } catch (error) {
       console.error("Error creating FAQ:", error);

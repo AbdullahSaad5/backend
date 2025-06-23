@@ -102,6 +102,15 @@ export const permissionsController = {
             "ADD_COMPLAINTS",
           ],
         },
+        guideManagement: {
+          parent: "MANAGE_GUIDES",
+          children: [
+            "VIEW_GUIDES_CATEGORY",
+            "ADD_GUIDE_CATEGORY",
+            "VIEW_GUIDES",
+            "ADD_GUIDES",
+          ],
+        },
         ticketing: {
           parent: "MANAGE_TICKETING",
         },
@@ -119,8 +128,12 @@ export const permissionsController = {
             "ADD_FULFILLMENT_POLICIES",
             "VIEW_RETURN_POLICIES",
             "ADD_RETURN_POLICIES",
-            // "VIEW_SUBSCRIPTIONS",
-            // "VIEW_FAQS",
+            "ADD_SUBSCRIPTIONS",
+            "VIEW_SUBSCRIPTIONS",
+            "ADD_FAQ_CATEGORY",
+            "VIEW_FAQ_CATEGORY",
+            "ADD_FAQS",
+            "VIEW_FAQS",
           ],
         },
         setting: {
