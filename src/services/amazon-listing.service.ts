@@ -591,31 +591,36 @@ export const amazonListingService = {
       if (populatedListing.amazonSku) {
         isUpdateFlow = true;
         parentCreated = true;
-        console.log("Update flow detected - Parent already exists with SKU:", populatedListing.amazonSku);
+        console.log("Update flow detected - Updating parent listing with SKU:", populatedListing.amazonSku);
       } else {
-        // Step 1: Create parent listing (new flow)
         console.log("New variation flow - Creating parent listing");
-        const parentResult = await amazonListingService.createParentListing(populatedListing, token);
-        results.push(parentResult);
-        console.log("Parent listing creation result:", parentResult);
+      }
 
-        if (parentResult.status !== 200) {
-          return {
-            status: parentResult.status || 400,
-            message: parentResult.message || "Failed to create parent listing",
-            error: parentResult.error || "Parent listing creation failed",
-            results: results,
-            parentCreated: false,
-            successfulChildSkus: [],
-            failedChildSkus: [],
-            totalVariations: populatedListing.prodPricing.selectedVariations.length,
-            isUpdateFlow: false,
-          };
-        }
+      // Step 1: Create or update parent listing
+      const parentResult = isUpdateFlow
+        ? await amazonListingService.createParentListing(populatedListing, token)
+        : await amazonListingService.createParentListing(populatedListing, token);
+      results.push(parentResult);
+      console.log(`${isUpdateFlow ? "Parent listing update" : "Parent listing creation"} result:`, parentResult);
 
-        parentCreated = true;
+      if (parentResult.status !== 200) {
+        return {
+          status: parentResult.status || 400,
+          message: parentResult.message || `Failed to ${isUpdateFlow ? "update" : "create"} parent listing`,
+          error: parentResult.error || `Parent listing ${isUpdateFlow ? "update" : "creation"} failed`,
+          results: results,
+          parentCreated: false,
+          successfulChildSkus: [],
+          failedChildSkus: [],
+          totalVariations: populatedListing.prodPricing.selectedVariations.length,
+          isUpdateFlow: isUpdateFlow,
+        };
+      }
 
-        // Update listing with amazonSku after successful parent creation
+      parentCreated = true;
+
+      // Update listing with amazonSku after successful parent creation (for new flow only)
+      if (!isUpdateFlow) {
         await amazonListingService.updateListingWithAmazonSku(populatedListing._id, parentSku);
       }
 
@@ -722,7 +727,7 @@ export const amazonListingService = {
       const newlyCreatedCount = successfulChildSkus.filter((s) => s.status === "created").length;
 
       let overallStatus = 200;
-      let message = "Variation listing processed successfully";
+      let message = `Variation listing ${isUpdateFlow ? "updated" : "processed"} successfully`;
 
       if (successCount === 0 && failureCount > 0) {
         overallStatus = 400;
@@ -757,7 +762,7 @@ export const amazonListingService = {
       console.error("Error in createVariationListing:", error);
       return {
         status: 500,
-        message: "Internal error during variation listing creation",
+        message: `Internal error during variation listing ${isUpdateFlow ? "update" : "creation"}`,
         error: error.message,
         results: results,
         parentCreated: parentCreated,
