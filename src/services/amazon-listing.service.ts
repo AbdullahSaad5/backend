@@ -528,6 +528,7 @@ export const amazonListingService = {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
+      prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
@@ -561,6 +562,10 @@ export const amazonListingService = {
         // ],
 
         product_description: product_description || [],
+        item_display_weight: item_display_weight || [],
+        item_package_weight: item_package_weight || [],
+        item_package_dimensions: item_package_dimensions || [],
+        epr_product_packaging: epr_product_packaging || [],
 
         ...otherProdTechInfo,
       },
@@ -1070,6 +1075,7 @@ export const amazonListingService = {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
+      prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
 
     const categoryId =
@@ -1108,7 +1114,10 @@ export const amazonListingService = {
         //   },
         // ],
         // ...amazonListingService.prepareImageLocators(populatedListing),
-
+        item_display_weight: item_display_weight || [],
+        item_package_weight: item_package_weight || [],
+        item_package_dimensions: item_package_dimensions || [],
+        epr_product_packaging: epr_product_packaging || [],
         ...amazonListingService.getCommonAttributes(populatedListing.prodTechInfo, variationData),
       },
     };
@@ -1124,6 +1133,7 @@ export const amazonListingService = {
       const {
         productInfo: { sku, item_name, brand, product_description, condition_type },
         // prodTechInfo: { condition_type },
+        prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
       } = populatedListing;
 
       const categoryId =
@@ -1186,6 +1196,10 @@ export const amazonListingService = {
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
+          item_display_weight: item_display_weight || [],
+          item_package_weight: item_package_weight || [],
+          item_package_dimensions: item_package_dimensions || [],
+          epr_product_packaging: epr_product_packaging || [],
           ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
         },
       };
