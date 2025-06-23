@@ -53,12 +53,37 @@ export const prodInfoSchema = {
     },
   ],
   inventoryImages: { type: [mediaSchema], _id: false },
-  inventoryCondition: { type: String, enum: ["used", "new", "refurbished"] },
   brand: [
     {
       _id: false,
       value: { type: String, required: true },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  condition_type: [
+    {
+      _id: false,
+      value: {
+        type: String,
+        enum: [
+          "club_club",
+          "collectible_acceptable",
+          "collectible_good",
+          "collectible_like_new",
+          "collectible_very_good",
+          "new_new",
+          "new_oem",
+          "new_open_box",
+          "refurbished_refurbished",
+          "used_acceptable",
+          "used_good",
+          "used_like_new",
+          "used_very_good",
+        ],
+        default: "new_new",
+      },
+
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
     },
   ],
 };

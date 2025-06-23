@@ -1,4 +1,4 @@
-import { Inventory, ProductCategory, Stock, User } from "@/models";//getInventoryByCondition
+import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
 import { Parser } from "json2csv";
 import mongoose from "mongoose";
 import crypto from "crypto";
@@ -54,7 +54,7 @@ export const inventoryService = {
         brand,
         productCategory,
         inventoryImages,
-        inventoryCondition,
+        condition_type,
         ebayCategoryId,
         amazonCategoryId,
       } = stepData.productInfo;
@@ -93,7 +93,7 @@ export const inventoryService = {
         product_description: product_description || [],
         brand: brand || [],
         amazonCategoryId: amazonCategoryId || "",
-        inventoryCondition: inventoryCondition || "",
+        condition_type: condition_type || "",
         ebayCategoryId: ebayCategoryId || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
@@ -297,19 +297,19 @@ export const inventoryService = {
   // },
 
   getInventoryByCondition: async (condition: Record<string, any>) => {
-  try {
-    return await Inventory.find(condition)
-      .populate({
-        path: 'productInfo.productCategory',
-        select: 'name ebayCategoryId amazonCategoryId' // Add other fields you need
-      })
-      .select('_id kind prodTechInfo brand model alias srno productInfo')
-      .lean();
-  } catch (error) {
-    console.error("Error fetching inventory by condition:", error);
-    throw new Error("Failed to fetch inventory by condition");
-  }
-},
+    try {
+      return await Inventory.find(condition)
+        .populate({
+          path: "productInfo.productCategory",
+          select: "name ebayCategoryId amazonCategoryId", // Add other fields you need
+        })
+        .select("_id kind prodTechInfo brand model alias srno productInfo")
+        .lean();
+    } catch (error) {
+      console.error("Error fetching inventory by condition:", error);
+      throw new Error("Failed to fetch inventory by condition");
+    }
+  },
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
@@ -428,7 +428,7 @@ export const inventoryService = {
       // 🔎 Search logic
       if (searchQuery) {
         const searchConditions: any[] = [
-         { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
           { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
@@ -603,7 +603,7 @@ export const inventoryService = {
                   url,
                   type: "image/jpeg",
                 })),
-                inventoryCondition: normalizedData.inventoryCondition || "new",
+                condition_type: normalizedData.condition_type || "new_new",
                 brand: brandList,
               };
 
@@ -614,7 +614,7 @@ export const inventoryService = {
                 "brand",
                 "images",
                 "videos",
-                "inventoryCondition",
+                "condition_type",
                 "productSupplier",
                 "productSupplierKey",
                 "productCategoryName",
@@ -730,7 +730,7 @@ export const inventoryService = {
         Brand: Array.isArray(item.productInfo?.brand)
           ? item.productInfo.brand.join(", ")
           : item.productInfo?.brand || "",
-        InventoryCondition: item.productInfo?.inventoryCondition || "",
+        condition_type: item.productInfo?.condition_type || "",
         "Allow Variations": item.isVariation ? "yes" : "no",
         Images: Array.isArray(item.productInfo?.inventoryImages)
           ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
