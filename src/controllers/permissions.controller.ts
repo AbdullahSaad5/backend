@@ -111,13 +111,7 @@ export const permissionsController = {
             "ADD_GUIDES",
           ],
         },
-        ticketing: {
-          parent: "MANAGE_TICKETING",
-        },
-        documents: {
-          parent: "MANAGE_DOCUMENTS",
-        },
-        policies: {
+         policies: {
           parent: "MANAGE_POLICIES",
           children: [
             "VIEW_CUSTOM_POLICIES",
@@ -136,6 +130,13 @@ export const permissionsController = {
             "VIEW_FAQS",
           ],
         },
+        ticketing: {
+          parent: "MANAGE_TICKETING",
+        },
+        documents: {
+          parent: "MANAGE_DOCUMENTS",
+        },
+       
         setting: {
           parent: "SETTINGS",
         },
