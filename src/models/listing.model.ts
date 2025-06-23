@@ -195,9 +195,9 @@ const prodDeliverySchema = {
   item_package_dimensions: [
     {
       _id: false,
-      length: { value: { type: Number, required: true }, unit: { type: String, default: "centimeters" } },
-      width: { value: { type: Number, required: true }, unit: { type: String, default: "centimeters" } },
-      height: { value: { type: Number, required: true }, unit: { type: String, default: "centimeters" } },
+      length: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
+      width: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
+      height: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
     },
   ],
@@ -205,7 +205,7 @@ const prodDeliverySchema = {
   item_package_weight: [
     {
       _id: false,
-      value: { type: Number, required: true },
+      value: { type: Number },
       unit: { type: String, default: "grams" },
       marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
     },
@@ -223,16 +223,15 @@ const prodDeliverySchema = {
       _id: false,
       main_material: {
         type: String,
-        required: true,
         enum: ["ceramic", "glass", "metal", "paper", "plastic", "textile", "wood"],
       },
       granular_materials: [
         {
           _id: false,
-          granular_material: { type: String, required: true },
+          granular_material: { type: String },
           weight: {
             _id: false,
-            value: { type: Number, required: true },
+            value: { type: Number },
             unit: { type: String, default: "grams" },
           },
           recycled_content_percentage: { type: Number, min: 0, max: 100 },
