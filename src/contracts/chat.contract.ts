@@ -5,6 +5,9 @@ export interface IMessage {
   content: string;
   conversation: Types.ObjectId;
   readBy: Types.ObjectId[];
+  type: 'text' | 'image' | 'video' | 'file';
+  status: 'sent' | 'delivered' | 'read';
+  metadata?: any;
 }
 
 export interface IConversation {
@@ -12,7 +15,11 @@ export interface IConversation {
   isGroup: boolean;
   groupName?: string;
   groupAdmin?: Types.ObjectId;
+  groupImage?: string;
   messages: Types.ObjectId[];
+  lastMessage?: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface MessageDocument extends IMessage, Document {}

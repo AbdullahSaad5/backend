@@ -61,6 +61,9 @@ const httpServer = app.listen(port, () => {
 });
 
 // Add socket.io to the server
+
+// Option 1: Using initialize()
+// socketManager.initialize(httpServer);
 // socket.run(httpServer);
 socketManager.run(httpServer);
 

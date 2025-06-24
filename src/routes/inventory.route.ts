@@ -49,6 +49,8 @@ export const inventory = (router: Router) => {
 
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
+  router.delete("/bulk-delete", inventoryController.bulkDeleteInventory);
+
   router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
 
   router.patch("/:id", inventoryValidation.updateInventory, inventoryController.updateInventoryById);
@@ -70,4 +72,6 @@ export const inventory = (router: Router) => {
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);
+ 
+  
 };
