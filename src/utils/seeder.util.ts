@@ -66,6 +66,12 @@ const seedData = async () => {
       "ADD_FULFILLMENT_POLICIES",
       "VIEW_RETURN_POLICIES",
       "ADD_RETURN_POLICIES",
+     "ADD_SUBSCRIPTIONS",
+      "VIEW_SUBSCRIPTIONS",
+      "ADD_FAQ_CATEGORY",
+      "VIEW_FAQ_CATEGORY",
+      "ADD_FAQS",
+      "VIEW_FAQS",
 
       "COMPLAINTS_MANAGEMENET",
       "VIEW_COMPLAINTS_CATEGORY",
@@ -81,6 +87,12 @@ const seedData = async () => {
       "VIEW_REVENUE",
       "ADD_REVENUE",
       "VIEW_INVENTORY_PURCHASES",
+
+      "MANAGE_GUIDES",
+      "VIEW_GUIDES_CATEGORY",
+      "ADD_GUIDE_CATEGORY",
+      "VIEW_GUIDES",
+      "ADD_GUIDES",
 
       "SETTINGS",
     ],

@@ -192,9 +192,14 @@ export const listingService = {
             draftListing.prodPricing = stepData.prodPricing;
           } else if (section === "prodTechInfo") {
             console.log("prodTechInfo if work");
-            // Overwrite prodPricing entirely if selectedStockId is updated
-            // draftListing.prodPricing = "jdfnnjlsn";
+            // Overwrite prodTechInfo entirely
+
             draftListing.prodTechInfo = stepData.prodTechInfo;
+          } else if (section === "prodDelivery") {
+            console.log("prodTechInfo if work");
+            // Overwrite prodDelivery entirely
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodDelivery = stepData.prodDelivery;
           } else {
             // Otherwise merge as usual
             draftListing[section] = {

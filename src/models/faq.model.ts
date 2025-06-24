@@ -4,9 +4,9 @@ import { IFaq, IFaqModel } from "@/contracts/faq.contract";
 
 const FaqSchema = new Schema<IFaq, IFaqModel>({
   category: {
-    type: String,
-    required: [true, "Category is required"],
-    trim: true
+    type: Schema.Types.ObjectId,
+    ref: "FaqCategory", // Reference to FaqCategory model
+    required: [true, "Category is required"]
   },
   question: {
     type: String,

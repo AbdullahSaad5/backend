@@ -1,10 +1,8 @@
-import { GuideModel } from "../models/guide.model";
+// src/services/guide.service.ts
+import { GuideModel } from "@/models/guide.model";
 import { IGuide } from "@/contracts/guide.contract";
 
 export const guideService = {
-  /**
-   * Create a new guide
-   */
   createGuide: async (data: {
     title: string;
     description: string;
@@ -12,19 +10,14 @@ export const guideService = {
     content: string;
   }): Promise<IGuide> => {
     const guide = new GuideModel(data);
-    return guide.save();
+    await guide.save();
+    return guide.populate('category', 'title _id');
   },
 
-  /**
-   * Get guide by ID
-   */
   getGuideById: async (id: string): Promise<IGuide | null> => {
-    return GuideModel.findById(id);
+    return GuideModel.findById(id).populate('category', 'title _id');
   },
 
-  /**
-   * Get all guides with optional filters
-   */
   getAllGuides: async (
     filters: {
       category?: string;
@@ -44,44 +37,28 @@ export const guideService = {
       ];
     }
 
-    return GuideModel.find(query).sort({ createdAt: -1 });
+    return GuideModel.find(query)
+      .populate('category', 'title _id')
+      .sort({ createdAt: -1 });
   },
 
-  /**
-   * Update a guide
-   */
   updateGuide: async (
     id: string,
     updateData: Partial<IGuide>
   ): Promise<IGuide | null> => {
     return GuideModel.findByIdAndUpdate(
       id,
-      { ...updateData, updatedAt: new Date() },
+      updateData,
       {
         new: true,
         runValidators: true,
       }
-    );
+    ).populate('category', 'title _id');
   },
 
-  /**
-   * Delete a guide
-   */
   deleteGuide: async (id: string): Promise<IGuide | null> => {
-    return GuideModel.findByIdAndDelete(id);
+    return GuideModel.findByIdAndDelete(id).populate('category', 'title _id');
   },
 
-  /**
-   * Toggle block status of a guide
-   */
-  toggleBlockStatus: async (id: string): Promise<IGuide | null> => {
-    const guide = await GuideModel.findById(id);
-    if (!guide) return null;
-
-    return GuideModel.findByIdAndUpdate(
-      id,
-      { isBlocked: !guide.isBlocked, updatedAt: new Date() },
-      { new: true }
-    );
-  },
+ 
 };
