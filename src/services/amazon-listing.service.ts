@@ -1194,8 +1194,8 @@ export const amazonListingService = {
           item_package_weight: item_package_weight || [],
           item_package_dimensions: item_package_dimensions || [],
           epr_product_packaging: epr_product_packaging || [],
-          ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
           ...amazonListingService.prepareChildImageLocators(variation),
+          ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
         },
       };
 
@@ -1675,9 +1675,10 @@ export const amazonListingService = {
     return payload;
   },
   prepareChildImageLocators: (variation: any) => {
-    console.log("here variation data in child Variation ", variation);
-    // Destructure the images from prodMedia
-    const { images } = variation.variationId;
+    console.log("Here is the variation data in child variation: ", variation);
+
+    // Destructure images directly from the variation (not from variationId)
+    const { images } = variation; // Updated to access images directly from the top level of the object
 
     // Check if there are images in the array
     if (!images || images.length === 0) {
@@ -1711,6 +1712,7 @@ export const amazonListingService = {
     // Return the populated payload
     return payload;
   },
+
   // prepareOfferImageLocators: (populatedListing: any) => {
   //   // Destructure the images from prodMedia
   //   const { offerImages } = populatedListing.prodMedia;
