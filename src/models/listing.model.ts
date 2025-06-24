@@ -34,7 +34,6 @@ const prodInfoSchema = {
       value: {
         type: String,
         enum: [
-          "club_club",
           "collectible_acceptable",
           "collectible_good",
           "collectible_like_new",
