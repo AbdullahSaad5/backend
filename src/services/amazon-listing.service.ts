@@ -546,21 +546,8 @@ export const amazonListingService = {
         condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
-
-        // child_parent_sku_relationship: [
-        //   {
-        //     child_relationship_type: "variation",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //     parent_sku: "ABC-456_TEST",
-        //   },
-        // ],
-        // parentage_level: [
-        //   {
-        //     value: "child",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //   },
-        // ],
-
+        ...amazonListingService.prepareImageLocators(populatedListing),
+        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         product_description: product_description || [],
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
@@ -1118,7 +1105,8 @@ export const amazonListingService = {
         //     marketplace_id: "A1F83G8C2ARO7P",
         //   },
         // ],
-        // ...amazonListingService.prepareImageLocators(populatedListing),
+        ...amazonListingService.prepareImageLocators(populatedListing),
+        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
@@ -1192,6 +1180,7 @@ export const amazonListingService = {
               ],
             },
           ],
+
           fulfillment_availability: [
             {
               fulfillment_channel_code: "DEFAULT",
@@ -1206,6 +1195,7 @@ export const amazonListingService = {
           item_package_dimensions: item_package_dimensions || [],
           epr_product_packaging: epr_product_packaging || [],
           ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
+          ...amazonListingService.prepareChildImageLocators(variation),
         },
       };
 
@@ -1651,10 +1641,10 @@ export const amazonListingService = {
     // Destructure the images from prodMedia
     const { images } = populatedListing.prodMedia;
 
-    // Check if there are images in the array
-    if (!images || images.length === 0) {
-      throw new Error("No images found in prodMedia");
-    }
+    // // Check if there are images in the array
+    // if (!images || images.length === 0) {
+    //   throw new Error("No images found in prodMedia of standAlone listing");
+    // }
 
     // Initialize the payload object that will hold the locators
     let payload: any = {};
@@ -1684,7 +1674,80 @@ export const amazonListingService = {
     // Return the populated payload
     return payload;
   },
+  prepareChildImageLocators: (variation: any) => {
+    console.log("here variation data in child Variation ", variation);
+    // Destructure the images from prodMedia
+    const { images } = variation.variationId;
 
+    // Check if there are images in the array
+    if (!images || images.length === 0) {
+      throw new Error("No images found for Child Variation Listing");
+    }
+
+    let payload: any = {};
+
+    // Ensure there is at least one image to use as the main product image
+    if (images.length > 0) {
+      // Main product image (first image in the array)
+      payload.main_product_image_locator = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: images[0].url, // Use the first image's URL as the main image
+        },
+      ];
+    }
+
+    // Other product image locators (remaining images)
+    images.slice(1).forEach((image: any, index: any) => {
+      const locatorKey = `other_product_image_locator_${index + 1}`; // other_product_image_locator_1, 2, 3, etc.
+      payload[locatorKey] = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: image.url, // Use the current image's URL
+        },
+      ];
+    });
+
+    // Return the populated payload
+    return payload;
+  },
+  // prepareOfferImageLocators: (populatedListing: any) => {
+  //   // Destructure the images from prodMedia
+  //   const { offerImages } = populatedListing.prodMedia;
+
+  //   // Check if there are images in the array
+  //   // if (!offerImages || offerImages.length === 0) {
+  //   //   throw new Error("No offer images found in prodMedia");
+  //   // }
+
+  //   // Initialize the payload object that will hold the locators
+  //   let payload: any = {};
+
+  //   // Ensure there is at least one image to use as the main product image
+  //   if (offerImages.length > 0) {
+  //     // Main product image (first image in the array)
+  //     payload.main_offer_image_locator = [
+  //       {
+  //         marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+  //         media_location: offerImages[0].url, // Use the first image's URL as the main image
+  //       },
+  //     ];
+  //   }
+
+  //   // Other product image locators (remaining images)
+  //   offerImages.slice(1).forEach((image: any, index: any) => {
+  //     const locatorKey = `other_offer_image_locator_${index + 1}`; // other_offer_image_locator_1, 2, 3, etc.
+  //     payload[locatorKey] = [
+  //       {
+  //         marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+  //         media_location: image.url, // Use the current image's URL
+  //       },
+  //     ];
+  //   });
+
+  //   // Return the populated payload
+  //   return payload;
+  // },
   updateListingWithAmazonSku: async (listingId: string, amazonSku: string): Promise<void> => {
     try {
       await Listing.findByIdAndUpdate(listingId, {
