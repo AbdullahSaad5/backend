@@ -960,29 +960,21 @@ export const amazonListingService = {
   generateChildSku: (variation: any): string => {
     const suffixParts: string[] = [];
 
-    // Log the initial variation object to inspect the structure
-    // console.log("Initial Variation:", JSON.stringify(variation, null, 2));
-
     // Define attributes that should be processed as sizes
     const sizeAttributes = ["computer_memory", "hard_disk"];
 
     // Check if variationId and attributes exist
     if (variation?.variationId?.attributes) {
       const attributes = variation.variationId.attributes;
-      // console.log("Attributes:", JSON.stringify(attributes, null, 2));
 
       // Iterate over the attributes object to process each key
       Object.keys(attributes).forEach((attributeKey) => {
         // Skip actual_attributes
         if (attributeKey === "actual_attributes") {
-          // console.log("Skipping actual_attributes key.");
           return;
         }
 
         const attributeValue = attributes[attributeKey];
-
-        // Log the attribute key and its value
-        // console.log(`Processing attribute: ${attributeKey} with value: ${attributeValue}`);
 
         // Process only if attributeValue is a string and not empty
         if (typeof attributeValue === "string" && attributeValue !== "") {
@@ -995,7 +987,6 @@ export const amazonListingService = {
               const value = sizeMatch[1];
               const unit = sizeMatch[2];
               const valueToAdd = `${value}${unit}`;
-              // console.log(`Found size: ${valueToAdd}`);
 
               // Clean and add to suffix parts
               const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
@@ -1003,13 +994,11 @@ export const amazonListingService = {
             } else {
               // If no size pattern, clean and add the value directly
               const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
-              // console.log(`Using value: ${cleanValue}`);
               suffixParts.push(cleanValue);
             }
           } else {
             // For non-size attributes, clean and add the value directly
             const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
-            // console.log(`Using value: ${cleanValue}`);
             suffixParts.push(cleanValue);
           }
         } else {
@@ -1020,16 +1009,19 @@ export const amazonListingService = {
       console.log("No attributes found in variation.variationId.");
     }
 
-    // Log the suffix parts after processing all attributes
-    // console.log("Generated Suffix Parts:", suffixParts);
-
     // Join the suffix parts to form the final SKU suffix
-    const suffix = suffixParts.join("-");
-    // console.log("Final SKU Suffix:", suffix);
+    let suffix = suffixParts.join("-");
+
+    // Automatically truncate if SKU exceeds 39 characters
+    if (suffix.length > 39) {
+      // Truncate to the first 39 characters
+      suffix = suffix.slice(0, 39);
+    }
 
     // Return the final SKU or fallback to "var" if no valid suffix is found
     return suffix || "var";
   },
+
   getCommonAttributes: (prodTechInfo: any, variation: any): any => {
     const common = { ...prodTechInfo };
 
