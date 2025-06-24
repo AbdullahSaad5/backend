@@ -72,7 +72,8 @@ const prodInfoSchema = {
 };
 
 const prodMediaSchema = {
-  images: { type: [mediaSchema], _id: false },
+  images: { type: [mediaSchema], _id: false, maxlength: 9 },
+  offerImages: { type: [mediaSchema], _id: false, maxlength: 6 },
   videos: { type: [mediaSchema], _id: false },
 };
 
@@ -97,7 +98,7 @@ const prodPricingSchema = {
     new Schema(
       {
         retailPrice: { type: Number, required: true, default: 0 },
-        images: { type: [mediaSchema], _id: false },
+        images: { type: [mediaSchema], _id: false, maxlength: 9 },
         listingQuantity: { type: Number, required: true, default: 0 },
         discountValue: { type: Number },
 
@@ -158,7 +159,8 @@ const prodPricingSchema = {
         },
       },
       retailPrice: { type: Number, required: true, default: 0 },
-      images: { type: [mediaSchema], _id: false },
+      images: { type: [mediaSchema], _id: false, maxlength: 9 },
+      offerImages: { type: [mediaSchema], _id: false, maxlength: 6 },
       listingQuantity: { type: Number, required: true, default: 0 },
       variationName: { type: String },
       discountValue: { type: Number },
