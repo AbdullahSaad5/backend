@@ -1,4 +1,4 @@
-import { Inventory, Listing, ProductCategory, User } from "@/models";
+import { Inventory, Listing, ProductCategory } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
