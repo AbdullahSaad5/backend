@@ -25,20 +25,32 @@ export const gtinService = {
       const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
       console.log("Parsed data from XLSX (first 5 rows):", data.slice(0, 5));
 
-      // Process all rows, including duplicates
+      // Process rows, skip header row
       data.forEach((row: any, index) => {
+        // Skip header row (index 0) or rows that look like headers
+        if (index === 0) {
+          const firstCell = row[0]?.toString().trim().toLowerCase();
+          if (firstCell === "gtin" || firstCell === "ean" || firstCell === "barcode") {
+            console.log(`Skipping header row: ${row[0]}`);
+            return;
+          }
+        }
+
         const gtin = row[0]?.toString().trim();
 
-        // Basic GTIN validation - accept all valid format GTINs
-        if (gtin && /^[0-9]{8}$|^[0-9]{12}$|^[0-9]{13}$|^[0-9]{14}$/.test(gtin)) {
-          gtins.push(gtin); // Add all GTINs, including duplicates
+        // More robust GTIN validation
+        if (gtin && /^[0-9]{8,14}$/.test(gtin)) {
+          // Remove duplicates within the same file
+          if (!gtins.includes(gtin)) {
+            gtins.push(gtin);
+          }
         } else if (gtin) {
-          console.log(`Row ${index + 1}: Invalid or missing GTIN: ${gtin}`);
+          console.log(`Row ${index + 1}: Invalid GTIN format: "${gtin}"`);
         }
       });
 
       console.log(
-        `Extracted ${gtins.length} GTINs (including duplicates):`,
+        `Extracted ${gtins.length} valid unique GTINs:`,
         gtins.slice(0, 10),
         gtins.length > 10 ? `...and ${gtins.length - 10} more` : ""
       );
