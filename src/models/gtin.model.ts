@@ -1,15 +1,25 @@
 import mongoose, { Schema } from "mongoose";
 
 const GtinSchema = new Schema({
-  gtinNumber: {
+  gtin: {
     type: String,
     required: true,
-    unique: true, // Ensure GTINs are unique
+    unique: true,
+    trim: true,
   },
   isUsed: {
     type: Boolean,
-    default: false, // Initially, GTIN is not used
+    default: false,
+  },
+  usedInListing: {
+    type: Schema.Types.ObjectId,
+    ref: "Listing",
+    default: null,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
   },
 });
 
-export const GTIN = mongoose.model("GTIN", GtinSchema);
+export const Gtin = mongoose.model("Gtin", GtinSchema);
