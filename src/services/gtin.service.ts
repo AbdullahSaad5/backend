@@ -1,42 +1,49 @@
 // services/gtin.service.ts
 import { Gtin } from "@/models";
-import { parse } from "csv-parse";
-import { Readable } from "stream";
+import * as XLSX from "xlsx";
 
 export const gtinService = {
   // Parse CSV and save GTINs to database
-  createGtinsFromCsv: async (csvBuffer: Buffer): Promise<string[]> => {
+
+  createGtinsFromXlsx: async (fileBuffer: Buffer): Promise<string[]> => {
     const gtins: string[] = [];
 
-    return new Promise((resolve, reject) => {
-      const stream = Readable.from(csvBuffer);
-      stream
-        .pipe(parse({ delimiter: ",", columns: true }))
-        .on("data", async (row) => {
-          if (row.gtin) {
-            gtins.push(row.gtin.trim());
-          }
-        })
-        .on("end", async () => {
-          try {
-            // Save unique GTINs to database
-            const savedGtins: string[] = [];
-            for (const gtin of gtins) {
-              const existingGtin = await Gtin.findOne({ gtin });
-              if (!existingGtin) {
-                await Gtin.create({ gtin });
-                savedGtins.push(gtin);
-              }
-            }
-            resolve(savedGtins);
-          } catch (error) {
-            reject(error);
-          }
-        })
-        .on("error", (error) => reject(error));
-    });
-  },
+    try {
+      const workbook = XLSX.read(fileBuffer, { type: "buffer" });
 
+      if (workbook.SheetNames.length === 0) {
+        throw new Error("No sheets found in the XLSX file");
+      }
+
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+
+      if (!sheet) {
+        throw new Error(`Sheet "${sheetName}" is empty or missing`);
+      }
+
+      const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      console.log("Parsed data from XLSX:", data);
+
+      // Process rows
+      data.forEach((row: any) => {
+        const gtin = row[0]?.toString().trim();
+        // Validate GTIN (8, 12, 13, or 14 digits)
+        if (gtin && /^[0-9]{8}$|^[0-9]{12}$|^[0-9]{13}$|^[0-9]{14}$/.test(gtin)) {
+          gtins.push(gtin);
+        }
+      });
+
+      if (gtins.length === 0) {
+        throw new Error("No valid GTINs found in the file");
+      }
+
+      return gtins;
+    } catch (error: any) {
+      console.error("Error processing XLSX file:", error);
+      throw new Error(`Failed to process XLSX file: ${error.message}`);
+    }
+  },
   // Get all unused GTINs
   getAllGtins: async () => {
     return Gtin.find({ isUsed: false }).select("gtin");
