@@ -10,14 +10,18 @@ export const gtinController = {
       if (!req.file) {
         return res.status(StatusCodes.BAD_REQUEST).json({ message: "No file uploaded" });
       }
+
+      // Assuming you use a function to process the CSV
       const gtins = await gtinService.createGtinsFromCsv(req.file.buffer);
+
+      // Send success response
       res.status(StatusCodes.CREATED).json({
         message: "GTINs uploaded successfully",
         gtins,
       });
-    } catch (error: any) {
-      console.error(error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error uploading GTINs" });
+    } catch (error) {
+      console.error("Error uploading GTINs:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error uploading GTINs", error });
     }
   },
 
