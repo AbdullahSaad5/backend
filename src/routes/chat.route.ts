@@ -1,24 +1,30 @@
 import { Router } from "express";
-import { chatController } from "@/controllers";
+import { ChatController, ChatRoomController } from "@/controllers/chat.controller";
 import { authMiddleware } from "@/middlewares";
 
 export const chat = (router: Router) => {
-  // Conversation routes
-  router.post("/conversations", chatController.createConversation);
-  router.get("/conversations", chatController.getConversations);
-  router.get("/conversations/:id", authMiddleware, chatController.getConversation);
-  router.put("/conversations/:id", authMiddleware, chatController.updateConversation);
-  router.delete("/conversations/:id", authMiddleware, chatController.deleteConversation);
-  
-  // Group management routes
-  router.post("/conversations/:id/participants", authMiddleware, chatController.addParticipant);
-  router.delete("/conversations/:id/participants", authMiddleware, chatController.removeParticipant);
-  
+  // Apply authentication middleware to all chat routes
+  router.use(authMiddleware);
+
   // Message routes
-  router.get("/conversations/:conversationId/messages", authMiddleware, chatController.getMessages);
-  router.post("/conversations/:conversationId/messages", authMiddleware, chatController.sendMessage);
-  router.put("/messages/:messageId/read", authMiddleware, chatController.markAsRead);
-  router.put("/conversations/:conversationId/messages/read-all", authMiddleware, chatController.markAllAsRead);
-  router.put("/messages/:messageId", authMiddleware, chatController.updateMessage);
-  router.delete("/messages/:messageId", authMiddleware, chatController.deleteMessage);
+  router.post("/messages", ChatController.sendMessage);
+  router.get("/messages", ChatController.getMessages);
+  router.get("/messages/search", ChatController.searchMessages);
+  router.get("/conversations", ChatController.getConversations);
+  router.get("/history/:userId", ChatController.getChatHistory);
+  router.patch("/messages/:messageId/read", ChatController.markAsRead);
+  router.patch("/conversations/:userId/read", ChatController.markConversationAsRead);
+  router.put("/messages/:messageId", ChatController.editMessage);
+  router.delete("/messages/:messageId", ChatController.deleteMessage);
+  router.post("/messages/:messageId/reactions", ChatController.addReaction);
+
+  // Chat room routes
+  router.post("/rooms", ChatRoomController.createRoom);
+  router.get("/rooms", ChatRoomController.getRooms);
+  router.get("/rooms/:roomId", ChatRoomController.getRoomById);
+  router.put("/rooms/:roomId", ChatRoomController.updateRoom);
+  router.delete("/rooms/:roomId", ChatRoomController.deleteRoom);
+  router.post("/rooms/:roomId/participants", ChatRoomController.addParticipant);
+  router.delete("/rooms/:roomId/participants", ChatRoomController.removeParticipant);
+  router.post("/rooms/:roomId/leave", ChatRoomController.leaveRoom);
 };

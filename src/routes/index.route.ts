@@ -95,7 +95,6 @@ const routes: {
   discount,
   taxes,
   faqsPolicy,
-  chat,
   revenue,
   salaryStructure,
   guidescategory,
@@ -103,6 +102,7 @@ const routes: {
   faqcategory,
   faq,
   newsletter,
+  chat,
   // discriminator,
 };
 

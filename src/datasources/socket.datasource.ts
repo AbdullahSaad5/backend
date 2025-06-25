@@ -1,262 +1,403 @@
-import { getAccessTokenFromHeaders } from "@/utils/headers.util";
-import { jwtVerify } from "@/utils/jwt.util";
-import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import { conversationService, messageService } from "@/services";
-import mongoose, { Types } from "mongoose";
+import { Server as HttpServer } from "http";
+import jwt from "jsonwebtoken";
+import { ChatService } from "@/services/chat.service";
+import { MessageType, MessageStatus } from "@/contracts/chat.contract";
 
-interface User {
+interface SocketUser {
   id: string;
+  email: string;
+  socketId: string;
+  isOnline: boolean;
+  lastSeen: Date;
+  currentRoom?: string;
 }
 
-interface SocketWithUser extends Socket {
-  user: User;
+interface AuthenticatedSocket extends Socket {
+  user?: SocketUser;
+}
+
+interface TypingUsers {
+  [key: string]: {
+    userId: string;
+    userName: string;
+    timestamp: Date;
+  };
 }
 
 class SocketManager {
   private io: Server | null = null;
-  private userSockets = new Map<string, string>(); // userId -> socketId
-  private socketUsers = new Map<string, string>(); // socketId -> userId
-  private typingUsers = new Map<string, NodeJS.Timeout>(); // conversationId -> timeout
+  private connectedUsers: Map<string, SocketUser> = new Map();
+  private typingUsers: Map<string, TypingUsers> = new Map();
 
-  public initialize(server: HttpServer): void {
-    this.io = new Server(server, {
+  public run(httpServer: HttpServer): void {
+    this.io = new Server(httpServer, {
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        methods: ["GET", "POST"],
+        credentials: true
       },
-      pingInterval: 10000,
-      pingTimeout: 5000,
+      pingTimeout: 60000,
+      pingInterval: 25000
     });
 
-    this.setupMiddleware();
-    this.setupEventHandlers();
+    this.io.use(this.authMiddleware.bind(this));
+    this.io.on("connection", this.handleConnection.bind(this));
     
-    console.log("Socket server initialized");
+    console.log("Socket.IO server initialized");
   }
 
-  // Alias for initialize to match your existing code
-  public run(server: HttpServer): void {
-    this.initialize(server);
-  }
-
-  private setupMiddleware(): void {
-    this.io!.use(async (socket: Socket, next) => {
-      try {
-        const { accessToken } = getAccessTokenFromHeaders(socket.handshake.headers);
-        if (!accessToken) {
-          return next(new Error("Authentication error: No token provided"));
-        }
-
-        const user = jwtVerify(accessToken);
-        (socket as SocketWithUser).user = { id: user.id.toString() };
-        next();
-      } catch (error) {
-        next(new Error("Authentication error: Invalid token"));
-      }
-    });
-  }
-
-  private setupEventHandlers(): void {
-    this.io!.on("connection", (socket: Socket) => {
-      const userSocket = socket as SocketWithUser;
-      const userId = userSocket.user.id;
-
-      // Track user connection
-      this.userSockets.set(userId, socket.id);
-      this.socketUsers.set(socket.id, userId);
-
-      console.log(`User connected: ${userId}`);
-
-      // Join all conversation rooms the user is part of
-      this.joinConversationRooms(userSocket);
-
-      // Message events
-      socket.on("sendMessage", async (data: {
-        conversationId: string;
-        content: string;
-        type?: 'text' | 'image' | 'video' | 'file';
-        metadata?: any;
-      }) => {
-        await this.handleSendMessage(userSocket, data);
-      });
-
-      // Typing indicator
-      socket.on("typing", (conversationId: string) => {
-        this.handleTyping(userSocket, conversationId);
-      });
-
-      // Message read receipt
-      socket.on("markAsRead", async (messageId: string) => {
-        await this.handleMarkAsRead(userSocket, messageId);
-      });
-
-      // Join specific conversation room
-      socket.on("joinConversation", (conversationId: string) => {
-        socket.join(conversationId);
-        console.log(`User ${userId} joined conversation ${conversationId}`);
-      });
-
-      // Disconnect handler
-      socket.on("disconnect", () => {
-        this.handleDisconnect(userSocket);
-      });
-    });
-  }
-
-  private async joinConversationRooms(socket: SocketWithUser): Promise<void> {
+  private authMiddleware(socket: AuthenticatedSocket, next: (err?: Error) => void): void {
     try {
-      const conversations = await conversationService.getConversationsForUser(socket.user.id, 1, 100);
-      conversations.forEach(conversation => {
-        socket.join(conversation._id.toString());
-      });
+      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace("Bearer ", "");
+      
+      if (!token) {
+        return next(new Error("Authentication token required"));
+      }
+
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback-secret") as any;
+      
+      socket.user = {
+        id: decoded.id,
+        email: decoded.email,
+        socketId: socket.id,
+        isOnline: true,
+        lastSeen: new Date()
+      };
+
+      next();
     } catch (error) {
-      console.error("Error joining conversation rooms:", error);
+      next(new Error("Invalid authentication token"));
     }
   }
 
-  private async handleSendMessage(
-    socket: SocketWithUser,
-    data: {
-      conversationId: string;
+  private handleConnection(socket: AuthenticatedSocket): void {
+    if (!socket.user) return;
+
+    console.log(`User connected: ${socket.user.email} (${socket.id})`);
+    
+    // Store user connection
+    this.connectedUsers.set(socket.user.id, socket.user);
+    
+    // Broadcast user online status
+    this.broadcastUserStatus(socket.user.id, true);
+
+    // Handle user joining a room
+    socket.on("join-room", (roomId: string) => {
+      socket.join(roomId);
+      if (socket.user) {
+        socket.user.currentRoom = roomId;
+        this.connectedUsers.set(socket.user.id, socket.user);
+      }
+      console.log(`User ${socket.user?.email} joined room: ${roomId}`);
+    });
+
+    // Handle user leaving a room
+    socket.on("leave-room", (roomId: string) => {
+      socket.leave(roomId);
+      if (socket.user) {
+        socket.user.currentRoom = undefined;
+        this.connectedUsers.set(socket.user.id, socket.user);
+      }
+      console.log(`User ${socket.user?.email} left room: ${roomId}`);
+    });
+
+    // Handle private message
+    socket.on("send-message", async (data: {
+      receiver?: string;
+      chatRoom?: string;
       content: string;
-      type?: 'text' | 'image' | 'video' | 'file';
-      metadata?: any;
-    }
-  ): Promise<void> {
-    try {
-      const { conversationId, content, type = 'text', metadata } = data;
-      const senderId = new Types.ObjectId(socket.user.id);
+      messageType?: MessageType;
+      fileUrl?: string;
+      fileName?: string;
+      fileSize?: number;
+      replyTo?: string;
+    }) => {
+      try {
+        if (!socket.user) return;
 
-      // Verify conversation exists and user is participant
-      const isParticipant = await conversationService.isParticipant(conversationId, senderId);
-      if (!isParticipant) {
-        socket.emit("error", { message: "Not authorized to send message" });
-        return;
-      }
+        const messageData = {
+          sender: socket.user.id,
+          receiver: data.receiver,
+          chatRoom: data.chatRoom,
+          content: data.content,
+          messageType: data.messageType || MessageType.TEXT,
+          fileUrl: data.fileUrl,
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          replyTo: data.replyTo,
+          status: MessageStatus.SENT
+        };
 
-      // Create message
-      const message = await messageService.createMessage(
-        senderId,
-        content,
-        new Types.ObjectId(conversationId),
-        type,
-        metadata
-      );
+        const message = await ChatService.sendMessage(messageData);
 
-      // Add message to conversation and update lastMessage
-      const updatedConversation = await conversationService.addMessageToConversation(
-        conversationId,
-        message._id
-      );
+        // Emit to sender
+        socket.emit("message-sent", {
+          success: true,
+          data: message
+        });
 
-      if (!updatedConversation) {
-        socket.emit("error", { message: "Conversation not found" });
-        return;
-      }
-
-      // Populate sender info for real-time emission
-      const populatedMessage = await messageService.getMessageById(message._id.toString());
-      if (!populatedMessage) {
-        socket.emit("error", { message: "Failed to send message" });
-        return;
-      }
-
-      // Broadcast to conversation room
-      this.io!.to(conversationId).emit("newMessage", {
-        message: populatedMessage,
-        conversation: updatedConversation
-      });
-
-      // Emit to sender for confirmation
-      socket.emit("messageSent", populatedMessage);
-
-      // Notify participants (except sender) if they're online
-      const participants = updatedConversation.participants
-        .filter(p => p.toString() !== socket.user.id)
-        .map(p => p.toString());
-
-      participants.forEach(participantId => {
-        if (this.userSockets.has(participantId)) {
-          this.io!.to(this.userSockets.get(participantId)!).emit("messageNotification", {
-            conversationId,
-            message: populatedMessage
-          });
+        // Emit to receiver(s)
+        if (data.receiver) {
+          // Private message
+          const receiverUser = this.connectedUsers.get(data.receiver);
+          if (receiverUser) {
+            this.io?.to(receiverUser.socketId).emit("new-message", message);
+          }
+        } else if (data.chatRoom) {
+          // Group message
+          socket.to(data.chatRoom).emit("new-message", message);
         }
-      });
 
-    } catch (error) {
-      console.error("Error sending message:", error);
-      socket.emit("error", { message: "Failed to send message" });
-    }
-  }
+        // Stop typing indicator
+        this.handleStopTyping(socket, data.receiver, data.chatRoom);
 
-  private handleTyping(socket: SocketWithUser, conversationId: string): void {
-    // Clear previous timeout if exists
-    if (this.typingUsers.has(conversationId)) {
-      clearTimeout(this.typingUsers.get(conversationId)!);
-    }
-
-    // Broadcast typing event to conversation room (except sender)
-    socket.to(conversationId).emit("typing", {
-      userId: socket.user.id,
-      conversationId,
-      isTyping: true
-    });
-
-    // Set timeout to stop typing indicator after 3 seconds
-    const timeout = setTimeout(() => {
-      socket.to(conversationId).emit("typing", {
-        userId: socket.user.id,
-        conversationId,
-        isTyping: false
-      });
-      this.typingUsers.delete(conversationId);
-    }, 3000);
-
-    this.typingUsers.set(conversationId, timeout);
-  }
-
-  private async handleMarkAsRead(socket: SocketWithUser, messageId: string): Promise<void> {
-    try {
-      const message = await messageService.markMessageAsRead(
-        messageId,
-        new Types.ObjectId(socket.user.id)
-      );
-
-      if (message) {
-        // Notify conversation participants that message was read
-        this.io!.to(message.conversation.toString()).emit("messageRead", {
-          messageId,
-          readBy: socket.user.id,
-          conversationId: message.conversation
+      } catch (error) {
+        console.error("Send message error:", error);
+        socket.emit("message-error", {
+          success: false,
+          message: "Failed to send message"
         });
       }
-    } catch (error) {
-      console.error("Error marking message as read:", error);
+    });
+
+    // Handle typing indicators
+    socket.on("typing-start", (data: { receiver?: string; chatRoom?: string }) => {
+      this.handleStartTyping(socket, data.receiver, data.chatRoom);
+    });
+
+    socket.on("typing-stop", (data: { receiver?: string; chatRoom?: string }) => {
+      this.handleStopTyping(socket, data.receiver, data.chatRoom);
+    });
+
+    // Handle message read status
+    socket.on("mark-as-read", async (data: { messageId: string }) => {
+      try {
+        if (!socket.user) return;
+
+        const message = await ChatService.markAsRead(data.messageId, socket.user.id);
+        
+        if (message) {
+          // Notify sender that message was read
+          const senderUser = this.connectedUsers.get(message.sender);
+          if (senderUser) {
+            this.io?.to(senderUser.socketId).emit("message-read", {
+              messageId: message._id,
+              readBy: socket.user.id,
+              readAt: message.readAt
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Mark as read error:", error);
+      }
+    });
+
+    // Handle conversation read status
+    socket.on("mark-conversation-read", async (data: { otherUserId: string }) => {
+      try {
+        if (!socket.user) return;
+
+        await ChatService.markConversationAsRead(socket.user.id, data.otherUserId);
+        
+        // Notify the other user
+        const otherUser = this.connectedUsers.get(data.otherUserId);
+        if (otherUser) {
+          this.io?.to(otherUser.socketId).emit("conversation-read", {
+            userId: socket.user.id
+          });
+        }
+      } catch (error) {
+        console.error("Mark conversation as read error:", error);
+      }
+    });
+
+    // Handle message reactions
+    socket.on("add-reaction", async (data: { messageId: string; emoji: string }) => {
+      try {
+        if (!socket.user) return;
+
+        const message = await ChatService.addReaction(data.messageId, socket.user.id, data.emoji);
+        
+        if (message) {
+          // Broadcast reaction to all participants
+          if (message.chatRoom) {
+            this.io?.to(message.chatRoom).emit("reaction-added", {
+              messageId: message._id,
+              userId: socket.user.id,
+              emoji: data.emoji,
+              reactions: message.reactions
+            });
+          } else if (message.receiver) {
+            const receiverUser = this.connectedUsers.get(message.receiver);
+            if (receiverUser) {
+              this.io?.to(receiverUser.socketId).emit("reaction-added", {
+                messageId: message._id,
+                userId: socket.user.id,
+                emoji: data.emoji,
+                reactions: message.reactions
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Add reaction error:", error);
+      }
+    });
+
+    // Handle getting online users
+    socket.on("get-online-users", () => {
+      const onlineUsers = Array.from(this.connectedUsers.values()).map(user => ({
+        id: user.id,
+        email: user.email,
+        isOnline: user.isOnline,
+        lastSeen: user.lastSeen
+      }));
+      
+      socket.emit("online-users", onlineUsers);
+    });
+
+    // Handle disconnect
+    socket.on("disconnect", () => {
+      this.handleDisconnect(socket);
+    });
+  }
+
+  private handleStartTyping(socket: AuthenticatedSocket, receiver?: string, chatRoom?: string): void {
+    if (!socket.user) return;
+
+    const typingData = {
+      userId: socket.user.id,
+      userName: socket.user.email,
+      timestamp: new Date()
+    };
+
+    if (receiver) {
+      // Private chat typing
+      const key = `${socket.user.id}-${receiver}`;
+      const typingUsers = this.typingUsers.get(key) || {};
+      typingUsers[socket.user.id] = typingData;
+      this.typingUsers.set(key, typingUsers);
+
+      const receiverUser = this.connectedUsers.get(receiver);
+      if (receiverUser) {
+        this.io?.to(receiverUser.socketId).emit("user-typing", {
+          userId: socket.user.id,
+          userName: socket.user.email,
+          isTyping: true
+        });
+      }
+    } else if (chatRoom) {
+      // Group chat typing
+      const typingUsers = this.typingUsers.get(chatRoom) || {};
+      typingUsers[socket.user.id] = typingData;
+      this.typingUsers.set(chatRoom, typingUsers);
+
+      socket.to(chatRoom).emit("user-typing", {
+        userId: socket.user.id,
+        userName: socket.user.email,
+        isTyping: true
+      });
     }
   }
 
-  private handleDisconnect(socket: SocketWithUser): void {
-    const userId = socket.user.id;
-    const socketId = socket.id;
+  private handleStopTyping(socket: AuthenticatedSocket, receiver?: string, chatRoom?: string): void {
+    if (!socket.user) return;
 
-    console.log(`User disconnected: ${userId}`);
+    if (receiver) {
+      // Private chat stop typing
+      const key = `${socket.user.id}-${receiver}`;
+      const typingUsers = this.typingUsers.get(key) || {};
+      delete typingUsers[socket.user.id];
+      this.typingUsers.set(key, typingUsers);
 
-    // Remove from connection tracking
-    this.userSockets.delete(userId);
-    this.socketUsers.delete(socketId);
+      const receiverUser = this.connectedUsers.get(receiver);
+      if (receiverUser) {
+        this.io?.to(receiverUser.socketId).emit("user-typing", {
+          userId: socket.user.id,
+          userName: socket.user.email,
+          isTyping: false
+        });
+      }
+    } else if (chatRoom) {
+      // Group chat stop typing
+      const typingUsers = this.typingUsers.get(chatRoom) || {};
+      delete typingUsers[socket.user.id];
+      this.typingUsers.set(chatRoom, typingUsers);
 
-    // Clear any typing indicators
-    this.typingUsers.forEach((timeout, conversationId) => {
-      socket.to(conversationId).emit("typing", {
-        userId,
-        conversationId,
+      socket.to(chatRoom).emit("user-typing", {
+        userId: socket.user.id,
+        userName: socket.user.email,
         isTyping: false
       });
-      clearTimeout(timeout);
+    }
+  }
+
+  private handleDisconnect(socket: AuthenticatedSocket): void {
+    if (!socket.user) return;
+
+    console.log(`User disconnected: ${socket.user.email} (${socket.id})`);
+    
+    // Update user status
+    const user = this.connectedUsers.get(socket.user.id);
+    if (user) {
+      user.isOnline = false;
+      user.lastSeen = new Date();
+      this.connectedUsers.set(socket.user.id, user);
+    }
+
+    // Broadcast user offline status
+    this.broadcastUserStatus(socket.user.id, false);
+
+    // Clean up typing indicators
+    this.cleanupTypingIndicators(socket.user.id);
+
+    // Remove from connected users after a delay (in case of reconnection)
+    setTimeout(() => {
+      this.connectedUsers.delete(socket.user!.id);
+    }, 30000); // 30 seconds delay
+  }
+
+  private broadcastUserStatus(userId: string, isOnline: boolean): void {
+    this.io?.emit("user-status-changed", {
+      userId,
+      isOnline,
+      timestamp: new Date()
     });
-    this.typingUsers.clear();
+  }
+
+  private cleanupTypingIndicators(userId: string): void {
+    // Clean up typing indicators for this user
+    for (const [key, typingUsers] of this.typingUsers.entries()) {
+      if (typingUsers[userId]) {
+        delete typingUsers[userId];
+        this.typingUsers.set(key, typingUsers);
+      }
+    }
+  }
+
+  // Cleanup typing indicators periodically
+  private startTypingCleanup(): void {
+    setInterval(() => {
+      const now = new Date();
+      for (const [key, typingUsers] of this.typingUsers.entries()) {
+        for (const [userId, typingData] of Object.entries(typingUsers)) {
+          // Remove typing indicator if it's older than 10 seconds
+          if (now.getTime() - typingData.timestamp.getTime() > 10000) {
+            delete typingUsers[userId];
+          }
+        }
+        this.typingUsers.set(key, typingUsers);
+      }
+    }, 5000); // Check every 5 seconds
+  }
+
+  public getIO(): Server | null {
+    return this.io;
+  }
+
+  public getConnectedUsers(): Map<string, SocketUser> {
+    return this.connectedUsers;
   }
 }
 

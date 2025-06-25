@@ -1060,15 +1060,36 @@ export const inventoryController = {
 bulkDeleteInventory: async (req: Request, res: Response) => {
   try {
     // First check if body exists and has inventoryIds
-    if (!req.body || !req.body.inventoryIds) {
-      return res.status(400).json({
-        success: false,
-        message: "Request body must contain inventoryIds array"
-      });
-    }
+    // if (!req.body || !req.body.inventoryIds) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Request body must contain inventoryIds array"
+    //   });
+    // }
 
-    const { inventoryIds } = req.body;
+    const { inventoryIds= [], selectAllPages = false, filters = {} } = req.body;
 
+    if (selectAllPages) {
+          // Handle filter-based deletion
+          const query: any = {};
+          
+          if (filters.status) {
+            query.status = filters.status;
+          }
+          if (filters.isTemplate !== undefined) {
+            query.isTemplate = filters.isTemplate;
+          }
+          if (filters.isBlocked !== undefined) {
+            query.isBlocked = filters.isBlocked;
+          }
+    
+          const result = await Inventory.deleteMany(query);
+          return res.status(200).json({
+            success: true,
+            message: `Deleted ${result.deletedCount} listings`,
+            deletedCount: result.deletedCount
+          });
+        } else {
     // Ensure inventoryIds is an array
     if (!Array.isArray(inventoryIds)) {
       return res.status(400).json({
@@ -1076,6 +1097,7 @@ bulkDeleteInventory: async (req: Request, res: Response) => {
         message: "inventoryIds must be an array"
       });
     }
+  }
 
     // Check if array is empty
     if (inventoryIds.length === 0) {
