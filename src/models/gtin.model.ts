@@ -4,7 +4,7 @@ const GtinSchema = new Schema({
   gtin: {
     type: String,
     required: true,
-    unique: true,
+    // unique: true,
     trim: true,
   },
   isUsed: {
@@ -12,8 +12,8 @@ const GtinSchema = new Schema({
     default: false,
   },
   usedInListing: {
-    type: Schema.Types.ObjectId,
-    ref: "Listing",
+    type: String,
+    // ref: "Listing"
     default: null,
   },
   createdAt: {
