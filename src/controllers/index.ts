@@ -26,4 +26,4 @@ export { customPolicyController } from "./custom-policy.controller";
 export { fulfillmentPolicyController } from "./fulfillment-policy.controller";
 export { returnPolicyController } from "./return-policy.controller";
 export { chatController } from "./chat.controller";
-
+export { gtinController } from "./gtin.controller";
