@@ -67,18 +67,83 @@ export const gtinService = {
   },
   // Get all unused GTINs
   getAllGtins: async () => {
-    return Gtin.find({ isUsed: false }).select("gtin");
+    return await Gtin.find().sort({ createdAt: 1 });
   },
 
   // Mark a GTIN as used and associate it with a listing
   useGtin: async (gtin: string, listingId: string) => {
-    const gtinDoc: any = await Gtin.findOne({ gtin, isUsed: false });
+    const gtinDoc = await Gtin.findOneAndUpdate(
+      { gtin, isUsed: false },
+      {
+        isUsed: true,
+        usedInListing: listingId,
+        confirmedAt: new Date(),
+      },
+      { new: true }
+    );
+
     if (!gtinDoc) {
       throw new Error("GTIN not found or already used");
     }
-    gtinDoc.isUsed = true;
-    gtinDoc.usedInListing = listingId;
-    await gtinDoc.save();
+
+    return gtinDoc;
+  },
+  getAndReserveGtin: async (listingId: string) => {
+    const gtinDoc = await Gtin.findOneAndUpdate(
+      { isUsed: false }, // Find unused GTIN
+      {
+        isUsed: true,
+        usedInListing: listingId,
+        reservedAt: new Date(),
+      }, // Mark as used immediately
+      {
+        new: true, // Return updated document
+        sort: { createdAt: 1 }, // Get oldest GTIN first (FIFO)
+      }
+    );
+
+    if (!gtinDoc) {
+      throw new Error("No unused GTINs available");
+    }
+
+    return gtinDoc;
+  },
+
+  // Confirm GTIN usage after successful Amazon API call
+  confirmGtinUsage: async (gtin: string, listingId: string) => {
+    const gtinDoc = await Gtin.findOneAndUpdate(
+      { gtin, usedInListing: listingId },
+      {
+        confirmedAt: new Date(),
+        // Remove reservedAt since it's now confirmed
+        $unset: { reservedAt: 1 },
+      },
+      { new: true }
+    );
+
+    if (!gtinDoc) {
+      throw new Error(`GTIN ${gtin} not found or not reserved for listing ${listingId}`);
+    }
+
+    return gtinDoc;
+  },
+
+  // Release GTIN back to available pool if listing fails
+  releaseGtin: async (gtin: string) => {
+    const gtinDoc = await Gtin.findOneAndUpdate(
+      { gtin },
+      {
+        isUsed: false,
+        usedInListing: null,
+        $unset: { reservedAt: 1, confirmedAt: 1 },
+      },
+      { new: true }
+    );
+
+    if (!gtinDoc) {
+      throw new Error(`GTIN ${gtin} not found`);
+    }
+
     return gtinDoc;
   },
 };

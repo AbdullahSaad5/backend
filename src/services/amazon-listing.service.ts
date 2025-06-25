@@ -525,12 +525,19 @@ export const amazonListingService = {
 
   // Function to create simple listing (your existing logic)
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
-    console.log("in simple listitng");
+    console.log("in simple listing");
+
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
+
+    // Get and reserve a GTIN atomically
+    const gtinDoc = await gtinService.getAndReserveGtin(sku);
+    const selectedGtin = gtinDoc.gtin;
+
+    console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
     delete otherProdTechInfo.condition_type;
@@ -547,21 +554,25 @@ export const amazonListingService = {
         condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
+        externally_assigned_product_identifier: [
+          {
+            type: "gtin",
+            value: selectedGtin,
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ],
         ...amazonListingService.prepareImageLocators(populatedListing),
-        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         product_description: product_description || [],
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
         epr_product_packaging: epr_product_packaging || [],
-
         ...otherProdTechInfo,
       },
     };
 
     return await amazonListingService.sendToAmazon(sku, productData, token);
   },
-
   // Enhanced variation management with comprehensive error handling and tracking
 
   createVariationListing: async (populatedListing: any, token: string): Promise<any> => {

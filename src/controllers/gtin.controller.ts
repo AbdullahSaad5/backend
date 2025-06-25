@@ -171,14 +171,24 @@ export const gtinController = {
   assignGtinToListing: async (req: Request, res: Response) => {
     try {
       const { gtin, listingId } = req.body;
+
+      if (!gtin || !listingId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "Both gtin and listingId are required",
+        });
+      }
+
       const updatedGtin = await gtinService.useGtin(gtin, listingId);
+
       res.status(StatusCodes.OK).json({
         message: "GTIN assigned to listing successfully",
         gtin: updatedGtin,
       });
     } catch (error: any) {
-      console.error(error);
-      res.status(StatusCodes.BAD_REQUEST).json({ message: error.message });
+      console.error("Error assigning GTIN:", error);
+      res.status(StatusCodes.BAD_REQUEST).json({
+        message: error.message,
+      });
     }
   },
 };
