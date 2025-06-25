@@ -533,11 +533,18 @@ export const amazonListingService = {
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
 
-    // Get and reserve a GTIN atomically
-    const gtinDoc = await gtinService.getAndReserveGtin(sku);
-    const selectedGtin = gtinDoc.gtin;
+    let selectedGtin = null;
 
-    console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    if (!existingListingId) {
+      // If there's no existing listing, fetch and assign a new GTIN
+      const gtinDoc = await gtinService.getAndReserveGtin(sku);
+      selectedGtin = gtinDoc.gtin;
+      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    } else {
+      // If listing already exists, don't fetch a new GTIN
+      console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    }
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
     delete otherProdTechInfo.condition_type;
@@ -554,13 +561,15 @@ export const amazonListingService = {
         condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
-        externally_assigned_product_identifier: [
-          {
-            type: "ean",
-            value: selectedGtin,
-            marketplace_id: "A1F83G8C2ARO7P",
-          },
-        ],
+        ...(selectedGtin && {
+          externally_assigned_product_identifier: [
+            {
+              type: "gtin",
+              value: selectedGtin, // Assign the selected GTIN only if it's new
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+        }),
         ...amazonListingService.prepareImageLocators(populatedListing),
         product_description: product_description || [],
         item_display_weight: item_display_weight || [],
@@ -1072,17 +1081,23 @@ export const amazonListingService = {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
-
     const categoryId =
       populatedListing.productInfo.productCategory.amazonCategoryId ||
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
 
-    // Fetch an unused GTIN
-    const gtinDoc = await gtinService.getAndReserveGtin(sku);
-    const selectedGtin = gtinDoc.gtin;
+    let selectedGtin = null;
 
-    console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    if (!existingListingId) {
+      // If there's no existing listing, fetch and assign a new GTIN
+      const gtinDoc = await gtinService.getAndReserveGtin(sku);
+      selectedGtin = gtinDoc.gtin;
+      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    } else {
+      // If listing already exists, don't fetch a new GTIN
+      console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    }
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
@@ -1107,13 +1122,15 @@ export const amazonListingService = {
           },
         ],
         variation_theme: [{ name: selectedVariationTheme }],
-        externally_assigned_product_identifier: [
-          {
-            type: "ean",
-            value: selectedGtin, // Assign the selected GTIN
-            marketplace_id: "A1F83G8C2ARO7P",
-          },
-        ],
+        ...(selectedGtin && {
+          externally_assigned_product_identifier: [
+            {
+              type: "ean",
+              value: selectedGtin, // Assign the selected GTIN only if it's new
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+        }),
         ...amazonListingService.prepareImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
@@ -1123,13 +1140,15 @@ export const amazonListingService = {
       },
     };
 
-    console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
+    console.log("🔗 Creating or updating parent listing:", JSON.stringify(parentData, null, 2));
 
     // Send the listing to Amazon
     const response = await amazonListingService.sendToAmazon(sku, parentData, token);
 
-    // Mark the GTIN as used after successful listing creation
-    await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
+    // Mark the GTIN as used after successful listing creation if it's a new GTIN
+    if (selectedGtin) {
+      await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
+    }
 
     return response;
   },
@@ -1143,10 +1162,23 @@ export const amazonListingService = {
         prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
       } = populatedListing;
       // Fetch an unused GTIN
-      const gtinDoc = await gtinService.getAndReserveGtin(sku);
-      const selectedGtin = gtinDoc.gtin;
 
-      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+      let selectedGtin = null;
+
+      const existingListingId = populatedListing.prodPricing?.currentAmazonVariationsSKU?.find(
+        (item: any) => item === amazonListingService.generateChildSku(variation)
+      ); // Check if listing already exists
+      console.log("existingListingId", existingListingId);
+      if (!existingListingId) {
+        // If there's no existing listing, fetch and assign a new GTIN
+        const gtinDoc = await gtinService.getAndReserveGtin(sku);
+        selectedGtin = gtinDoc.gtin;
+        console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+      } else {
+        // If listing already exists, don't fetch a new GTIN
+        console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+      }
+
       const categoryId =
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
@@ -1181,13 +1213,15 @@ export const amazonListingService = {
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
-          externally_assigned_product_identifier: [
-            {
-              type: "ean",
-              value: selectedGtin, // Assign the selected GTIN
-              marketplace_id: "A1F83G8C2ARO7P",
-            },
-          ],
+          ...(selectedGtin && {
+            externally_assigned_product_identifier: [
+              {
+                type: "ean",
+                value: selectedGtin, // Assign the selected GTIN only if it's new
+                marketplace_id: "A1F83G8C2ARO7P",
+              },
+            ],
+          }),
           ...amazonListingService.buildChildVariationAttributes(variation),
           purchasable_offer: [
             {

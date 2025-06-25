@@ -70,9 +70,9 @@ export const gtinService = {
       { new: true }
     );
 
-    if (!gtinDoc) {
-      throw new Error("GTIN not found or already used");
-    }
+    // if (!gtinDoc) {
+    //   throw new Error("GTIN not found or already used");
+    // }
 
     return gtinDoc;
   },
