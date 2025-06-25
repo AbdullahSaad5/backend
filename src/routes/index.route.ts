@@ -16,7 +16,7 @@ import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
-import { document } from "./documents.route"
+import { document } from "./documents.route";
 import { blog } from "./blog.route";
 import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
@@ -47,6 +47,7 @@ import { guidescategory } from "./guidescategory.route";
 import { guide } from "./guide.route";
 import { faqcategory } from "./faqcategory.route";
 import { faq } from "./faq.route";
+import { gtin } from "./gtin.route";
 import { newsletter } from "./newsletter.route";
 
 // Create a new router to handle all routes
@@ -67,7 +68,7 @@ const routes: {
   variations,
   complaint,
   blog,
-  expense, 
+  expense,
   document,
   expensecategory,
   workshift,
@@ -79,6 +80,7 @@ const routes: {
   inventory,
   ebay,
   ticket,
+  gtin,
   amazon,
   productCategory,
   gamerComunity,
