@@ -1740,9 +1740,9 @@ export const amazonListingService = {
     const { images } = variation; // Updated to access images directly from the top level of the object
 
     // Check if there are images in the array
-    if (!images || images.length === 0) {
-      throw new Error("No images found for Child Variation Listing");
-    }
+    // if (!images || images.length === 0) {
+    //   throw new Error("No images found for Child Variation Listing");
+    // }
 
     let payload: any = {};
 
