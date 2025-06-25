@@ -546,21 +546,8 @@ export const amazonListingService = {
         condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
-
-        // child_parent_sku_relationship: [
-        //   {
-        //     child_relationship_type: "variation",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //     parent_sku: "ABC-456_TEST",
-        //   },
-        // ],
-        // parentage_level: [
-        //   {
-        //     value: "child",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //   },
-        // ],
-
+        ...amazonListingService.prepareImageLocators(populatedListing),
+        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         product_description: product_description || [],
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
@@ -973,29 +960,21 @@ export const amazonListingService = {
   generateChildSku: (variation: any): string => {
     const suffixParts: string[] = [];
 
-    // Log the initial variation object to inspect the structure
-    // console.log("Initial Variation:", JSON.stringify(variation, null, 2));
-
     // Define attributes that should be processed as sizes
     const sizeAttributes = ["computer_memory", "hard_disk"];
 
     // Check if variationId and attributes exist
     if (variation?.variationId?.attributes) {
       const attributes = variation.variationId.attributes;
-      // console.log("Attributes:", JSON.stringify(attributes, null, 2));
 
       // Iterate over the attributes object to process each key
       Object.keys(attributes).forEach((attributeKey) => {
         // Skip actual_attributes
         if (attributeKey === "actual_attributes") {
-          // console.log("Skipping actual_attributes key.");
           return;
         }
 
         const attributeValue = attributes[attributeKey];
-
-        // Log the attribute key and its value
-        // console.log(`Processing attribute: ${attributeKey} with value: ${attributeValue}`);
 
         // Process only if attributeValue is a string and not empty
         if (typeof attributeValue === "string" && attributeValue !== "") {
@@ -1008,7 +987,6 @@ export const amazonListingService = {
               const value = sizeMatch[1];
               const unit = sizeMatch[2];
               const valueToAdd = `${value}${unit}`;
-              // console.log(`Found size: ${valueToAdd}`);
 
               // Clean and add to suffix parts
               const cleanValue = valueToAdd.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
@@ -1016,13 +994,11 @@ export const amazonListingService = {
             } else {
               // If no size pattern, clean and add the value directly
               const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
-              // console.log(`Using value: ${cleanValue}`);
               suffixParts.push(cleanValue);
             }
           } else {
             // For non-size attributes, clean and add the value directly
             const cleanValue = attributeValue.replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
-            // console.log(`Using value: ${cleanValue}`);
             suffixParts.push(cleanValue);
           }
         } else {
@@ -1033,16 +1009,19 @@ export const amazonListingService = {
       console.log("No attributes found in variation.variationId.");
     }
 
-    // Log the suffix parts after processing all attributes
-    // console.log("Generated Suffix Parts:", suffixParts);
-
     // Join the suffix parts to form the final SKU suffix
-    const suffix = suffixParts.join("-");
-    // console.log("Final SKU Suffix:", suffix);
+    let suffix = suffixParts.join("-");
+
+    // Automatically truncate if SKU exceeds 39 characters
+    if (suffix.length > 39) {
+      // Truncate to the first 39 characters
+      suffix = suffix.slice(0, 39);
+    }
 
     // Return the final SKU or fallback to "var" if no valid suffix is found
     return suffix || "var";
   },
+
   getCommonAttributes: (prodTechInfo: any, variation: any): any => {
     const common = { ...prodTechInfo };
 
@@ -1118,7 +1097,8 @@ export const amazonListingService = {
         //     marketplace_id: "A1F83G8C2ARO7P",
         //   },
         // ],
-        // ...amazonListingService.prepareImageLocators(populatedListing),
+        ...amazonListingService.prepareImageLocators(populatedListing),
+        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
@@ -1192,6 +1172,7 @@ export const amazonListingService = {
               ],
             },
           ],
+
           fulfillment_availability: [
             {
               fulfillment_channel_code: "DEFAULT",
@@ -1205,6 +1186,7 @@ export const amazonListingService = {
           item_package_weight: item_package_weight || [],
           item_package_dimensions: item_package_dimensions || [],
           epr_product_packaging: epr_product_packaging || [],
+          ...amazonListingService.prepareChildImageLocators(variation),
           ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
         },
       };
@@ -1651,10 +1633,10 @@ export const amazonListingService = {
     // Destructure the images from prodMedia
     const { images } = populatedListing.prodMedia;
 
-    // Check if there are images in the array
-    if (!images || images.length === 0) {
-      throw new Error("No images found in prodMedia");
-    }
+    // // Check if there are images in the array
+    // if (!images || images.length === 0) {
+    //   throw new Error("No images found in prodMedia of standAlone listing");
+    // }
 
     // Initialize the payload object that will hold the locators
     let payload: any = {};
@@ -1684,7 +1666,82 @@ export const amazonListingService = {
     // Return the populated payload
     return payload;
   },
+  prepareChildImageLocators: (variation: any) => {
+    console.log("Here is the variation data in child variation: ", variation);
 
+    // Destructure images directly from the variation (not from variationId)
+    const { images } = variation; // Updated to access images directly from the top level of the object
+
+    // Check if there are images in the array
+    if (!images || images.length === 0) {
+      throw new Error("No images found for Child Variation Listing");
+    }
+
+    let payload: any = {};
+
+    // Ensure there is at least one image to use as the main product image
+    if (images.length > 0) {
+      // Main product image (first image in the array)
+      payload.main_product_image_locator = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: images[0].url, // Use the first image's URL as the main image
+        },
+      ];
+    }
+
+    // Other product image locators (remaining images)
+    images.slice(1).forEach((image: any, index: any) => {
+      const locatorKey = `other_product_image_locator_${index + 1}`; // other_product_image_locator_1, 2, 3, etc.
+      payload[locatorKey] = [
+        {
+          marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+          media_location: image.url, // Use the current image's URL
+        },
+      ];
+    });
+
+    // Return the populated payload
+    return payload;
+  },
+
+  // prepareOfferImageLocators: (populatedListing: any) => {
+  //   // Destructure the images from prodMedia
+  //   const { offerImages } = populatedListing.prodMedia;
+
+  //   // Check if there are images in the array
+  //   // if (!offerImages || offerImages.length === 0) {
+  //   //   throw new Error("No offer images found in prodMedia");
+  //   // }
+
+  //   // Initialize the payload object that will hold the locators
+  //   let payload: any = {};
+
+  //   // Ensure there is at least one image to use as the main product image
+  //   if (offerImages.length > 0) {
+  //     // Main product image (first image in the array)
+  //     payload.main_offer_image_locator = [
+  //       {
+  //         marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+  //         media_location: offerImages[0].url, // Use the first image's URL as the main image
+  //       },
+  //     ];
+  //   }
+
+  //   // Other product image locators (remaining images)
+  //   offerImages.slice(1).forEach((image: any, index: any) => {
+  //     const locatorKey = `other_offer_image_locator_${index + 1}`; // other_offer_image_locator_1, 2, 3, etc.
+  //     payload[locatorKey] = [
+  //       {
+  //         marketplace_id: marketplaceId, // Placeholder for marketplace_id, adjust as needed
+  //         media_location: image.url, // Use the current image's URL
+  //       },
+  //     ];
+  //   });
+
+  //   // Return the populated payload
+  //   return payload;
+  // },
   updateListingWithAmazonSku: async (listingId: string, amazonSku: string): Promise<void> => {
     try {
       await Listing.findByIdAndUpdate(listingId, {
