@@ -4,7 +4,7 @@ const GtinSchema = new Schema({
   gtin: {
     type: String,
     required: true,
-    unique: true,
+    // unique: true,
     trim: true,
   },
   isUsed: {
