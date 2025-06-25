@@ -1,5 +1,6 @@
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
+import { gtinService } from "./gtin.service";
 import {
   getStoredAmazonAccessToken,
   refreshAmazonAccessToken,
@@ -1058,7 +1059,6 @@ export const amazonListingService = {
   createParentListing: async (populatedListing: any, token: string): Promise<any> => {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
-      // prodTechInfo: { condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
 
@@ -1067,9 +1067,17 @@ export const amazonListingService = {
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
 
+    // Fetch an unused GTIN
+    const availableGtins = await gtinService.getAllGtins();
+    if (!availableGtins.length) {
+      throw new Error("No unused GTINs available");
+    }
+    const selectedGtin = availableGtins[0].gtin; // Select the first unused GTIN
+
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
     const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
+
     const parentData = {
       productType: categoryId,
       requirements: "LISTING",
@@ -1089,16 +1097,14 @@ export const amazonListingService = {
           },
         ],
         variation_theme: [{ name: selectedVariationTheme }],
-
-        // externally_assigned_product_identifier: [
-        //   {
-        //     type: "gtin",
-        //     value: "01234567890512",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //   },
-        // ],
+        externally_assigned_product_identifier: [
+          {
+            type: "gtin",
+            value: selectedGtin, // Assign the selected GTIN
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ],
         ...amazonListingService.prepareImageLocators(populatedListing),
-        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
@@ -1109,7 +1115,13 @@ export const amazonListingService = {
 
     console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
 
-    return await amazonListingService.sendToAmazon(sku, parentData, token);
+    // Send the listing to Amazon
+    const response = await amazonListingService.sendToAmazon(sku, parentData, token);
+
+    // Mark the GTIN as used after successful listing creation
+    await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
+
+    return response;
   },
 
   createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
@@ -1120,7 +1132,12 @@ export const amazonListingService = {
         // prodTechInfo: { condition_type },
         prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
       } = populatedListing;
-
+      // Fetch an unused GTIN
+      const availableGtins = await gtinService.getAllGtins();
+      if (!availableGtins.length) {
+        throw new Error("No unused GTINs available");
+      }
+      const selectedGtin = availableGtins[0].gtin; // Select the first unused GTIN
       const categoryId =
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
@@ -1152,6 +1169,13 @@ export const amazonListingService = {
           parentage_level: [
             {
               value: "child",
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+          externally_assigned_product_identifier: [
+            {
+              type: "gtin",
+              value: selectedGtin, // Assign the selected GTIN
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
