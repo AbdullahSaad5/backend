@@ -23,20 +23,25 @@ export const gtinService = {
       }
 
       const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      console.log("Parsed data from XLSX (first 5 rows):", data.slice(0, 5)); // Log first 5 rows for debugging
+      console.log("Parsed data from XLSX (first 5 rows):", data.slice(0, 5));
 
-      // Process rows
+      // Process all rows, including duplicates
       data.forEach((row: any, index) => {
         const gtin = row[0]?.toString().trim();
-        // Validate GTIN (8, 12, 13, or 14 digits)
+
+        // Basic GTIN validation - accept all valid format GTINs
         if (gtin && /^[0-9]{8}$|^[0-9]{12}$|^[0-9]{13}$|^[0-9]{14}$/.test(gtin)) {
-          gtins.push(gtin);
-        } else {
+          gtins.push(gtin); // Add all GTINs, including duplicates
+        } else if (gtin) {
           console.log(`Row ${index + 1}: Invalid or missing GTIN: ${gtin}`);
         }
       });
 
-      console.log(`Extracted ${gtins.length} valid GTINs:`, gtins); // Log all extracted GTINs
+      console.log(
+        `Extracted ${gtins.length} GTINs (including duplicates):`,
+        gtins.slice(0, 10),
+        gtins.length > 10 ? `...and ${gtins.length - 10} more` : ""
+      );
 
       if (gtins.length === 0) {
         throw new Error("No valid GTINs found in the file");

@@ -18,51 +18,42 @@ export const gtinController = {
       const fileBuffer = fs.readFileSync(req.file.path);
       const gtins = await gtinService.createGtinsFromXlsx(fileBuffer);
 
-      // Prepare GTIN documents for bulk insertion
+      console.log(`Processing ${gtins.length} GTINs from file`);
+
+      // Create GTIN documents
       const gtinDocs = gtins.map((gtin) => ({
-        gtin,
+        gtin: gtin.trim(),
         isUsed: false,
         usedInListing: null,
-        createdAt: new Date(),
+        createdAt: Date.now(),
       }));
 
-      let insertedCount = 0;
-      let skippedCount = 0;
+      // Insert all GTINs without any duplicate checking
+      const result = await Gtin.insertMany(gtinDocs);
+      const insertedCount = result.length;
 
-      try {
-        // Bulk insert with ordered: false
-        const result = await Gtin.insertMany(gtinDocs, { ordered: false });
-        insertedCount = result.length;
-      } catch (error: any) {
-        // Handle duplicate key errors (E11000)
-        if (error.name === "MongoBulkWriteError" && error.code === 11000) {
-          insertedCount = error.result?.nInserted || 0;
-          skippedCount = gtins.length - insertedCount;
-          console.log(`Inserted ${insertedCount} GTINs, skipped ${skippedCount} due to duplicates`);
-        } else {
-          throw error; // Rethrow other errors
-        }
-      }
-
-      // Fetch saved GTINs to confirm
-      const savedGtins = await Gtin.find({ gtin: { $in: gtins } }).select("gtin");
-      console.log(`Found ${savedGtins.length} GTINs in database`);
+      console.log(`Successfully inserted ${insertedCount} GTINs into database`);
 
       // Delete the uploaded file
       fs.unlinkSync(req.file.path);
 
       res.status(StatusCodes.CREATED).json({
         status: StatusCodes.CREATED,
-        message: "GTINs uploaded and saved successfully",
+        message: "GTINs inserted successfully",
         data: {
           total: gtins.length,
           inserted: insertedCount,
-          skipped: skippedCount,
-          gtins: savedGtins.map((doc) => doc.gtin),
+          gtins: result.map((doc) => doc.gtin),
         },
       });
     } catch (error: any) {
       console.error("Error uploading GTINs:", error);
+
+      // Clean up file if it exists
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: "Error uploading GTINs",
