@@ -556,7 +556,7 @@ export const amazonListingService = {
         brand: brand || [],
         externally_assigned_product_identifier: [
           {
-            type: "gtin",
+            type: "ean",
             value: selectedGtin,
             marketplace_id: "A1F83G8C2ARO7P",
           },
@@ -1079,11 +1079,10 @@ export const amazonListingService = {
       "NOTEBOOK_COMPUTER";
 
     // Fetch an unused GTIN
-    const availableGtins = await gtinService.getAllGtins();
-    if (!availableGtins.length) {
-      throw new Error("No unused GTINs available");
-    }
-    const selectedGtin = availableGtins[0].gtin; // Select the first unused GTIN
+    const gtinDoc = await gtinService.getAndReserveGtin(sku);
+    const selectedGtin = gtinDoc.gtin;
+
+    console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
@@ -1110,7 +1109,7 @@ export const amazonListingService = {
         variation_theme: [{ name: selectedVariationTheme }],
         externally_assigned_product_identifier: [
           {
-            type: "gtin",
+            type: "ean",
             value: selectedGtin, // Assign the selected GTIN
             marketplace_id: "A1F83G8C2ARO7P",
           },
@@ -1144,11 +1143,10 @@ export const amazonListingService = {
         prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
       } = populatedListing;
       // Fetch an unused GTIN
-      const availableGtins = await gtinService.getAllGtins();
-      if (!availableGtins.length) {
-        throw new Error("No unused GTINs available");
-      }
-      const selectedGtin = availableGtins[0].gtin; // Select the first unused GTIN
+      const gtinDoc = await gtinService.getAndReserveGtin(sku);
+      const selectedGtin = gtinDoc.gtin;
+
+      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
       const categoryId =
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
@@ -1185,7 +1183,7 @@ export const amazonListingService = {
           ],
           externally_assigned_product_identifier: [
             {
-              type: "gtin",
+              type: "ean",
               value: selectedGtin, // Assign the selected GTIN
               marketplace_id: "A1F83G8C2ARO7P",
             },
