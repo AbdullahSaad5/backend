@@ -69,19 +69,7 @@ export const processVariationsUtility = {
       }
     }
 
-    // Processing for solid_state_storage_drive (concatenate `capacity` values)
-    if (
-      attributesObj.solid_state_storage_drive &&
-      Array.isArray(attributesObj.solid_state_storage_drive) &&
-      attributesObj.solid_state_storage_drive.length > 0
-    ) {
-      const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
-        attributesObj.solid_state_storage_drive
-      );
-      if (ssdResult.length > 0) {
-        processedAttributes.solid_state_storage_drive = ssdResult;
-      }
-    }
+
 
     // Processing for memory_storage_capacity (concatenate `value` and `unit`)
     // if (
@@ -174,18 +162,18 @@ export const processVariationsUtility = {
       }
     }
     // Processing for solid_state_storage_drive (concatenate `capacity` values)
-    if (
-      attributesObj.solid_state_storage_drive &&
-      Array.isArray(attributesObj.solid_state_storage_drive) &&
-      attributesObj.solid_state_storage_drive.length > 0
-    ) {
-      const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
-        attributesObj.solid_state_storage_drive
-      );
-      if (ssdResult.length > 0) {
-        processedAttributes.solid_state_storage_drive = ssdResult;
-      }
-    }
+    // if (
+    //   attributesObj.solid_state_storage_drive &&
+    //   Array.isArray(attributesObj.solid_state_storage_drive) &&
+    //   attributesObj.solid_state_storage_drive.length > 0
+    // ) {
+    //   const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
+    //     attributesObj.solid_state_storage_drive
+    //   );
+    //   if (ssdResult.length > 0) {
+    //     processedAttributes.solid_state_storage_drive = ssdResult;
+    //   }
+    // }
 
     // Returning only the processed attributes that have valid data
     return processedAttributes;
@@ -266,18 +254,18 @@ export const processVariationsUtility = {
       }
     }
     // Processing for solid_state_storage_drive (concatenate `capacity` values)
-    if (
-      attributesObj.solid_state_storage_drive &&
-      Array.isArray(attributesObj.solid_state_storage_drive) &&
-      attributesObj.solid_state_storage_drive.length > 0
-    ) {
-      const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
-        attributesObj.solid_state_storage_drive
-      );
-      if (ssdResult.length > 0) {
-        processedAttributes.solid_state_storage_drive = ssdResult;
-      }
-    }
+    // if (
+    //   attributesObj.solid_state_storage_drive &&
+    //   Array.isArray(attributesObj.solid_state_storage_drive) &&
+    //   attributesObj.solid_state_storage_drive.length > 0
+    // ) {
+    //   const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
+    //     attributesObj.solid_state_storage_drive
+    //   );
+    //   if (ssdResult.length > 0) {
+    //     processedAttributes.solid_state_storage_drive = ssdResult;
+    //   }
+    // }
 
     // Returning only the processed attributes that have valid data
     return processedAttributes;
@@ -400,17 +388,17 @@ export const processVariationsUtility = {
   },
 
   // Enhanced function to process 'solid_state_storage_drive' attribute
-  processSolidStateStorageDrive: (attribute: any[]) => {
-    if (attribute.length > 1) {
-      return attribute.map((item) => ({
-        displayValue: `${item.capacity.value} ${item.capacity.unit}`,
-        originalStructure: [item], // Keep as array like in DB
-      }));
-    }
+  // processSolidStateStorageDrive: (attribute: any[]) => {
+  //   if (attribute.length > 1) {
+  //     return attribute.map((item) => ({
+  //       displayValue: `${item.capacity.value} ${item.capacity.unit}`,
+  //       originalStructure: [item], // Keep as array like in DB
+  //     }));
+  //   }
 
-    // Return an empty array if there is only one item
-    return [];
-  },
+  //   // Return an empty array if there is only one item
+  //   return [];
+  // },
 
   // Enhanced function to process 'ram_memory' attribute
   processRamMemory: (attribute: any[]) => {
