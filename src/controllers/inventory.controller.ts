@@ -1055,4 +1055,92 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
+//bulk delete
+bulkDeleteInventory: async (req: Request, res: Response) => {
+  try {
+    // First check if body exists and has inventoryIds
+    // if (!req.body || !req.body.inventoryIds) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Request body must contain inventoryIds array"
+    //   });
+    // }
+
+    const { inventoryIds= [], selectAllPages = false, filters = {} } = req.body;
+
+    if (selectAllPages) {
+          // Handle filter-based deletion
+          const query: any = {};
+          
+          if (filters.status) {
+            query.status = filters.status;
+          }
+          if (filters.isTemplate !== undefined) {
+            query.isTemplate = filters.isTemplate;
+          }
+          if (filters.isBlocked !== undefined) {
+            query.isBlocked = filters.isBlocked;
+          }
+    
+          const result = await Inventory.deleteMany(query);
+          return res.status(200).json({
+            success: true,
+            message: `Deleted ${result.deletedCount} listings`,
+            deletedCount: result.deletedCount
+          });
+        } else {
+    // Ensure inventoryIds is an array
+    if (!Array.isArray(inventoryIds)) {
+      return res.status(400).json({
+        success: false,
+        message: "inventoryIds must be an array"
+      });
+    }
+  }
+
+    // Check if array is empty
+    if (inventoryIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No inventory IDs provided"
+      });
+    }
+
+    // Validate each ID
+    const invalidIds = inventoryIds.filter(id => {
+      // Handle cases where id might be null/undefined
+      if (!id) return true;
+      // Check if valid ObjectId
+      return !mongoose.Types.ObjectId.isValid(id);
+    });
+
+    if (invalidIds.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid inventory IDs: ${invalidIds.join(', ')}`
+      });
+    }
+
+    // Perform deletion
+    const result = await Inventory.deleteMany({
+      _id: { $in: inventoryIds }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Deleted ${result.deletedCount} items`,
+      deletedCount: result.deletedCount
+    });
+
+  } catch (error: any) {
+    console.error("Error in bulk delete:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to perform bulk delete",
+      // Only include stack in development
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    });
+  }
+}
 };
