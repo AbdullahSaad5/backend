@@ -14,7 +14,7 @@ export const chat = (router: Router) => {
   router.get("/history/:userId", ChatController.getChatHistory);
   router.patch("/messages/:messageId/read", ChatController.markAsRead);
   router.patch("/conversations/:userId/read", ChatController.markConversationAsRead);
-  router.put("/messages/:messageId", ChatController.editMessage);
+  router.patch("/messages/:messageId", ChatController.editMessage);
   router.delete("/messages/:messageId", ChatController.deleteMessage);
   router.post("/messages/:messageId/reactions", ChatController.addReaction);
 
@@ -22,7 +22,7 @@ export const chat = (router: Router) => {
   router.post("/rooms", ChatRoomController.createRoom);
   router.get("/rooms", ChatRoomController.getRooms);
   router.get("/rooms/:roomId", ChatRoomController.getRoomById);
-  router.put("/rooms/:roomId", ChatRoomController.updateRoom);
+  router.patch("/rooms/:roomId", ChatRoomController.updateRoom);
   router.delete("/rooms/:roomId", ChatRoomController.deleteRoom);
   router.post("/rooms/:roomId/participants", ChatRoomController.addParticipant);
   router.delete("/rooms/:roomId/participants", ChatRoomController.removeParticipant);

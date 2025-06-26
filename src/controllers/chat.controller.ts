@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ChatService, ChatRoomService } from "@/services/chat.service";
 import { MessageType, MessageStatus } from "@/contracts/chat.contract";
+import mongoose from "mongoose";
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -304,49 +305,95 @@ export const ChatController = {
     }
   },
 
-  addReaction: async (req: Request, res: Response) => {
-    try {
-      const { messageId } = req.params;
-      const { emoji } = req.body;
-      const userId = req.context?.user?.id;
+  // addReaction: async (req: Request, res: Response) => {
+  //   try {
+  //     const { messageId } = req.params;
+  //     const { emoji } = req.body;
+  //     const userId = req.context?.user?.id;
 
-      if (!userId) {
-        return res.status(StatusCodes.UNAUTHORIZED).json({
-          success: false,
-          message: "Authentication required"
-        });
-      }
+  //     if (!userId) {
+  //       return res.status(StatusCodes.UNAUTHORIZED).json({
+  //         success: false,
+  //         message: "Authentication required"
+  //       });
+  //     }
 
-      if (!emoji) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Emoji is required"
-        });
-      }
+  //     if (!emoji) {
+  //       return res.status(StatusCodes.BAD_REQUEST).json({
+  //         success: false,
+  //         message: "Emoji is required"
+  //       });
+  //     }
 
-      const message = await ChatService.addReaction(messageId, userId, emoji);
+  //     const message = await ChatService.addReaction(messageId, userId, emoji);
 
-      if (!message) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Message not found"
-        });
-      }
+  //     if (!message) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({
+  //         success: false,
+  //         message: "Message not found"
+  //       });
+  //     }
 
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Reaction added successfully",
-        data: message
-      });
-    } catch (error) {
-      console.error("Add reaction error:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to add reaction"
-      });
+  //     res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Reaction added successfully",
+  //       data: message
+  //     });
+  //   } catch (error) {
+  //     console.error("Add reaction error:", error);
+  //     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: "Failed to add reaction"
+  //     });
+  //   }
+  // },
+addReaction: async (req: Request, res: Response) => {
+  try {
+    console.log('--- START REACTION PROCESSING ---');
+    console.log('Headers:', req.headers);
+    console.log('Params:', req.params);
+    console.log('Body:', req.body);
+
+    const { messageId } = req.params;
+    const { emoji } = req.body;
+    const userId = req.context?.user?.id;
+
+    console.log('Extracted values:', { messageId, emoji, userId });
+
+    if (!userId) {
+      console.log('No userId found - unauthorized');
+      return res.status(401).json({ success: false, message: "Authentication required" });
     }
-  },
 
+    if (!emoji) {
+      console.log('No emoji provided');
+      return res.status(400).json({ success: false, message: "Emoji is required" });
+    }
+
+    console.log('Calling ChatService.addReaction...');
+    const message = await ChatService.addReaction(messageId, userId, emoji);
+    console.log('Service returned:', message);
+
+    if (!message) {
+      console.log('Message not found');
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+
+    console.log('Reaction added successfully');
+    return res.status(200).json({
+      success: true,
+      message: "Reaction added successfully",
+      data: message
+    });
+
+  } catch (error) {
+    console.error("FULL ERROR DETAILS:", error);
+    return res.status(500).json({
+      success: false,
+      message: error instanceof Error ? error.message : "Failed to add reaction"
+    });
+  }
+},
   searchMessages: async (req: Request, res: Response) => {
     try {
       const { q: query, chatRoom } = req.query;

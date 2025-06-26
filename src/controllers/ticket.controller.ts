@@ -15,95 +15,63 @@ export const tickerControler = {
         assignedTo,
         createDate,
         dueDate,
-        status,
-        priority,
-        department,
+        status = "Open",
+        priority = "Medium",
+        role,
         description,
       } = req.body;
-      console.log(
-        "ticket data ",
-        title,
-        client,
-        assignedTo,
-        createDate,
-        dueDate,
-        status,
-        priority,
-        department,
-        description
-      );
+
       const newTicket = await ticketService.createTicket(
         title,
         client,
-        assignedTo,
-        createDate,
-        dueDate,
+        assignedTo ? new Types.ObjectId(assignedTo) : undefined,
+        new Date(createDate),
+        new Date(dueDate),
         status,
         priority,
-        department,
+        new Types.ObjectId(role),
         description
       );
-      res
-        .status(StatusCodes.CREATED)
-        .json({ success: true, message: "ticket generated successfully" });
+
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Ticket created successfully",
+        data: newTicket
+      });
     } catch (error: any) {
-      if (error.title === "MongoServerError" && error.code === 11000) {
-        // Handle duplicate key error (unique constraint violation)
-        const field = Object.keys(error.keyPattern)[0]; // Find the duplicate field
-        res.status(StatusCodes.BAD_REQUEST).json({
-          message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
-        });
-      } else {
-        // console.error(error);
-        res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ message: "Error creating user Ticket" });
-      }
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error creating ticket",
+        error: error.message
+      });
     }
   },
+
   editTicket: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const {
-        title,
-        client,
-        assignedTo,
-        createDate,
-        dueDate,
-        status,
-        priority,
-        department,
-      } = req.body;
-      const Ticket = await ticketService.editTicket(id, {
-        title,
-        client,
-        assignedTo,
-        createDate,
-        dueDate,
-        status,
-        priority,
-        department,
-      });
+      const updateData = req.body;
+
+      // Convert string IDs to ObjectId if present
+      if (updateData.assignedTo) {
+        updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
+      }
+      if (updateData.role) {
+        updateData.role = new Types.ObjectId(updateData.role);
+      }
+
+      const ticket = await ticketService.editTicket(id, updateData);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Ticket updated successfully",
-        data: Ticket,
+        data: ticket,
       });
     } catch (error: any) {
-      // console.error("Edit Ticket Error:", error);
-      if (error.title === "MongoServerError" && error.code === 11000) {
-        // console.log("insode if  error : ")
-        // Handle duplicate key error (unique constraint violation)
-        const field = Object.keys(error.keyPattern)[0]; // Find the duplicate field
-        // console.log("field : " , field)
-        res.status(StatusCodes.BAD_REQUEST).json({
-          message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
-        });
-      } else {
-        res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ success: false, message: "Error updating Ticket Ticket" });
-      }
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating ticket",
+        error: error.message
+      });
     }
   },
 
@@ -114,25 +82,26 @@ export const tickerControler = {
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Ticket deleted successfully",
-        deletedUser: result,
+        deletedTicket: result,
       });
-    } catch (error) {
-      console.error("Delete Ticket Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting Ticket Ticket" });
-    }
-  },
-  getAllTicket: async (req: Request, res: Response) => {
-    try {
-      const categories = await ticketService.getAllTicket();
-      console.log(categories);
-      res.status(StatusCodes.OK).json({ success: true, data: categories });
-    } catch (error) {
-      console.error("View Categories Error:", error);
+    } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Error getting all Ticket categories",
+        message: "Error deleting ticket",
+        error: error.message
+      });
+    }
+  },
+
+  getAllTicket: async (req: Request, res: Response) => {
+    try {
+      const tickets = await ticketService.getAllTicket();
+      res.status(StatusCodes.OK).json({ success: true, data: tickets });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting tickets",
+        error: error.message
       });
     }
   },
@@ -141,14 +110,14 @@ export const tickerControler = {
     try {
       const id = req.params.id;
       const result = await ticketService.getById(id);
-      //   console.log(result);
       if (!result) return res.status(404).json({ message: "Ticket not found" });
       res.status(StatusCodes.OK).json({ success: true, data: result });
-    } catch (error) {
-      console.error("View Ticket Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting Ticket Ticket" });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting ticket",
+        error: error.message
+      });
     }
   },
 
@@ -161,87 +130,78 @@ export const tickerControler = {
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message:
-          "Status is required and must be one of: Open, In Progress, Closed",
-        allowedStatuses,
+        message: "Status must be one of: Open, In Progress, Closed",
       });
     }
 
     try {
       const result = await ticketService.changeStatus(id, status);
-
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Status changed successfully",
         data: result,
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Something went wrong",
-        error: Error,
+        message: "Error changing status",
+        error: error.message
       });
     }
   },
+
   toggleprioritystatus: async (req: Request, res: Response) => {
     const { id } = req.params;
     const { priority } = req.body;
 
-    const allowedpriority = ["Low", "Medium", "High"];
+    const allowedPriorities = ["Low", "Medium", "High"];
 
-    if (!priority || !allowedpriority.includes(priority)) {
+    if (!priority || !allowedPriorities.includes(priority)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message:
-          "Status is required and must be one of: Open, In Progress, Closed",
-        allowedpriority,
+        message: "Priority must be one of: Low, Medium, High",
       });
     }
 
     try {
       const result = await ticketService.changePriority(id, priority);
-
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Status changed successfully",
+        message: "Priority changed successfully",
         data: result,
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Something went wrong",
-        error: Error,
+        message: "Error changing priority",
+        error: error.message
       });
     }
   },
-  toggledepartmentstatus: async (req: any, res: Response) => {
+
+  toggleRole: async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { department } = req.body;
+    const { role } = req.body;
 
-    const alloweddepartment = ["SUPPORT", "SALES", "INVENTORY"];
-
-    if (!department || !alloweddepartment.includes(department)) {
+    if (!role || !Types.ObjectId.isValid(role)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message:
-          "Status is required and must be one of: Open, In Progress, Closed",
-        alloweddepartment,
+        message: "Valid role ID is required",
       });
     }
 
     try {
-      const result = await ticketService.changeDepartment(id, department);
-
+      const result = await ticketService.changeRole(id, new Types.ObjectId(role));
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Status changed successfully",
+        message: "Role changed successfully",
         data: result,
       });
-    } catch (error) {
+    } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Something went wrong",
-        error: Error,
+        message: "Error changing role",
+        error: error.message
       });
     }
   },
@@ -255,22 +215,25 @@ export const tickerControler = {
       const token = authHeader && authHeader.split(" ")[1];
 
       if (!token || typeof token !== "string") {
-        return res
-          .status(StatusCodes.BAD_REQUEST)
-          .json({ success: false, message: "Invalid verification token. " });
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
       }
+
       const decoded = jwtVerify(token);
       const userId = decoded.id.toString();
       const user = await authService.findUserById(userId);
       if (!user) {
-        return res
-          .status(StatusCodes.NOT_FOUND)
-          .json({ success: false, message: " User not found." });
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "User not found",
+        });
       }
 
-      // Validate input
       if (!description?.trim() || description.trim().length < 10) {
-        return res.status(400).json({
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
           message: "Resolution must be at least 10 characters",
         });
       }
@@ -278,7 +241,7 @@ export const tickerControler = {
       const resolvedTicket = await ticketService.addResolution(
         ticketId,
         description,
-        userId.toString() // Ensure it's a string
+        userId
       );
 
       return res.status(StatusCodes.OK).json({
@@ -287,7 +250,88 @@ export const tickerControler = {
         data: resolvedTicket,
       });
     } catch (error: any) {
-      // ... existing error handling
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error adding resolution",
+      });
     }
   },
+
+  deleteResolution: async (req: any, res: Response) => {
+    try {
+      const { ticketId } = req.params;
+
+      const deletedResolutionTicket = await ticketService.deleteResolution(ticketId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution deleted successfully",
+        data: deletedResolutionTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') 
+          ? StatusCodes.NOT_FOUND 
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error deleting resolution",
+      });
+    }
+  },
+
+  updateResolution: async (req: any, res: Response) => {
+    try {
+      const { ticketId } = req.params;
+      const { description } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
+      if (!user) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      if (!description?.trim() || description.trim().length < 10) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Resolution must be at least 10 characters",
+        });
+      }
+
+      const updatedTicket = await ticketService.updateResolution(
+        ticketId,
+        description,
+        userId
+      );
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution updated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') 
+          ? StatusCodes.NOT_FOUND 
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error updating resolution",
+      });
+    }
+  }
 };
