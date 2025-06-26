@@ -1086,18 +1086,18 @@ export const amazonListingService = {
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
 
-    let selectedGtin = null;
+    // let selectedGtin = null;
 
-    const existingListingId = populatedListing.amazonSku; // Check if listing already exists
-    if (!existingListingId) {
-      // If there's no existing listing, fetch and assign a new GTIN
-      const gtinDoc = await gtinService.getAndReserveGtin(sku);
-      selectedGtin = gtinDoc.gtin;
-      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
-    } else {
-      // If listing already exists, don't fetch a new GTIN
-      console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
-    }
+    // const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    // if (!existingListingId) {
+    //   // If there's no existing listing, fetch and assign a new GTIN
+    //   const gtinDoc = await gtinService.getAndReserveGtin(sku);
+    //   selectedGtin = gtinDoc.gtin;
+    //   console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    // } else {
+    //   // If listing already exists, don't fetch a new GTIN
+    //   console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    // }
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
@@ -1122,15 +1122,15 @@ export const amazonListingService = {
           },
         ],
         variation_theme: [{ name: selectedVariationTheme }],
-        ...(selectedGtin && {
-          externally_assigned_product_identifier: [
-            {
-              type: "ean",
-              value: selectedGtin, // Assign the selected GTIN only if it's new
-              marketplace_id: "A1F83G8C2ARO7P",
-            },
-          ],
-        }),
+        // ...(selectedGtin && {
+        //   externally_assigned_product_identifier: [
+        //     {
+        //       type: "ean",
+        //       value: selectedGtin, // Assign the selected GTIN only if it's new
+        //       marketplace_id: "A1F83G8C2ARO7P",
+        //     },
+        //   ],
+        // }),
         ...amazonListingService.prepareImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
@@ -1146,9 +1146,9 @@ export const amazonListingService = {
     const response = await amazonListingService.sendToAmazon(sku, parentData, token);
 
     // Mark the GTIN as used after successful listing creation if it's a new GTIN
-    if (selectedGtin) {
-      await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
-    }
+    // if (selectedGtin) {
+    //   await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
+    // }
 
     return response;
   },
