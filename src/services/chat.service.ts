@@ -171,17 +171,36 @@ export const ChatService = {
     return !!result;
   },
 
-  addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
-    return ChatModel.findByIdAndUpdate(
-      messageId,
-      {
-        $pull: { reactions: { userId } }, // Remove existing reaction from same user
-        $push: { reactions: { userId, emoji, createdAt: new Date() } }
-      },
-      { new: true }
-    );
-  },
+  // addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
+  //   return ChatModel.findByIdAndUpdate(
+  //     messageId,
+  //     {
+  //       $pull: { reactions: { userId } }, // Remove existing reaction from same user
+  //       $push: { reactions: { userId, emoji, createdAt: new Date() } }
+  //     },
+  //     { new: true }
+  //   );
+  // },
+addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
+  console.log(`Attempting to add reaction:`, { messageId, userId, emoji }); // Debug log
+  
+  const result = await ChatModel.findByIdAndUpdate(
+    messageId,
+    {
+      $push: { 
+        reactions: { 
+          userId, 
+          emoji, 
+          createdAt: new Date() 
+        } 
+      }
+    },
+    { new: true }
+  );
 
+  console.log('Update result:', result); // Debug log
+  return result;
+},
   removeReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
     return ChatModel.findByIdAndUpdate(
       messageId,
