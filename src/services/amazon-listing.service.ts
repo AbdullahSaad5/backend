@@ -564,7 +564,7 @@ export const amazonListingService = {
         ...(selectedGtin && {
           externally_assigned_product_identifier: [
             {
-              type: "gtin",
+              type: "ean",
               value: selectedGtin, // Assign the selected GTIN only if it's new
               marketplace_id: "A1F83G8C2ARO7P",
             },
@@ -1183,7 +1183,7 @@ export const amazonListingService = {
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER";
-
+console.log("variation.retailPrice", variation.retailPrice);
       const childSku = amazonListingService.generateChildSku(variation);
 
       // Get variation theme (you'll need to implement this based on your existing logic)
