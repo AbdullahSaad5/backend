@@ -48,32 +48,26 @@ export const tickerControler = {
   },
 
   editTicket: async (req: Request, res: Response) => {
-    try {
-      const { id } = req.params;
-      const updateData = req.body;
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
 
-      // Convert string IDs to ObjectId if present
-      if (updateData.assignedTo) {
-        updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
-      }
-      if (updateData.role) {
-        updateData.role = new Types.ObjectId(updateData.role);
-      }
-
-      const ticket = await ticketService.editTicket(id, updateData);
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Ticket updated successfully",
-        data: ticket,
-      });
-    } catch (error: any) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Error updating ticket",
-        error: error.message
-      });
-    }
-  },
+    // The service will handle all data transformation
+    const ticket = await ticketService.editTicket(id, updateData);
+    
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Ticket updated successfully",
+      data: ticket,
+    });
+  } catch (error: any) {
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error updating ticket",
+      error: error.message
+    });
+  }
+},
 
   deleteTicket: async (req: Request, res: Response) => {
     try {

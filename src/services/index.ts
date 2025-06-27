@@ -9,6 +9,7 @@ export { listingService } from "./listing.service";
 export { bundleService } from "./bundle.service";
 export { orderService } from "./order.service";
 export { cartService } from "./cart.service";
+export { gtinService } from "./gtin.service";
 // export { paymentPolicyService } from "./payment-policy.service";
 // export { fulfillmentPolicyService } from "./fulfillment-policy.service";
 // export { returnPolicyService } from "./return-policy.service";

@@ -1,18 +1,21 @@
-import { Bundle } from "@/models/bundle.model"; // Import the Bundle model
+import { Bundle ,} from "@/models/bundle.model"; // Import the Bundle model
 import { IBundle, IBundleUpdatePayload } from "@/contracts/bundle.contract"; // Import the IBundle contract
+import { Error } from "mongoose";
 
 export const bundleService = {
   // Add a new bundle
-  addBundle: async (bundleData: IBundle) => {
-    try {
-      const newBundle = new Bundle(bundleData); // Create a new Bundle instance
-      await newBundle.save(); // Save the new bundle to the database
-      return newBundle; // Return the saved bundle
-    } catch (error) {
-      console.error("Error adding bundle:", error);
-      throw new Error("Failed to add bundle to the database");
+ addBundle: async (bundleData: IBundle) => {
+    // Check for existing bundle name
+    const existingBundle = await Bundle.findOne({ name: bundleData.name });
+    if (existingBundle) {
+      throw new Error("Bundle name already exists");
     }
+
+    const newBundle = new Bundle(bundleData);
+    await newBundle.save();
+    return newBundle;
   },
+ 
 
   // Get all bundles
   getAllBundles: async () => {
@@ -58,19 +61,23 @@ export const bundleService = {
   },
 
   // Update a bundle by ID
-  updateBundleById: async (bundleId: string, data: IBundleUpdatePayload) => {
-    try {
-      const updatedBundle = await Bundle.findByIdAndUpdate(bundleId, data, {
-        new: true,
-      }); // Update the bundle by ID
-      if (!updatedBundle) {
-        throw new Error("Bundle not found");
+ updateBundleById: async (bundleId: string, data: IBundleUpdatePayload) => {
+    // Check for name conflict if name is being updated
+    if (data.name) {
+      const existingBundle = await Bundle.findOne({
+        name: data.name,
+        _id: { $ne: bundleId }  // Exclude current bundle
+      });
+      if (existingBundle) {
+        throw new Error("Bundle name already exists");
       }
-      return updatedBundle; // Return the updated bundle
-    } catch (error) {
-      console.error("Error updating bundle:", error);
-      throw new Error("Failed to update the bundle");
     }
+
+    const updatedBundle = await Bundle.findByIdAndUpdate(bundleId, data, {
+      new: true,
+    });
+    if (!updatedBundle) throw new Error("Bundle not found");
+    return updatedBundle;
   },
 
   // Delete a bundle by ID

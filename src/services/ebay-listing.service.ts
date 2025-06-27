@@ -956,6 +956,7 @@ function escapeXml(unsafe: any): string {
 }
 async function generateVariationsXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.selectedVariations || [];
+  // console.log("Variations for XML:", JSON.stringify(variations, null, 2));
   const previousSkusSet: Set<string> = new Set(
     (ebayData?.prodPricing?.currentEbayVariationsSKU || []).map((s: string) => s.trim().toLowerCase())
   );
@@ -997,13 +998,13 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     const attrObj = variation?.variationId?.attributes || {};
 
-    Object.keys(attrObj).forEach((key) => {
-      if (!usedKeys.has(key) && usedKeys.size < 5) usedKeys.add(key);
-    });
-
+    // Skip the actual_attributes key
     const filteredAttrObj = Object.entries(attrObj).reduce(
       (acc2, [key, value]: any) => {
-        if (usedKeys.has(key)) acc2[key] = value;
+        if (key !== "actual_attributes") {
+          if (!usedKeys.has(key) && usedKeys.size < 5) usedKeys.add(key);
+          if (usedKeys.has(key)) acc2[key] = value;
+        }
         return acc2;
       },
       {} as Record<string, string>
@@ -1029,14 +1030,14 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
     newSkusSet.add(uniqueSku);
 
     acc.push(`
-      <Variation>
-        <SKU>${escapeXml(uniqueSku)}</SKU>
-        <StartPrice>${variation.retailPrice}</StartPrice>
-        <Quantity>${variation.listingQuantity}</Quantity>
-        <VariationSpecifics>
-          ${nameValueXml}
-        </VariationSpecifics>
-      </Variation>`);
+    <Variation>
+      <SKU>${escapeXml(uniqueSku)}</SKU>
+      <StartPrice>${variation.retailPrice}</StartPrice>
+      <Quantity>${variation.listingQuantity}</Quantity>
+      <VariationSpecifics>
+        ${nameValueXml}
+      </VariationSpecifics>
+    </Variation>`);
 
     return acc;
   }, []);

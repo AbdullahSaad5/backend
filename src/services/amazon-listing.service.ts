@@ -1,5 +1,6 @@
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
+import { gtinService } from "./gtin.service";
 import {
   getStoredAmazonAccessToken,
   refreshAmazonAccessToken,
@@ -524,12 +525,26 @@ export const amazonListingService = {
 
   // Function to create simple listing (your existing logic)
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
-    console.log("in simple listitng");
+    console.log("in simple listing");
+
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
+
+    let selectedGtin = null;
+
+    const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    if (!existingListingId) {
+      // If there's no existing listing, fetch and assign a new GTIN
+      const gtinDoc = await gtinService.getAndReserveGtin(sku);
+      selectedGtin = gtinDoc.gtin;
+      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    } else {
+      // If listing already exists, don't fetch a new GTIN
+      console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    }
 
     const otherProdTechInfo = { ...populatedListing.prodTechInfo };
     delete otherProdTechInfo.condition_type;
@@ -546,21 +561,27 @@ export const amazonListingService = {
         condition_type: condition_type || [{ value: "new_new" }],
         item_name: item_name || [],
         brand: brand || [],
+        ...(selectedGtin && {
+          externally_assigned_product_identifier: [
+            {
+              type: "gtin",
+              value: selectedGtin, // Assign the selected GTIN only if it's new
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+        }),
         ...amazonListingService.prepareImageLocators(populatedListing),
-        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         product_description: product_description || [],
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
         epr_product_packaging: epr_product_packaging || [],
-
         ...otherProdTechInfo,
       },
     };
 
     return await amazonListingService.sendToAmazon(sku, productData, token);
   },
-
   // Enhanced variation management with comprehensive error handling and tracking
 
   createVariationListing: async (populatedListing: any, token: string): Promise<any> => {
@@ -1058,18 +1079,30 @@ export const amazonListingService = {
   createParentListing: async (populatedListing: any, token: string): Promise<any> => {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
-      // prodTechInfo: { condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
-
     const categoryId =
       populatedListing.productInfo.productCategory.amazonCategoryId ||
       populatedListing.productInfo.productCategory.categoryId ||
       "NOTEBOOK_COMPUTER";
 
+    // let selectedGtin = null;
+
+    // const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    // if (!existingListingId) {
+    //   // If there's no existing listing, fetch and assign a new GTIN
+    //   const gtinDoc = await gtinService.getAndReserveGtin(sku);
+    //   selectedGtin = gtinDoc.gtin;
+    //   console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    // } else {
+    //   // If listing already exists, don't fetch a new GTIN
+    //   console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    // }
+
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
     const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
+
     const parentData = {
       productType: categoryId,
       requirements: "LISTING",
@@ -1089,16 +1122,16 @@ export const amazonListingService = {
           },
         ],
         variation_theme: [{ name: selectedVariationTheme }],
-
-        // externally_assigned_product_identifier: [
-        //   {
-        //     type: "gtin",
-        //     value: "01234567890512",
-        //     marketplace_id: "A1F83G8C2ARO7P",
-        //   },
-        // ],
+        // ...(selectedGtin && {
+        //   externally_assigned_product_identifier: [
+        //     {
+        //       type: "ean",
+        //       value: selectedGtin, // Assign the selected GTIN only if it's new
+        //       marketplace_id: "A1F83G8C2ARO7P",
+        //     },
+        //   ],
+        // }),
         ...amazonListingService.prepareImageLocators(populatedListing),
-        // ...amazonListingService.prepareOfferImageLocators(populatedListing),
         item_display_weight: item_display_weight || [],
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
@@ -1107,9 +1140,17 @@ export const amazonListingService = {
       },
     };
 
-    console.log("🔗 Creating parent listing:", JSON.stringify(parentData, null, 2));
+    console.log("🔗 Creating or updating parent listing:", JSON.stringify(parentData, null, 2));
 
-    return await amazonListingService.sendToAmazon(sku, parentData, token);
+    // Send the listing to Amazon
+    const response = await amazonListingService.sendToAmazon(sku, parentData, token);
+
+    // Mark the GTIN as used after successful listing creation if it's a new GTIN
+    // if (selectedGtin) {
+    //   await gtinService.useGtin(selectedGtin, response.listingId || sku); // Use listingId or fallback to sku
+    // }
+
+    return response;
   },
 
   createChildListing: async (populatedListing: any, variation: any, token: string): Promise<any> => {
@@ -1120,6 +1161,23 @@ export const amazonListingService = {
         // prodTechInfo: { condition_type },
         prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
       } = populatedListing;
+      // Fetch an unused GTIN
+
+      let selectedGtin = null;
+
+      const existingListingId = populatedListing.prodPricing?.currentAmazonVariationsSKU?.find(
+        (item: any) => item === amazonListingService.generateChildSku(variation)
+      ); // Check if listing already exists
+      console.log("existingListingId", existingListingId);
+      if (!existingListingId) {
+        // If there's no existing listing, fetch and assign a new GTIN
+        const gtinDoc = await gtinService.getAndReserveGtin(sku);
+        selectedGtin = gtinDoc.gtin;
+        console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+      } else {
+        // If listing already exists, don't fetch a new GTIN
+        console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+      }
 
       const categoryId =
         populatedListing.productInfo.productCategory.amazonCategoryId ||
@@ -1155,6 +1213,15 @@ export const amazonListingService = {
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
+          ...(selectedGtin && {
+            externally_assigned_product_identifier: [
+              {
+                type: "ean",
+                value: selectedGtin, // Assign the selected GTIN only if it's new
+                marketplace_id: "A1F83G8C2ARO7P",
+              },
+            ],
+          }),
           ...amazonListingService.buildChildVariationAttributes(variation),
           purchasable_offer: [
             {
@@ -1673,9 +1740,9 @@ export const amazonListingService = {
     const { images } = variation; // Updated to access images directly from the top level of the object
 
     // Check if there are images in the array
-    if (!images || images.length === 0) {
-      throw new Error("No images found for Child Variation Listing");
-    }
+    // if (!images || images.length === 0) {
+    //   throw new Error("No images found for Child Variation Listing");
+    // }
 
     let payload: any = {};
 

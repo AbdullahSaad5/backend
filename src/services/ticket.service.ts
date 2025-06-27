@@ -28,24 +28,53 @@ export const ticketService = {
     return newTicket.save();
   },
 
-  editTicket: (
-    id: string,
-    data: {
-      title?: string;
-      client?: string;
-      assignedTo?: Types.ObjectId;
-      createDate?: Date;
-      dueDate?: Date;
-      status?: "Open" | "In Progress" | "Closed";
-      priority?: "Low" | "Medium" | "High";
-      role?: Types.ObjectId;
-      description?: string;
-    }
-  ) => {
-    return TicketModel.findByIdAndUpdate(id, data, { new: true })
-      .populate('role', 'role')
-      .populate('assignedTo', 'firstName lastName');
-  },
+editTicket: (
+  id: string,
+  data: {
+    title?: string;
+    client?: string;
+    assignedTo?: Types.ObjectId | { _id: string; firstName?: string; lastName?: string };
+    dueDate?: Date | string;
+    status?: "Open" | "In Progress" | "Closed";
+    priority?: "Low" | "Medium" | "High";
+    role?: Types.ObjectId | { _id: string; role?: string };
+    description?: string;
+  }
+) => {
+  // Normalize the data structure to match the model
+  const updateData: any = {
+    title: data.title,
+    client: data.client,
+    description: data.description,
+    status: data.status,
+    priority: data.priority,
+  };
+
+  // Handle assignedTo (accept either object with _id or just _id)
+  if (data.assignedTo) {
+    updateData.assignedTo = typeof data.assignedTo === 'object' 
+      ? new Types.ObjectId(data.assignedTo._id)
+      : new Types.ObjectId(data.assignedTo);
+  }
+
+  // Handle role (accept either object with _id or just _id)
+  if (data.role) {
+    updateData.role = typeof data.role === 'object'
+      ? new Types.ObjectId(data.role._id)
+      : new Types.ObjectId(data.role);
+  }
+
+  // Handle dueDate (accept either Date object or ISO string)
+  if (data.dueDate) {
+    updateData.dueDate = typeof data.dueDate === 'string'
+      ? new Date(data.dueDate)
+      : data.dueDate;
+  }
+
+  return TicketModel.findByIdAndUpdate(id, updateData, { new: true })
+    .populate('role', 'role')
+    .populate('assignedTo', 'firstName lastName');
+},
 
   deleteTicket: (id: string) => {
     const ticket = TicketModel.findByIdAndDelete(id);

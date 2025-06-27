@@ -19,4 +19,4 @@ export { Inventory } from "./inventory.model";
 // export { Conversation } from "./conversation.model";
 // export { Message } from "./message.model";
 export { Log } from "./log.model";
-export { GTIN } from "./gtin.model";
+export { Gtin } from "./gtin.model";
