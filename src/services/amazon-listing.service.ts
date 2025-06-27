@@ -1183,7 +1183,7 @@ export const amazonListingService = {
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER";
-console.log("variation.retailPrice", variation.retailPrice);
+      console.log("variation.retailPrice", variation.retailPrice);
       const childSku = amazonListingService.generateChildSku(variation);
 
       // Get variation theme (you'll need to implement this based on your existing logic)
