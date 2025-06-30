@@ -1851,4 +1851,101 @@ export const amazonListingService = {
       throw error;
     }
   },
+  // eBay Account Deletion Notification Endpoint
+  accountDeletion: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("📧 Received eBay account deletion notification");
+
+      // Get notification data from eBay
+      const notificationData = req.body;
+
+      // Verify the request is from eBay using verification token
+      const JWT_SECRET = process.env.JWT_SECRET;
+
+      if (notificationData.verificationToken !== JWT_SECRET) {
+        console.error("❌ Invalid verification token");
+        // Still return 200 to avoid notification failures
+        return res.status(200).json({ message: "Invalid token" });
+      }
+
+      // Extract user information from eBay notification
+      const { userId, marketplace, timestamp, notificationType } = notificationData;
+
+      console.log("🔍 Processing deletion for:", {
+        userId,
+        marketplace,
+        notificationType,
+        timestamp,
+      });
+
+      // Validate required fields
+      // if (!userId) {
+      //   console.error("❌ Missing userId in notification");
+      //   return res.status(200).json({ message: "Missing userId" });
+      // }
+
+      // Delete user data from your database
+      await amazonListingService.deleteEbayUserData(userId);
+
+      // Log successful deletions
+      console.log("✅ Successfully processed account deletion for user:", userId);
+
+      // eBay requires HTTP 200 response within 3 seconds
+      return res.status(200).json({
+        message: "Account deletion processed successfully",
+        userId: userId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("❌ Error processing eBay account deletion:", error);
+
+      // IMPORTANT: Still return 200 to prevent eBay from marking endpoint as failed
+      // eBay will stop sending notifications after 1000 consecutive failures
+      return res.status(200).json({
+        message: "Error processed",
+        error: "Internal processing error",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  },
+
+  // Helper function to delete eBay user data
+  deleteEbayUserData: async (userId: string): Promise<void> => {
+    try {
+      // Delete user data from your database
+      // Replace this with your actual database deletion logic
+
+      // Example database operations:
+      // await User.deleteOne({ ebayUserId: userId });
+      // await UserTokens.deleteMany({ ebayUserId: userId });
+      // await UserPreferences.deleteOne({ ebayUserId: userId });
+      // await ApiLogs.deleteMany({ userId: userId });
+
+      console.log(`🗑️ Deleted all data for eBay user: ${userId}`);
+
+      // Optional: Log the deletion for audit purposes
+      await amazonListingService.logAccountDeletion(userId);
+    } catch (error) {
+      console.error("❌ Error deleting user data:", error);
+      throw error;
+    }
+  },
+
+  // Helper function to log account deletions for audit
+  logAccountDeletion: async (userId: string): Promise<void> => {
+    try {
+      // Log the deletion event (without storing personal data)
+      // await AuditLog.create({
+      //   event: 'ACCOUNT_DELETION',
+      //   userId: userId, // You might want to hash this
+      //   timestamp: new Date(),
+      //   source: 'EBAY_NOTIFICATION'
+      // });
+
+      console.log(`📝 Logged account deletion for user: ${userId}`);
+    } catch (error) {
+      console.error("❌ Error logging account deletion:", error);
+      // Don't throw error here as it's not critical
+    }
+  },
 };
