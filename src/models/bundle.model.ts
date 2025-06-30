@@ -19,6 +19,7 @@ const bundleSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+      unique: true,
     },
 
     // Promotional images with alt text
