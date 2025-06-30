@@ -24,12 +24,11 @@ export const ebay = (router: Router) => {
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
+  router.get("/account-deletion", ebayListingService.accountDeletion);
+
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
-  router.get(
-    "/inventory/get-item-aspects/:categoryId",
-    ebayListingService.getItemAspects
-  );
+  router.get("/inventory/get-item-aspects/:categoryId", ebayListingService.getItemAspects);
   // router.post("/inventory/create-item", ebayListingService.createProduct);
   // router.patch("/inventory/update-item", ebayListingService.updateProduct);
   // router.delete("/inventory/delete-item/:sku", ebayListingService.deleteProduct);
