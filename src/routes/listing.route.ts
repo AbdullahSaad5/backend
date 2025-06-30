@@ -42,6 +42,7 @@ export const listing = (router: Router) => {
 
   router.get("/:id", listingValidation.validateId, listingController.getListingById);
 
+  router.delete("/bulk-delete", listingController.bulkDeleteListing);
   router.delete("/:id", listingValidation.validateId, listingController.deleteListing);
 
   router.patch("/:id", listingValidation.updateListing, listingController.updateListingById);
