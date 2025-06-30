@@ -9,16 +9,21 @@ export const bundleController = {
   // Add a new bundle
   addBundle: async (req: Request, res: Response) => {
     try {
-      const bundleData = req.body; // Destructure bundle details from the request body
-      console.log("bundleData in controller : ", bundleData);
-      const newBundle = await bundleService.addBundle(bundleData); // Call the service to add the bundle
+      const bundleData = req.body;
+      const newBundle = await bundleService.addBundle(bundleData);
       return res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Bundle added successfully",
         data: newBundle,
       });
-    } catch (error) {
-      console.error("Error adding bundle:", error);
+    } catch (error: any) {
+      // Handle duplicate name error
+      if (error.message === "Bundle with this name already exists") {
+        return res.status(StatusCodes.CONFLICT).json({
+          success: false,
+          message: error.message,
+        });
+      }
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error adding bundle",
@@ -134,27 +139,59 @@ export const bundleController = {
   },
 
   // Update a bundle by ID
+  // updateBundleById: async (req: Request, res: Response) => {
+  //   try {
+  //     const bundleId = req.params.id; // Get the bundle ID from the request params
+  //     const data = req.body; // Get updated data from the request body
+  //     const updatedBundle = await bundleService.updateBundleById(bundleId, data); // Call service to update the bundle
+  //     if (!updatedBundle) {
+  //       return res.status(StatusCodes.NOT_FOUND).json({ message: "Bundle not found" });
+  //     }
+  //     return res.status(StatusCodes.OK).json({
+  //       success: true,
+  //       message: "Bundle updated successfully",
+  //       bundle: updatedBundle,
+  //     });
+  //   } catch (error) {
+  //     console.error("Error updating bundle:", error);
+  //     return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+  //       success: false,
+  //       message: "Error updating bundle",
+  //     });
+  //   }
+  // },
   updateBundleById: async (req: Request, res: Response) => {
     try {
-      const bundleId = req.params.id; // Get the bundle ID from the request params
-      const data = req.body; // Get updated data from the request body
-      const updatedBundle = await bundleService.updateBundleById(bundleId, data); // Call service to update the bundle
-      if (!updatedBundle) {
-        return res.status(StatusCodes.NOT_FOUND).json({ message: "Bundle not found" });
-      }
+      const bundleId = req.params.id;
+      const data = req.body;
+      const updatedBundle = await bundleService.updateBundleById(bundleId, data);
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Bundle updated successfully",
         bundle: updatedBundle,
       });
-    } catch (error) {
-      console.error("Error updating bundle:", error);
+    } catch (error: any) {
+      // Handle duplicate name error
+      if (error.message === "Bundle name already exists") {
+        return res.status(StatusCodes.CONFLICT).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      // Handle not found error
+      if (error.message === "Bundle not found") {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error updating bundle",
       });
     }
   },
+
 
   // Delete a bundle by ID
   deleteBundleById: async (req: Request, res: Response) => {

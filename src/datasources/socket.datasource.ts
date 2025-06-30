@@ -33,36 +33,44 @@ class SocketManager {
   public run(httpServer: HttpServer): void {
     this.io = new Server(httpServer, {
       cors: {
-        origin: process.env.CLIENT_URL || "http://localhost:3000",
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
         methods: ["GET", "POST"],
-        credentials: true
+        credentials: true,
       },
       pingTimeout: 60000,
-      pingInterval: 25000
+      pingInterval: 25000,
     });
 
     this.io.use(this.authMiddleware.bind(this));
     this.io.on("connection", this.handleConnection.bind(this));
-    
+
     console.log("Socket.IO server initialized");
   }
 
-  private authMiddleware(socket: AuthenticatedSocket, next: (err?: Error) => void): void {
+  private authMiddleware(
+    socket: AuthenticatedSocket,
+    next: (err?: Error) => void
+  ): void {
     try {
-      const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace("Bearer ", "");
-      
+      const token =
+        socket.handshake.auth.token ||
+        socket.handshake.headers.authorization?.replace("Bearer ", "");
+
       if (!token) {
         return next(new Error("Authentication token required"));
       }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback-secret") as any;
-      
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET || "fallback-secret"
+      ) as any;
+
       socket.user = {
         id: decoded.id,
         email: decoded.email,
         socketId: socket.id,
         isOnline: true,
-        lastSeen: new Date()
+        lastSeen: new Date(),
       };
 
       next();
@@ -75,10 +83,10 @@ class SocketManager {
     if (!socket.user) return;
 
     console.log(`User connected: ${socket.user.email} (${socket.id})`);
-    
+
     // Store user connection
     this.connectedUsers.set(socket.user.id, socket.user);
-    
+
     // Broadcast user online status
     this.broadcastUserStatus(socket.user.id, true);
 
@@ -103,80 +111,91 @@ class SocketManager {
     });
 
     // Handle private message
-    socket.on("send-message", async (data: {
-      receiver?: string;
-      chatRoom?: string;
-      content: string;
-      messageType?: MessageType;
-      fileUrl?: string;
-      fileName?: string;
-      fileSize?: number;
-      replyTo?: string;
-    }) => {
-      try {
-        if (!socket.user) return;
+    socket.on(
+      "send-message",
+      async (data: {
+        receiver?: string;
+        chatRoom?: string;
+        content: string;
+        messageType?: MessageType;
+        fileUrl?: string;
+        fileName?: string;
+        fileSize?: number;
+        replyTo?: string;
+      }) => {
+        try {
+          if (!socket.user) return;
 
-        const messageData = {
-          sender: socket.user.id,
-          receiver: data.receiver,
-          chatRoom: data.chatRoom,
-          content: data.content,
-          messageType: data.messageType || MessageType.TEXT,
-          fileUrl: data.fileUrl,
-          fileName: data.fileName,
-          fileSize: data.fileSize,
-          replyTo: data.replyTo,
-          status: MessageStatus.SENT
-        };
+          const messageData = {
+            sender: socket.user.id,
+            receiver: data.receiver,
+            chatRoom: data.chatRoom,
+            content: data.content,
+            messageType: data.messageType || MessageType.TEXT,
+            fileUrl: data.fileUrl,
+            fileName: data.fileName,
+            fileSize: data.fileSize,
+            replyTo: data.replyTo,
+            status: MessageStatus.SENT,
+          };
 
-        const message = await ChatService.sendMessage(messageData);
+          const message = await ChatService.sendMessage(messageData);
 
-        // Emit to sender
-        socket.emit("message-sent", {
-          success: true,
-          data: message
-        });
+          // Emit to sender
+          socket.emit("message-sent", {
+            success: true,
+            data: message,
+          });
 
-        // Emit to receiver(s)
-        if (data.receiver) {
-          // Private message
-          const receiverUser = this.connectedUsers.get(data.receiver);
-          if (receiverUser) {
-            this.io?.to(receiverUser.socketId).emit("new-message", message);
+          // Emit to receiver(s)
+          if (data.receiver) {
+            // Private message
+            const receiverUser = this.connectedUsers.get(data.receiver);
+            if (receiverUser) {
+              this.io?.to(receiverUser.socketId).emit("new-message", message);
+            }
+          } else if (data.chatRoom) {
+            // Group message
+            socket.to(data.chatRoom).emit("new-message", message);
           }
-        } else if (data.chatRoom) {
-          // Group message
-          socket.to(data.chatRoom).emit("new-message", message);
+
+          // Stop typing indicator
+          this.handleStopTyping(socket, data.receiver, data.chatRoom);
+        } catch (error) {
+          console.error("Send message error:", error);
+          socket.emit("message-error", {
+            success: false,
+            message: "Failed to send message",
+          });
         }
-
-        // Stop typing indicator
-        this.handleStopTyping(socket, data.receiver, data.chatRoom);
-
-      } catch (error) {
-        console.error("Send message error:", error);
-        socket.emit("message-error", {
-          success: false,
-          message: "Failed to send message"
-        });
       }
-    });
+    );
 
     // Handle typing indicators
-    socket.on("typing-start", (data: { receiver?: string; chatRoom?: string }) => {
-      this.handleStartTyping(socket, data.receiver, data.chatRoom);
-    });
+    socket.on(
+      "typing-start",
+      (data: { receiver?: string; chatRoom?: string }) => {
+        this.handleStartTyping(socket, data.receiver, data.chatRoom);
+      }
+    );
 
-    socket.on("typing-stop", (data: { receiver?: string; chatRoom?: string }) => {
-      this.handleStopTyping(socket, data.receiver, data.chatRoom);
-    });
+    socket.on(
+      "typing-stop",
+      (data: { receiver?: string; chatRoom?: string }) => {
+        this.handleStopTyping(socket, data.receiver, data.chatRoom);
+      }
+    );
 
     // Handle message read status
     socket.on("mark-as-read", async (data: { messageId: string }) => {
       try {
         if (!socket.user) return;
 
-        const message = await ChatService.markAsRead(data.messageId, socket.user.id);
-        
+        const message = await ChatService.markAsRead(
+          data.messageId,
+          socket.user.id
+        );
+
         if (message) {
           // Notify sender that message was read
           const senderUser = this.connectedUsers.get(message.sender);
@@ -184,7 +203,7 @@ class SocketManager {
             this.io?.to(senderUser.socketId).emit("message-read", {
               messageId: message._id,
               readBy: socket.user.id,
-              readAt: message.readAt
+              readAt: message.readAt,
             });
           }
         }
@@ -194,66 +213,81 @@ class SocketManager {
     });
 
     // Handle conversation read status
-    socket.on("mark-conversation-read", async (data: { otherUserId: string }) => {
-      try {
-        if (!socket.user) return;
+    socket.on(
+      "mark-conversation-read",
+      async (data: { otherUserId: string }) => {
+        try {
+          if (!socket.user) return;
 
-        await ChatService.markConversationAsRead(socket.user.id, data.otherUserId);
-        
-        // Notify the other user
-        const otherUser = this.connectedUsers.get(data.otherUserId);
-        if (otherUser) {
-          this.io?.to(otherUser.socketId).emit("conversation-read", {
-            userId: socket.user.id
-          });
+          await ChatService.markConversationAsRead(
+            socket.user.id,
+            data.otherUserId
+          );
+
+          // Notify the other user
+          const otherUser = this.connectedUsers.get(data.otherUserId);
+          if (otherUser) {
+            this.io?.to(otherUser.socketId).emit("conversation-read", {
+              userId: socket.user.id,
+            });
+          }
+        } catch (error) {
+          console.error("Mark conversation as read error:", error);
         }
-      } catch (error) {
-        console.error("Mark conversation as read error:", error);
       }
-    });
+    );
 
     // Handle message reactions
-    socket.on("add-reaction", async (data: { messageId: string; emoji: string }) => {
-      try {
-        if (!socket.user) return;
+    socket.on(
+      "add-reaction",
+      async (data: { messageId: string; emoji: string }) => {
+        try {
+          if (!socket.user) return;
 
-        const message = await ChatService.addReaction(data.messageId, socket.user.id, data.emoji);
-        
-        if (message) {
-          // Broadcast reaction to all participants
-          if (message.chatRoom) {
-            this.io?.to(message.chatRoom).emit("reaction-added", {
-              messageId: message._id,
-              userId: socket.user.id,
-              emoji: data.emoji,
-              reactions: message.reactions
-            });
-          } else if (message.receiver) {
-            const receiverUser = this.connectedUsers.get(message.receiver);
-            if (receiverUser) {
-              this.io?.to(receiverUser.socketId).emit("reaction-added", {
+          const message = await ChatService.addReaction(
+            data.messageId,
+            socket.user.id,
+            data.emoji
+          );
+
+          if (message) {
+            // Broadcast reaction to all participants
+            if (message.chatRoom) {
+              this.io?.to(message.chatRoom).emit("reaction-added", {
                 messageId: message._id,
                 userId: socket.user.id,
                 emoji: data.emoji,
-                reactions: message.reactions
+                reactions: message.reactions,
               });
+            } else if (message.receiver) {
+              const receiverUser = this.connectedUsers.get(message.receiver);
+              if (receiverUser) {
+                this.io?.to(receiverUser.socketId).emit("reaction-added", {
+                  messageId: message._id,
+                  userId: socket.user.id,
+                  emoji: data.emoji,
+                  reactions: message.reactions,
+                });
+              }
             }
           }
+        } catch (error) {
+          console.error("Add reaction error:", error);
         }
-      } catch (error) {
-        console.error("Add reaction error:", error);
       }
-    });
+    );
 
     // Handle getting online users
     socket.on("get-online-users", () => {
-      const onlineUsers = Array.from(this.connectedUsers.values()).map(user => ({
-        id: user.id,
-        email: user.email,
-        isOnline: user.isOnline,
-        lastSeen: user.lastSeen
-      }));
-      
+      const onlineUsers = Array.from(this.connectedUsers.values()).map(
+        (user) => ({
+          id: user.id,
+          email: user.email,
+          isOnline: user.isOnline,
+          lastSeen: user.lastSeen,
+        })
+      );
+
       socket.emit("online-users", onlineUsers);
     });
 
@@ -263,13 +297,17 @@ class SocketManager {
     });
   }
 
-  private handleStartTyping(socket: AuthenticatedSocket, receiver?: string, chatRoom?: string): void {
+  private handleStartTyping(
+    socket: AuthenticatedSocket,
+    receiver?: string,
+    chatRoom?: string
+  ): void {
     if (!socket.user) return;
 
     const typingData = {
       userId: socket.user.id,
       userName: socket.user.email,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     if (receiver) {
@@ -284,7 +322,7 @@ class SocketManager {
         this.io?.to(receiverUser.socketId).emit("user-typing", {
           userId: socket.user.id,
           userName: socket.user.email,
-          isTyping: true
+          isTyping: true,
         });
       }
     } else if (chatRoom) {
@@ -296,12 +334,16 @@ class SocketManager {
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
         userName: socket.user.email,
-        isTyping: true
+        isTyping: true,
       });
     }
   }
 
-  private handleStopTyping(socket: AuthenticatedSocket, receiver?: string, chatRoom?: string): void {
+  private handleStopTyping(
+    socket: AuthenticatedSocket,
+    receiver?: string,
+    chatRoom?: string
+  ): void {
     if (!socket.user) return;
 
     if (receiver) {
@@ -316,7 +358,7 @@ class SocketManager {
         this.io?.to(receiverUser.socketId).emit("user-typing", {
           userId: socket.user.id,
           userName: socket.user.email,
-          isTyping: false
+          isTyping: false,
         });
       }
     } else if (chatRoom) {
@@ -328,7 +370,7 @@ class SocketManager {
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
         userName: socket.user.email,
-        isTyping: false
+        isTyping: false,
       });
     }
   }
@@ -337,7 +379,7 @@ class SocketManager {
     if (!socket.user) return;
 
     console.log(`User disconnected: ${socket.user.email} (${socket.id})`);
-    
+
     // Update user status
     const user = this.connectedUsers.get(socket.user.id);
     if (user) {
@@ -362,7 +404,7 @@ class SocketManager {
     this.io?.emit("user-status-changed", {
       userId,
       isOnline,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 

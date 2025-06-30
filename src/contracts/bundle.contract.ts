@@ -49,6 +49,7 @@ interface IBundleStock {
 
 // Full Bundle Contract Interface
 interface IBundle {
+  name: string; 
   details: IBundleDetails; // Bundle-specific details (name, description, images)
   products: IBundleProduct[]; // Array of products included in the bundle
   pricing: IBundlePricing; // Pricing details for the bundle
