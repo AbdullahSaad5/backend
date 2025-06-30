@@ -1,4 +1,5 @@
 import { ebay } from "@/routes/ebay.route";
+import { createHash } from "crypto";
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
@@ -812,8 +813,79 @@ export const ebayListingService = {
     }
   },
 
-  // eBay Account Deletion Notification Endpoint
+  // This endpoint handles both challenge validation (GET) and account deletion notifications (POST)
   accountDeletion: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const method = req.method;
+
+      // Handle GET request for challenge validation
+      if (method === "GET") {
+        return await ebayListingService.handleEbayChallengeValidation(req, res);
+      }
+
+      // Handle POST request for account deletion notification
+      if (method === "POST") {
+        return await ebayListingService.handleEbayAccountDeletion(req, res);
+      }
+
+      // Method not allowed
+      return res.status(405).json({ message: "Method not allowed" });
+    } catch (error: any) {
+      console.error("❌ Error in eBay endpoint:", error);
+      return res.status(200).json({
+        message: "Error processed",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  },
+
+  // Handle eBay challenge validation (GET request)
+  handleEbayChallengeValidation: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("🔍 Received eBay challenge validation request");
+
+      // Get challenge code from query parameter
+      const { challenge_code } = req.query;
+
+      if (!challenge_code || typeof challenge_code !== "string") {
+        console.error("❌ Missing or invalid challenge_code");
+        return res.status(400).json({ error: "Missing challenge_code parameter" });
+      }
+
+      // Your verification token (must be 32-80 characters, alphanumeric, underscore, hyphen only)
+      const VERIFICATION_TOKEN =
+        process.env.EBAY_VERIFICATION_TOKEN || "8b5cc2202ec0a6533c90230368c3c704b21885c0c83fd72208c44d940338f0ac";
+
+      // Your endpoint URL (the same URL you provided to eBay)
+      const ENDPOINT_URL =
+        process.env.EBAY_ENDPOINT_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/ebay/account-deletion";
+
+      // Create hash: challengeCode + verificationToken + endpoint
+      const hash = createHash("sha256");
+      hash.update(challenge_code);
+      hash.update(VERIFICATION_TOKEN);
+      hash.update(ENDPOINT_URL);
+      const challengeResponse = hash.digest("hex");
+
+      console.log("✅ Challenge validation successful");
+      console.log("📝 Challenge code:", challenge_code);
+      console.log("📝 Response hash:", challengeResponse);
+
+      // Return response in required JSON format
+      return res.status(200).json({
+        challengeResponse: challengeResponse,
+      });
+    } catch (error: any) {
+      console.error("❌ Error in challenge validation:", error);
+      return res.status(500).json({
+        error: "Challenge validation failed",
+        details: error.message,
+      });
+    }
+  },
+
+  // Handle eBay account deletion notification (POST request)
+  handleEbayAccountDeletion: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("📧 Received eBay account deletion notification");
 
@@ -821,9 +893,9 @@ export const ebayListingService = {
       const notificationData = req.body;
 
       // Verify the request is from eBay using verification token
-      const JWT_SECRET = process.env.JWT_SECRET;
+      const VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN;
 
-      if (notificationData.verificationToken !== JWT_SECRET) {
+      if (notificationData.verificationToken !== VERIFICATION_TOKEN) {
         console.error("❌ Invalid verification token");
         // Still return 200 to avoid notification failures
         return res.status(200).json({ message: "Invalid token" });
@@ -848,7 +920,7 @@ export const ebayListingService = {
       // Delete user data from your database
       await ebayListingService.deleteEbayUserData(userId);
 
-      // Log successful deletions
+      // Log successful deletion
       console.log("✅ Successfully processed account deletion for user:", userId);
 
       // eBay requires HTTP 200 response within 3 seconds

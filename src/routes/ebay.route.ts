@@ -25,6 +25,7 @@ export const ebay = (router: Router) => {
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
   router.post("/account-deletion", ebayListingService.accountDeletion);
+  router.get("/account-deletion", ebayListingService.accountDeletion);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
