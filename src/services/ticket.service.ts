@@ -1,20 +1,20 @@
 import { TicketModel } from "@/models/ticket.model";
-import { ITicket } from "@/contracts/ticket.contract";
+import { IResolution, ITicket } from "@/contracts/ticket.contract";
 import { Types } from "mongoose";
 
 export const ticketService = {
   createTicket: (
-    title: String,
-    client: String,
-    assignedTo: String,
-    createDate: String,
-    dueDate: String,
-    status: String,
-    priority: String,
-    department: String,
-    description: String
+    title: string,
+    client: string,
+    assignedTo: Types.ObjectId | undefined,
+    createDate: Date,
+    dueDate: Date,
+    status: "Open" | "In Progress" | "Closed",
+    priority: "Low" | "Medium" | "High",
+    role: Types.ObjectId,
+    description: string
   ) => {
-    const newticket = new TicketModel({
+    const newTicket = new TicketModel({
       title,
       client,
       assignedTo,
@@ -22,125 +22,212 @@ export const ticketService = {
       dueDate,
       status,
       priority,
-      department,
+      role,
       description,
     });
-    return newticket.save();
+    return newTicket.save();
   },
-  editTicket: (
-    id: string,
-    data: {
-      title: String;
-      client: String;
-      assignedTo: String;
-      createDate: String;
-      dueDate: String;
-      status: String;
-      priority: String;
-      department: String;
-    }
-  ) => {
-    return TicketModel.findByIdAndUpdate(id, data, { new: true });
-  },
+
+editTicket: (
+  id: string,
+  data: {
+    title?: string;
+    client?: string;
+    assignedTo?: Types.ObjectId | { _id: string; firstName?: string; lastName?: string };
+    dueDate?: Date | string;
+    status?: "Open" | "In Progress" | "Closed";
+    priority?: "Low" | "Medium" | "High";
+    role?: Types.ObjectId | { _id: string; role?: string };
+    description?: string;
+  }
+) => {
+  // Normalize the data structure to match the model
+  const updateData: any = {
+    title: data.title,
+    client: data.client,
+    description: data.description,
+    status: data.status,
+    priority: data.priority,
+  };
+
+  // Handle assignedTo (accept either object with _id or just _id)
+  if (data.assignedTo) {
+    updateData.assignedTo = typeof data.assignedTo === 'object' 
+      ? new Types.ObjectId(data.assignedTo._id)
+      : new Types.ObjectId(data.assignedTo);
+  }
+
+  // Handle role (accept either object with _id or just _id)
+  if (data.role) {
+    updateData.role = typeof data.role === 'object'
+      ? new Types.ObjectId(data.role._id)
+      : new Types.ObjectId(data.role);
+  }
+
+  // Handle dueDate (accept either Date object or ISO string)
+  if (data.dueDate) {
+    updateData.dueDate = typeof data.dueDate === 'string'
+      ? new Date(data.dueDate)
+      : data.dueDate;
+  }
+
+  return TicketModel.findByIdAndUpdate(id, updateData, { new: true })
+    .populate('role', 'role')
+    .populate('assignedTo', 'firstName lastName');
+},
+
   deleteTicket: (id: string) => {
-    const Ticket = TicketModel.findByIdAndDelete(id);
-    if (!Ticket) {
+    const ticket = TicketModel.findByIdAndDelete(id);
+    if (!ticket) {
       throw new Error("Ticket not found");
     }
-    return Ticket;
+    return ticket;
   },
+
   getAllTicket: () => {
-    return TicketModel.find();
+    return TicketModel.find()
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName');
   },
+
   getById: (id: string) => {
-    return TicketModel.findById(id);
+    return TicketModel.findById(id)
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName');
   },
-  changeStatus: (id: string, status: string) => {
+
+  changeStatus: (id: string, status: "Open" | "In Progress" | "Closed") => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
       { status },
       { new: true }
-    );
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName');
     if (!updatedTicket) {
       throw new Error("Ticket not found");
     }
     return updatedTicket;
   },
-  changePriority: (id: string, priority: string) => {
+
+  changePriority: (id: string, priority: "Low" | "Medium" | "High") => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
       { priority },
       { new: true }
-    );
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName');
     if (!updatedTicket) {
       throw new Error("Ticket not found");
     }
     return updatedTicket;
   },
-  changeDepartment: (id: string, department: string) => {
+
+  changeRole: (id: string, role: Types.ObjectId) => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
-      { department },
+      { role },
       { new: true }
-    );
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName');
     if (!updatedTicket) {
       throw new Error("Ticket not found");
     }
     return updatedTicket;
   },
 
-
-  
   addResolution: async (
     ticketId: string,
     description: string,
     userId: string
-  ) => {
-    // Validate IDs
-    if (!Types.ObjectId.isValid(ticketId)) {
-      throw new Error(`Invalid ticket ID: ${ticketId}`);
+  ): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
     }
-  
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new Error(`Invalid user ID: ${userId}`);
-    }
-  
+
     const ticket = await TicketModel.findById(ticketId);
     if (!ticket) throw new Error('Ticket not found');
-  
-    // Check if already closed
-    if (ticket.status === 'Closed') {
-      throw new Error('Ticket already closed');
-    }
-  
-    const updateData = {
-      status: 'Closed',
-      resolution: {
-        description,
-        resolvedBy: userId, // Just store the ID
-        resolvedAt: new Date()
-      },
+    if (ticket.status === 'Closed') throw new Error('Ticket already closed');
+
+    const resolution: IResolution = {
+      description,
+      resolvedBy: new Types.ObjectId(userId),
       closedAt: new Date()
     };
-  
-    try {
-      const updatedTicket = await TicketModel.findByIdAndUpdate(
-        ticketId,
-        updateData,
-        { 
-          new: true,
-          runValidators: true 
-        }
-      ).lean(); // Use lean() for better performance if you don't need mongoose document
-  
-      if (!updatedTicket) throw new Error('Update failed');
-      
-      return updatedTicket;
-    } catch (dbError) {
-      console.error('Database error:', dbError);
-      throw new Error('Failed to update ticket in database');
-    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { 
+        status: 'Closed',
+        resolution
+      },
+      { new: true, runValidators: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to update ticket');
+    return updatedTicket;
   },
 
-  
+  deleteResolution: async (ticketId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId)) {
+      throw new Error("Invalid ticket ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+    if (!ticket.resolution) throw new Error('No resolution exists for this ticket');
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { 
+        $unset: { resolution: 1 },
+        status: 'In Progress'
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to remove resolution');
+    return updatedTicket;
+  },
+
+  updateResolution: async (
+    ticketId: string,
+    description: string,
+    userId: string
+  ): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+    if (!ticket.resolution) throw new Error('No resolution exists for this ticket');
+
+    const updatedResolution = {
+      description,
+      resolvedBy: new Types.ObjectId(userId),
+      closedAt: ticket.resolution.closedAt || new Date()
+    };
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { resolution: updatedResolution },
+      { new: true, runValidators: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to update resolution');
+    return updatedTicket;
+  }
 };

@@ -6,7 +6,7 @@ const DocumentSchema = new Schema<IDocument, IDocumentModel>({
     docCategory: { type: String, required: true },
     docTitle: { type: String, required: true },
     docTags: { type: [String], default: [] },
-    expiryDate: { type: Date, required: true },  
+    expiryDate: { type: Date,  },  
     document: [{
         url: { type: String, required: true },
         name: { type: String, required: true },
