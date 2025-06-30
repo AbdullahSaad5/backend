@@ -18,7 +18,7 @@ export const bundleController = {
       });
     } catch (error: any) {
       // Handle duplicate name error
-      if (error.message === "Bundle name already exists") {
+      if (error.message === "Bundle with this name already exists") {
         return res.status(StatusCodes.CONFLICT).json({
           success: false,
           message: error.message,

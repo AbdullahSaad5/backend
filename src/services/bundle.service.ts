@@ -8,7 +8,7 @@ export const bundleService = {
     // Check for existing bundle name
     const existingBundle = await Bundle.findOne({ name: bundleData.name });
     if (existingBundle) {
-      throw new Error("Bundle name already exists");
+      throw new Error("Bundle with this name already exists");
     }
 
     const newBundle = new Bundle(bundleData);
