@@ -46,8 +46,8 @@ export const authController = {
     <p>Hi ${newUser.firstName},</p>
     <p>Thank you for signing up with us! To complete your registration and start using your account, please verify your email address by clicking the link below:</p>
     <p>
-      <a 
-        href="${verificationUrl}" 
+      <a
+        href="${verificationUrl}"
         style="display: inline-block; padding: 10px 20px; margin: 10px 0; color: white; background-color: #4CAF50; text-decoration: none; border-radius: 5px;"
       >
         Verify Email
@@ -110,8 +110,8 @@ export const authController = {
           <p>Hi ${user.firstName},</p>
           <p>Thank you for signing up with us! To complete your registration and start using your account, please verify your email address by clicking the link below:</p>
           <p>
-            <a 
-              href="${verificationUrl}" 
+            <a
+              href="${verificationUrl}"
               style="display: inline-block; padding: 10px 20px; margin: 10px 0; color: white; background-color: #4CAF50; text-decoration: none; border-radius: 5px;"
             >
               Verify Email
@@ -314,7 +314,7 @@ export const authController = {
     }
   },
 
-  getProfile: async (req: Request, res: Response) => {
+  getProfile: async (req: Request | any, res: Response) => {
     try {
       const user = req.context.user;
 
@@ -332,13 +332,13 @@ export const authController = {
     }
   },
 
-  updateProfile: async (req: Request, res: Response) => {
+  updateProfile: async (req: any | Request, res: Response) => {
     try {
       const { firstName, lastName, phoneNumber, email, dob, address, profileImage, oldPassword, newPassword } =
         req.body;
       // console.log("data in auth controller : ", address);
 
-      const user = req.context.user;
+      const user: any = req.context.user;
       if (!user) {
         return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
       }
