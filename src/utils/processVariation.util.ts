@@ -163,6 +163,7 @@ export const processVariationsUtility = {
     // Returning only the processed attributes that have valid data
     return processedAttributes;
   },
+
   processMonitorsAttributes: (attributes: any) => {
     const processedAttributes: any = {};
 
@@ -186,6 +187,7 @@ export const processVariationsUtility = {
 
     return processedAttributes;
   },
+
   processProjectorAttributes: (attributes: any) => {
     const processedAttributes: any = {};
 
@@ -219,6 +221,7 @@ export const processVariationsUtility = {
     }
     return processedAttributes;
   },
+
   // **Placeholder for future categories**
   processOtherCategoryAttributes: (attributes: any) => {
     const processedAttributes: any = {};
@@ -293,23 +296,11 @@ export const processVariationsUtility = {
         processedAttributes.display = displayResult;
       }
     }
-    // Processing for solid_state_storage_drive (concatenate `capacity` values)
-    // if (
-    //   attributesObj.solid_state_storage_drive &&
-    //   Array.isArray(attributesObj.solid_state_storage_drive) &&
-    //   attributesObj.solid_state_storage_drive.length > 0
-    // ) {
-    //   const ssdResult: any = processVariationsUtility.processSolidStateStorageDrive(
-    //     attributesObj.solid_state_storage_drive
-    //   );
-    //   if (ssdResult.length > 0) {
-    //     processedAttributes.solid_state_storage_drive = ssdResult;
-    //   }
-    // }
 
     // Returning only the processed attributes that have valid data
     return processedAttributes;
   },
+
   // Enhanced function to process 'display size' attribute with original structure
   processDisplaySizeAttribute: (attribute: any[]) => {
     console.log("Processing display Size attribute:", attribute);
@@ -359,6 +350,7 @@ export const processVariationsUtility = {
           displayVariations.push({
             displayValue: displayValue,
             originalStructure: [newDisplayItem], // Keep as array like in DB
+            attributeType: "technology", // Add this to identify the attribute type
           });
         });
       }
@@ -366,6 +358,7 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
+
   // Enhanced function to process 'display Resolution Maximum' attribute with original structure
   processDisplayResolutionMaximumAttribute: (attribute: any[]) => {
     console.log("Processing display resolution maximum attribute:", attribute);
@@ -394,6 +387,7 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
+
   processComputerMemoryAttribute: (attribute: any[]) => {
     console.log("Processing Computer Memory attribute:", attribute);
 
@@ -412,6 +406,7 @@ export const processVariationsUtility = {
           displayVariations.push({
             displayValue: displayValue,
             originalStructure: [newDisplayItem], // Keep as array like in DB
+            attributeType: "size", // Add this to identify the attribute type
           });
         });
       }
@@ -419,7 +414,8 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
-  // // Enhanced function to process image_brightness attribute
+
+  // Enhanced function to process image_brightness attribute
   processImageBrightness: (attribute: any[]) => {
     if (attribute.length > 1) {
       return attribute.map((item) => ({
@@ -450,6 +446,7 @@ export const processVariationsUtility = {
           displayVariations.push({
             displayValue: displayValue,
             originalStructure: [newDisplayItem], // Keep as array like in DB
+            attributeType: "size", // Add this to identify the attribute type
           });
         });
       }
@@ -457,6 +454,7 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
+
   // Enhanced function to process 'processor_description' attribute
   processProcessorDescription: (attribute: any[]) => {
     // Only process if the attribute array has more than one item
@@ -498,7 +496,8 @@ export const processVariationsUtility = {
     // If there's only one item, return an empty array or skip variations
     return [];
   },
-  // // Enhanced function to process 'memory_storage_capacity' attribute
+
+  // Enhanced function to process 'memory_storage_capacity' attribute
   processMemoryStorageCapacity: (attribute: any[]) => {
     if (attribute.length > 1) {
       return attribute.map((item) => ({
@@ -541,6 +540,7 @@ export const processVariationsUtility = {
           ramVariations.push({
             displayValue: displayValue,
             originalStructure: [newRamItem], // Keep as array like in DB
+            attributeType: "installed_size", // Add this to identify the attribute type
           });
         });
       }

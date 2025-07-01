@@ -828,7 +828,6 @@ export const inventoryService = {
     return await Inventory.findById(inventoryId).select("selectedVariations");
   },
 
-  // Function to generate all possible combinations of multi-select attributes
   // Enhanced generateCombinations function in inventoryService
   generateCombinations: async (processedAttributes: any) => {
     console.log("Generating combinations from processed attributes:", processedAttributes);
@@ -888,9 +887,11 @@ export const inventoryService = {
             ),
           };
         } else {
+          // Map back to original attribute name for other attributes
+          const actualAttributeName = getActualAttributeName(currentAttribute);
           newActualAttributes = {
             ...actualAttributes,
-            [currentAttribute]: valueObj.originalStructure, // Original DB structure
+            [actualAttributeName]: valueObj.originalStructure, // Original DB structure
           };
         }
 
@@ -914,6 +915,8 @@ export const inventoryService = {
             merged[index].size = newItem.size;
           } else if (attributeType === "resolution_maximum" && newItem.resolution_maximum) {
             merged[index].resolution_maximum = newItem.resolution_maximum;
+          } else if (attributeType === "technology" && newItem.technology) {
+            merged[index].technology = newItem.technology;
           }
         } else {
           merged[index] = newItem;
@@ -921,6 +924,16 @@ export const inventoryService = {
       });
 
       return merged;
+    }
+
+    // Helper function to map variation keys back to actual DB attribute names
+    function getActualAttributeName(variationKey: string): string {
+      const keyMapping: { [key: string]: string } = {
+        // Add mappings for other attributes that might need renaming
+        // Most attributes will use their original names
+      };
+
+      return keyMapping[variationKey] || variationKey;
     }
 
     generateCombinationsRecursive({}, {}, 0);
