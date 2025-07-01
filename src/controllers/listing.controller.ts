@@ -6,6 +6,7 @@ import { transformListingData } from "@/utils/transformListingData.util";
 import { Listing } from "@/models";
 import { getAmazonCredentials } from "@/utils/amazon-helpers.util";
 const { marketplaceId, sellerId } = getAmazonCredentials();
+
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
     try {

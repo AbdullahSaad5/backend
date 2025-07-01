@@ -22,34 +22,48 @@ export const listingService = {
       }
 
       // Destructure the necessary fields from productInfo and stepData
-      const { kind, item_name, product_description, condition_type, brand, amazonCategoryId, productCategory, sku } =
-        stepData.productInfo;
+      const {
+        kind,
+        item_name,
+        product_description,
+        condition_type,
+        brand,
+        amazonCategoryId,
+        productCategory,
+        sku,
+      } = stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
-      if (!kind || !productCategory || typeof productCategory !== "string" || !productCategory.trim()) {
-        throw new Error("Invalid or missing 'productCategory'");
-      }
+      // dont make it required as these fields would be empty while creating delink testing
+      // if (!kind || !productCategory || typeof productCategory !== "string" || !productCategory.trim()) {
+      //   throw new Error("Invalid or missing 'productCategory'");
+      // }
 
+      // dont make it required as these fields would be empty while creating delink testing
       // Check for required fields for the new schema (item_name, brand, etc.)
-      if (!item_name || !Array.isArray(item_name) || item_name.length === 0) {
-        throw new Error("Invalid or missing 'item_name' in productInfo");
-      }
+      // if (!item_name || !Array.isArray(item_name) || item_name.length === 0) {
+      //   throw new Error("Invalid or missing 'item_name' in productInfo");
+      // }
 
-      // Retrieve inventory data based on inventoryId
-      const inventory: any = await Inventory.findById(inventoryId); // Assuming you're using a database like MongoDB
-      if (!inventory) {
-        throw new Error(`Inventory with ID ${inventoryId} not found`);
-      }
+      let prodTechInfoFromInventory = {};
 
-      // Get prodTechInfo from inventory (without any modification yet)
-      let prodTechInfoFromInventory = inventory.prodTechInfo;
+      if (inventoryId) {
+        // Retrieve inventory data based on inventoryId
+        const inventory: any = await Inventory.findById(inventoryId); // Assuming you're using a database like MongoDB
+        if (!inventory) {
+          throw new Error(`Inventory with ID ${inventoryId} not found`);
+        }
 
-      // If publishToEbay is true, flatten the prodTechInfo
-      if (stepData.publishToEbay) {
-        prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
-        // console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
-      } else {
-        // console.log("Using original prodTechInfo for Amazon or other platforms:", prodTechInfoFromInventory);
+        // Get prodTechInfo from inventory (without any modification yet)
+        prodTechInfoFromInventory = inventory.prodTechInfo;
+
+        // If publishToEbay is true, flatten the prodTechInfo
+        if (stepData.publishToEbay) {
+          prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(
+            inventory.prodTechInfo
+          );
+          // console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
+        }
       }
 
       const productInfo = {
@@ -79,7 +93,7 @@ export const listingService = {
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
-        prodTechInfo: prodTechInfoFromInventory, // Either the original or flattened version
+        prodTechInfo: prodTechInfoFromInventory ? prodTechInfoFromInventory : {}, // Either the original or flattened version
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
@@ -94,7 +108,10 @@ export const listingService = {
 
       // Remove undefined values from all nested objects
       Object.keys(draftListingData).forEach((key) => {
-        if (typeof draftListingData[key] === "object" && draftListingData[key]) {
+        if (
+          typeof draftListingData[key] === "object" &&
+          draftListingData[key]
+        ) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
             if (draftListingData[key][subKey] === undefined) {
               delete draftListingData[key][subKey];
@@ -131,7 +148,9 @@ export const listingService = {
       }
 
       // Find listing
-      const draftListing: any = await Listing.findById(listingId).populate("productInfo.productCategory");
+      const draftListing: any = await Listing.findById(listingId).populate(
+        "productInfo.productCategory"
+      );
       if (!draftListing) {
         console.error("Draft Listing not found:", listingId);
         throw new Error("Draft Listing not found");
@@ -146,7 +165,10 @@ export const listingService = {
       //   draftListing.inventoryId = stepData.inventoryId;
       // }
 
-      if (stepData.listingHasVariations === true || stepData.listingHasVariations === false) {
+      if (
+        stepData.listingHasVariations === true ||
+        stepData.listingHasVariations === false
+      ) {
         // console.log("update listingHasVariations : ", stepData.listingHasVariations);
         draftListing.listingHasVariations = stepData.listingHasVariations;
       }
@@ -171,7 +193,14 @@ export const listingService = {
       }
 
       // Update Nested Sections Dynamically
-      const sectionsToUpdate = ["productInfo", "prodPricing", "prodDelivery", "prodSeo", "prodMedia", "prodTechInfo"];
+      const sectionsToUpdate = [
+        "productInfo",
+        "prodPricing",
+        "prodDelivery",
+        "prodSeo",
+        "prodMedia",
+        "prodTechInfo",
+      ];
       // sectionsToUpdate.forEach((section) => {
       //   if (stepData[section]) {
       //     console.log(`Updating ${section} with:`, stepData[section]);
@@ -366,7 +395,11 @@ export const listingService = {
   },
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isBlocked }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isBlocked },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -376,7 +409,11 @@ export const listingService = {
   },
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedListing = await Listing.findByIdAndUpdate(id, { isTemplate }, { new: true });
+      const updatedListing = await Listing.findByIdAndUpdate(
+        id,
+        { isTemplate },
+        { new: true }
+      );
       if (!updatedListing) throw new Error("Listing not found");
       return updatedListing;
     } catch (error) {
@@ -443,7 +480,12 @@ export const listingService = {
       if (searchQuery) {
         // Base search fields
         query.$or = [
-          { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          {
+            "productInfo.item_name.value": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
           { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
@@ -579,7 +621,9 @@ export const listingService = {
         SupplierId: listing.supplier?._id,
         AmazonInfo: JSON.stringify(listing.platformDetails.amazon.productInfo),
         EbayInfo: JSON.stringify(listing.platformDetails.ebay.productInfo),
-        WebsiteInfo: JSON.stringify(listing.platformDetails.website.productInfo),
+        WebsiteInfo: JSON.stringify(
+          listing.platformDetails.website.productInfo
+        ),
       }));
 
       // Convert the data to CSV format using Papa.unparse
@@ -615,7 +659,9 @@ export const listingService = {
         return { status: 400, message: "listingIds array is required" };
       }
 
-      const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+      const invalidIds = listingIds.filter(
+        (id) => !mongoose.Types.ObjectId.isValid(id)
+      );
       if (invalidIds.length > 0) {
         return {
           status: 400,
@@ -638,7 +684,9 @@ export const listingService = {
 
       // First, let's see what documents we're working with
       console.log("Fetching documents before update...");
-      const docsBefore = await collection.find({ _id: { $in: objectIds } }).toArray();
+      const docsBefore = await collection
+        .find({ _id: { $in: objectIds } })
+        .toArray();
       console.log(`Found ${docsBefore.length} documents before update`);
 
       docsBefore.forEach((doc) => {
@@ -647,7 +695,8 @@ export const listingService = {
           listingWithStock: doc.listingWithStock,
           vat: doc.prodPricing?.vat,
           hasSelectedVariations:
-            Array.isArray(doc.prodPricing?.selectedVariations) && doc.prodPricing.selectedVariations.length > 0,
+            Array.isArray(doc.prodPricing?.selectedVariations) &&
+            doc.prodPricing.selectedVariations.length > 0,
           hasListingWithoutStockVariations:
             Array.isArray(doc.prodPricing?.listingWithoutStockVariations) &&
             doc.prodPricing.listingWithoutStockVariations.length > 0,
@@ -690,24 +739,32 @@ export const listingService = {
 
         // Check listingWithStock to determine which variations array to update
         const isListingWithStock = doc.listingWithStock !== false; // default to true if undefined
-        console.log(`Listing ${doc._id} - listingWithStock: ${isListingWithStock}`);
+        console.log(
+          `Listing ${doc._id} - listingWithStock: ${isListingWithStock}`
+        );
 
         if (isListingWithStock) {
           // Handle listings WITH stock - update selectedVariations
-          if (Array.isArray(prodPricing.selectedVariations) && prodPricing.selectedVariations.length > 0) {
+          if (
+            Array.isArray(prodPricing.selectedVariations) &&
+            prodPricing.selectedVariations.length > 0
+          ) {
             console.log(`Updating selectedVariations for listing ${doc._id}`);
-            const updatedVariations = prodPricing.selectedVariations.map((variation: any) => {
-              let updatedVariation = { ...variation };
+            const updatedVariations = prodPricing.selectedVariations.map(
+              (variation: any) => {
+                let updatedVariation = { ...variation };
 
-              if (retailPrice !== undefined) {
-                updatedVariation.retailPrice = retailPrice;
+                if (retailPrice !== undefined) {
+                  updatedVariation.retailPrice = retailPrice;
+                }
+
+                const basePrice = updatedVariation.retailPrice || 0;
+                updatedVariation.discountValue =
+                  calculateDiscountValue(basePrice);
+
+                return updatedVariation;
               }
-
-              const basePrice = updatedVariation.retailPrice || 0;
-              updatedVariation.discountValue = calculateDiscountValue(basePrice);
-
-              return updatedVariation;
-            });
+            );
 
             update.$set["prodPricing.selectedVariations"] = updatedVariations;
           } else {
@@ -716,8 +773,12 @@ export const listingService = {
               update.$set["prodPricing.retailPrice"] = retailPrice;
             }
 
-            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
-            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+            const basePrice =
+              retailPrice !== undefined
+                ? retailPrice
+                : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] =
+              calculateDiscountValue(basePrice);
           }
         } else {
           // Handle listings WITHOUT stock - update listingWithoutStockVariations
@@ -725,33 +786,47 @@ export const listingService = {
             Array.isArray(prodPricing.listingWithoutStockVariations) &&
             prodPricing.listingWithoutStockVariations.length > 0
           ) {
-            console.log(`Updating listingWithoutStockVariations for listing ${doc._id}`);
-            const updatedVariations = prodPricing.listingWithoutStockVariations.map((variation: any) => {
-              let updatedVariation = { ...variation };
+            console.log(
+              `Updating listingWithoutStockVariations for listing ${doc._id}`
+            );
+            const updatedVariations =
+              prodPricing.listingWithoutStockVariations.map(
+                (variation: any) => {
+                  let updatedVariation = { ...variation };
 
-              if (retailPrice !== undefined) {
-                updatedVariation.retailPrice = retailPrice;
-              }
+                  if (retailPrice !== undefined) {
+                    updatedVariation.retailPrice = retailPrice;
+                  }
 
-              const basePrice = updatedVariation.retailPrice || 0;
-              updatedVariation.discountValue = calculateDiscountValue(basePrice);
+                  const basePrice = updatedVariation.retailPrice || 0;
+                  updatedVariation.discountValue =
+                    calculateDiscountValue(basePrice);
 
-              return updatedVariation;
-            });
+                  return updatedVariation;
+                }
+              );
 
-            update.$set["prodPricing.listingWithoutStockVariations"] = updatedVariations;
+            update.$set["prodPricing.listingWithoutStockVariations"] =
+              updatedVariations;
           } else {
             // No variations - update main listing
             if (retailPrice !== undefined) {
               update.$set["prodPricing.retailPrice"] = retailPrice;
             }
 
-            const basePrice = retailPrice !== undefined ? retailPrice : prodPricing.retailPrice || 0;
-            update.$set["prodPricing.discountValue"] = calculateDiscountValue(basePrice);
+            const basePrice =
+              retailPrice !== undefined
+                ? retailPrice
+                : prodPricing.retailPrice || 0;
+            update.$set["prodPricing.discountValue"] =
+              calculateDiscountValue(basePrice);
           }
         }
 
-        console.log(`Direct update for ${doc._id}:`, JSON.stringify(update, null, 2));
+        console.log(
+          `Direct update for ${doc._id}:`,
+          JSON.stringify(update, null, 2)
+        );
 
         return {
           updateOne: {
@@ -768,7 +843,9 @@ export const listingService = {
 
       // Verify the updates
       console.log("Verifying updates...");
-      const docsAfter = await collection.find({ _id: { $in: objectIds } }).toArray();
+      const docsAfter = await collection
+        .find({ _id: { $in: objectIds } })
+        .toArray();
 
       console.log("Documents after update:");
       docsAfter.forEach((doc) => {
@@ -781,7 +858,9 @@ export const listingService = {
       });
 
       const verifiedUpdates = docsAfter.filter(
-        (doc) => doc.prodPricing?.vat === vat && doc.prodPricing?.discountType === discountType
+        (doc) =>
+          doc.prodPricing?.vat === vat &&
+          doc.prodPricing?.discountType === discountType
       );
 
       return {
@@ -803,7 +882,10 @@ export const listingService = {
       throw new Error(`Error during bulk update: ${error.message}`);
     }
   },
-  upsertListingPartsService: async (listingId: string, selectedVariations: any) => {
+  upsertListingPartsService: async (
+    listingId: string,
+    selectedVariations: any
+  ) => {
     return await Listing.findByIdAndUpdate(
       listingId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -895,7 +977,10 @@ export const listingService = {
         data: jsonData, // actual parsed data
       });
     } catch (error: any) {
-      console.error("Error getting getCategorySubTree from eBay:", error.message);
+      console.error(
+        "Error getting getCategorySubTree from eBay:",
+        error.message
+      );
 
       return JSON.stringify({
         status: 500,
