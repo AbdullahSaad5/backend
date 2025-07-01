@@ -271,15 +271,6 @@ export const productsTechnicalSchema = {
   required: false,
 };
 
-// Define variation schema
-const selectedVariationsSchema = new Schema({
-  cpu: [{ type: String }], // Multiple CPU options
-  ram: [{ type: String }], // Multiple RAM options
-  storage: [{ type: String }], // Multiple storage options
-  graphics: [{ type: String }],
-  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
-});
-
 // Main Listing Schema
 const listingSchema = new Schema(
   {
@@ -303,7 +294,6 @@ const listingSchema = new Schema(
     alias: { type: String },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-    selectedVariations: selectedVariationsSchema,
   },
   options
 );

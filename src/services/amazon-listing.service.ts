@@ -508,8 +508,10 @@ export const amazonListingService = {
 
       // Check if listing has variations
       const hasVariations = populatedListing.listingHasVariations;
-
-      if (hasVariations) {
+      const isBundle = populatedListing.listingType === "bundle";
+      if (isBundle) {
+        return await amazonListingService.createBundleListing(populatedListing, token);
+      } else if (hasVariations) {
         return await amazonListingService.createVariationListing(populatedListing, token);
       } else {
         return await amazonListingService.createSimpleListing(populatedListing, token);
@@ -526,6 +528,65 @@ export const amazonListingService = {
   // Function to create simple listing (your existing logic)
   createSimpleListing: async (populatedListing: any, token: string): Promise<any> => {
     console.log("in simple listing");
+
+    const {
+      productInfo: { sku, item_name, brand, product_description, condition_type },
+      // prodTechInfo: { condition_type },
+      prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
+    } = populatedListing;
+
+    let selectedGtin = null;
+
+    const existingListingId = populatedListing.amazonSku; // Check if listing already exists
+    if (!existingListingId) {
+      // If there's no existing listing, fetch and assign a new GTIN
+      const gtinDoc = await gtinService.getAndReserveGtin(sku);
+      selectedGtin = gtinDoc.gtin;
+      console.log(`Assigned GTIN ${selectedGtin} to listing ${sku}`);
+    } else {
+      // If listing already exists, don't fetch a new GTIN
+      console.log(`Listing ${sku} already has a GTIN, skipping GTIN assignment.`);
+    }
+
+    const otherProdTechInfo = { ...populatedListing.prodTechInfo };
+    delete otherProdTechInfo.condition_type;
+
+    const categoryId =
+      populatedListing.productInfo.productCategory.amazonCategoryId ||
+      populatedListing.productInfo.productCategory.categoryId ||
+      "NOTEBOOK_COMPUTER";
+
+    const productData = {
+      productType: categoryId,
+      requirements: "LISTING",
+      attributes: {
+        condition_type: condition_type || [{ value: "new_new" }],
+        item_name: item_name || [],
+        brand: brand || [],
+        ...(selectedGtin && {
+          externally_assigned_product_identifier: [
+            {
+              type: "ean",
+              value: selectedGtin, // Assign the selected GTIN only if it's new
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ],
+        }),
+        ...amazonListingService.prepareImageLocators(populatedListing),
+        product_description: product_description || [],
+        item_display_weight: item_display_weight || [],
+        item_package_weight: item_package_weight || [],
+        item_package_dimensions: item_package_dimensions || [],
+        epr_product_packaging: epr_product_packaging || [],
+        ...otherProdTechInfo,
+      },
+    };
+
+    return await amazonListingService.sendToAmazon(sku, productData, token);
+  },
+  // Function to create simple listing (your existing logic)
+  createBundleListing: async (populatedListing: any, token: string): Promise<any> => {
+    console.log("in bundle listing");
 
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
