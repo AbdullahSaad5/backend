@@ -873,16 +873,54 @@ export const inventoryService = {
       for (const valueObj of currentValues) {
         const newCurrent = {
           ...current,
-          [currentAttribute]: valueObj.displayValue, // For display/filtering
+          [currentAttribute]: valueObj.displayValue, // For display/filtering (displaySize, displayResolution)
         };
 
-        const newActualAttributes = {
-          ...actualAttributes,
-          [currentAttribute]: valueObj.originalStructure, // Original DB structure
-        };
+        // Handle special case for display attributes that need to be merged
+        let newActualAttributes;
+        if (currentAttribute === "displaySize" || currentAttribute === "displayResolution") {
+          newActualAttributes = {
+            ...actualAttributes,
+            display: mergeDisplayAttributes(
+              actualAttributes.display,
+              valueObj.originalStructure,
+              valueObj.attributeType
+            ),
+          };
+        } else {
+          newActualAttributes = {
+            ...actualAttributes,
+            [currentAttribute]: valueObj.originalStructure, // Original DB structure
+          };
+        }
 
         generateCombinationsRecursive(newCurrent, newActualAttributes, index + 1);
       }
+    }
+
+    // Helper function to merge display attributes
+    function mergeDisplayAttributes(existingDisplay: any, newDisplayStructure: any, attributeType: string) {
+      if (!existingDisplay) {
+        return newDisplayStructure;
+      }
+
+      // Deep clone the existing display to avoid mutations
+      const merged = JSON.parse(JSON.stringify(existingDisplay));
+
+      // Merge the specific attribute from newDisplayStructure
+      newDisplayStructure.forEach((newItem: any, index: number) => {
+        if (merged[index]) {
+          if (attributeType === "size" && newItem.size) {
+            merged[index].size = newItem.size;
+          } else if (attributeType === "resolution_maximum" && newItem.resolution_maximum) {
+            merged[index].resolution_maximum = newItem.resolution_maximum;
+          }
+        } else {
+          merged[index] = newItem;
+        }
+      });
+
+      return merged;
     }
 
     generateCombinationsRecursive({}, {}, 0);
