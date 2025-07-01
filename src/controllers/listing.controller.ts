@@ -1171,70 +1171,70 @@ export const listingController = {
     }
   },
   bulkDeleteListing: async (req: Request, res: Response) => {
-  try {
-    const { listingIds = [], selectAllPages = false, filters = {} } = req.body;
+    try {
+      const { listingIds = [], selectAllPages = false, filters = {} } = req.body;
 
-    if (selectAllPages) {
-      // Handle filter-based deletion
-      const query: any = {};
-      
-      if (filters.status) {
-        query.status = filters.status;
-      }
-      if (filters.isTemplate !== undefined) {
-        query.isTemplate = filters.isTemplate;
-      }
-      if (filters.isBlocked !== undefined) {
-        query.isBlocked = filters.isBlocked;
-      }
+      if (selectAllPages) {
+        // Handle filter-based deletion
+        const query: any = {};
 
-      const result = await Listing.deleteMany(query);
-      return res.status(200).json({
-        success: true,
-        message: `Deleted ${result.deletedCount} listings`,
-        deletedCount: result.deletedCount
-      });
-    } else {
-      // Handle ID-based deletion
-      if (!Array.isArray(listingIds)) {
-        return res.status(400).json({
-          success: false,
-          message: "listingIds must be an array"
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.isTemplate !== undefined) {
+          query.isTemplate = filters.isTemplate;
+        }
+        if (filters.isBlocked !== undefined) {
+          query.isBlocked = filters.isBlocked;
+        }
+
+        const result = await Listing.deleteMany(query);
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      } else {
+        // Handle ID-based deletion
+        if (!Array.isArray(listingIds)) {
+          return res.status(400).json({
+            success: false,
+            message: "listingIds must be an array",
+          });
+        }
+
+        if (listingIds.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "No listing IDs provided",
+          });
+        }
+
+        // Validate each ID
+        const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+        if (invalidIds.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid listing IDs: ${invalidIds.join(", ")}`,
+          });
+        }
+
+        const result = await Listing.deleteMany({
+          _id: { $in: listingIds },
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
         });
       }
-
-      if (listingIds.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "No listing IDs provided"
-        });
-      }
-
-      // Validate each ID
-      const invalidIds = listingIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
-      if (invalidIds.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: `Invalid listing IDs: ${invalidIds.join(', ')}`
-        });
-      }
-
-      const result = await Listing.deleteMany({
-        _id: { $in: listingIds }
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: `Deleted ${result.deletedCount} listings`,
-        deletedCount: result.deletedCount
+    } catch (error: any) {
+      console.error("Error in bulk delete listings:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to perform bulk delete",
       });
     }
-  } catch (error: any) {
-    console.error("Error in bulk delete listings:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to perform bulk delete"
-    });
-  }
-},
+  },
 };

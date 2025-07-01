@@ -168,20 +168,22 @@ export const processVariationsUtility = {
 
     const attributesObj = attributes instanceof Map ? Object.fromEntries(attributes) : attributes;
 
-    //1-- Ensure display Size attribute exists and has valid data
     if (attributesObj.display && Array.isArray(attributesObj.display)) {
-      const displayResult = processVariationsUtility.processDisplaySizeAttribute(attributesObj.display);
-      if (displayResult.length > 0) {
-        processedAttributes.display = displayResult;
+      //1-- Process display Size attribute
+      const displaySizeResult = processVariationsUtility.processDisplaySizeAttribute(attributesObj.display);
+      if (displaySizeResult.length > 0) {
+        processedAttributes.displaySize = displaySizeResult;
+      }
+
+      //2-- Process display Resolution Maximum attribute
+      const displayResolutionResult = processVariationsUtility.processDisplayResolutionMaximumAttribute(
+        attributesObj.display
+      );
+      if (displayResolutionResult.length > 0) {
+        processedAttributes.displayResolution = displayResolutionResult;
       }
     }
-    //2- Ensure display Resolution Maximum attribute exists and has valid data
-    if (attributesObj.display && Array.isArray(attributesObj.display)) {
-      const displayResult = processVariationsUtility.processDisplayResolutionMaximumAttribute(attributesObj.display);
-      if (displayResult.length > 0) {
-        processedAttributes.display = displayResult;
-      }
-    }
+
     return processedAttributes;
   },
   processProjectorAttributes: (attributes: any) => {
@@ -310,7 +312,7 @@ export const processVariationsUtility = {
   },
   // Enhanced function to process 'display size' attribute with original structure
   processDisplaySizeAttribute: (attribute: any[]) => {
-    console.log("Processing display attribute:", attribute);
+    console.log("Processing display Size attribute:", attribute);
 
     const displayVariations: any[] = [];
 
@@ -328,6 +330,7 @@ export const processVariationsUtility = {
           displayVariations.push({
             displayValue: displayValue,
             originalStructure: [newDisplayItem], // Keep as array like in DB
+            attributeType: "size", // Add this to identify the attribute type
           });
         });
       }
@@ -335,6 +338,7 @@ export const processVariationsUtility = {
 
     return displayVariations;
   },
+
   // Enhanced function to process 'display technology' attribute with original structure
   processDisplayTechnology: (attribute: any[]) => {
     console.log("Processing display technology attribute:", attribute);
@@ -371,17 +375,18 @@ export const processVariationsUtility = {
     attribute.forEach((displayItem) => {
       // Check if the resolution_maximum array contains more than one item
       if (displayItem.resolution_maximum && displayItem.resolution_maximum.length > 1) {
-        displayItem.resolution_maximum.forEach((sizeItem: any) => {
-          const displayValue = `${sizeItem.value} ${sizeItem.unit}`;
+        displayItem.resolution_maximum.forEach((resolutionItem: any) => {
+          const displayValue = `${resolutionItem.value} ${resolutionItem.unit}`;
 
           const newDisplayItem = {
             ...displayItem,
-            resolution_maximum: [sizeItem], // Only include the selected resolution_maximum
+            resolution_maximum: [resolutionItem], // Only include the selected resolution_maximum
           };
 
           displayVariations.push({
             displayValue: displayValue,
             originalStructure: [newDisplayItem], // Keep as array like in DB
+            attributeType: "resolution_maximum", // Add this to identify the attribute type
           });
         });
       }
