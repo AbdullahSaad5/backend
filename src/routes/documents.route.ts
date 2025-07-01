@@ -37,5 +37,10 @@ export const document = (router: Router) => {
         documentController.searchDocuments
     );
 
+     router.get(
+        "/my-documents",
+        documentController.getMyDocuments
+    );
+  
     return router;
 };
