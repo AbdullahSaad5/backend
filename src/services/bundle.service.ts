@@ -3,16 +3,18 @@ import { IBundle, IBundleUpdatePayload } from "@/contracts/bundle.contract"; // 
 
 export const bundleService = {
   // Add a new bundle
-  addBundle: async (bundleData: IBundle) => {
-    try {
-      const newBundle = new Bundle(bundleData); // Create a new Bundle instance
-      await newBundle.save(); // Save the new bundle to the database
-      return newBundle; // Return the saved bundle
-    } catch (error) {
-      console.error("Error adding bundle:", error);
-      throw new Error("Failed to add bundle to the database");
+ addBundle: async (bundleData: IBundle) => {
+    // Check for existing bundle name
+    const existingBundle = await Bundle.findOne({ name: bundleData.name });
+    if (existingBundle) {
+      throw new Error("Bundle with this name already exists");
     }
+
+    const newBundle = new Bundle(bundleData);
+    await newBundle.save();
+    return newBundle;
   },
+ 
 
   // Get all bundles
   getAllBundles: async () => {

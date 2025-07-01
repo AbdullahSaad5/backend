@@ -17,8 +17,14 @@ export const bundleController = {
         message: "Bundle added successfully",
         data: newBundle,
       });
-    } catch (error) {
-      console.error("Error adding bundle:", error);
+    } catch (error: any) {
+      // Handle duplicate name error
+      if (error.message === "Bundle with this name already exists") {
+        return res.status(StatusCodes.CONFLICT).json({
+          success: false,
+          message: error.message,
+        });
+      }
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error adding bundle",
