@@ -178,13 +178,13 @@ const complaintdata = {...req.body, userId};
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ["Open", "In Progress", "Closed"];
+    const allowedStatuses = ["Open", "In Progress", "Closed","Resolved"];
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message:
-          "Status is required and must be one of: Open, In Progress, Closed",
+          "Status is required and must be one of: Open, In Progress, Closed,Resolved",
         allowedStatuses,
       });
     }
@@ -209,13 +209,13 @@ const complaintdata = {...req.body, userId};
     const { id } = req.params;
     const { priority } = req.body;
 
-    const allowedpriority = ["Low", "Medium", "High"];
+    const allowedpriority = ["Low", "Medium", "High", "Urgent"];
 
     if (!priority || !allowedpriority.includes(priority)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message:
-          "Status is required and must be one of: Open, In Progress, Closed",
+          "Status is required and must be one of: Open, In Progress, Closed, Urgent",
         allowedpriority,
       });
     }

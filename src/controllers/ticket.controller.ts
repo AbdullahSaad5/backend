@@ -125,12 +125,12 @@ export const tickerControler = {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ["Open", "In Progress", "Closed"];
+    const allowedStatuses = ["Open", "In Progress", "Closed", "Resolved"];
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Status must be one of: Open, In Progress, Closed",
+        message: "Status must be one of: Open, In Progress, Closed, Resolved",
       });
     }
 
@@ -154,12 +154,12 @@ export const tickerControler = {
     const { id } = req.params;
     const { priority } = req.body;
 
-    const allowedPriorities = ["Low", "Medium", "High"];
+    const allowedPriorities = ["Low", "Medium", "High", "Urgent"];
 
     if (!priority || !allowedPriorities.includes(priority)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Priority must be one of: Low, Medium, High",
+        message: "Priority must be one of: Low, Medium, High, Urgent",
       });
     }
 

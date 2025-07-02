@@ -32,12 +32,12 @@ const TicketSchema = new Schema<ITicket>(
     },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Closed"],
+      enum: ["Open", "In Progress", "Closed","Resolved"],
       default: "Open",
     },
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High"],
+      enum: ["Low", "Medium", "High", "Urgent"],
       default: "Medium",
     },
     

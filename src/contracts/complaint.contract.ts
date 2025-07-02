@@ -14,8 +14,8 @@ export interface IComplaint extends Document {
   assignedTo?: string;
   createDate?: Date;
   dueDate?: Date;
-  status?: "Open" | "In Progress" | "Closed";
-  priority?: "Low" | "Medium" | "High";
+  status?: "Open" | "In Progress" | "Closed" | "Resolved";
+  priority?: "Low" | "Medium" | "High" | "Urgent";
   resolution?: [{
     image?:string[];
     description?: string;

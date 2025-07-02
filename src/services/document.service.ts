@@ -10,25 +10,36 @@ export const documentService = {
             visibleTo: documentData.visibleTo.map(user => ({
                 ...user,
                 value: new Types.ObjectId(user.value)
-            }))
+            })),
+            userId: new Types.ObjectId(documentData.userId)
         };
         return await DocumentModel.create(doc);
     },
 
     // Get all documents with populated visibleTo users
     getAllDocuments: async () => {
-        return await DocumentModel.find().populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        });
+        return await DocumentModel.find()
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Get document by ID with populated visibleTo users
     getDocumentById: async (id: string) => {
-        return await DocumentModel.findById(id).populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        });
+        return await DocumentModel.findById(id)
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Update document
@@ -40,6 +51,9 @@ export const documentService = {
                     ...user,
                     value: new Types.ObjectId(user.value)
                 }))
+            }),
+            ...(updateData.userId && {
+                userId: new Types.ObjectId(updateData.userId)
             })
         };
 
@@ -47,8 +61,13 @@ export const documentService = {
             id,
             dataToUpdate,
             { new: true }
-        ).populate({
+        )
+        .populate({
             path: "visibleTo.value",
+            select: "firstName lastName email"
+        })
+        .populate({
+            path: "userId",
             select: "firstName lastName email"
         });
     },
@@ -60,10 +79,15 @@ export const documentService = {
 
     // Get documents by category
     getDocumentsByCategory: async (category: string) => {
-        return await DocumentModel.find({ docCategory: category }).populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        });
+        return await DocumentModel.find({ docCategory: category })
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Search documents by title or tags
@@ -74,18 +98,43 @@ export const documentService = {
                 { docTags: { $in: [query] } }
             ]
         };
-        return await DocumentModel.find(searchQuery).populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        });
+        return await DocumentModel.find(searchQuery)
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Get documents visible to a specific user
     getDocumentsVisibleToUser: async (userId: string) => {
         return await DocumentModel.find({
             "visibleTo.value": new Types.ObjectId(userId)
-        }).populate({
+        })
+        .populate({
             path: "visibleTo.value",
+            select: "firstName lastName email"
+        })
+        .populate({
+            path: "userId",
+            select: "firstName lastName email"
+        });
+    },
+
+    // Get documents created by a specific user
+    getDocumentsByUser: async (userId: string) => {
+        return await DocumentModel.find({
+            userId: new Types.ObjectId(userId)
+        })
+        .populate({
+            path: "visibleTo.value",
+            select: "firstName lastName email"
+        })
+        .populate({
+            path: "userId",
             select: "firstName lastName email"
         });
     },

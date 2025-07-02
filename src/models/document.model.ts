@@ -17,7 +17,12 @@ const DocumentSchema = new Schema<IDocument, IDocumentModel>({
         label: { type: String, required: true },
         value: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
         role: { type: String, required: true }
-    }]
+    }],
+    userId: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true
+    }
 }, { timestamps: true });
 
 export const DocumentModel = model<IDocument, IDocumentModel>('Document', DocumentSchema);

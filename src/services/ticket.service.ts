@@ -9,8 +9,8 @@ export const ticketService = {
     assignedTo: Types.ObjectId | undefined,
     createDate: Date,
     dueDate: Date,
-    status: "Open" | "In Progress" | "Closed",
-    priority: "Low" | "Medium" | "High",
+    status: "Open" | "In Progress" | "Closed" | "Resolved",
+    priority: "Low" | "Medium" | "High"  | "Urgent",
     role: Types.ObjectId,
     description: string
   ) => {
@@ -36,8 +36,8 @@ export const ticketService = {
       assignedTo?: Types.ObjectId;
       createDate?: Date;
       dueDate?: Date;
-      status?: "Open" | "In Progress" | "Closed";
-      priority?: "Low" | "Medium" | "High";
+      status?: "Open" | "In Progress" | "Closed" | "Resolved";
+      priority?: "Low" | "Medium" | "High" | "Urgent";
       role?: Types.ObjectId;
       description?: string;
     }
@@ -69,7 +69,7 @@ export const ticketService = {
       .populate('resolution.resolvedBy', 'firstName lastName');
   },
 
-  changeStatus: (id: string, status: "Open" | "In Progress" | "Closed") => {
+  changeStatus: (id: string, status: "Open" | "In Progress" | "Closed" | "Urgent") => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
       { status },
@@ -83,7 +83,7 @@ export const ticketService = {
     return updatedTicket;
   },
 
-  changePriority: (id: string, priority: "Low" | "Medium" | "High") => {
+  changePriority: (id: string, priority: "Low" | "Medium" | "High" | "Urgent") => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
       { priority },

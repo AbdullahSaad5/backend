@@ -2,24 +2,43 @@ import { Request, Response } from 'express';
 import { documentService } from "../services/document.service";
 import { StatusCodes } from 'http-status-codes';
 import { Types } from 'mongoose';
+import { jwtVerify } from "@/utils/jwt.util";
 
 export const documentController = {
     // Create a new document
-    createDocument: async (req: Request, res: Response) => {
-        try {
-            const newDocument = await documentService.createDocument(req.body);
-            res.status(StatusCodes.CREATED).json({
-                success: true,
-                data: newDocument
-            });
-        } catch (error) {
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+   createDocument: async (req: any, res: Response) => {
+    try {
+        const token = req.headers["authorization"]?.split(" ")[1];
+        if (!token) {
+            return res.status(StatusCodes.UNAUTHORIZED).json({
                 success: false,
-                message: 'Error creating document',
-                error: error instanceof Error ? error.message : error
+                message: 'Authorization token is required'
             });
         }
-    },
+
+        const decoded = jwtVerify(token);
+        const userId = decoded.id; // Get from token
+
+        // Remove userId from body if present
+        const { userId: _, ...documentData } = req.body;
+
+        const newDocument = await documentService.createDocument({
+            ...documentData,
+            userId // Set from token
+        });
+        
+        res.status(StatusCodes.CREATED).json({
+            success: true,
+            data: newDocument
+        });
+    } catch (error) {
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: 'Error creating document',
+            error: error instanceof Error ? error.message : error
+        });
+    }
+},
 
     // Get all documents
     getAllDocuments: async (req: Request, res: Response) => {
@@ -155,16 +174,18 @@ export const documentController = {
     },
 
     // Get documents visible to current user
-    getMyDocuments: async (req: Request, res: Response) => {
+    getMyDocuments: async (req: any, res: Response) => {
         try {
-            const { userId } = req.params;
-            // const userId = req.user?.id;
-            if (!userId) {
+            const token = req.headers["authorization"]?.split(" ")[1];
+            if (!token) {
                 return res.status(StatusCodes.UNAUTHORIZED).json({
                     success: false,
-                    message: 'User not authenticated'
+                    message: 'Authorization token is required'
                 });
             }
+
+            const decoded = jwtVerify(token);
+            const userId = decoded.id.toString(); // Convert to string
 
             const documents = await documentService.getDocumentsVisibleToUser(userId);
             res.status(StatusCodes.OK).json({
@@ -179,7 +200,35 @@ export const documentController = {
                 error: error instanceof Error ? error.message : error
             });
         }
+    },
+
+    // Get documents created by current user
+    getUserDocuments: async (req: any, res: Response) => {
+        try {
+            const token = req.headers["authorization"]?.split(" ")[1];
+            if (!token) {
+                return res.status(StatusCodes.UNAUTHORIZED).json({
+                    success: false,
+                    message: 'Authorization token is required'
+                });
+            }
+
+            const decoded = jwtVerify(token);
+            const userId = decoded.id.toString(); // Convert to string
+
+            const documents = await documentService.getDocumentsByUser(userId);
+            res.status(StatusCodes.OK).json({
+                success: true,
+                count: documents.length,
+                data: documents
+            });
+        } catch (error) {
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: 'Error fetching user documents',
+                error: error instanceof Error ? error.message : error
+            });
+        }
     }
+
 };
-   
-  

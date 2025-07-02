@@ -21,6 +21,7 @@ export interface IDocument extends Document {
     document: IDocumentFile[];
     author: string;
     visibleTo: IVisibleToUser[];
+    userId: Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }
