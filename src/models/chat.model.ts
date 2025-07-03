@@ -65,6 +65,11 @@ const ChatSchema = new Schema<IChat, IChatModel>({
     type: Number,
     min: 0
   },
+  fileType: {
+    type: String,
+     trim: true
+  },
+  
   status: {
     type: String,
     enum: Object.values(MessageStatus),

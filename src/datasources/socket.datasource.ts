@@ -121,6 +121,7 @@ class SocketManager {
         fileUrl?: string;
         fileName?: string;
         fileSize?: number;
+        fileType?: string;
         replyTo?: string;
       }) => {
         try {
@@ -135,6 +136,7 @@ class SocketManager {
             fileUrl: data.fileUrl,
             fileName: data.fileName,
             fileSize: data.fileSize,
+            fileType: data.fileType,
             replyTo: data.replyTo,
             status: MessageStatus.SENT,
           };

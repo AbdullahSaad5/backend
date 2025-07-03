@@ -22,6 +22,7 @@ export interface IMessage {
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
+  fileType?: string;
   status: MessageStatus;
   readAt?: Date;
   editedAt?: Date;

@@ -18,7 +18,7 @@ declare module 'express-serve-static-core' {
 export const ChatController = {
   sendMessage: async (req: Request, res: Response) => {
     try {
-      const { receiver, chatRoom, content, messageType = MessageType.TEXT, fileUrl, fileName, fileSize, replyTo } = req.body;
+      const { receiver, chatRoom, content, messageType = MessageType.TEXT, fileUrl, fileName, fileSize, fileType, replyTo } = req.body;
       const sender = req.context?.user?.id;
 
       if (!sender) {
@@ -28,10 +28,11 @@ export const ChatController = {
         });
       }
 
-      if (!content || content.trim() === "") {
+      // Allow empty content for file messages
+      if (!content && !fileUrl) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Message content is required"
+          message: "Message content or file is required"
         });
       }
 
@@ -46,11 +47,12 @@ export const ChatController = {
         sender,
         receiver,
         chatRoom,
-        content: content.trim(),
+        content: content?.trim() || "",
         messageType,
         fileUrl,
         fileName,
         fileSize,
+        fileType,
         replyTo,
         status: MessageStatus.SENT
       };
@@ -347,53 +349,53 @@ export const ChatController = {
   //     });
   //   }
   // },
-addReaction: async (req: Request, res: Response) => {
-  try {
-    console.log('--- START REACTION PROCESSING ---');
-    console.log('Headers:', req.headers);
-    console.log('Params:', req.params);
-    console.log('Body:', req.body);
+  addReaction: async (req: Request, res: Response) => {
+    try {
+      console.log('--- START REACTION PROCESSING ---');
+      console.log('Headers:', req.headers);
+      console.log('Params:', req.params);
+      console.log('Body:', req.body);
 
-    const { messageId } = req.params;
-    const { emoji } = req.body;
-    const userId = req.context?.user?.id;
+      const { messageId } = req.params;
+      const { emoji } = req.body;
+      const userId = req.context?.user?.id;
 
-    console.log('Extracted values:', { messageId, emoji, userId });
+      console.log('Extracted values:', { messageId, emoji, userId });
 
-    if (!userId) {
-      console.log('No userId found - unauthorized');
-      return res.status(401).json({ success: false, message: "Authentication required" });
+      if (!userId) {
+        console.log('No userId found - unauthorized');
+        return res.status(401).json({ success: false, message: "Authentication required" });
+      }
+
+      if (!emoji) {
+        console.log('No emoji provided');
+        return res.status(400).json({ success: false, message: "Emoji is required" });
+      }
+
+      console.log('Calling ChatService.addReaction...');
+      const message = await ChatService.addReaction(messageId, userId, emoji);
+      console.log('Service returned:', message);
+
+      if (!message) {
+        console.log('Message not found');
+        return res.status(404).json({ success: false, message: "Message not found" });
+      }
+
+      console.log('Reaction added successfully');
+      return res.status(200).json({
+        success: true,
+        message: "Reaction added successfully",
+        data: message
+      });
+
+    } catch (error) {
+      console.error("FULL ERROR DETAILS:", error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to add reaction"
+      });
     }
-
-    if (!emoji) {
-      console.log('No emoji provided');
-      return res.status(400).json({ success: false, message: "Emoji is required" });
-    }
-
-    console.log('Calling ChatService.addReaction...');
-    const message = await ChatService.addReaction(messageId, userId, emoji);
-    console.log('Service returned:', message);
-
-    if (!message) {
-      console.log('Message not found');
-      return res.status(404).json({ success: false, message: "Message not found" });
-    }
-
-    console.log('Reaction added successfully');
-    return res.status(200).json({
-      success: true,
-      message: "Reaction added successfully",
-      data: message
-    });
-
-  } catch (error) {
-    console.error("FULL ERROR DETAILS:", error);
-    return res.status(500).json({
-      success: false,
-      message: error instanceof Error ? error.message : "Failed to add reaction"
-    });
-  }
-},
+  },
   searchMessages: async (req: Request, res: Response) => {
     try {
       const { q: query, chatRoom } = req.query;
@@ -425,6 +427,36 @@ addReaction: async (req: Request, res: Response) => {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to search messages"
+      });
+    }
+  },
+
+  uploadFile: async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "No file uploaded"
+        });
+      }
+
+      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/complaints/${req.file.filename}`;
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "File uploaded successfully",
+        data: {
+          fileUrl,
+          fileName: req.file.originalname,
+          fileSize: req.file.size,
+          fileType: req.file.mimetype
+        }
+      });
+    } catch (error) {
+      console.error("File upload error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to upload file"
       });
     }
   }
