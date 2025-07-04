@@ -143,7 +143,7 @@ class SocketManager {
 
           const message = await ChatService.sendMessage(messageData);
 
-          // Emit to sender
+          // Emit to sender (including the sender in the message)
           socket.emit("message-sent", {
             success: true,
             data: message,
@@ -151,14 +151,12 @@ class SocketManager {
 
           // Emit to receiver(s)
           if (data.receiver) {
-            // Private message
-            const receiverUser = this.connectedUsers.get(data.receiver);
-            if (receiverUser) {
-              this.io?.to(receiverUser.socketId).emit("new-message", message);
-            }
+            // Private message - emit to the private room
+            const roomId = [socket.user.id, data.receiver].sort().join('_');
+            this.io?.to(roomId).emit("new-message", message);
           } else if (data.chatRoom) {
-            // Group message
-            socket.to(data.chatRoom).emit("new-message", message);
+            // Group message - emit to all users in the room including sender
+            this.io?.to(data.chatRoom).emit("new-message", message);
           }
 
           // Stop typing indicator
@@ -314,19 +312,16 @@ class SocketManager {
 
     if (receiver) {
       // Private chat typing
-      const key = `${socket.user.id}-${receiver}`;
-      const typingUsers = this.typingUsers.get(key) || {};
+      const roomId = [socket.user.id, receiver].sort().join('_');
+      const typingUsers = this.typingUsers.get(roomId) || {};
       typingUsers[socket.user.id] = typingData;
-      this.typingUsers.set(key, typingUsers);
+      this.typingUsers.set(roomId, typingUsers);
 
-      const receiverUser = this.connectedUsers.get(receiver);
-      if (receiverUser) {
-        this.io?.to(receiverUser.socketId).emit("user-typing", {
-          userId: socket.user.id,
-          userName: socket.user.email,
-          isTyping: true,
-        });
-      }
+      this.io?.to(roomId).emit("user-typing", {
+        userId: socket.user.id,
+        userName: socket.user.email,
+        isTyping: true,
+      });
     } else if (chatRoom) {
       // Group chat typing
       const typingUsers = this.typingUsers.get(chatRoom) || {};
@@ -350,19 +345,16 @@ class SocketManager {
 
     if (receiver) {
       // Private chat stop typing
-      const key = `${socket.user.id}-${receiver}`;
-      const typingUsers = this.typingUsers.get(key) || {};
+      const roomId = [socket.user.id, receiver].sort().join('_');
+      const typingUsers = this.typingUsers.get(roomId) || {};
       delete typingUsers[socket.user.id];
-      this.typingUsers.set(key, typingUsers);
+      this.typingUsers.set(roomId, typingUsers);
 
-      const receiverUser = this.connectedUsers.get(receiver);
-      if (receiverUser) {
-        this.io?.to(receiverUser.socketId).emit("user-typing", {
-          userId: socket.user.id,
-          userName: socket.user.email,
-          isTyping: false,
-        });
-      }
+      this.io?.to(roomId).emit("user-typing", {
+        userId: socket.user.id,
+        userName: socket.user.email,
+        isTyping: false,
+      });
     } else if (chatRoom) {
       // Group chat stop typing
       const typingUsers = this.typingUsers.get(chatRoom) || {};
