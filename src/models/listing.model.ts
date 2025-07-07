@@ -166,6 +166,7 @@ const prodPricingSchema = {
       enableEbayListing: { type: Boolean, default: false },
     },
   ],
+  variationTheme: { type: String },
   retailPrice: {
     type: Number,
     required: function () {
