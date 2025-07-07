@@ -1141,6 +1141,7 @@ export const amazonListingService = {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
+      prodPricing: { variationTheme },
     } = populatedListing;
     const categoryId =
       populatedListing.productInfo.productCategory.amazonCategoryId ||
@@ -1162,7 +1163,7 @@ export const amazonListingService = {
 
     const variationData = amazonListingService.extractVariationData(populatedListing.prodPricing.selectedVariations);
     console.log("here var data", variationData);
-    const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
+    // const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
 
     const parentData = {
       productType: categoryId,
@@ -1182,7 +1183,7 @@ export const amazonListingService = {
             child_relationship_type: "variation",
           },
         ],
-        variation_theme: [{ name: selectedVariationTheme }],
+        variation_theme: [{ name: variationTheme }],
         // ...(selectedGtin && {
         //   externally_assigned_product_identifier: [
         //     {
@@ -1221,6 +1222,7 @@ export const amazonListingService = {
         productInfo: { sku, item_name, brand, product_description, condition_type },
         // prodTechInfo: { condition_type },
         prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
+        prodPricing: { variationTheme },
       } = populatedListing;
       // Fetch an unused GTIN
 
@@ -1250,7 +1252,7 @@ export const amazonListingService = {
       // Get variation theme (you'll need to implement this based on your existing logic)
       const variationData = amazonListingService.extractVariationData([variation]);
       // console.log("here child var data", JSON.stringify(variationData));
-      const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
+      // const selectedVariationTheme = amazonListingService.determineVariationTheme(variationData);
 
       const childData = {
         productType: categoryId,
@@ -1267,7 +1269,7 @@ export const amazonListingService = {
               parent_sku: sku,
             },
           ],
-          variation_theme: [{ name: selectedVariationTheme }],
+          variation_theme: [{ name: variationTheme }],
           parentage_level: [
             {
               value: "child",
