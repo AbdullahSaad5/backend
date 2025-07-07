@@ -1,7 +1,7 @@
 import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
-import { ChatService } from "@/services/chat.service";
+import { ChatService, ChatRoomService } from "@/services/chat.service";
 import { MessageType, MessageStatus } from "@/contracts/chat.contract";
 
 interface SocketUser {
@@ -149,14 +149,49 @@ class SocketManager {
             data: message,
           });
 
-          // Emit to receiver(s)
+          // Emit to receiver(s) with notification data
           if (data.receiver) {
             // Private message - emit to the private room
             const roomId = [socket.user.id, data.receiver].sort().join('_');
             this.io?.to(roomId).emit("new-message", message);
+
+            // Emit notification to receiver
+            this.io?.to(data.receiver).emit("new-message-notification", {
+              messageId: message._id,
+              senderId: socket.user.id,
+              senderName: socket.user.email, // We'll enhance this with actual user data
+              content: data.content,
+              messageType: data.messageType || MessageType.TEXT,
+              timestamp: new Date(),
+              isGroup: false
+            });
           } else if (data.chatRoom) {
             // Group message - emit to all users in the room including sender
             this.io?.to(data.chatRoom).emit("new-message", message);
+
+            // Get chat room participants and emit notifications to all except sender
+            try {
+              const chatRoom = await ChatRoomService.getRoomById(data.chatRoom);
+              if (chatRoom && socket.user) {
+                chatRoom.participants.forEach((participantId: string) => {
+                  if (participantId !== socket.user!.id) {
+                    this.io?.to(participantId).emit("new-message-notification", {
+                      messageId: message._id,
+                      senderId: socket.user!.id,
+                      senderName: socket.user!.email,
+                      content: data.content,
+                      messageType: data.messageType || MessageType.TEXT,
+                      timestamp: new Date(),
+                      isGroup: true,
+                      groupName: chatRoom.name,
+                      groupId: data.chatRoom
+                    });
+                  }
+                });
+              }
+            } catch (error) {
+              console.error("Error getting chat room for notifications:", error);
+            }
           }
 
           // Stop typing indicator
