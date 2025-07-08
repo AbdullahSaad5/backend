@@ -125,7 +125,18 @@ class SocketManager {
         replyTo?: string;
       }) => {
         try {
-          if (!socket.user) return;
+          console.log('=== BACKEND SOCKET MESSAGE RECEIVED ===');
+          console.log('Socket user:', socket.user);
+          console.log('Message data received:', data);
+
+          if (!socket.user) {
+            console.error('No socket user found');
+            socket.emit("message-error", {
+              success: false,
+              message: "Authentication required",
+            });
+            return;
+          }
 
           const messageData = {
             sender: socket.user.id,
@@ -141,7 +152,25 @@ class SocketManager {
             status: MessageStatus.SENT,
           };
 
+          console.log('Prepared message data:', messageData);
+          console.log('Message data details:', {
+            sender: messageData.sender,
+            receiver: messageData.receiver,
+            chatRoom: messageData.chatRoom,
+            content: messageData.content,
+            contentLength: messageData.content?.length,
+            contentTrimmed: messageData.content?.trim(),
+            messageType: messageData.messageType,
+            fileUrl: messageData.fileUrl,
+            fileName: messageData.fileName,
+            fileSize: messageData.fileSize,
+            fileType: messageData.fileType,
+            hasFile: !!messageData.fileUrl
+          });
+          console.log('Calling ChatService.sendMessage...');
+
           const message = await ChatService.sendMessage(messageData);
+          console.log('Message saved successfully:', message);
 
           // Emit to sender (including the sender in the message)
           socket.emit("message-sent", {
@@ -196,11 +225,24 @@ class SocketManager {
 
           // Stop typing indicator
           this.handleStopTyping(socket, data.receiver, data.chatRoom);
+          console.log('=== BACKEND SOCKET MESSAGE PROCESSED SUCCESSFULLY ===');
         } catch (error) {
+          console.error("=== BACKEND SOCKET MESSAGE ERROR ===");
           console.error("Send message error:", error);
+
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorName = error instanceof Error ? error.name : 'Unknown';
+          const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+
+          console.error("Error details:", {
+            name: errorName,
+            message: errorMessage,
+            stack: errorStack
+          });
+
           socket.emit("message-error", {
             success: false,
-            message: "Failed to send message",
+            message: `Failed to send message: ${errorMessage}`,
           });
         }
       }

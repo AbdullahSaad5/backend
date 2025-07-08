@@ -3,6 +3,7 @@ import { Model, Document } from "mongoose";
 export enum MessageType {
   TEXT = "text",
   IMAGE = "image",
+  VIDEO = "video",
   FILE = "file",
   SYSTEM = "system"
 }
