@@ -44,9 +44,19 @@ const ChatSchema = new Schema<IChat, IChatModel>({
   },
   content: {
     type: String,
-    required: [true, "Message content is required"],
     trim: true,
-    maxlength: [5000, "Message content cannot exceed 5000 characters"]
+    maxlength: [5000, "Message content cannot exceed 5000 characters"],
+    validate: {
+      validator: function (this: any) {
+        // Allow empty content if there's a file URL
+        if (this.fileUrl) {
+          return true; // File message, content can be empty
+        }
+        // Text message, content must not be empty
+        return this.content && this.content.trim() !== '';
+      },
+      message: "Message content is required unless a file is attached"
+    }
   },
   messageType: {
     type: String,
@@ -67,9 +77,9 @@ const ChatSchema = new Schema<IChat, IChatModel>({
   },
   fileType: {
     type: String,
-     trim: true
+    trim: true
   },
-  
+
   status: {
     type: String,
     enum: Object.values(MessageStatus),
@@ -90,7 +100,7 @@ const ChatSchema = new Schema<IChat, IChatModel>({
     trim: true
   },
   reactions: [ReactionSchema]
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -139,7 +149,7 @@ const ChatRoomSchema = new Schema<IChatRoom, IChatRoomModel>({
     type: String,
     required: [true, "Creator is required"]
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }

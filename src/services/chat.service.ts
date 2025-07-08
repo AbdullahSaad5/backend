@@ -3,33 +3,58 @@ import { IChat, IChatRoom, MessageStatus, MessageType } from "@/contracts/chat.c
 
 export const ChatService = {
   sendMessage: async (messageData: Partial<IChat>): Promise<IChat> => {
-    const message = new ChatModel(messageData);
-    const savedMessage = await message.save();
-    
-    // Update last message in chat room if it's a group chat
-    if (messageData.chatRoom) {
-      await ChatRoomModel.findByIdAndUpdate(
-        messageData.chatRoom,
-        {
-          lastMessage: messageData.content,
-          lastMessageAt: new Date()
-        }
-      );
+    console.log('=== CHAT SERVICE SEND MESSAGE ===');
+    console.log('Message data received:', messageData);
+
+    try {
+      const message = new ChatModel(messageData);
+      console.log('ChatModel created:', message);
+
+      const savedMessage = await message.save();
+      console.log('Message saved successfully:', savedMessage);
+
+      // Update last message in chat room if it's a group chat
+      if (messageData.chatRoom) {
+        console.log('Updating chat room last message...');
+        await ChatRoomModel.findByIdAndUpdate(
+          messageData.chatRoom,
+          {
+            lastMessage: messageData.content,
+            lastMessageAt: new Date()
+          }
+        );
+        console.log('Chat room updated successfully');
+      }
+
+      console.log('=== CHAT SERVICE SEND MESSAGE COMPLETED ===');
+      return savedMessage;
+    } catch (error) {
+      console.error('=== CHAT SERVICE SEND MESSAGE ERROR ===');
+      console.error('Error saving message:', error);
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorName = error instanceof Error ? error.name : 'Unknown';
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+
+      console.error('Error details:', {
+        name: errorName,
+        message: errorMessage,
+        stack: errorStack
+      });
+      throw error;
     }
-    
-    return savedMessage;
   },
 
   getMessages: async (
-    chatRoom?: string, 
-    sender?: string, 
-    receiver?: string, 
-    page: number = 1, 
+    chatRoom?: string,
+    sender?: string,
+    receiver?: string,
+    page: number = 1,
     limit: number = 50
   ): Promise<IChat[]> => {
     const skip = (page - 1) * limit;
     let query: any = {};
-    
+
     if (chatRoom) {
       query.chatRoom = chatRoom;
     } else if (sender && receiver) {
@@ -38,7 +63,7 @@ export const ChatService = {
         { sender: receiver, receiver: sender }
       ];
     }
-    
+
     return ChatModel.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -47,23 +72,23 @@ export const ChatService = {
   },
 
   getChatHistory: async (
-    userId: string, 
-    otherUserId: string, 
-    page: number = 1, 
+    userId: string,
+    otherUserId: string,
+    page: number = 1,
     limit: number = 50
   ): Promise<IChat[]> => {
     const skip = (page - 1) * limit;
-    
+
     return ChatModel.find({
       $or: [
         { sender: userId, receiver: otherUserId },
         { sender: otherUserId, receiver: userId }
       ]
     })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
-    .exec();
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
   },
 
   getConversations: async (userId: string): Promise<any[]> => {
@@ -120,12 +145,12 @@ export const ChatService = {
 
   markAsRead: async (messageId: string, userId: string): Promise<IChat | null> => {
     return ChatModel.findOneAndUpdate(
-      { 
-        _id: messageId, 
+      {
+        _id: messageId,
         receiver: userId,
         status: { $ne: MessageStatus.READ }
       },
-      { 
+      {
         status: MessageStatus.READ,
         readAt: new Date()
       },
@@ -149,12 +174,12 @@ export const ChatService = {
 
   editMessage: async (messageId: string, newContent: string, userId: string): Promise<IChat | null> => {
     return ChatModel.findOneAndUpdate(
-      { 
-        _id: messageId, 
+      {
+        _id: messageId,
         sender: userId,
         messageType: MessageType.TEXT
       },
-      { 
+      {
         content: newContent,
         isEdited: true,
         editedAt: new Date()
@@ -181,26 +206,26 @@ export const ChatService = {
   //     { new: true }
   //   );
   // },
-addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
-  console.log(`Attempting to add reaction:`, { messageId, userId, emoji }); // Debug log
-  
-  const result = await ChatModel.findByIdAndUpdate(
-    messageId,
-    {
-      $push: { 
-        reactions: { 
-          userId, 
-          emoji, 
-          createdAt: new Date() 
-        } 
-      }
-    },
-    { new: true }
-  );
+  addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
+    console.log(`Attempting to add reaction:`, { messageId, userId, emoji }); // Debug log
 
-  console.log('Update result:', result); // Debug log
-  return result;
-},
+    const result = await ChatModel.findByIdAndUpdate(
+      messageId,
+      {
+        $push: {
+          reactions: {
+            userId,
+            emoji,
+            createdAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    console.log('Update result:', result); // Debug log
+    return result;
+  },
   removeReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
     return ChatModel.findByIdAndUpdate(
       messageId,
@@ -250,7 +275,7 @@ export const ChatRoomService = {
 
   updateRoom: async (roomId: string, updateData: Partial<IChatRoom>, userId: string): Promise<IChatRoom | null> => {
     return ChatRoomModel.findOneAndUpdate(
-      { 
+      {
         _id: roomId,
         admin: userId
       },
@@ -269,7 +294,7 @@ export const ChatRoomService = {
 
   addParticipant: async (roomId: string, userId: string, adminId: string): Promise<IChatRoom | null> => {
     return ChatRoomModel.findOneAndUpdate(
-      { 
+      {
         _id: roomId,
         admin: adminId
       },
@@ -282,7 +307,7 @@ export const ChatRoomService = {
 
   removeParticipant: async (roomId: string, userId: string, adminId: string): Promise<IChatRoom | null> => {
     return ChatRoomModel.findOneAndUpdate(
-      { 
+      {
         _id: roomId,
         admin: adminId
       },
