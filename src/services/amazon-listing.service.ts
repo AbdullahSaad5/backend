@@ -634,7 +634,7 @@ export const amazonListingService = {
           externally_assigned_product_identifier: [
             {
               type: "ean",
-              value: selectedGtin, // Assign the selected GTIN only if it's new
+              value: selectedGtin,
               marketplace_id: "A1F83G8C2ARO7P",
             },
           ],
