@@ -533,6 +533,7 @@ export const amazonListingService = {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
+      prodPricing: { retailPrice },
     } = populatedListing;
 
     let selectedGtin = null;
@@ -578,6 +579,13 @@ export const amazonListingService = {
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
         epr_product_packaging: epr_product_packaging || [],
+        list_price: [
+          {
+            currency: "GBP",
+            value_with_tax: retailPrice,
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ],
         ...otherProdTechInfo,
       },
     };
