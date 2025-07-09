@@ -9,7 +9,7 @@ export const chat = (router: Router) => {
 
   // Message routes
   router.post("/messages", ChatController.sendMessage);
-  router.post("/upload", upload.single('file'), ChatController.uploadFile);
+  router.post("/upload", (upload.single('file') as any), ChatController.uploadFile);
   router.get("/messages", ChatController.getMessages);
   router.get("/messages/search", ChatController.searchMessages);
   router.get("/conversations", ChatController.getConversations);
