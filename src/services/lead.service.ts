@@ -3,7 +3,14 @@ import { ILead } from "@/contracts/lead.contract";
 import { Types } from "mongoose";
 
 export const LeadService = {
-    createLead: (leadData: Omit<ILead, keyof Document>) => {
+    createLead: (leadData: {
+        name: string;
+        email: string;
+        phoneNumber?: string;
+        source?: string;
+        assignedTo?: Types.ObjectId;
+        leadCategory: Types.ObjectId;
+    }) => {
         const newLead = new LeadModel(leadData);
         return newLead.save();
     },
