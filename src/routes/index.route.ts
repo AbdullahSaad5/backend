@@ -49,6 +49,7 @@ import { faqcategory } from "./faqcategory.route";
 import { faq } from "./faq.route";
 import { gtin } from "./gtin.route";
 import { newsletter } from "./newsletter.route";
+import { leadscategory } from "./leadscategory.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -104,6 +105,7 @@ const routes: {
   faqcategory,
   faq,
   newsletter,
+  leadscategory,
   chat,
   // discriminator,
 };
