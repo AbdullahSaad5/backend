@@ -17,6 +17,7 @@ export interface IDocument extends Document {
     docCategory: string;
     docTitle: string;
     docTags: string[];
+    version: string;
     expiryDate?: Date | null;
     document: IDocumentFile[];
     author: string;

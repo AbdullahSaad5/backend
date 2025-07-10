@@ -7,6 +7,7 @@ export const documentService = {
     createDocument: async (documentData: Omit<IDocument, 'createdAt' | 'updatedAt'>) => {
         const doc = {
             ...documentData,
+            version: documentData.version || "1.0.0",
             visibleTo: documentData.visibleTo.map(user => ({
                 ...user,
                 value: new Types.ObjectId(user.value)
@@ -62,14 +63,31 @@ export const documentService = {
             dataToUpdate,
             { new: true }
         )
-        .populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        })
-        .populate({
-            path: "userId",
-            select: "firstName lastName email"
-        });
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
+    },
+
+    // Update document version
+    updateDocumentVersion: async (id: string, newVersion: string) => {
+        return await DocumentModel.findByIdAndUpdate(
+            id,
+            { version: newVersion },
+            { new: true }
+        )
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Delete document
@@ -114,14 +132,14 @@ export const documentService = {
         return await DocumentModel.find({
             "visibleTo.value": new Types.ObjectId(userId)
         })
-        .populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        })
-        .populate({
-            path: "userId",
-            select: "firstName lastName email"
-        });
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Get documents created by a specific user
@@ -129,14 +147,14 @@ export const documentService = {
         return await DocumentModel.find({
             userId: new Types.ObjectId(userId)
         })
-        .populate({
-            path: "visibleTo.value",
-            select: "firstName lastName email"
-        })
-        .populate({
-            path: "userId",
-            select: "firstName lastName email"
-        });
+            .populate({
+                path: "visibleTo.value",
+                select: "firstName lastName email"
+            })
+            .populate({
+                path: "userId",
+                select: "firstName lastName email"
+            });
     },
 
     // Check if document exists

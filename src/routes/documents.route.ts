@@ -22,6 +22,11 @@ export const document = (router: Router) => {
         documentController.updateDocument
     );
 
+    router.patch(
+        "/:id/version",
+        documentController.updateDocumentVersion
+    );
+
     router.delete(
         "/:id",
         documentController.deleteDocument
@@ -37,10 +42,10 @@ export const document = (router: Router) => {
         documentController.searchDocuments
     );
 
-     router.get(
+    router.get(
         "/my-documents",
         documentController.getMyDocuments
     );
-  
+
     return router;
 };

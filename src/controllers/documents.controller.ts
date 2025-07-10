@@ -6,39 +6,39 @@ import { jwtVerify } from "@/utils/jwt.util";
 
 export const documentController = {
     // Create a new document
-   createDocument: async (req: any, res: Response) => {
-    try {
-        const token = req.headers["authorization"]?.split(" ")[1];
-        if (!token) {
-            return res.status(StatusCodes.UNAUTHORIZED).json({
+    createDocument: async (req: any, res: Response) => {
+        try {
+            const token = req.headers["authorization"]?.split(" ")[1];
+            if (!token) {
+                return res.status(StatusCodes.UNAUTHORIZED).json({
+                    success: false,
+                    message: 'Authorization token is required'
+                });
+            }
+
+            const decoded = jwtVerify(token);
+            const userId = decoded.id; // Get from token
+
+            // Remove userId from body if present
+            const { userId: _, ...documentData } = req.body;
+
+            const newDocument = await documentService.createDocument({
+                ...documentData,
+                userId // Set from token
+            });
+
+            res.status(StatusCodes.CREATED).json({
+                success: true,
+                data: newDocument
+            });
+        } catch (error) {
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                 success: false,
-                message: 'Authorization token is required'
+                message: 'Error creating document',
+                error: error instanceof Error ? error.message : error
             });
         }
-
-        const decoded = jwtVerify(token);
-        const userId = decoded.id; // Get from token
-
-        // Remove userId from body if present
-        const { userId: _, ...documentData } = req.body;
-
-        const newDocument = await documentService.createDocument({
-            ...documentData,
-            userId // Set from token
-        });
-        
-        res.status(StatusCodes.CREATED).json({
-            success: true,
-            data: newDocument
-        });
-    } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-            success: false,
-            message: 'Error creating document',
-            error: error instanceof Error ? error.message : error
-        });
-    }
-},
+    },
 
     // Get all documents
     getAllDocuments: async (req: Request, res: Response) => {
@@ -102,6 +102,40 @@ export const documentController = {
             res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
                 success: false,
                 message: 'Error updating document',
+                error: error instanceof Error ? error.message : error
+            });
+        }
+    },
+
+    // Update document version
+    updateDocumentVersion: async (req: Request, res: Response) => {
+        try {
+            const { version } = req.body;
+            if (!version || typeof version !== 'string') {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: 'Version is required and must be a string'
+                });
+            }
+
+            const updatedDocument = await documentService.updateDocumentVersion(
+                req.params.id,
+                version
+            );
+            if (!updatedDocument) {
+                return res.status(StatusCodes.NOT_FOUND).json({
+                    success: false,
+                    message: 'Document not found'
+                });
+            }
+            res.status(StatusCodes.OK).json({
+                success: true,
+                data: updatedDocument
+            });
+        } catch (error) {
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: 'Error updating document version',
                 error: error instanceof Error ? error.message : error
             });
         }
