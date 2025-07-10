@@ -36,22 +36,14 @@ const WorkShift = new Schema<IWorkshift>({
       message: (props) => `End time must be after start time!`,
     },
   },
-  mode: {
-    type: String,
-    required: [true, "Work mode is required"],
-    enum: {
-      values: ["On Site", "Hybrid", "Remote"],
-      message: "Work mode must be either On Site, Hybrid, or Remote",
-    },
-  },
   employees: [
     {
       type: Schema.Types.ObjectId,
       ref: "User",
-      required: [true, "At least one employee is required"],
+      required: false,
     },
   ],
-   isBlocked: {
+  isBlocked: {
     type: Boolean,
     default: false,
   },
@@ -63,9 +55,9 @@ const WorkShift = new Schema<IWorkshift>({
     type: Date,
     default: Date.now,
   },
-  userType: { 
-    type: Schema.Types.ObjectId, 
-    ref: "UserCategory"  // Must match what's in User model
+  userType: {
+    type: Schema.Types.ObjectId,
+    ref: "UserCategory", // Must match what's in User model
   },
   updatedAt: {
     type: Date,

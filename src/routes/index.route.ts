@@ -49,6 +49,10 @@ import { faqcategory } from "./faqcategory.route";
 import { faq } from "./faq.route";
 import { gtin } from "./gtin.route";
 import { newsletter } from "./newsletter.route";
+import { employee } from "./employee.route";
+import { workmode } from "./workmode.route";
+import { attendance } from "./attendance.route";
+import { leaveRequest } from "./leave-request.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 
@@ -109,6 +113,10 @@ const routes: {
   leadscategory,
   lead,
   chat,
+  employee,
+  workmode,
+  attendance,
+  leaveRequest,
   // discriminator,
 };
 

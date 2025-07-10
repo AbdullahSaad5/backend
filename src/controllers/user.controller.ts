@@ -11,7 +11,8 @@ export const userController = {
     try {
       const { email, address } = req.body;
 
-      const userExists = await userService.findExistingEmail(email);
+      const userExists: IUser | null =
+        await userService.findExistingEmail(email);
       if (userExists) {
         return res
           .status(StatusCodes.CONFLICT)
@@ -330,6 +331,8 @@ export const userController = {
     }
   },
 
+  getEmployeeList: async (req: Request, res: Response) => {},
+
   searchAndFilterUsers: async (req: Request, res: Response) => {
     try {
       // Extract filters from query params
@@ -377,3 +380,5 @@ export const userController = {
     }
   },
 };
+
+// new route to get Employee List

@@ -217,6 +217,13 @@ export const userService = {
       throw new Error("Error during search and filter");
     }
   },
+
+  getEmployeeList: async () => {
+    return {
+      message: "Employee list fetched successfully",
+      employees: [],
+    };
+  },
 };
 
 export async function generateUniqueSupplierKey(

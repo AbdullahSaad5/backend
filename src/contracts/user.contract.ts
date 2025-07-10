@@ -25,6 +25,7 @@ export interface IUser extends Document {
   EmailVerifiedOTP?: string;
   EmailVerifiedOTPExpiredAt?: Date;
   isEmailVerified: boolean;
+  isEmployee: boolean;
   EmailVerifiedAt: Date;
   userType: Types.ObjectId;
   supplierCategory: Types.ObjectId;
@@ -48,6 +49,7 @@ export type UserCreatePayload = Pick<
   | "userType"
   | "additionalAccessRights"
   | "restrictedAccessRights"
+  | "isEmployee"
 > & { address: Partial<IUserAddress> };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
