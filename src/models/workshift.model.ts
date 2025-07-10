@@ -28,12 +28,10 @@ const WorkShift = new Schema<IWorkshift>({
     required: true,
     validate: {
       validator: function (v) {
-        if (!this.startTime) return true;
-        return (
-          /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v) && v > this.startTime
-        );
+        // Only validate the time format, not the order, to allow overnight shifts
+        return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
       },
-      message: (props) => `End time must be after start time!`,
+      message: (props) => `${props.value} is not a valid time format (HH:MM)!`,
     },
   },
   employees: [

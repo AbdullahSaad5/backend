@@ -10,16 +10,18 @@ export const shiftController = {
       const { shiftName, shiftDescription, startTime, endTime, employees } =
         req.body;
 
-      // Validate employee IDs
-      const invalidEmployees = employees.filter(
-        (id: string) => !isValidObjectId(id)
-      );
-      if (invalidEmployees.length > 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Invalid employee IDs provided",
-          invalidEmployees,
-        });
+      // Validate employee IDs if employees is provided
+      if (employees) {
+        const invalidEmployees = employees.filter(
+          (id: string) => !isValidObjectId(id)
+        );
+        if (invalidEmployees.length > 0) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Invalid employee IDs provided",
+            invalidEmployees,
+          });
+        }
       }
 
       const newShift = await Shift.create({
@@ -27,7 +29,7 @@ export const shiftController = {
         shiftDescription,
         startTime,
         endTime,
-        employees,
+        ...(employees && { employees }), // Only add employees if provided
       });
 
       // Populate employee details in the response
