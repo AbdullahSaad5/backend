@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ChatService, ChatRoomService } from "@/services/chat.service";
+import { ConversationStatusService } from "@/services/conversation-status.service";
 import { MessageType, MessageStatus } from "@/contracts/chat.contract";
 import mongoose from "mongoose";
 
@@ -168,6 +169,214 @@ export const ChatController = {
     }
   },
 
+  getPendingConversations: async (req: Request, res: Response) => {
+    try {
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const conversations = await ChatService.getPendingConversations(userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: conversations.length,
+        data: conversations
+      });
+    } catch (error) {
+      console.error("Get pending conversations error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve pending conversations"
+      });
+    }
+  },
+
+  getArchivedConversations: async (req: Request, res: Response) => {
+    try {
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const conversations = await ChatService.getArchivedConversations(userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: conversations.length,
+        data: conversations
+      });
+    } catch (error) {
+      console.error("Get archived conversations error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve archived conversations"
+      });
+    }
+  },
+
+  archiveConversation: async (req: Request, res: Response) => {
+    try {
+      const { conversationId, isGroup } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!conversationId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Conversation ID is required"
+        });
+      }
+
+      const result = await ConversationStatusService.archiveConversation(
+        userId,
+        conversationId,
+        isGroup || false
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversation archived successfully",
+        data: result
+      });
+    } catch (error) {
+      console.error("Archive conversation error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to archive conversation"
+      });
+    }
+  },
+
+  unarchiveConversation: async (req: Request, res: Response) => {
+    try {
+      const { conversationId } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!conversationId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Conversation ID is required"
+        });
+      }
+
+      const result = await ConversationStatusService.unarchiveConversation(
+        userId,
+        conversationId
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversation unarchived successfully",
+        data: result
+      });
+    } catch (error) {
+      console.error("Unarchive conversation error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to unarchive conversation"
+      });
+    }
+  },
+
+  markAsPending: async (req: Request, res: Response) => {
+    try {
+      const { conversationId, isGroup } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!conversationId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Conversation ID is required"
+        });
+      }
+
+      const result = await ConversationStatusService.markAsPending(
+        userId,
+        conversationId,
+        isGroup || false
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversation marked as pending",
+        data: result
+      });
+    } catch (error) {
+      console.error("Mark as pending error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark conversation as pending"
+      });
+    }
+  },
+
+  markAsNotPending: async (req: Request, res: Response) => {
+    try {
+      const { conversationId } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!conversationId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Conversation ID is required"
+        });
+      }
+
+      const result = await ConversationStatusService.markAsNotPending(
+        userId,
+        conversationId
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversation marked as not pending",
+        data: result
+      });
+    } catch (error) {
+      console.error("Mark as not pending error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark conversation as not pending"
+      });
+    }
+  },
+
   markAsRead: async (req: Request, res: Response) => {
     try {
       const { messageId } = req.params;
@@ -307,48 +516,6 @@ export const ChatController = {
     }
   },
 
-  // addReaction: async (req: Request, res: Response) => {
-  //   try {
-  //     const { messageId } = req.params;
-  //     const { emoji } = req.body;
-  //     const userId = req.context?.user?.id;
-
-  //     if (!userId) {
-  //       return res.status(StatusCodes.UNAUTHORIZED).json({
-  //         success: false,
-  //         message: "Authentication required"
-  //       });
-  //     }
-
-  //     if (!emoji) {
-  //       return res.status(StatusCodes.BAD_REQUEST).json({
-  //         success: false,
-  //         message: "Emoji is required"
-  //       });
-  //     }
-
-  //     const message = await ChatService.addReaction(messageId, userId, emoji);
-
-  //     if (!message) {
-  //       return res.status(StatusCodes.NOT_FOUND).json({
-  //         success: false,
-  //         message: "Message not found"
-  //       });
-  //     }
-
-  //     res.status(StatusCodes.OK).json({
-  //       success: true,
-  //       message: "Reaction added successfully",
-  //       data: message
-  //     });
-  //   } catch (error) {
-  //     console.error("Add reaction error:", error);
-  //     res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-  //       success: false,
-  //       message: "Failed to add reaction"
-  //     });
-  //   }
-  // },
   addReaction: async (req: Request, res: Response) => {
     try {
       console.log('--- START REACTION PROCESSING ---');

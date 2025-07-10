@@ -1,5 +1,6 @@
 import { ChatModel, ChatRoomModel } from "@/models/chat.model";
 import { IChat, IChatRoom, MessageStatus, MessageType } from "@/contracts/chat.contract";
+import { ConversationStatusService } from "./conversation-status.service";
 
 export const ChatService = {
   sendMessage: async (messageData: Partial<IChat>): Promise<IChat> => {
@@ -24,6 +25,27 @@ export const ChatService = {
           }
         );
         console.log('Chat room updated successfully');
+
+        // Update conversation status for all participants
+        const chatRoom = await ChatRoomModel.findById(messageData.chatRoom);
+        if (chatRoom) {
+          for (const participantId of chatRoom.participants) {
+            if (participantId !== messageData.sender) {
+              await ConversationStatusService.updateLastMessageAt(
+                participantId,
+                messageData.chatRoom!,
+                true
+              );
+            }
+          }
+        }
+      } else if (messageData.receiver) {
+        // Update conversation status for direct chat
+        await ConversationStatusService.updateLastMessageAt(
+          messageData.receiver,
+          messageData.sender!,
+          false
+        );
       }
 
       console.log('=== CHAT SERVICE SEND MESSAGE COMPLETED ===');
@@ -143,8 +165,96 @@ export const ChatService = {
     return [...conversations, ...groupConversations];
   },
 
+  getPendingConversations: async (userId: string): Promise<any[]> => {
+    // Get pending conversation statuses
+    const pendingStatuses = await ConversationStatusService.getPendingConversations(userId);
+
+    const pendingConversations = [];
+
+    for (const status of pendingStatuses) {
+      if (status.isGroup) {
+        // Get group details
+        const group = await ChatRoomModel.findById(status.conversationId);
+        if (group) {
+          pendingConversations.push({
+            _id: group._id,
+            name: group.name,
+            isGroup: true,
+            lastMessage: group.lastMessage,
+            lastMessageAt: group.lastMessageAt,
+            participants: group.participants,
+            unreadCount: 0 // Pending conversations are already read
+          });
+        }
+      } else {
+        // Get direct conversation details
+        const lastMessage = await ChatModel.findOne({
+          $or: [
+            { sender: userId, receiver: status.conversationId },
+            { sender: status.conversationId, receiver: userId }
+          ]
+        }).sort({ createdAt: -1 });
+
+        if (lastMessage) {
+          pendingConversations.push({
+            _id: status.conversationId,
+            lastMessage: lastMessage,
+            isGroup: false,
+            unreadCount: 0
+          });
+        }
+      }
+    }
+
+    return pendingConversations;
+  },
+
+  getArchivedConversations: async (userId: string): Promise<any[]> => {
+    // Get archived conversation statuses
+    const archivedStatuses = await ConversationStatusService.getArchivedConversations(userId);
+
+    const archivedConversations = [];
+
+    for (const status of archivedStatuses) {
+      if (status.isGroup) {
+        // Get group details
+        const group = await ChatRoomModel.findById(status.conversationId);
+        if (group) {
+          archivedConversations.push({
+            _id: group._id,
+            name: group.name,
+            isGroup: true,
+            lastMessage: group.lastMessage,
+            lastMessageAt: group.lastMessageAt,
+            participants: group.participants,
+            unreadCount: 0
+          });
+        }
+      } else {
+        // Get direct conversation details
+        const lastMessage = await ChatModel.findOne({
+          $or: [
+            { sender: userId, receiver: status.conversationId },
+            { sender: status.conversationId, receiver: userId }
+          ]
+        }).sort({ createdAt: -1 });
+
+        if (lastMessage) {
+          archivedConversations.push({
+            _id: status.conversationId,
+            lastMessage: lastMessage,
+            isGroup: false,
+            unreadCount: 0
+          });
+        }
+      }
+    }
+
+    return archivedConversations;
+  },
+
   markAsRead: async (messageId: string, userId: string): Promise<IChat | null> => {
-    return ChatModel.findOneAndUpdate(
+    const message = await ChatModel.findOneAndUpdate(
       {
         _id: messageId,
         receiver: userId,
@@ -156,6 +266,17 @@ export const ChatService = {
       },
       { new: true }
     );
+
+    if (message) {
+      // Update conversation status
+      if (message.chatRoom) {
+        await ConversationStatusService.updateLastReadAt(userId, message.chatRoom);
+      } else if (message.sender) {
+        await ConversationStatusService.updateLastReadAt(userId, message.sender);
+      }
+    }
+
+    return message;
   },
 
   markConversationAsRead: async (userId: string, otherUserId: string): Promise<void> => {
@@ -170,6 +291,9 @@ export const ChatService = {
         readAt: new Date()
       }
     );
+
+    // Update conversation status
+    await ConversationStatusService.updateLastReadAt(userId, otherUserId);
   },
 
   editMessage: async (messageId: string, newContent: string, userId: string): Promise<IChat | null> => {
@@ -196,16 +320,6 @@ export const ChatService = {
     return !!result;
   },
 
-  // addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
-  //   return ChatModel.findByIdAndUpdate(
-  //     messageId,
-  //     {
-  //       $pull: { reactions: { userId } }, // Remove existing reaction from same user
-  //       $push: { reactions: { userId, emoji, createdAt: new Date() } }
-  //     },
-  //     { new: true }
-  //   );
-  // },
   addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
     console.log(`Attempting to add reaction:`, { messageId, userId, emoji }); // Debug log
 

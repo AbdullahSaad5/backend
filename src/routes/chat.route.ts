@@ -13,6 +13,12 @@ export const chat = (router: Router) => {
   router.get("/messages", ChatController.getMessages);
   router.get("/messages/search", ChatController.searchMessages);
   router.get("/conversations", ChatController.getConversations);
+  router.get("/conversations/pending", ChatController.getPendingConversations);
+  router.get("/conversations/archived", ChatController.getArchivedConversations);
+  router.post("/conversations/archive", ChatController.archiveConversation);
+  router.post("/conversations/unarchive", ChatController.unarchiveConversation);
+  router.post("/conversations/pending", ChatController.markAsPending);
+  router.post("/conversations/not-pending", ChatController.markAsNotPending);
   router.get("/history/:userId", ChatController.getChatHistory);
   router.patch("/messages/:messageId/read", ChatController.markAsRead);
   router.patch("/conversations/:userId/read", ChatController.markConversationAsRead);

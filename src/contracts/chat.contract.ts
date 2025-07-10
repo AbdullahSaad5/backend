@@ -55,6 +55,18 @@ export interface IChatRoom extends Document {
   updatedAt: Date;
 }
 
+export interface IConversationStatus {
+  userId: string;
+  conversationId: string;
+  isGroup: boolean;
+  isArchived: boolean;
+  isPending: boolean;
+  lastReadAt?: Date;
+  lastMessageAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface IUserPresence {
   userId: string;
   socketId: string;
@@ -76,6 +88,8 @@ export interface IChatService {
   getMessages: (chatRoom?: string, sender?: string, receiver?: string, page?: number, limit?: number) => Promise<IChat[]>;
   getChatHistory: (userId: string, otherUserId: string, page?: number, limit?: number) => Promise<IChat[]>;
   getConversations: (userId: string) => Promise<any[]>;
+  getPendingConversations: (userId: string) => Promise<any[]>;
+  getArchivedConversations: (userId: string) => Promise<any[]>;
   markAsRead: (messageId: string, userId: string) => Promise<IChat | null>;
   markConversationAsRead: (userId: string, otherUserId: string) => Promise<void>;
   editMessage: (messageId: string, newContent: string, userId: string) => Promise<IChat | null>;
@@ -83,6 +97,17 @@ export interface IChatService {
   addReaction: (messageId: string, userId: string, emoji: string) => Promise<IChat | null>;
   removeReaction: (messageId: string, userId: string, emoji: string) => Promise<IChat | null>;
   searchMessages: (query: string, userId: string, chatRoom?: string) => Promise<IChat[]>;
+}
+
+export interface IConversationStatusService {
+  getConversationStatus: (userId: string, conversationId: string) => Promise<IConversationStatus | null>;
+  updateConversationStatus: (userId: string, conversationId: string, isGroup: boolean, updates: Partial<IConversationStatus>) => Promise<IConversationStatus>;
+  archiveConversation: (userId: string, conversationId: string, isGroup: boolean) => Promise<IConversationStatus>;
+  unarchiveConversation: (userId: string, conversationId: string) => Promise<IConversationStatus>;
+  markAsPending: (userId: string, conversationId: string, isGroup: boolean) => Promise<IConversationStatus>;
+  markAsNotPending: (userId: string, conversationId: string) => Promise<IConversationStatus>;
+  getPendingConversations: (userId: string) => Promise<IConversationStatus[]>;
+  getArchivedConversations: (userId: string) => Promise<IConversationStatus[]>;
 }
 
 export interface IChatRoomService {
@@ -98,3 +123,4 @@ export interface IChatRoomService {
 
 export type IChatModel = Model<IChat>;
 export type IChatRoomModel = Model<IChatRoom>;
+export type IConversationStatusModel = Model<IConversationStatus>;
