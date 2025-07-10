@@ -25,7 +25,7 @@ export const LeadController = {
                     .json({ success: false, message: "User not found." });
             }
 
-            const { name, email, phoneNumber, source, assignedTo, leadCategory } = req.body;
+            const { name, email, phoneNumber, source, purpose, description, assignedTo, leadCategory } = req.body;
 
             // Validate required fields
             if (!name || !email || !leadCategory) {
@@ -49,6 +49,8 @@ export const LeadController = {
                 email,
                 phoneNumber,
                 source,
+                purpose,
+                description,
                 assignedTo: assignedTo ? new Types.ObjectId(assignedTo) : undefined,
                 leadCategory: new Types.ObjectId(leadCategory),
             };

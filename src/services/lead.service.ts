@@ -8,6 +8,8 @@ export const LeadService = {
         email: string;
         phoneNumber?: string;
         source?: string;
+        purpose?: string;
+        description?: string;
         assignedTo?: Types.ObjectId;
         leadCategory: Types.ObjectId;
     }) => {
@@ -22,6 +24,8 @@ export const LeadService = {
             email?: string;
             phoneNumber?: string;
             source?: string;
+            purpose?: string;
+            description?: string;
             assignedTo?: Types.ObjectId;
             leadCategory?: Types.ObjectId;
         }

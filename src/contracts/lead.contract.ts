@@ -5,6 +5,8 @@ export interface ILead extends Document {
     email: string;
     phoneNumber?: string;
     source?: string;
+    purpose?: string;
+    description?: string;
     status: "new" | "Contacted" | "Converted" | "Lost";
     assignedTo?: Types.ObjectId;
     leadCategory: Types.ObjectId;

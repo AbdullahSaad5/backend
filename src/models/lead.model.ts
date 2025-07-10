@@ -25,6 +25,16 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
         trim: true,
         maxlength: [100, "Source cannot exceed 100 characters"],
     },
+    purpose: {
+        type: String,
+        trim: true,
+        maxlength: [200, "Purpose cannot exceed 200 characters"],
+    },
+    description: {
+        type: String,
+        trim: true,
+        maxlength: [1000, "Description cannot exceed 1000 characters"],
+    },
     status: {
         type: String,
         enum: ["new", "Contacted", "Converted", "Lost"],
