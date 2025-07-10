@@ -5,7 +5,6 @@ export { authController } from "./user-auth.controller";
 export { supplierController } from "./supplier.controller";
 export { supplierCategoryController } from "./supplier-category.controller";
 export { productCategoryController } from "./product-category.controller";
-
 export { productBrandController } from "./product-brand.controller";
 export { listingController } from "./listing.controller";
 export { inventoryController } from "./inventory.controller";
@@ -25,5 +24,8 @@ export { stockController } from "./stock.controller";
 export { customPolicyController } from "./custom-policy.controller";
 export { fulfillmentPolicyController } from "./fulfillment-policy.controller";
 export { returnPolicyController } from "./return-policy.controller";
-export { chatController } from "./chat.controller";
+export { ChatController } from "./chat.controller";
 export { gtinController } from "./gtin.controller";
+export { workmodeController } from "./workmode.controller";
+export { attendanceController } from "./attendance.controller";
+export { leaveRequestController } from "./leave-request.controller";

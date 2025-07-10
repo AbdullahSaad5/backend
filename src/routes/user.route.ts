@@ -17,6 +17,7 @@ export const user = (router: Router) => {
   router.get("/:id", userValidation.validateId, userController.getUserDetails);
 
   router.get("/address/:id", userController.getUserAddress);
+  router.get("/employee", userController.getEmployeeList);
 
   // route for update user
   router.patch("/:id", userValidation.updateUser, userController.updateUser);
@@ -24,8 +25,12 @@ export const user = (router: Router) => {
   // route for delete user using id
   router.delete("/:id", userValidation.validateId, userController.deleteUser);
 
-    // route for update user
-  router.patch("/escalate/:id", userValidation.updateUser, userController.updateUser);
+  // route for update user
+  router.patch(
+    "/escalate/:id",
+    userValidation.updateUser,
+    userController.updateUser
+  );
   // route for toggle block status
   router.patch("/block/:id", userController.toggleBlock);
 

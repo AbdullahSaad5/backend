@@ -49,6 +49,10 @@ import { faqcategory } from "./faqcategory.route";
 import { faq } from "./faq.route";
 import { gtin } from "./gtin.route";
 import { newsletter } from "./newsletter.route";
+import { employee } from "./employee.route";
+import { workmode } from "./workmode.route";
+import { attendance } from "./attendance.route";
+import { leaveRequest } from "./leave-request.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -105,6 +109,10 @@ const routes: {
   faq,
   newsletter,
   chat,
+  employee,
+  workmode,
+  attendance,
+  leaveRequest,
   // discriminator,
 };
 

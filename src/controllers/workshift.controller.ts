@@ -4,39 +4,16 @@ import { StatusCodes } from "http-status-codes";
 import { isValidObjectId, Types } from "mongoose";
 import { IUser } from "@/contracts/user.contract";
 
-
-
-
-
-// Define interface for the transformed shift
-interface TransformedShift {
-  _id: unknown;
-  shiftName: string;
-  shiftDescription: string;
-  startTime: string;
-  endTime: string;
-  // ... include all other shift properties
-  employees: {
-    _id: unknown;
-    firstName: string;
-    lastName: string;
-    email: string;
-    isBlocked: boolean;
-    role?: string; // Make optional if userType might be undefined
-  }[];
-  // ... include any other fields from shiftObj
-  __v: number;
-}
-
-
 export const shiftController = {
-  // Create a new shift
   createShift: async (req: Request, res: Response) => {
     try {
-      const { shiftName, shiftDescription, startTime, endTime, mode, employees } = req.body;
+      const { shiftName, shiftDescription, startTime, endTime, employees } =
+        req.body;
 
       // Validate employee IDs
-      const invalidEmployees = employees.filter((id: string) => !isValidObjectId(id));
+      const invalidEmployees = employees.filter(
+        (id: string) => !isValidObjectId(id)
+      );
       if (invalidEmployees.length > 0) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -50,7 +27,6 @@ export const shiftController = {
         shiftDescription,
         startTime,
         endTime,
-        mode,
         employees,
       });
 
@@ -77,37 +53,32 @@ export const shiftController = {
   getAllShifts: async (req: Request, res: Response) => {
     try {
       const shifts = await Shift.find()
-        .populate<{
-          employees: (Omit<IUser, 'userType'> & {
-            userType?: { role: string };
-          })[];
-        }>({
-          path: 'employees',
-          select: 'firstName lastName email isBlocked userType',
+        .populate({
+          path: "employees",
+          select: "firstName lastName email isBlocked userType",
           populate: {
-            path: 'userType',
-            select: 'role',
-            model: 'UserCategory'
-          }
+            path: "userType",
+            select: "role",
+            model: "UserCategory",
+          },
         })
         .sort({ createdAt: -1 });
-  
-      // Properly type the transformation
-      const transformedShifts: TransformedShift[] = shifts.map((shift) => {
+
+      const transformedShifts = shifts.map((shift: any) => {
         const shiftObj = shift.toObject();
         return {
           ...shiftObj,
-          employees: shiftObj.employees.map((employee) => ({
+          employees: (shiftObj.employees || []).map((employee: any) => ({
             _id: employee._id,
             firstName: employee.firstName,
             lastName: employee.lastName,
             email: employee.email,
             isBlocked: employee.isBlocked,
-            role: employee.userType?.role
-          }))
+            role: employee.userType?.role,
+          })),
         };
       });
-  
+
       res.status(StatusCodes.OK).json({
         success: true,
         count: transformedShifts.length,

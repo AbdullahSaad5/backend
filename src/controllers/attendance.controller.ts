@@ -1,0 +1,153 @@
+import { Request, Response } from "express";
+import { attendanceService } from "@/services/attendance.service";
+import { jwtVerify } from "@/utils/jwt.util";
+export const attendanceController = {
+  // Employee self check-in
+  checkIn: async (req: Request, res: Response) => {
+    try {
+      console.log("req.body : ", req.body);
+      console.log("req.headers : ", req.headers);
+      const token = req.headers.authorization?.split(" ")[1];
+      const decoded = jwtVerify(token as string);
+      const userId = decoded.id.toString();
+      console.log("userId : ", userId);
+      if (!userId) return res.status(401).json({ message: "Unauthorized" });
+      const { shiftId, workModeId } = req.body;
+      const attendance = await attendanceService.checkIn(
+        userId,
+        shiftId,
+        workModeId
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Employee self check-out
+  checkOut: async (req: Request, res: Response) => {
+    try {
+      const user = req.context?.user;
+      if (!user || !user.id)
+        return res.status(401).json({ message: "Unauthorized" });
+      const attendance = await attendanceService.checkOut(user.id);
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Employee: get own attendance history
+  getOwnAttendance: async (req: Request, res: Response) => {
+    try {
+      const user = req.context?.user;
+      if (!user || !user.id)
+        return res.status(401).json({ message: "Unauthorized" });
+      const { startDate, endDate } = req.query;
+      const attendance = await attendanceService.getAttendance(
+        user.id,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Admin: mark attendance for any employee
+  adminMark: async (req: Request, res: Response) => {
+    try {
+      const {
+        employeeId,
+        date,
+        status,
+        shiftId,
+        workModeId,
+        checkIn,
+        checkOut,
+      } = req.body;
+      if (!employeeId || !date || !status || !checkIn || !checkOut)
+        return res.status(400).json({ message: "Missing required fields" });
+      console.log("employeeId : ", employeeId);
+      console.log("date : ", date);
+      console.log("status : ", status);
+      console.log("checkIn : ", checkIn);
+      console.log("checkOut : ", checkOut);
+      const attendance = await attendanceService.adminMark(
+        employeeId,
+        new Date(date),
+        status,
+        shiftId,
+        workModeId,
+        checkIn ? new Date(checkIn) : undefined,
+        checkOut ? new Date(checkOut) : undefined
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Admin: update attendance record
+  updateAttendance: async (req: Request, res: Response) => {
+    try {
+      const { attendanceId } = req.params;
+      const update = req.body;
+      const attendance = await attendanceService.updateAttendance(
+        attendanceId,
+        update
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Admin: get attendance for an employee
+  getEmployeeAttendance: async (req: Request, res: Response) => {
+    try {
+      const { employeeId } = req.params;
+      const { startDate, endDate } = req.query;
+      const attendance = await attendanceService.getAttendance(
+        employeeId,
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Admin: get all employees' attendance for a date
+  getAllForDate: async (req: Request, res: Response) => {
+    try {
+      const attendance = await attendanceService.getAllForDate();
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+
+  // Admin: get geo location
+  getGeoLocation: async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      const decoded = jwtVerify(token as string);
+      const userId = decoded.id.toString();
+      const { latitude, longitude } = req.body;
+      if (!userId || !latitude || !longitude)
+        return res.status(400).json({ message: "Missing required fields" });
+
+      const attendance = await attendanceService.geoLocationAttendanceMark(
+        userId,
+        latitude,
+        longitude
+      );
+      res.status(200).json(attendance);
+    } catch (err: any) {
+      res.status(400).json({ message: err.message });
+    }
+  },
+};
