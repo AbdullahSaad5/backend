@@ -47,6 +47,7 @@ export const inventoryService = {
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
       const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const status = stepData.status || "draft"; // Default to 'draft' if not provided  
       const {
         kind,
         item_name,
@@ -99,7 +100,7 @@ export const inventoryService = {
       };
 
       const draftInventoryData: any = {
-        status: "draft",
+        status,
         isBlocked: false,
         kind,
         isPart, // ✅ Now correctly storing `isPart`
