@@ -1,12 +1,13 @@
 import { NextFunction, Request, Response } from "express";
 import Joi from "joi";
 import { StatusCodes } from "http-status-codes";
-import jwt from 'jsonwebtoken';
+import jwt from "jsonwebtoken";
 
 import { getAccessTokenFromHeaders } from "@/utils/headers.util";
 import { jwtVerify } from "@/utils/jwt.util";
 // import { userService } from "@/services";
 import { authService } from "@/services";
+import { User } from "@/models/user.model";
 
 export const authMiddleware = async (
   req: Request,
@@ -44,6 +45,7 @@ export const authMiddleware = async (
     return next();
   }
 };
+
 export const shiftValidator = {
   // Validation schema for creating/updating a shift
   validateShift: (req: Request, res: Response, next: NextFunction) => {
@@ -62,7 +64,6 @@ export const shiftValidator = {
         .messages({
           "string.pattern.base": "End time must be in HH:MM format",
         }),
-      mode: Joi.string().valid("On Site", "Hybrid", "Remote").required(),
       employees: Joi.array().items(Joi.string()).min(1).required(),
     }).custom((value, helpers) => {
       if (value.startTime >= value.endTime) {
@@ -98,3 +99,36 @@ export const shiftValidator = {
   },
 };
 
+// Simple admin role check middleware
+export const adminRoleCheck = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  let user: any = req.context?.user;
+  if (!user) {
+    return res.status(403).json({ message: "Forbidden: Admins only" });
+  }
+  // If userType is missing, fetch full user from DB
+  if (
+    !user.userType ||
+    typeof user.userType !== "object" ||
+    !("role" in user.userType)
+  ) {
+    const dbUser = await User.findById(user.id).populate("userType");
+    if (
+      !dbUser ||
+      !dbUser.userType ||
+      typeof dbUser.userType !== "object" ||
+      !("role" in dbUser.userType)
+    ) {
+      return res.status(403).json({ message: "Forbidden: Admins only" });
+    }
+    user = dbUser;
+    if (req.context) req.context.user = user;
+  }
+  if (user.userType.role !== "admin" && user.userType.role !== "super admin") {
+    return res.status(403).json({ message: "Forbidden: Admins only" });
+  }
+  next();
+};
