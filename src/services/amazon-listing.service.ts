@@ -22,12 +22,14 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, token });
     } catch (error) {
       console.error("Error getting Amazon token:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get application token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get application token",
+          details: error,
+        });
     }
   },
 
@@ -38,17 +40,14 @@ export const amazonListingService = {
         return res.status(400).json({ error: "Missing productType parameter" });
       }
 
-      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=ATVPDKIKX0DER`;
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
 
       const accessToken = await getStoredAmazonAccessToken();
 
       // Fetch SP API product type schema metadata
       const spApiResponse = await fetch(spApiUrl, {
         method: "GET",
-        headers: {
-          "x-amz-access-token": accessToken ?? "",
-          "Content-Type": "application/json",
-        },
+        headers: { "x-amz-access-token": accessToken ?? "", "Content-Type": "application/json" },
       });
 
       if (!spApiResponse.ok) {
@@ -69,7 +68,7 @@ export const amazonListingService = {
       }
 
       const actualSchema = await schemaResponse.json();
-
+      console.log("actual Schema", actualSchema);
       // Parse schema properties with your utility function
       // const properties = actualSchema.properties || {};
       // const requiredFields = actualSchema.required || [];
@@ -81,7 +80,7 @@ export const amazonListingService = {
 
       // Return parsed fields
       // return res.json({ parsedFields });
-      return res.json({ transformedSchema });
+      return res.json({ actualSchema });
     } catch (error: any) {
       return res.status(500).json({ error: "Internal server error", details: error.message });
     }
@@ -133,12 +132,14 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.error("Error in authorization callback:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to exchange code for access token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to exchange code for access token",
+          details: error,
+        });
     }
   },
 
@@ -148,12 +149,14 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       console.error("Error refreshing token:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to refresh Amazon access token",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to refresh Amazon access token",
+          details: error,
+        });
     }
   },
   // Function to check the status of your submitted listing
@@ -180,32 +183,17 @@ export const amazonListingService = {
       const result = await response.json();
 
       if (response.ok) {
-        return JSON.stringify(
-          {
-            status: 200,
-            statusText: "OK",
-            listingData: result,
-          },
-          null,
-          2
-        );
+        return JSON.stringify({ status: 200, statusText: "OK", listingData: result }, null, 2);
       } else {
         return JSON.stringify(
-          {
-            status: response.status,
-            statusText: response.statusText,
-            errorResponse: result,
-          },
+          { status: response.status, statusText: response.statusText, errorResponse: result },
           null,
           2
         );
       }
     } catch (error: any) {
       console.error("Error checking listing status:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error checking listing status",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error checking listing status" });
     }
   },
 
@@ -230,32 +218,17 @@ export const amazonListingService = {
       const result = await response.json();
 
       if (response.ok) {
-        return JSON.stringify(
-          {
-            status: 200,
-            statusText: "OK",
-            submissionStatus: result,
-          },
-          null,
-          2
-        );
+        return JSON.stringify({ status: 200, statusText: "OK", submissionStatus: result }, null, 2);
       } else {
         return JSON.stringify(
-          {
-            status: response.status,
-            statusText: response.statusText,
-            errorResponse: result,
-          },
+          { status: response.status, statusText: response.statusText, errorResponse: result },
           null,
           2
         );
       }
     } catch (error: any) {
       console.error("Error checking submission status:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error checking submission status",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error checking submission status" });
     }
   },
   // DELETE Listing Item Function
@@ -274,9 +247,7 @@ export const amazonListingService = {
       const encodedSku = encodeURIComponent(sku);
 
       // Build query parameters
-      const queryParams = new URLSearchParams({
-        marketplaceIds: marketplaceId,
-      });
+      const queryParams = new URLSearchParams({ marketplaceIds: marketplaceId });
 
       // Add optional issueLocale if available
       if (process.env.AMAZON_ISSUE_LOCALE) {
@@ -288,11 +259,7 @@ export const amazonListingService = {
 
       const response = await fetch(apiUrl, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-amz-access-token": token,
-          Accept: "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token, Accept: "application/json" },
       });
 
       const result = response.status === 204 ? { message: "Successfully deleted" } : await response.json();
@@ -314,10 +281,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error deleting listing from Amazon:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error deleting Amazon listing",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error deleting Amazon listing" });
     }
   },
 
@@ -344,9 +308,7 @@ export const amazonListingService = {
       const encodedSku = encodeURIComponent(sku);
 
       // Build query parameters
-      const queryParams = new URLSearchParams({
-        marketplaceIds: marketplaceId,
-      });
+      const queryParams = new URLSearchParams({ marketplaceIds: marketplaceId });
 
       // Add includedData parameter (defaults to "summaries" as per API docs)
       const dataToInclude = includedData && includedData.length > 0 ? includedData.join(",") : "summaries";
@@ -363,11 +325,7 @@ export const amazonListingService = {
 
       const response = await fetch(apiUrl, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-amz-access-token": token,
-          Accept: "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token, Accept: "application/json" },
       });
 
       // Log the response status and body for debugging
@@ -401,10 +359,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error retrieving listing from Amazon:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error retrieving Amazon listing",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error retrieving Amazon listing" });
     }
   },
   getAllItemsFromAmazon: async (): Promise<string> => {
@@ -424,11 +379,7 @@ export const amazonListingService = {
       // Make GET API call
       const response = await fetch(apiUrl, {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-amz-access-token": token,
-          Accept: "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token, Accept: "application/json" },
       });
 
       // Log the response status and body for debugging
@@ -461,10 +412,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error retrieving all listings from Amazon:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error retrieving Amazon listings",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error retrieving Amazon listings" });
     }
   },
 
@@ -518,10 +466,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error adding listing on Amazon:", error.message);
-      return {
-        status: 500,
-        message: error.message || "Error syncing with Amazon API",
-      };
+      return { status: 500, message: error.message || "Error syncing with Amazon API" };
     }
   },
 
@@ -579,13 +524,7 @@ export const amazonListingService = {
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
         epr_product_packaging: epr_product_packaging || [],
-        list_price: [
-          {
-            currency: "GBP",
-            value_with_tax: retailPrice,
-            marketplace_id: "A1F83G8C2ARO7P",
-          },
-        ],
+        list_price: [{ currency: "GBP", value_with_tax: retailPrice, marketplace_id: "A1F83G8C2ARO7P" }],
         ...otherProdTechInfo,
       },
     };
@@ -632,11 +571,7 @@ export const amazonListingService = {
         brand: brand || [],
         ...(selectedGtin && {
           externally_assigned_product_identifier: [
-            {
-              type: "ean",
-              value: selectedGtin,
-              marketplace_id: "A1F83G8C2ARO7P",
-            },
+            { type: "ean", value: selectedGtin, marketplace_id: "A1F83G8C2ARO7P" },
           ],
         }),
         ...amazonListingService.prepareImageLocators(populatedListing),
@@ -864,11 +799,7 @@ export const amazonListingService = {
       return deleteResult;
     } catch (error: any) {
       console.error("Error deleting child variation:", error);
-      return {
-        status: 500,
-        message: "Internal error during variation deletion",
-        error: error.message,
-      };
+      return { status: 500, message: "Internal error during variation deletion", error: error.message };
     }
   },
 
@@ -1181,16 +1112,8 @@ export const amazonListingService = {
         item_name: item_name || [],
         brand: brand || [],
         product_description: product_description || [],
-        parentage_level: [
-          {
-            value: "parent",
-          },
-        ],
-        child_parent_sku_relationship: [
-          {
-            child_relationship_type: "variation",
-          },
-        ],
+        parentage_level: [{ value: "parent" }],
+        child_parent_sku_relationship: [{ child_relationship_type: "variation" }],
         variation_theme: [{ name: variationTheme }],
         // ...(selectedGtin && {
         //   externally_assigned_product_identifier: [
@@ -1271,19 +1194,10 @@ export const amazonListingService = {
           brand: brand || [],
           product_description: product_description || [],
           child_parent_sku_relationship: [
-            {
-              child_relationship_type: "variation",
-              marketplace_id: "A1F83G8C2ARO7P",
-              parent_sku: sku,
-            },
+            { child_relationship_type: "variation", marketplace_id: "A1F83G8C2ARO7P", parent_sku: sku },
           ],
           variation_theme: [{ name: variationTheme }],
-          parentage_level: [
-            {
-              value: "child",
-              marketplace_id: "A1F83G8C2ARO7P",
-            },
-          ],
+          parentage_level: [{ value: "child", marketplace_id: "A1F83G8C2ARO7P" }],
           ...(selectedGtin && {
             externally_assigned_product_identifier: [
               {
@@ -1299,15 +1213,7 @@ export const amazonListingService = {
               audience: "ALL",
               marketplace_id: "A1F83G8C2ARO7P",
               currency: "GBP",
-              our_price: [
-                {
-                  schedule: [
-                    {
-                      value_with_tax: variation.retailPrice || 10,
-                    },
-                  ],
-                },
-              ],
+              our_price: [{ schedule: [{ value_with_tax: variation.retailPrice || 10 }] }],
             },
           ],
 
@@ -1334,12 +1240,7 @@ export const amazonListingService = {
       const result = await amazonListingService.sendToAmazon(childSku, childData, token);
 
       // Add additional context to the result
-      return {
-        ...result,
-        childSku: childSku,
-        variationId: variation._id,
-        requestData: childData,
-      };
+      return { ...result, childSku: childSku, variationId: variation._id, requestData: childData };
     } catch (error: any) {
       console.error("Error in create Child Listing:", error);
       return {
@@ -1390,13 +1291,7 @@ export const amazonListingService = {
       const issues = jsonObj?.issues;
 
       if (status === "ACCEPTED" && submissionId) {
-        return {
-          status: 200,
-          statusText: "OK",
-          sku,
-          submissionId,
-          response: jsonObj,
-        };
+        return { status: 200, statusText: "OK", sku, submissionId, response: jsonObj };
       } else {
         return {
           status: 400,
@@ -1407,10 +1302,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error sending to Amazon:", error.message);
-      return {
-        status: 500,
-        message: error.message || "Error syncing with Amazon API",
-      };
+      return { status: 500, message: error.message || "Error syncing with Amazon API" };
     }
   },
 
@@ -1446,12 +1338,7 @@ export const amazonListingService = {
         patches.push({
           op: "replace",
           path: "/attributes/item_name",
-          value: [
-            {
-              value: amazonData.productInfo.title,
-              marketplace_id: marketplaceId,
-            },
-          ],
+          value: [{ value: amazonData.productInfo.title, marketplace_id: marketplaceId }],
         });
       }
 
@@ -1467,10 +1354,7 @@ export const amazonListingService = {
           patches.push({
             op: "replace",
             path: "/attributes/bullet_point",
-            value: bulletPoints.map((point: any) => ({
-              value: point,
-              marketplace_id: marketplaceId,
-            })),
+            value: bulletPoints.map((point: any) => ({ value: point, marketplace_id: marketplaceId })),
           });
         }
       }
@@ -1480,12 +1364,7 @@ export const amazonListingService = {
         patches.push({
           op: "replace",
           path: "/attributes/description",
-          value: [
-            {
-              value: amazonData.productInfo.description,
-              marketplace_id: marketplaceId,
-            },
-          ],
+          value: [{ value: amazonData.productInfo.description, marketplace_id: marketplaceId }],
         });
       }
 
@@ -1496,10 +1375,7 @@ export const amazonListingService = {
           path: "/attributes/list_price",
           value: [
             {
-              value: {
-                Amount: amazonData.prodPricing.retailPrice,
-                CurrencyCode: "GBP",
-              },
+              value: { Amount: amazonData.prodPricing.retailPrice, CurrencyCode: "GBP" },
               marketplace_id: marketplaceId,
             },
           ],
@@ -1513,12 +1389,7 @@ export const amazonListingService = {
           path: "/attributes/fulfillment_availability",
           value: [
             {
-              value: [
-                {
-                  fulfillment_channel_code: "DEFAULT",
-                  quantity: amazonData.prodPricing.listingQuantity,
-                },
-              ],
+              value: [{ fulfillment_channel_code: "DEFAULT", quantity: amazonData.prodPricing.listingQuantity }],
               marketplace_id: marketplaceId,
             },
           ],
@@ -1539,10 +1410,7 @@ export const amazonListingService = {
           path: "/attributes/child_parent_sku_relationship",
           value: [
             {
-              value: variations.map((v: any) => ({
-                child_sku: v.sku,
-                parent_sku: sku,
-              })),
+              value: variations.map((v: any) => ({ child_sku: v.sku, parent_sku: sku })),
               marketplace_id: marketplaceId,
             },
           ],
@@ -1554,10 +1422,7 @@ export const amazonListingService = {
       }
 
       // Prepare request body according to ListingsItemPatchRequest schema
-      const requestBody = {
-        productType: productType,
-        patches: patches,
-      };
+      const requestBody = { productType: productType, patches: patches };
 
       // Build query parameters
       const queryParams = new URLSearchParams({
@@ -1587,13 +1452,7 @@ export const amazonListingService = {
       const result = await response.json();
 
       if (response.ok) {
-        return JSON.stringify({
-          status: 200,
-          statusText: "OK",
-          sellerId: sellerId,
-          sku: sku,
-          response: result,
-        });
+        return JSON.stringify({ status: 200, statusText: "OK", sellerId: sellerId, sku: sku, response: result });
       } else {
         return JSON.stringify({
           status: response.status,
@@ -1603,10 +1462,7 @@ export const amazonListingService = {
       }
     } catch (error: any) {
       console.error("Error updating listing on Amazon:", error.message);
-      return JSON.stringify({
-        status: 500,
-        message: error.message || "Error updating Amazon listing",
-      });
+      return JSON.stringify({ status: 500, message: error.message || "Error updating Amazon listing" });
     }
   },
 
@@ -1622,28 +1478,21 @@ export const amazonListingService = {
 
       const response = await fetch(
         `${process.env.AMAZON_API_ENDPOINT}/orders/v0/orders?CreatedAfter=${startDate.toISOString()}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "x-amz-access-token": token,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token } }
       );
 
       const orders = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: orders,
-      });
+      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: orders });
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to fetch Amazon orders",
-        details: error,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to fetch Amazon orders",
+          details: error,
+        });
     }
   },
 
@@ -1695,10 +1544,7 @@ export const amazonListingService = {
       }
     }
 
-    return {
-      isValid: errors.length === 0,
-      errors,
-    };
+    return { isValid: errors.length === 0, errors };
   },
   getAmazonCategories: async (req: Request, res: Response) => {
     try {
@@ -1724,11 +1570,7 @@ export const amazonListingService = {
       console.log(`🔗 Calling endpoint: ${endpoint}`);
 
       const response = await fetch(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "x-amz-access-token": token,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token, "Content-Type": "application/json" },
       });
 
       if (!response.ok) {
@@ -1751,19 +1593,19 @@ export const amazonListingService = {
         marketplaceIds: category.marketplaceIds,
       }));
 
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: transformedCategories,
-      });
+      return res
+        .status(StatusCodes.OK)
+        .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: transformedCategories });
     } catch (error: any) {
       console.error("❌ Error getting Amazon categories:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to get Amazon categories",
-        details: error.message,
-      });
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get Amazon categories",
+          details: error.message,
+        });
     }
   },
 
@@ -1882,9 +1724,7 @@ export const amazonListingService = {
   // },
   updateListingWithAmazonSku: async (listingId: string, amazonSku: string): Promise<void> => {
     try {
-      await Listing.findByIdAndUpdate(listingId, {
-        amazonSku: amazonSku,
-      });
+      await Listing.findByIdAndUpdate(listingId, { amazonSku: amazonSku });
       console.log(`Updated listing ${listingId} with Amazon SKU: ${amazonSku}`);
     } catch (error) {
       console.error("Error updating listing with Amazon SKU:", error);
