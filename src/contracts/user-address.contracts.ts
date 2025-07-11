@@ -9,8 +9,8 @@ export interface IUserAddress extends Document {
   city: string;
   postalCode: string;
   isDefault: boolean;
-  longitude: string;
-  latitude: string;
+  longitude: number;
+  latitude: number;
 }
 
 export type UserAddressModel = Model<IUserAddress>;

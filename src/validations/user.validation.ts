@@ -33,6 +33,8 @@ export const userValidation = {
       appartment: z.string().trim().optional(),
       city: z.string().trim().optional(),
       postalCode: z.string().trim().optional(),
+      longitude: z.number().optional(),
+      latitude: z.number().optional(),
       isDefault: z.boolean().optional(),
     });
 

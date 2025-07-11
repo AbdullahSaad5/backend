@@ -35,6 +35,7 @@ export const userService = {
       additionalAccessRights,
       restrictedAccessRights,
       phoneNumber,
+      isEmployee,
       dob,
     } = data;
 
@@ -59,6 +60,7 @@ export const userService = {
       phoneNumber,
       dob,
       supplierKey, // Ensure supplierKey is set
+      isEmployee,
     });
 
     return await newUser.save();
@@ -108,6 +110,7 @@ export const userService = {
       longitude,
       latitude,
     } = addresss;
+
     const newAddress = new Address({
       userId,
       county,
