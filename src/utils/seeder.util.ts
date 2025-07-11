@@ -143,11 +143,11 @@ const seedData = async () => {
       "VIEW_COMPLAINTS",
       "ADD_COMPLAINTS",
 
-      "LEADS_MANAGEMENT",
-      "ADD_LEADS_CATEGORIES",
-      "VIEW_LEADS_CATEGORIES",
-      "ADD_LEADS",
-      "VIEW_LEADS",
+      // "LEADS_MANAGEMENT",
+      // "ADD_LEADS_CATEGORIES",
+      // "VIEW_LEADS_CATEGORIES",
+      // "ADD_LEADS",
+      // "VIEW_LEADS",
 
       "MANAGE_BUNDLES",
       "ADD_BUNDLES",
