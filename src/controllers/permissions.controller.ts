@@ -70,7 +70,6 @@ export const permissionsController = {
             "ADD_GAMERS_COMMUNITY",
           ],
         },
-
          accountingManagement: {
           parent: "MANAGE_ACCOUNTING",
           children: [
@@ -109,6 +108,15 @@ export const permissionsController = {
             "ADD_GUIDE_CATEGORY",
             "VIEW_GUIDES",
             "ADD_GUIDES",
+          ],
+        },
+        leadsManagement: {
+          parent: "LEADS_MANAGEMENT",
+          children: [
+            "ADD_LEADS_CATEGORIES",
+            "VIEW_LEADS_CATEGORIES",
+            "ADD_LEADS",
+            "VIEW_LEADS",
           ],
         },
          policies: {
