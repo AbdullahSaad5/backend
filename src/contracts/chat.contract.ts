@@ -41,6 +41,65 @@ export interface IChat extends Document, IMessage {
   updatedAt: Date;
 }
 
+// Enhanced group settings interfaces
+export interface IGroupNotifications {
+  enabled: boolean;
+  sound: boolean;
+  vibration: boolean;
+  mentions: boolean;
+}
+
+export interface IGroupPermissions {
+  sendMessages: boolean;
+  editInfo: boolean;
+  addParticipants: boolean;
+  removeParticipants: boolean;
+  pinMessages: boolean;
+  deleteMessages: boolean;
+  changeGroupInfo: boolean;
+  sendMedia: boolean;
+  sendFiles: boolean;
+}
+
+export interface IGroupInfo {
+  isPublic: boolean;
+  inviteLink?: string;
+  inviteLinkExpiry?: Date;
+  maxParticipants: number;
+  joinApprovalRequired: boolean;
+}
+
+export interface IGroupPrivacy {
+  showParticipants: boolean;
+  allowProfileView: boolean;
+  allowMessageHistory: boolean;
+}
+
+export interface IGroupActivity {
+  totalMessages: number;
+  lastActivity: Date;
+  pinnedMessages: string[];
+  announcements: string[];
+}
+
+export interface IGroupMetadata {
+  category: string;
+  tags: string[];
+  location?: string;
+  website?: string;
+  contactInfo: {
+    email?: string;
+    phone?: string;
+  };
+}
+
+export interface IGroupSettings {
+  notifications: IGroupNotifications;
+  permissions: IGroupPermissions;
+  info: IGroupInfo;
+  privacy: IGroupPrivacy;
+}
+
 export interface IChatRoom extends Document {
   name: string;
   description?: string;
@@ -53,6 +112,10 @@ export interface IChatRoom extends Document {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+  // Enhanced group settings
+  groupSettings: IGroupSettings;
+  activity: IGroupActivity;
+  metadata: IGroupMetadata;
 }
 
 export interface IConversationStatus {
@@ -119,6 +182,21 @@ export interface IChatRoomService {
   addParticipant: (roomId: string, userId: string, adminId: string) => Promise<IChatRoom | null>;
   removeParticipant: (roomId: string, userId: string, adminId: string) => Promise<IChatRoom | null>;
   leaveRoom: (roomId: string, userId: string) => Promise<boolean>;
+  // Enhanced group settings methods
+  changeGroupName: (roomId: string, name: string, userId: string) => Promise<IChatRoom | null>;
+  changeGroupDescription: (roomId: string, description: string, userId: string) => Promise<IChatRoom | null>;
+  changeGroupAvatar: (roomId: string, avatar: string, userId: string) => Promise<IChatRoom | null>;
+  addMultipleParticipants: (roomId: string, participantIds: string[], adminId: string) => Promise<IChatRoom | null>;
+  removeMultipleParticipants: (roomId: string, participantIds: string[], adminId: string) => Promise<IChatRoom | null>;
+  assignAdmin: (roomId: string, userId: string, adminId: string) => Promise<IChatRoom | null>;
+  removeAdmin: (roomId: string, userId: string, adminId: string) => Promise<IChatRoom | null>;
+  updateNotificationSettings: (roomId: string, settings: Partial<IGroupNotifications>, userId: string) => Promise<IChatRoom | null>;
+  updateGroupPermissions: (roomId: string, permissions: Partial<IGroupPermissions>, userId: string) => Promise<IChatRoom | null>;
+  getRoomParticipants: (roomId: string) => Promise<string[]>;
+  getRoomAdmins: (roomId: string) => Promise<string[]>;
+  sendGroupNotification: (roomId: string, message: string, adminId: string) => Promise<boolean>;
+  generateInviteLink: (roomId: string, adminId: string) => Promise<string>;
+  joinGroupByInvite: (inviteLink: string, userId: string) => Promise<IChatRoom | null>;
 }
 
 export type IChatModel = Model<IChat>;

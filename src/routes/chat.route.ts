@@ -35,4 +35,18 @@ export const chat = (router: Router) => {
   router.post("/rooms/:roomId/participants", ChatRoomController.addParticipant);
   router.delete("/rooms/:roomId/participants", ChatRoomController.removeParticipant);
   router.post("/rooms/:roomId/leave", ChatRoomController.leaveRoom);
+
+  // Enhanced group settings routes
+  router.patch("/rooms/:roomId/name", ChatRoomController.changeGroupName);
+  router.patch("/rooms/:roomId/description", ChatRoomController.changeGroupDescription);
+  router.patch("/rooms/:roomId/avatar", ChatRoomController.changeGroupAvatar);
+  router.post("/rooms/:roomId/participants/bulk", ChatRoomController.addMultipleParticipants);
+  router.delete("/rooms/:roomId/participants/bulk", ChatRoomController.removeMultipleParticipants);
+  router.post("/rooms/:roomId/admins", ChatRoomController.assignAdmin);
+  router.delete("/rooms/:roomId/admins", ChatRoomController.removeAdmin);
+  router.patch("/rooms/:roomId/notifications", ChatRoomController.updateNotificationSettings);
+  router.patch("/rooms/:roomId/permissions", ChatRoomController.updateGroupPermissions);
+  router.get("/rooms/:roomId/participants", ChatRoomController.getRoomParticipants);
+  router.get("/rooms/:roomId/admins", ChatRoomController.getRoomAdmins);
+  router.post("/rooms/:roomId/notifications/send", ChatRoomController.sendGroupNotification);
 };

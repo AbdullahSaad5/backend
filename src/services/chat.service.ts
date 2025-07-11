@@ -1,7 +1,11 @@
 import { ChatModel, ChatRoomModel } from "@/models/chat.model";
-import { IChat, IChatRoom, MessageStatus, MessageType } from "@/contracts/chat.contract";
+import { IChat, IChatRoom, MessageStatus, MessageType, IGroupPermissions, IGroupNotifications } from "@/contracts/chat.contract";
 import { ConversationStatusService } from "./conversation-status.service";
 
+
+// 1. Create message in database
+// 2. Update chat room's last message
+// 3. Update conversation status
 export const ChatService = {
   sendMessage: async (messageData: Partial<IChat>): Promise<IChat> => {
     console.log('=== CHAT SERVICE SEND MESSAGE ===');
@@ -440,5 +444,218 @@ export const ChatRoomService = {
       }
     );
     return !!result;
+  },
+
+  // Enhanced group settings methods
+  changeGroupName: async (roomId: string, name: string, userId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: userId
+      },
+      {
+        name: name.trim(),
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  changeGroupDescription: async (roomId: string, description: string, userId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: userId
+      },
+      {
+        description: description.trim(),
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  changeGroupAvatar: async (roomId: string, avatar: string, userId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: userId
+      },
+      {
+        avatar,
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  addMultipleParticipants: async (roomId: string, participantIds: string[], adminId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: adminId
+      },
+      {
+        $addToSet: { participants: { $each: participantIds } },
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  removeMultipleParticipants: async (roomId: string, participantIds: string[], adminId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: adminId
+      },
+      {
+        $pull: { participants: { $in: participantIds } },
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  assignAdmin: async (roomId: string, userId: string, adminId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: adminId
+      },
+      {
+        $addToSet: { admin: userId },
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  removeAdmin: async (roomId: string, userId: string, adminId: string): Promise<IChatRoom | null> => {
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: adminId
+      },
+      {
+        $pull: { admin: userId },
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+  },
+
+  updateNotificationSettings: async (roomId: string, settings: Partial<IGroupNotifications>, userId: string): Promise<IChatRoom | null> => {
+    const updateData: any = { "activity.lastActivity": new Date() };
+
+    Object.keys(settings).forEach(key => {
+      updateData[`groupSettings.notifications.${key}`] = settings[key as keyof IGroupNotifications];
+    });
+
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: userId
+      },
+      updateData,
+      { new: true }
+    );
+  },
+
+  updateGroupPermissions: async (roomId: string, permissions: Partial<IGroupPermissions>, userId: string): Promise<IChatRoom | null> => {
+    const updateData: any = { "activity.lastActivity": new Date() };
+
+    Object.keys(permissions).forEach(key => {
+      updateData[`groupSettings.permissions.${key}`] = permissions[key as keyof IGroupPermissions];
+    });
+
+    return ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: userId
+      },
+      updateData,
+      { new: true }
+    );
+  },
+
+  getRoomParticipants: async (roomId: string): Promise<string[]> => {
+    const room = await ChatRoomModel.findById(roomId).select('participants');
+    return room?.participants || [];
+  },
+
+  getRoomAdmins: async (roomId: string): Promise<string[]> => {
+    const room = await ChatRoomModel.findById(roomId).select('admin');
+    return room?.admin || [];
+  },
+
+  sendGroupNotification: async (roomId: string, message: string, adminId: string): Promise<boolean> => {
+    try {
+      // Create a system message for the notification
+      const notificationMessage = new ChatModel({
+        sender: adminId,
+        chatRoom: roomId,
+        content: message,
+        messageType: MessageType.SYSTEM,
+        status: MessageStatus.SENT
+      });
+
+      await notificationMessage.save();
+
+      // Update room's last message
+      await ChatRoomModel.findByIdAndUpdate(roomId, {
+        lastMessage: message,
+        lastMessageAt: new Date(),
+        "activity.lastActivity": new Date(),
+        $inc: { "activity.totalMessages": 1 }
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error sending group notification:', error);
+      return false;
+    }
+  },
+
+  generateInviteLink: async (roomId: string, adminId: string): Promise<string> => {
+    const room = await ChatRoomModel.findOneAndUpdate(
+      {
+        _id: roomId,
+        admin: adminId
+      },
+      {
+        "groupSettings.info.inviteLink": `${process.env.FRONTEND_URL}/join-group/${roomId}`,
+        "groupSettings.info.inviteLinkExpiry": new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
+
+    return room?.groupSettings?.info?.inviteLink || '';
+  },
+
+  joinGroupByInvite: async (inviteLink: string, userId: string): Promise<IChatRoom | null> => {
+    const roomId = inviteLink.split('/').pop();
+
+    if (!roomId) return null;
+
+    const room = await ChatRoomModel.findById(roomId);
+    if (!room) return null;
+
+    // Check if invite link is still valid
+    if (room.groupSettings?.info?.inviteLinkExpiry &&
+      new Date() > room.groupSettings.info.inviteLinkExpiry) {
+      return null;
+    }
+
+    // Add user to participants
+    return ChatRoomModel.findByIdAndUpdate(
+      roomId,
+      {
+        $addToSet: { participants: userId },
+        "activity.lastActivity": new Date()
+      },
+      { new: true }
+    );
   }
 };

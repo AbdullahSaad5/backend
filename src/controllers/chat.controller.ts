@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ChatService, ChatRoomService } from "@/services/chat.service";
 import { ConversationStatusService } from "@/services/conversation-status.service";
-import { MessageType, MessageStatus } from "@/contracts/chat.contract";
+import { MessageType, MessageStatus, IGroupPermissions, IGroupNotifications } from "@/contracts/chat.contract";
 import mongoose from "mongoose";
 
 declare module 'express-serve-static-core' {
@@ -16,9 +16,14 @@ declare module 'express-serve-static-core' {
   }
 }
 
+
+
 export const ChatController = {
   sendMessage: async (req: Request, res: Response) => {
     try {
+      // 1. Validate request data
+      // 2. Call ChatService.sendMessage()
+      // 3. Return response
       const { receiver, chatRoom, content, messageType = MessageType.TEXT, fileUrl, fileName, fileSize, fileType, replyTo } = req.body;
       const sender = req.context?.user?.id;
 
@@ -935,6 +940,469 @@ export const ChatRoomController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to leave chat room"
+      });
+    }
+  },
+
+  // Enhanced group settings methods
+  changeGroupName: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { name } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!name || name.trim() === "") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Group name is required"
+        });
+      }
+
+      const room = await ChatRoomService.changeGroupName(roomId, name, userId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group name updated successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Change group name error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update group name"
+      });
+    }
+  },
+
+  changeGroupDescription: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { description } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const room = await ChatRoomService.changeGroupDescription(roomId, description || "", userId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group description updated successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Change group description error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update group description"
+      });
+    }
+  },
+
+  changeGroupAvatar: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { avatar } = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!avatar) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Avatar URL is required"
+        });
+      }
+
+      const room = await ChatRoomService.changeGroupAvatar(roomId, avatar, userId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group avatar updated successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Change group avatar error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update group avatar"
+      });
+    }
+  },
+
+  addMultipleParticipants: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { participantIds } = req.body;
+      const adminId = req.context?.user?.id;
+
+      if (!adminId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Participant IDs array is required"
+        });
+      }
+
+      const room = await ChatRoomService.addMultipleParticipants(roomId, participantIds, adminId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Participants added successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Add multiple participants error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to add participants"
+      });
+    }
+  },
+
+  removeMultipleParticipants: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { participantIds } = req.body;
+      const adminId = req.context?.user?.id;
+
+      if (!adminId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!participantIds || !Array.isArray(participantIds) || participantIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Participant IDs array is required"
+        });
+      }
+
+      const room = await ChatRoomService.removeMultipleParticipants(roomId, participantIds, adminId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Participants removed successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Remove multiple participants error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to remove participants"
+      });
+    }
+  },
+
+  assignAdmin: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { userId: newAdminId } = req.body;
+      const adminId = req.context?.user?.id;
+
+      if (!adminId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!newAdminId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "User ID is required"
+        });
+      }
+
+      const room = await ChatRoomService.assignAdmin(roomId, newAdminId, adminId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Admin assigned successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Assign admin error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to assign admin"
+      });
+    }
+  },
+
+  removeAdmin: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { userId: adminToRemove } = req.body;
+      const adminId = req.context?.user?.id;
+
+      if (!adminId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!adminToRemove) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "User ID is required"
+        });
+      }
+
+      const room = await ChatRoomService.removeAdmin(roomId, adminToRemove, adminId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Admin removed successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Remove admin error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to remove admin"
+      });
+    }
+  },
+
+  updateNotificationSettings: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const settings = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const room = await ChatRoomService.updateNotificationSettings(roomId, settings, userId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Notification settings updated successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Update notification settings error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update notification settings"
+      });
+    }
+  },
+
+  updateGroupPermissions: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const permissions = req.body;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const room = await ChatRoomService.updateGroupPermissions(roomId, permissions, userId);
+
+      if (!room) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group permissions updated successfully",
+        data: room
+      });
+    } catch (error) {
+      console.error("Update group permissions error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update group permissions"
+      });
+    }
+  },
+
+  getRoomParticipants: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const participants = await ChatRoomService.getRoomParticipants(roomId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: participants
+      });
+    } catch (error) {
+      console.error("Get room participants error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get room participants"
+      });
+    }
+  },
+
+  getRoomAdmins: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const admins = await ChatRoomService.getRoomAdmins(roomId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: admins
+      });
+    } catch (error) {
+      console.error("Get room admins error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get room admins"
+      });
+    }
+  },
+
+  sendGroupNotification: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const { message } = req.body;
+      const adminId = req.context?.user?.id;
+
+      if (!adminId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!message || message.trim() === "") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Notification message is required"
+        });
+      }
+
+      const success = await ChatRoomService.sendGroupNotification(roomId, message, adminId);
+
+      if (!success) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Chat room not found or access denied"
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group notification sent successfully"
+      });
+    } catch (error) {
+      console.error("Send group notification error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to send group notification"
       });
     }
   }

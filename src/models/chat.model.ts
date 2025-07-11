@@ -110,6 +110,7 @@ ChatSchema.index({ sender: 1, receiver: 1, createdAt: -1 });
 ChatSchema.index({ chatRoom: 1, createdAt: -1 });
 ChatSchema.index({ content: "text" });
 
+// Enhanced ChatRoomSchema with WhatsApp-like features
 const ChatRoomSchema = new Schema<IChatRoom, IChatRoomModel>({
   name: {
     type: String,
@@ -148,6 +149,60 @@ const ChatRoomSchema = new Schema<IChatRoom, IChatRoomModel>({
   createdBy: {
     type: String,
     required: [true, "Creator is required"]
+  },
+  // Enhanced group settings
+  groupSettings: {
+    // Notification settings
+    notifications: {
+      enabled: { type: Boolean, default: true },
+      sound: { type: Boolean, default: true },
+      vibration: { type: Boolean, default: true },
+      mentions: { type: Boolean, default: true }
+    },
+    // Permission settings
+    permissions: {
+      sendMessages: { type: Boolean, default: true },
+      editInfo: { type: Boolean, default: false }, // Only admins
+      addParticipants: { type: Boolean, default: false }, // Only admins
+      removeParticipants: { type: Boolean, default: false }, // Only admins
+      pinMessages: { type: Boolean, default: false }, // Only admins
+      deleteMessages: { type: Boolean, default: false }, // Only admins
+      changeGroupInfo: { type: Boolean, default: false }, // Only admins
+      sendMedia: { type: Boolean, default: true },
+      sendFiles: { type: Boolean, default: true }
+    },
+    // Group info
+    info: {
+      isPublic: { type: Boolean, default: false },
+      inviteLink: { type: String },
+      inviteLinkExpiry: { type: Date },
+      maxParticipants: { type: Number, default: 256 },
+      joinApprovalRequired: { type: Boolean, default: false }
+    },
+    // Privacy settings
+    privacy: {
+      showParticipants: { type: Boolean, default: true },
+      allowProfileView: { type: Boolean, default: true },
+      allowMessageHistory: { type: Boolean, default: true }
+    }
+  },
+  // Group activity tracking
+  activity: {
+    totalMessages: { type: Number, default: 0 },
+    lastActivity: { type: Date, default: Date.now },
+    pinnedMessages: [{ type: String }], // Message IDs
+    announcements: [{ type: String }] // Message IDs
+  },
+  // Group metadata
+  metadata: {
+    category: { type: String, default: "General" },
+    tags: [{ type: String }],
+    location: { type: String },
+    website: { type: String },
+    contactInfo: {
+      email: { type: String },
+      phone: { type: String }
+    }
   }
 }, {
   timestamps: true,
@@ -158,6 +213,7 @@ const ChatRoomSchema = new Schema<IChatRoom, IChatRoomModel>({
 ChatRoomSchema.index({ participants: 1 });
 ChatRoomSchema.index({ admin: 1 });
 ChatRoomSchema.index({ createdBy: 1 });
+ChatRoomSchema.index({ "groupSettings.info.isPublic": 1 });
 
 export const ChatModel = models.Chat || model<IChat>("Chat", ChatSchema);
 export const ChatRoomModel = models.ChatRoom || model<IChatRoom>("ChatRoom", ChatRoomSchema);
