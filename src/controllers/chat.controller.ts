@@ -228,6 +228,33 @@ export const ChatController = {
     }
   },
 
+  getReadConversations: async (req: Request, res: Response) => {
+    try {
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      const conversations = await ChatService.getReadConversations(userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: conversations.length,
+        data: conversations
+      });
+    } catch (error) {
+      console.error("Get read conversations error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve read conversations"
+      });
+    }
+  },
+
   archiveConversation: async (req: Request, res: Response) => {
     try {
       const { conversationId, isGroup } = req.body;

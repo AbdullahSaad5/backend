@@ -47,7 +47,7 @@ export const ConversationStatusService = {
     },
 
     unarchiveConversation: async (userId: string, conversationId: string): Promise<IConversationStatus> => {
-        return ConversationStatusModel.findOneAndUpdate(
+        const result = await ConversationStatusModel.findOneAndUpdate(
             { userId, conversationId },
             {
                 $set: {
@@ -57,6 +57,12 @@ export const ConversationStatusService = {
             },
             { new: true }
         );
+
+        if (!result) {
+            throw new Error(`Conversation status not found for user ${userId} and conversation ${conversationId}`);
+        }
+
+        return result;
     },
 
     markAsPending: async (userId: string, conversationId: string, isGroup: boolean): Promise<IConversationStatus> => {
@@ -77,7 +83,7 @@ export const ConversationStatusService = {
     },
 
     markAsNotPending: async (userId: string, conversationId: string): Promise<IConversationStatus> => {
-        return ConversationStatusModel.findOneAndUpdate(
+        const result = await ConversationStatusModel.findOneAndUpdate(
             { userId, conversationId },
             {
                 $set: {
@@ -87,6 +93,12 @@ export const ConversationStatusService = {
             },
             { new: true }
         );
+
+        if (!result) {
+            throw new Error(`Conversation status not found for user ${userId} and conversation ${conversationId}`);
+        }
+
+        return result;
     },
 
     getPendingConversations: async (userId: string): Promise<IConversationStatus[]> => {
@@ -126,7 +138,12 @@ export const ConversationStatusService = {
                     lastReadAt: new Date(),
                     updatedAt: new Date()
                 }
-            }
+            },
+            { upsert: true }
         );
+    },
+
+    getConversationStatuses: async (userId: string): Promise<IConversationStatus[]> => {
+        return ConversationStatusModel.find({ userId }).sort({ updatedAt: -1 });
     }
 }; 

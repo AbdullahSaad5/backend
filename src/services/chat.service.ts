@@ -118,6 +118,10 @@ export const ChatService = {
   },
 
   getConversations: async (userId: string): Promise<any[]> => {
+    // Get archived conversation IDs to exclude them
+    const archivedStatuses = await ConversationStatusService.getArchivedConversations(userId);
+    const archivedIds = new Set(archivedStatuses.map(status => status.conversationId));
+
     const conversations = await ChatModel.aggregate([
       {
         $match: {
@@ -161,12 +165,17 @@ export const ChatService = {
       }
     ]);
 
-    // Get group conversations
+    // Filter out archived direct conversations
+    const filteredConversations = conversations.filter(conv => !archivedIds.has(conv._id));
+
+    // Get group conversations and filter out archived ones
     const groupConversations = await ChatRoomModel.find({
       participants: userId
     }).sort({ lastMessageAt: -1 });
 
-    return [...conversations, ...groupConversations];
+    const filteredGroupConversations = groupConversations.filter(group => !archivedIds.has(group._id));
+
+    return [...filteredConversations, ...filteredGroupConversations];
   },
 
   getPendingConversations: async (userId: string): Promise<any[]> => {
@@ -255,6 +264,77 @@ export const ChatService = {
     }
 
     return archivedConversations;
+  },
+
+  getReadConversations: async (userId: string): Promise<any[]> => {
+    // Get all conversation statuses for this user
+    const allStatuses = await ConversationStatusService.getConversationStatuses(userId);
+
+    // Filter for conversations that are not archived, not pending, and have no unread messages
+    const readStatuses = allStatuses.filter(status =>
+      !status.isArchived &&
+      !status.isPending
+    );
+
+    const readConversations = [];
+
+    for (const status of readStatuses) {
+      if (status.isGroup) {
+        // Get group details
+        const group = await ChatRoomModel.findById(status.conversationId);
+        if (group) {
+          // Check if group has unread messages
+          const unreadCount = await ChatModel.countDocuments({
+            chatRoom: status.conversationId,
+            sender: { $ne: userId },
+            status: { $ne: MessageStatus.READ }
+          });
+
+          if (unreadCount === 0) {
+            readConversations.push({
+              _id: group._id,
+              name: group.name,
+              isGroup: true,
+              lastMessage: group.lastMessage,
+              lastMessageAt: group.lastMessageAt,
+              participants: group.participants,
+              unreadCount: 0
+            });
+          }
+        }
+      } else {
+        // Get direct conversation details
+        const lastMessage = await ChatModel.findOne({
+          $or: [
+            { sender: userId, receiver: status.conversationId },
+            { sender: status.conversationId, receiver: userId }
+          ]
+        }).sort({ createdAt: -1 });
+
+        if (lastMessage) {
+          // Check if conversation has unread messages
+          const unreadCount = await ChatModel.countDocuments({
+            $or: [
+              { sender: status.conversationId, receiver: userId },
+              { sender: userId, receiver: status.conversationId }
+            ],
+            sender: { $ne: userId },
+            status: { $ne: MessageStatus.READ }
+          });
+
+          if (unreadCount === 0) {
+            readConversations.push({
+              _id: status.conversationId,
+              lastMessage: lastMessage,
+              isGroup: false,
+              unreadCount: 0
+            });
+          }
+        }
+      }
+    }
+
+    return readConversations;
   },
 
   markAsRead: async (messageId: string, userId: string): Promise<IChat | null> => {

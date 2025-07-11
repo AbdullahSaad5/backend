@@ -15,6 +15,7 @@ export const chat = (router: Router) => {
   router.get("/conversations", ChatController.getConversations);
   router.get("/conversations/pending", ChatController.getPendingConversations);
   router.get("/conversations/archived", ChatController.getArchivedConversations);
+  router.get("/conversations/read", ChatController.getReadConversations);
   router.post("/conversations/archive", ChatController.archiveConversation);
   router.post("/conversations/unarchive", ChatController.unarchiveConversation);
   router.post("/conversations/pending", ChatController.markAsPending);
