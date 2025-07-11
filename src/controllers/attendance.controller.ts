@@ -108,7 +108,23 @@ export const attendanceController = {
   getEmployeeAttendance: async (req: Request, res: Response) => {
     try {
       const { employeeId } = req.params;
-      const { startDate, endDate } = req.query;
+      let { startDate, endDate } = req.query;
+      // If both are missing, set defaults to last 30 days
+      if (!startDate && !endDate) {
+        const now = new Date();
+        endDate = now.toISOString();
+        startDate = new Date(
+          now.getTime() - 30 * 24 * 60 * 60 * 1000
+        ).toISOString();
+      } else {
+        // If provided, convert to Date
+        startDate = startDate
+          ? new Date(startDate as string).toISOString()
+          : undefined;
+        endDate = endDate
+          ? new Date(endDate as string).toISOString()
+          : undefined;
+      }
       const attendance = await attendanceService.getAttendance(
         employeeId,
         startDate ? new Date(startDate as string) : undefined,

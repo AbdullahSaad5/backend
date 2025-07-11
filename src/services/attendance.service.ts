@@ -2,12 +2,18 @@ import { IAttendance } from "@/contracts/attendance.contract";
 import { Attendance } from "@/models/attendance.model";
 import { Address, User } from "@/models";
 import { Types } from "mongoose";
-
 export const attendanceService = {
   // Employee self check-in
   checkIn: async (employeeId: string, shiftId: string, workModeId: string) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const isEmployee = await User.findOne({
+      _id: employeeId,
+      isEmployee: true,
+    });
+    if (!isEmployee) {
+      throw new Error("Only Employee can check in");
+    }
     let attendance = await Attendance.findOne({ employeeId, date: today });
     if (!attendance) {
       attendance = await Attendance.create({
