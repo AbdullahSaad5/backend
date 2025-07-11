@@ -517,13 +517,54 @@ export const ChatRoomService = {
   },
 
   leaveRoom: async (roomId: string, userId: string): Promise<boolean> => {
-    const result = await ChatRoomModel.findByIdAndUpdate(
-      roomId,
-      {
-        $pull: { participants: userId, admin: userId }
+    try {
+      console.log('LeaveRoom service called with:', { roomId, userId });
+
+      // First check if the room exists and user is a participant
+      const room = await ChatRoomModel.findById(roomId);
+      if (!room) {
+        console.log('Room not found:', roomId);
+        return false;
       }
-    );
-    return !!result;
+
+      console.log('Room found:', {
+        id: room._id,
+        name: room.name,
+        participants: room.participants,
+        admins: room.admin,
+        userIsParticipant: room.participants.includes(userId),
+        userIsAdmin: room.admin.includes(userId)
+      });
+
+      if (!room.participants.includes(userId)) {
+        console.log('User is not a participant:', userId);
+        return false;
+      }
+
+      const result = await ChatRoomModel.findByIdAndUpdate(
+        roomId,
+        {
+          $pull: { participants: userId, admin: userId }
+        },
+        { new: true }
+      );
+
+      console.log('LeaveRoom result:', result);
+
+      if (result) {
+        console.log('User successfully removed from room. Updated room:', {
+          id: result._id,
+          name: result.name,
+          participants: result.participants,
+          admins: result.admin
+        });
+      }
+
+      return !!result;
+    } catch (error) {
+      console.error('LeaveRoom service error:', error);
+      return false;
+    }
   },
 
   // Enhanced group settings methods
