@@ -3,6 +3,7 @@ import { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
 import { ChatService, ChatRoomService } from "@/services/chat.service";
 import { MessageType, MessageStatus } from "@/contracts/chat.contract";
+import { User } from "@/models/user.model";
 
 interface SocketUser {
   id: string;
@@ -184,16 +185,34 @@ class SocketManager {
             const roomId = [socket.user.id, data.receiver].sort().join('_');
             this.io?.to(roomId).emit("new-message", message);
 
-            // Emit notification to receiver
-            this.io?.to(data.receiver).emit("new-message-notification", {
-              messageId: message._id,
-              senderId: socket.user.id,
-              senderName: socket.user.email, // We'll enhance this with actual user data
-              content: data.content,
-              messageType: data.messageType || MessageType.TEXT,
-              timestamp: new Date(),
-              isGroup: false
-            });
+            // Get sender's actual user data for notification
+            try {
+              const senderUser = await User.findById(socket.user.id);
+              const senderName = senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : socket.user.email || 'Unknown User';
+
+              // Emit notification to receiver
+              this.io?.to(data.receiver).emit("new-message-notification", {
+                messageId: message._id,
+                senderId: socket.user.id,
+                senderName: senderName,
+                content: data.content,
+                messageType: data.messageType || MessageType.TEXT,
+                timestamp: new Date(),
+                isGroup: false
+              });
+            } catch (error) {
+              console.error("Error fetching sender user data:", error);
+              // Fallback to email if user data fetch fails
+              this.io?.to(data.receiver).emit("new-message-notification", {
+                messageId: message._id,
+                senderId: socket.user.id,
+                senderName: socket.user.email || 'Unknown User',
+                content: data.content,
+                messageType: data.messageType || MessageType.TEXT,
+                timestamp: new Date(),
+                isGroup: false
+              });
+            }
           } else if (data.chatRoom) {
             // Group message - emit to all users in the room including sender
             this.io?.to(data.chatRoom).emit("new-message", message);
@@ -202,12 +221,16 @@ class SocketManager {
             try {
               const chatRoom = await ChatRoomService.getRoomById(data.chatRoom);
               if (chatRoom && socket.user) {
+                // Get sender's actual user data for notification
+                const senderUser = await User.findById(socket.user.id);
+                const senderName = senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : socket.user.email || 'Unknown User';
+
                 chatRoom.participants.forEach((participantId: string) => {
                   if (participantId !== socket.user!.id) {
                     this.io?.to(participantId).emit("new-message-notification", {
                       messageId: message._id,
                       senderId: socket.user!.id,
-                      senderName: socket.user!.email,
+                      senderName: senderName,
                       content: data.content,
                       messageType: data.messageType || MessageType.TEXT,
                       timestamp: new Date(),

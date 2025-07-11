@@ -942,10 +942,19 @@ export const ChatRoomController = {
       const { roomId } = req.params;
       const userId = req.context?.user?.id;
 
+      console.log('LeaveRoom controller called with:', { roomId, userId });
+
       if (!userId) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
           success: false,
           message: "Authentication required"
+        });
+      }
+
+      if (!roomId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Room ID is required"
         });
       }
 
@@ -954,7 +963,7 @@ export const ChatRoomController = {
       if (!left) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Chat room not found"
+          message: "Chat room not found or you are not a participant"
         });
       }
 
