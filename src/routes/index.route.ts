@@ -57,6 +57,7 @@ import { Payroll } from "@/models/payroll.model";
 import payroll from "./payroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
+import { task } from "./task.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -119,6 +120,7 @@ const routes: {
   attendance,
   leaveRequest,
   payroll,
+  task,
 };
 
 // Loop through all routes and pass the router to each route

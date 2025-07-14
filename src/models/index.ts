@@ -20,3 +20,4 @@ export { Inventory } from "./inventory.model";
 // export { Message } from "./message.model";
 export { Log } from "./log.model";
 export { Gtin } from "./gtin.model";
+export { TaskModel } from "./task.model";
