@@ -10,11 +10,14 @@ export const GamerComunityService = {
     description: string,
     image: string,
     privacy: PrivacyStatus,
-  ) => {const newgamercomunity = new GamerComunity({
+    isBlocked?: boolean,
+  ) => {
+    const newgamercomunity = new GamerComunity({
       title,
       description,
       image,
       privacy,
+      isBlocked,
     });
     return newgamercomunity.save();
   },
@@ -26,6 +29,7 @@ export const GamerComunityService = {
       description?: string;
       image?: string;
       privacy?: PrivacyStatus;
+      isBlocked?: boolean;
     }
   ) => {
     const updateData = {
@@ -47,7 +51,7 @@ export const GamerComunityService = {
     return GamerComunity.findById(id);
   },
 
-  
+
 
   // Join request methods
 };
