@@ -12,11 +12,16 @@ export const attendanceController = {
       const userId = decoded.id.toString();
       console.log("userId : ", userId);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const { shiftId, workModeId } = req.body;
+      const { shiftId, workModeId, checkIn } = req.body;
+      if (!shiftId || !workModeId || !checkIn)
+        return res.status(400).json({ message: "Missing required fields" });
+      // Convert checkIn to Date object
+      const checkInDate = new Date(checkIn);
       const attendance = await attendanceService.checkIn(
         userId,
         shiftId,
-        workModeId
+        workModeId,
+        checkInDate
       );
       res.status(200).json(attendance);
     } catch (err: any) {
@@ -67,13 +72,24 @@ export const attendanceController = {
         checkIn,
         checkOut,
       } = req.body;
-      if (!employeeId || !date || !status || !checkIn || !checkOut)
-        return res.status(400).json({ message: "Missing required fields" });
-      console.log("employeeId : ", employeeId);
-      console.log("date : ", date);
-      console.log("status : ", status);
-      console.log("checkIn : ", checkIn);
-      console.log("checkOut : ", checkOut);
+
+      // Basic validation for required fields
+      if (!employeeId || !date || !status) {
+        return res.status(400).json({
+          message:
+            "Missing required fields: employeeId, date, and status are mandatory",
+        });
+      }
+
+      // Specific validation based on status
+      if (status === "present") {
+        if (!checkIn || !checkOut) {
+          return res.status(400).json({
+            message:
+              "Check-in and Check-out times are required for present status",
+          });
+        }
+      }
       const attendance = await attendanceService.adminMark(
         employeeId,
         new Date(date),

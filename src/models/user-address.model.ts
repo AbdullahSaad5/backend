@@ -14,8 +14,8 @@ const AddressSchema = new Schema<IUserAddress, UserAddressModel>(
     appartment: { type: String },
     city: { type: String },
     postalCode: { type: String },
-    longitude: { type: String, default: "0" },
-    latitude: { type: String, default: "0" },
+    longitude: { type: Number },
+    latitude: { type: Number },
     isDefault: { type: Boolean },
   },
   {

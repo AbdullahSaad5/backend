@@ -8,6 +8,7 @@ export interface IAttendance extends Document {
   status: "present" | "absent" | "leave" | "late";
   shiftId: Types.ObjectId;
   workModeId: Types.ObjectId;
+
   createdAt: Date;
   updatedAt: Date;
 }
