@@ -12,11 +12,16 @@ export const attendanceController = {
       const userId = decoded.id.toString();
       console.log("userId : ", userId);
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const { shiftId, workModeId } = req.body;
+      const { shiftId, workModeId, checkIn } = req.body;
+      if (!shiftId || !workModeId || !checkIn)
+        return res.status(400).json({ message: "Missing required fields" });
+      // Convert checkIn to Date object
+      const checkInDate = new Date(checkIn);
       const attendance = await attendanceService.checkIn(
         userId,
         shiftId,
-        workModeId
+        workModeId,
+        checkInDate
       );
       res.status(200).json(attendance);
     } catch (err: any) {
