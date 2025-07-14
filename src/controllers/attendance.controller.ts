@@ -67,13 +67,24 @@ export const attendanceController = {
         checkIn,
         checkOut,
       } = req.body;
-      if (!employeeId || !date || !status || !checkIn || !checkOut)
-        return res.status(400).json({ message: "Missing required fields" });
-      console.log("employeeId : ", employeeId);
-      console.log("date : ", date);
-      console.log("status : ", status);
-      console.log("checkIn : ", checkIn);
-      console.log("checkOut : ", checkOut);
+
+      // Basic validation for required fields
+      if (!employeeId || !date || !status) {
+        return res.status(400).json({
+          message:
+            "Missing required fields: employeeId, date, and status are mandatory",
+        });
+      }
+
+      // Specific validation based on status
+      if (status === "present") {
+        if (!checkIn || !checkOut) {
+          return res.status(400).json({
+            message:
+              "Check-in and Check-out times are required for present status",
+          });
+        }
+      }
       const attendance = await attendanceService.adminMark(
         employeeId,
         new Date(date),
