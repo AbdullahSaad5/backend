@@ -145,5 +145,22 @@ export const ConversationStatusService = {
 
     getConversationStatuses: async (userId: string): Promise<IConversationStatus[]> => {
         return ConversationStatusModel.find({ userId }).sort({ updatedAt: -1 });
+    },
+
+    // Delete conversation status for a specific user and conversation
+    deleteConversationStatus: async (userId: string, conversationId: string, isGroup: boolean): Promise<void> => {
+        await ConversationStatusModel.findOneAndDelete({
+            userId,
+            conversationId,
+            isGroup
+        });
+    },
+
+    // Delete all conversation statuses for a group
+    deleteGroupConversationStatuses: async (groupId: string): Promise<void> => {
+        await ConversationStatusModel.deleteMany({
+            conversationId: groupId,
+            isGroup: true
+        });
     }
 }; 

@@ -50,4 +50,8 @@ export const chat = (router: Router) => {
   router.get("/rooms/:roomId/participants", ChatRoomController.getRoomParticipants);
   router.get("/rooms/:roomId/admins", ChatRoomController.getRoomAdmins);
   router.post("/rooms/:roomId/notifications/send", ChatRoomController.sendGroupNotification);
+  router.delete("/rooms/:roomId", ChatRoomController.deleteGroup);
+
+  // Delete conversation route
+  router.delete("/conversations/:otherUserId", ChatController.deleteConversation);
 };

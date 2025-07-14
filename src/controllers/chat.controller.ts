@@ -658,6 +658,48 @@ export const ChatController = {
         message: "Failed to upload file"
       });
     }
+  },
+
+  // Delete conversation (all messages between two users)
+  deleteConversation: async (req: Request, res: Response) => {
+    try {
+      const { otherUserId } = req.params;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!otherUserId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Other user ID is required"
+        });
+      }
+
+      const deleted = await ChatService.deleteConversation(userId, otherUserId);
+
+      if (deleted) {
+        res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Conversation deleted successfully"
+        });
+      } else {
+        res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No conversation found to delete"
+        });
+      }
+    } catch (error) {
+      console.error("Delete conversation error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete conversation"
+      });
+    }
   }
 };
 
@@ -1439,6 +1481,49 @@ export const ChatRoomController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to send group notification"
+      });
+    }
+  },
+
+  // Delete group (all messages and the group itself)
+  deleteGroup: async (req: Request, res: Response) => {
+    try {
+      const { roomId } = req.params;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      if (!roomId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Room ID is required"
+        });
+      }
+
+      const deleted = await ChatService.deleteGroup(roomId, userId);
+
+      if (deleted) {
+        res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Group deleted successfully"
+        });
+      } else {
+        res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Group not found or you don't have permission to delete it"
+        });
+      }
+    } catch (error) {
+      console.error("Delete group error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to delete group";
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: errorMessage
       });
     }
   }

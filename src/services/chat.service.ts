@@ -452,6 +452,56 @@ export const ChatService = {
       .sort({ score: { $meta: "textScore" } })
       .limit(20)
       .exec();
+  },
+
+  // Delete conversation (all messages between two users)
+  deleteConversation: async (userId: string, otherUserId: string): Promise<boolean> => {
+    try {
+      const result = await ChatModel.deleteMany({
+        $or: [
+          { sender: userId, receiver: otherUserId },
+          { sender: otherUserId, receiver: userId }
+        ]
+      });
+
+      // Also delete conversation status records
+      await ConversationStatusService.deleteConversationStatus(userId, otherUserId, false);
+      await ConversationStatusService.deleteConversationStatus(otherUserId, userId, false);
+
+      return result.deletedCount > 0;
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      throw error;
+    }
+  },
+
+  // Delete group (all messages in the group and the group itself)
+  deleteGroup: async (groupId: string, userId: string): Promise<boolean> => {
+    try {
+      // Check if user is the creator of the group
+      const group = await ChatRoomModel.findById(groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      if (group.createdBy !== userId) {
+        throw new Error('Only group creator can delete the group');
+      }
+
+      // Delete all messages in the group
+      await ChatModel.deleteMany({ chatRoom: groupId });
+
+      // Delete all conversation status records for this group
+      await ConversationStatusService.deleteGroupConversationStatuses(groupId);
+
+      // Delete the group itself
+      await ChatRoomModel.findByIdAndDelete(groupId);
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      throw error;
+    }
   }
 };
 
