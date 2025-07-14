@@ -363,6 +363,21 @@ export const ChatService = {
     return message;
   },
 
+  markAsDelivered: async (messageId: string): Promise<IChat | null> => {
+    const message = await ChatModel.findOneAndUpdate(
+      {
+        _id: messageId,
+        status: MessageStatus.SENT
+      },
+      {
+        status: MessageStatus.DELIVERED
+      },
+      { new: true }
+    );
+
+    return message;
+  },
+
   markConversationAsRead: async (userId: string, otherUserId: string): Promise<void> => {
     await ChatModel.updateMany(
       {

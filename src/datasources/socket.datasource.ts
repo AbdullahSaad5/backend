@@ -185,6 +185,39 @@ class SocketManager {
             const roomId = [socket.user.id, data.receiver].sort().join('_');
             this.io?.to(roomId).emit("new-message", message);
 
+            // Check if receiver is online and mark as delivered immediately
+            const receiverUser = this.connectedUsers.get(data.receiver);
+            if (receiverUser) {
+              // Receiver is online, mark as delivered immediately
+              try {
+                console.log('Receiver is online, marking message as delivered:', message._id);
+                const updatedMessage = await ChatService.markAsDelivered(message._id);
+                if (updatedMessage) {
+                  console.log('Message marked as delivered, notifying sender');
+                  // Notify sender about delivery status
+                  this.io?.to(socket.user!.socketId).emit("message-delivered", {
+                    messageId: message._id,
+                    status: MessageStatus.DELIVERED
+                  });
+                  console.log('Message-delivered event emitted to sender');
+
+                  // Also emit to the room for real-time updates
+                  if (data.receiver) {
+                    const roomId = [socket.user!.id, data.receiver].sort().join('_');
+                    this.io?.to(roomId).emit("message-delivered", {
+                      messageId: message._id,
+                      status: MessageStatus.DELIVERED
+                    });
+                    console.log('Message-delivered event emitted to room:', roomId);
+                  }
+                }
+              } catch (error) {
+                console.error("Error marking message as delivered:", error);
+              }
+            } else {
+              console.log('Receiver is not online, message will remain as SENT');
+            }
+
             // Get sender's actual user data for notification
             try {
               const senderUser = await User.findById(socket.user.id);
@@ -224,6 +257,37 @@ class SocketManager {
                 // Get sender's actual user data for notification
                 const senderUser = await User.findById(socket.user.id);
                 const senderName = senderUser ? `${senderUser.firstName} ${senderUser.lastName}` : socket.user.email || 'Unknown User';
+
+                // Mark as delivered for all online participants immediately
+                const onlineParticipants = chatRoom.participants.filter(participantId =>
+                  participantId !== socket.user!.id && this.connectedUsers.has(participantId)
+                );
+
+                if (onlineParticipants.length > 0) {
+                  try {
+                    console.log('Group message: marking as delivered for online participants');
+                    const updatedMessage = await ChatService.markAsDelivered(message._id);
+                    if (updatedMessage) {
+                      // Notify sender about delivery status
+                      this.io?.to(socket.user!.socketId).emit("message-delivered", {
+                        messageId: message._id,
+                        status: MessageStatus.DELIVERED
+                      });
+                      console.log('Group message-delivered event emitted to sender');
+
+                      // Also emit to the group room for real-time updates
+                      this.io?.to(data.chatRoom).emit("message-delivered", {
+                        messageId: message._id,
+                        status: MessageStatus.DELIVERED
+                      });
+                      console.log('Group message-delivered event emitted to room:', data.chatRoom);
+                    }
+                  } catch (error) {
+                    console.error("Error marking group message as delivered:", error);
+                  }
+                } else {
+                  console.log('No online participants for group message');
+                }
 
                 chatRoom.participants.forEach((participantId: string) => {
                   if (participantId !== socket.user!.id) {
