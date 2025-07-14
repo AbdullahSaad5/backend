@@ -4,7 +4,12 @@ import { Address, User } from "@/models";
 import { Types } from "mongoose";
 export const attendanceService = {
   // Employee self check-in
-  checkIn: async (employeeId: string, shiftId: string, workModeId: string) => {
+  checkIn: async (
+    employeeId: string,
+    shiftId: string,
+    workModeId: string,
+    checkIn: Date
+  ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isEmployee = await User.findOne({
@@ -19,7 +24,7 @@ export const attendanceService = {
       attendance = await Attendance.create({
         employeeId,
         date: today,
-        checkIn: new Date(),
+        checkIn: checkIn,
         checkOut: undefined,
         shiftId,
         workModeId,
@@ -157,8 +162,8 @@ export const attendanceService = {
     if (
       !address.latitude ||
       !address.longitude ||
-      address.latitude === "0" ||
-      address.longitude === "0"
+      address.latitude === 0 ||
+      address.longitude === 0
     ) {
       throw new Error("Latitude and longitude for employee not found in db");
     }
@@ -168,8 +173,8 @@ export const attendanceService = {
     console.log("longitude : ", longitude);
 
     const distance = attendanceService.haversineDistance(
-      parseFloat(address.latitude),
-      parseFloat(address.longitude),
+      address.latitude,
+      address.longitude,
       latitude,
       longitude
     );
