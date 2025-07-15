@@ -2,7 +2,7 @@ import { Router } from "express";
 import { processedPayrollController } from "../controllers/processedpayroll.controller";
 import { adminRoleCheck } from "@/middlewares/auth.middleware";
 
-const processedpayroll = (router: Router) => {
+export const processedpayroll = (router: Router) => {
   // Create processed payroll
   router.post(
     "/",
@@ -31,5 +31,3 @@ const processedpayroll = (router: Router) => {
     processedPayrollController.updateProcessedPayrollById
   );
 };
-
-export default processedpayroll;
