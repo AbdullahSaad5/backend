@@ -53,7 +53,7 @@ import { workmode } from "./workmode.route";
 import { attendance } from "./attendance.route";
 import { leaveRequest } from "./leave-request.route";
 import payroll from "./payroll.route";
-import processedPayroll from "./processedpayroll.route";
+import processedpayroll from "./processedpayroll.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -116,7 +116,7 @@ const routes: {
   attendance,
   leaveRequest,
   payroll,
-  processedPayroll,
+  processedpayroll,
 };
 
 // Loop through all routes and pass the router to each route

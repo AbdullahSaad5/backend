@@ -61,7 +61,7 @@ export class PayrollService {
     try {
       const payroll = await Payroll.findById(payrollId)
         .populate("category", "name")
-        .populate("userId", "name email");
+        .populate("userId", "firstName lastName email");
 
       if (!payroll) {
         throw new Error("Payroll not found");
