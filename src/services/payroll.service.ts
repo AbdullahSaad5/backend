@@ -3,6 +3,10 @@ import { Payroll } from "../models/payroll.model";
 import { PayrollDocument, ContractType } from "../contracts/payroll.contract";
 
 export class PayrollService {
+  async getPayrollByEmployeeId(employeeId: string) {
+    return await Payroll.findOne({ userId: employeeId });
+  }
+
   async createPayroll(
     payrollData: Omit<PayrollDocument, "createdAt" | "updatedAt" | "_id">
   ) {

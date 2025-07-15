@@ -13,10 +13,9 @@ export const payroll = (router: Router) => {
     controller.createPayroll.bind(controller)
   );
 
-  router.put(
+  router.patch(
     "/:id",
     adminRoleCheck,
-    validatePayroll,
     controller.updatePayroll.bind(controller)
   );
 
