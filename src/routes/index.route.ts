@@ -53,6 +53,7 @@ import { workmode } from "./workmode.route";
 import { attendance } from "./attendance.route";
 import { leaveRequest } from "./leave-request.route";
 import payroll from "./payroll.route";
+import processedpayroll from "./processedpayroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 import { task } from "./task.route";
@@ -121,6 +122,7 @@ const routes: {
   attendance,
   leaveRequest,
   payroll,
+  processedpayroll,
   task,
   processedPayroll,
 };
