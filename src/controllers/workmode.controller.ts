@@ -7,8 +7,14 @@ import { Workmode } from "@/models/workmode.model";
 
 // Remove user from all workmodes and workshifts
 async function removeUserFromAllModesAndShifts(userId: string) {
-  await Workmode.updateMany({ employees: userId }, { $pull: { employees: userId } });
-  await Shift.updateMany({ employees: userId }, { $pull: { employees: userId } });
+  await Workmode.updateMany(
+    { employees: userId },
+    { $pull: { employees: userId } }
+  );
+  await Shift.updateMany(
+    { employees: userId },
+    { $pull: { employees: userId } }
+  );
 }
 
 export const workmodeController = {
@@ -32,8 +38,14 @@ export const workmodeController = {
           await removeUserFromAllModesAndShifts(userId);
         }
       }
-      const newWorkmode = await workmodeService.createWorkmode({ modeName, description, employees });
-      const populated = await workmodeService.getWorkmodeById(newWorkmode._id as string);
+      const newWorkmode = await workmodeService.createWorkmode({
+        modeName,
+        description,
+        employees,
+      });
+      const populated = await workmodeService.getWorkmodeById(
+        newWorkmode._id as string
+      );
       return res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Workmode created successfully",
@@ -109,7 +121,10 @@ export const workmodeController = {
           await removeUserFromAllModesAndShifts(userId);
         }
       }
-      if (updateData.employees && updateData.employees.some((eid: string) => !isValidObjectId(eid))) {
+      if (
+        updateData.employees &&
+        updateData.employees.some((eid: string) => !isValidObjectId(eid))
+      ) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Invalid employee IDs provided",
@@ -137,8 +152,52 @@ export const workmodeController = {
   },
 
   async patchWorkmode(req: Request, res: Response) {
-    // For partial update, same as updateWorkmode
-    return workmodeController.updateWorkmode(req, res);
+    try {
+      const { id } = req.params;
+      const { employees } = req.body;
+
+      if (!isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid workmode ID",
+        });
+      }
+
+      if (!employees || !Array.isArray(employees)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Employees array is required",
+        });
+      }
+
+      if (employees.some((id) => !isValidObjectId(id))) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid employee IDs provided",
+        });
+      }
+
+      const updated = await workmodeService.patchWorkmode(id, employees);
+
+      if (!updated) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Workmode not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Workmode updated successfully",
+        data: updated,
+      });
+    } catch (error: any) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating workmode",
+        error: error.message,
+      });
+    }
   },
 
   async deleteWorkmode(req: Request, res: Response) {
@@ -169,4 +228,4 @@ export const workmodeController = {
       });
     }
   },
-}; 
+};

@@ -1,9 +1,5 @@
 import { model, Schema } from "mongoose";
-import {
-  PayrollDocument,
-  PayrollModel,
-  ContractType,
-} from "../contracts/payroll.contract";
+import { PayrollDocument, ContractType } from "../contracts/payroll.contract";
 
 const deductionAllowanceSchema = new Schema(
   {
