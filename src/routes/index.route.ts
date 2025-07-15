@@ -124,7 +124,6 @@ const routes: {
   payroll,
   processedpayroll,
   task,
-  processedPayroll,
 };
 
 // Loop through all routes and pass the router to each route
