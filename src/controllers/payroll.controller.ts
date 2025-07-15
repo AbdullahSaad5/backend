@@ -11,6 +11,19 @@ export class PayrollController {
 
   async createPayroll(req: Request, res: Response) {
     try {
+      const alreadyExistsPayroll =
+        await this.payrollService.getPayrollByEmployeeId(
+          req.body.userId.toString()
+        );
+      console.log("payroll : ", alreadyExistsPayroll);
+      console.log("req.body : ", req.body);
+      if (alreadyExistsPayroll) {
+        return res.status(400).json({
+          success: false,
+          error: "Payroll already exists- Please update the payroll",
+        });
+      }
+
       const payroll = await this.payrollService.createPayroll(req.body);
       res.status(201).json({
         success: true,
