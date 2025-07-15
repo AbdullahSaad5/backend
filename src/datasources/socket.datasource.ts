@@ -12,9 +12,6 @@ interface SocketUser {
   isOnline: boolean;
   lastSeen: Date;
   currentRoom?: string;
-  lastHeartbeat: Date;
-  heartbeatInterval?: NodeJS.Timeout;
-  gracePeriodTimeout?: NodeJS.Timeout;
 }
 
 interface AuthenticatedSocket extends Socket {
@@ -33,9 +30,6 @@ class SocketManager {
   private io: Server | null = null;
   private connectedUsers: Map<string, SocketUser> = new Map();
   private typingUsers: Map<string, TypingUsers> = new Map();
-  private heartbeatInterval = 30000; // 30 seconds
-  private gracePeriod = 10000; // 10 seconds
-  private cleanupInterval = 60000; // 1 minute
 
   public run(httpServer: HttpServer): void {
     this.io = new Server(httpServer, {
@@ -51,10 +45,7 @@ class SocketManager {
     this.io.use(this.authMiddleware.bind(this));
     this.io.on("connection", this.handleConnection.bind(this));
 
-    // Start periodic cleanup
-    this.startPeriodicCleanup();
-
-    console.log("Socket.IO server initialized with enhanced status tracking");
+    console.log("Socket.IO server initialized");
   }
 
   private authMiddleware(
@@ -81,7 +72,6 @@ class SocketManager {
         socketId: socket.id,
         isOnline: true,
         lastSeen: new Date(),
-        lastHeartbeat: new Date(),
       };
 
       next();
@@ -93,27 +83,13 @@ class SocketManager {
   private handleConnection(socket: AuthenticatedSocket): void {
     if (!socket.user) return;
 
-    console.log(`=== USER CONNECTION ===`);
     console.log(`User connected: ${socket.user.email} (${socket.id})`);
-    console.log(`User ID: ${socket.user.id}`);
-    console.log(`Total connected users before adding: ${this.connectedUsers.size}`);
 
     // Store user connection
     this.connectedUsers.set(socket.user.id, socket.user);
-    console.log(`Total connected users after adding: ${this.connectedUsers.size}`);
-    console.log(`User isOnline status: ${socket.user.isOnline}`);
-
-    // Start heartbeat for this user
-    this.startHeartbeat(socket);
 
     // Broadcast user online status
     this.broadcastUserStatus(socket.user.id, true);
-    console.log(`=== USER CONNECTION COMPLETE ===`);
-
-    // Handle heartbeat from client
-    socket.on("heartbeat", () => {
-      this.handleHeartbeat(socket);
-    });
 
     // Handle user joining a room
     socket.on("join-room", (roomId: string) => {
@@ -215,7 +191,7 @@ class SocketManager {
               // Receiver is online, mark as delivered immediately
               try {
                 console.log('Receiver is online, marking message as delivered:', message._id);
-                const updatedMessage = await ChatService.markAsDelivered(message._id as string);
+                const updatedMessage = await ChatService.markAsDelivered(message._id);
                 if (updatedMessage) {
                   console.log('Message marked as delivered, notifying sender');
                   // Notify sender about delivery status
@@ -290,7 +266,7 @@ class SocketManager {
                 if (onlineParticipants.length > 0) {
                   try {
                     console.log('Group message: marking as delivered for online participants');
-                    const updatedMessage = await ChatService.markAsDelivered(message._id as string);
+                    const updatedMessage = await ChatService.markAsDelivered(message._id);
                     if (updatedMessage) {
                       // Notify sender about delivery status
                       this.io?.to(socket.user!.socketId).emit("message-delivered", {
@@ -467,10 +443,6 @@ class SocketManager {
 
     // Handle getting online users
     socket.on("get-online-users", () => {
-      console.log('=== GET ONLINE USERS REQUEST ===');
-      console.log('Request from socket:', socket.id);
-      console.log('Total connected users:', this.connectedUsers.size);
-
       const onlineUsers = Array.from(this.connectedUsers.values()).map(
         (user) => ({
           id: user.id,
@@ -480,135 +452,13 @@ class SocketManager {
         })
       );
 
-      console.log('Sending online users to client:', onlineUsers);
-      console.log('Online users count:', onlineUsers.filter(u => u.isOnline).length);
-      console.log('Connected users details:', Array.from(this.connectedUsers.entries()).map(([id, user]) => ({
-        id,
-        email: user.email,
-        isOnline: user.isOnline,
-        lastSeen: user.lastSeen
-      })));
-
       socket.emit("online-users", onlineUsers);
-      console.log('=== ONLINE USERS SENT ===');
     });
 
     // Handle disconnect
     socket.on("disconnect", () => {
       this.handleDisconnect(socket);
     });
-  }
-
-  // Enhanced heartbeat system
-  private startHeartbeat(socket: AuthenticatedSocket): void {
-    if (!socket.user) return;
-
-    // Clear any existing heartbeat interval
-    if (socket.user.heartbeatInterval) {
-      clearInterval(socket.user.heartbeatInterval);
-    }
-
-    // Set up heartbeat interval
-    socket.user.heartbeatInterval = setInterval(() => {
-      this.checkHeartbeat(socket);
-    }, this.heartbeatInterval);
-
-    // Send initial heartbeat request
-    socket.emit("heartbeat-request");
-  }
-
-  private handleHeartbeat(socket: AuthenticatedSocket): void {
-    if (!socket.user) return;
-
-    // Update last heartbeat time
-    socket.user.lastHeartbeat = new Date();
-    socket.user.lastSeen = new Date();
-
-    // Clear grace period timeout if it exists
-    if (socket.user.gracePeriodTimeout) {
-      clearTimeout(socket.user.gracePeriodTimeout);
-      socket.user.gracePeriodTimeout = undefined;
-    }
-
-    // Update user status to online if it was offline
-    if (!socket.user.isOnline) {
-      socket.user.isOnline = true;
-      this.connectedUsers.set(socket.user.id, socket.user);
-      this.broadcastUserStatus(socket.user.id, true);
-      console.log(`User ${socket.user.email} is back online`);
-    }
-
-    // Send heartbeat response
-    socket.emit("heartbeat-response");
-  }
-
-  private checkHeartbeat(socket: AuthenticatedSocket): void {
-    if (!socket.user) return;
-
-    const now = new Date();
-    const timeSinceLastHeartbeat = now.getTime() - socket.user.lastHeartbeat.getTime();
-
-    // If no heartbeat for more than grace period, mark as offline
-    if (timeSinceLastHeartbeat > this.gracePeriod) {
-      console.log(`User ${socket.user.email} missed heartbeat, marking as offline`);
-
-      // Set grace period timeout
-      socket.user.gracePeriodTimeout = setTimeout(() => {
-        this.markUserOffline(socket.user!.id);
-      }, this.gracePeriod);
-
-      // Send heartbeat request
-      socket.emit("heartbeat-request");
-    }
-  }
-
-  private markUserOffline(userId: string): void {
-    const user = this.connectedUsers.get(userId);
-    if (user && user.isOnline) {
-      user.isOnline = false;
-      user.lastSeen = new Date();
-      this.connectedUsers.set(userId, user);
-
-      // Clear heartbeat interval
-      if (user.heartbeatInterval) {
-        clearInterval(user.heartbeatInterval);
-        user.heartbeatInterval = undefined;
-      }
-
-      // Clear grace period timeout
-      if (user.gracePeriodTimeout) {
-        clearTimeout(user.gracePeriodTimeout);
-        user.gracePeriodTimeout = undefined;
-      }
-
-      this.broadcastUserStatus(userId, false);
-      console.log(`User ${user.email} marked as offline`);
-    }
-  }
-
-  private startPeriodicCleanup(): void {
-    setInterval(() => {
-      const now = new Date();
-      const staleThreshold = 5 * 60 * 1000; // 5 minutes
-
-      for (const [userId, user] of this.connectedUsers.entries()) {
-        const timeSinceLastSeen = now.getTime() - user.lastSeen.getTime();
-
-        // Remove stale connections
-        if (timeSinceLastSeen > staleThreshold) {
-          console.log(`Removing stale connection for user ${user.email}`);
-          this.connectedUsers.delete(userId);
-
-          // Clear intervals
-          if (user.heartbeatInterval) {
-            clearInterval(user.heartbeatInterval);
-          }
-          if (user.gracePeriodTimeout) {
-            clearTimeout(user.gracePeriodTimeout);
-          }
-        }
-      }
-    }, this.cleanupInterval);
   }
 
   private handleStartTyping(
@@ -688,8 +538,16 @@ class SocketManager {
 
     console.log(`User disconnected: ${socket.user.email} (${socket.id})`);
 
-    // Mark user as offline immediately
-    this.markUserOffline(socket.user.id);
+    // Update user status
+    const user = this.connectedUsers.get(socket.user.id);
+    if (user) {
+      user.isOnline = false;
+      user.lastSeen = new Date();
+      this.connectedUsers.set(socket.user.id, user);
+    }
+
+    // Broadcast user offline status
+    this.broadcastUserStatus(socket.user.id, false);
 
     // Clean up typing indicators
     this.cleanupTypingIndicators(socket.user.id);
@@ -701,7 +559,6 @@ class SocketManager {
   }
 
   private broadcastUserStatus(userId: string, isOnline: boolean): void {
-    console.log(`Broadcasting user status change: ${userId} is now ${isOnline ? 'online' : 'offline'}`);
     this.io?.emit("user-status-changed", {
       userId,
       isOnline,
