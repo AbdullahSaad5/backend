@@ -42,7 +42,6 @@ import { workshift } from "./workshift.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
-
 import { guidescategory } from "./guidescategory.route";
 import { guide } from "./guide.route";
 import { faqcategory } from "./faqcategory.route";
@@ -53,13 +52,15 @@ import { employee } from "./employee.route";
 import { workmode } from "./workmode.route";
 import { attendance } from "./attendance.route";
 import { leaveRequest } from "./leave-request.route";
-import { Payroll } from "@/models/payroll.model";
 import payroll from "./payroll.route";
+import processedPayroll from "./processedpayroll.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+
+// Register processedPayroll route
 
 // Define all routes
 const routes: {
@@ -115,6 +116,7 @@ const routes: {
   attendance,
   leaveRequest,
   payroll,
+  processedPayroll,
 };
 
 // Loop through all routes and pass the router to each route
