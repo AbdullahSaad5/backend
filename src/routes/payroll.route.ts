@@ -34,5 +34,3 @@ export const payroll = (router: Router) => {
     controller.calculateNetSalary.bind(controller)
   );
 };
-
-export default payroll;
