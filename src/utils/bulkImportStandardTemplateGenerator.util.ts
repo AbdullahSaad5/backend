@@ -43,7 +43,7 @@ export const bulkImportStandardTemplateGenerator = {
     }
   },
 
-  fetchAspectsForAllCategories: async () => {
+  fetchAttributesForAllCategories: async () => {
     try {
       // Step 1: Get all category ID-name pairs
       const categoryIdNamePairs = await bulkImportStandardTemplateGenerator.fetchAllAmazonCategoryIds(); // [{ id, name }]
@@ -89,12 +89,12 @@ export const bulkImportStandardTemplateGenerator = {
       if (fulfilledResults.length > 0) {
         await bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
       } else {
-        console.log("No valid aspects to export.");
+        console.log("No valid attributes to export.");
       }
 
       return fulfilledResults;
     } catch (error) {
-      console.error("Error fetching aspects for all categories:", error);
+      console.error("Error fetching attributes for all categories:", error);
       throw error;
     }
   },

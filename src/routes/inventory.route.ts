@@ -71,7 +71,7 @@ export const inventory = (router: Router) => {
 
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
 
-  router.get("/fetch-all-categories", bulkImportStandardTemplateGenerator.fetchAspectsForAllCategories); // only usable route to get all gategories from ebay and to create bulk import template
+  router.get("/fetch-all-categories", bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories); // only usable route to get all gategories from ebay and to create bulk import template
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);

@@ -1149,9 +1149,6 @@ export const inventoryController = {
   },
   generateXLSXTemplate: async (req: Request, res: Response) => {
     try {
-      // const { attributes } = req.body || {};
-
-      // Use provided attributes or fallback to dummy data
       const templateAttributes = [
         {
           name: "Name",
