@@ -47,9 +47,9 @@ export const bulkImportStandardTemplateGenerator = {
     try {
       // Step 1: Get all category ID-name pairs
       const categoryIdNamePairs = await bulkImportStandardTemplateGenerator.fetchAllAmazonCategoryIds(); // [{ id, name }]
-      if (categoryIdNamePairs.length === 0) {
+      if (!categoryIdNamePairs || categoryIdNamePairs.length === 0) {
         console.log("No category IDs found.");
-        return;
+        return [];
       }
 
       // Step 2: Fetch aspects for each category using Promise.allSettled
@@ -60,7 +60,7 @@ export const bulkImportStandardTemplateGenerator = {
         })
       );
 
-      // Step 3: Filter fulfilled
+      // Step 3: Filter fulfilled results
       const fulfilledResults = results
         .filter(
           (
@@ -69,22 +69,28 @@ export const bulkImportStandardTemplateGenerator = {
             categoryId: string;
             categoryName: string;
             aspects: any;
-          }> => result.status === "fulfilled" && !!result.value?.categoryId
+          }> => result.status === "fulfilled" && !!result.value?.categoryId && !!result.value.aspects
         )
         .map((result) => result.value);
 
-      // Step 4: Log rejected ones
+      // Step 4: Log rejected results
       const failedCategories = results
-        .map((res, index) => ({ res, index }))
-        .filter(({ res }) => res.status === "rejected")
-        .map(({ index }) => categoryIdNamePairs[index].id);
+        .filter((result) => result.status === "rejected")
+        .map((result, index) => ({
+          categoryId: categoryIdNamePairs[index].id,
+          reason: result.reason?.message || "Unknown error",
+        }));
 
       if (failedCategories.length > 0) {
         console.warn("Some categories failed to fetch aspects:", failedCategories);
       }
 
       // Step 5: Export to Excel with names and aspects
-      bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
+      if (fulfilledResults.length > 0) {
+        await bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
+      } else {
+        console.log("No valid aspects to export.");
+      }
 
       return fulfilledResults;
     } catch (error) {
@@ -92,46 +98,47 @@ export const bulkImportStandardTemplateGenerator = {
       throw error;
     }
   },
-  getAmazonActualSchema: async (id: any) => {
+  getAmazonActualSchema: async (id: string): Promise<any> => {
     try {
-      const productType = id;
-      if (!productType) {
-        return res.status(400).json({ error: "Missing productType parameter" });
+      if (!id) {
+        throw new Error("Missing productType parameter");
       }
 
-      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
-
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${id}?marketplaceIds=A1F83G8C2ARO7P`;
       const accessToken = await getStoredAmazonAccessToken();
 
       // Fetch SP API product type schema metadata
       const spApiResponse = await fetch(spApiUrl, {
         method: "GET",
-        headers: { "x-amz-access-token": accessToken ?? "", "Content-Type": "application/json" },
+        headers: {
+          "x-amz-access-token": accessToken ?? "",
+          "Content-Type": "application/json",
+        },
       });
 
       if (!spApiResponse.ok) {
-        return res.status(spApiResponse.status).json({ error: "Failed to fetch product type schema" });
+        throw new Error(`Failed to fetch product type schema: ${spApiResponse.statusText}`);
       }
 
       const spApiData = await spApiResponse.json();
-
       const schemaUrl = spApiData.schema?.link?.resource;
       if (!schemaUrl) {
-        return res.status(400).json({ error: "Schema link resource not found" });
+        throw new Error("Schema link resource not found");
       }
 
-      // Fetch actual schema JSON from schemaUrl (usually public S3 URL with token)
+      // Fetch actual schema JSON from schemaUrl
       const schemaResponse = await fetch(schemaUrl);
       if (!schemaResponse.ok) {
-        return res.status(schemaResponse.status).json({ error: "Failed to fetch actual schema" });
+        throw new Error(`Failed to fetch actual schema: ${schemaResponse.statusText}`);
       }
 
       const actualSchema = await schemaResponse.json();
-      console.log("actual Schema", actualSchema);
+      console.log(`Fetched schema for productType ${id}`, actualSchema);
 
       return actualSchema;
     } catch (error: any) {
-      return res.status(500).json({ error: "Internal server error", details: error.message });
+      console.error(`Error fetching schema for productType ${id}:`, error.message);
+      throw error;
     }
   },
   exportCategoryAspectsToExcel: async (
