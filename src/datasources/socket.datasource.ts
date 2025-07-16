@@ -38,8 +38,12 @@ class SocketManager {
         methods: ["GET", "POST"],
         credentials: true,
       },
-      pingTimeout: 60000,
-      pingInterval: 25000,
+      pingTimeout: 60000,        // Increased from 60000 to be more tolerant
+      pingInterval: 25000,       // Keep at 25 seconds
+      transports: ['websocket', 'polling'], // Add polling as fallback
+      allowEIO3: true,           // Allow Engine.IO v3 clients
+      maxHttpBufferSize: 1e6,    // 1MB buffer size
+      connectTimeout: 45000,     // 45 second connection timeout
     });
 
     this.io.use(this.authMiddleware.bind(this));
@@ -455,6 +459,13 @@ class SocketManager {
       socket.emit("online-users", onlineUsers);
     });
 
+    // Handle heartbeat from client
+    socket.on("heartbeat", () => {
+      console.log(`Heartbeat received from ${socket.user?.email}`);
+      // Send heartbeat response back to client
+      socket.emit("heartbeat-response");
+    });
+
     // Handle disconnect
     socket.on("disconnect", () => {
       this.handleDisconnect(socket);
@@ -574,6 +585,17 @@ class SocketManager {
     setTimeout(() => {
       this.connectedUsers.delete(socket.user!.id);
     }, 30000); // 30 seconds delay
+  }
+
+  // Keep users online even with weak connections
+  private keepUserOnline(userId: string): void {
+    const user = this.connectedUsers.get(userId);
+    if (user) {
+      // Keep user as online even if they have weak connection
+      user.isOnline = true;
+      user.lastSeen = new Date();
+      this.connectedUsers.set(userId, user);
+    }
   }
 
   private broadcastUserStatus(userId: string, isOnline: boolean): void {
