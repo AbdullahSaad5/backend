@@ -170,8 +170,13 @@ export const attendanceController = {
 
   // Admin: get all employees' attendance for a date
   getAllForDate: async (req: Request, res: Response) => {
+    const { startDate, endDate } = req.query;
+
     try {
-      const attendance = await attendanceService.getAllForDate();
+      const attendance = await attendanceService.getAllForDate(
+        startDate ? new Date(startDate as string) : undefined,
+        endDate ? new Date(endDate as string) : undefined
+      );
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
