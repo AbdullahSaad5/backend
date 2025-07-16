@@ -338,15 +338,15 @@ class SocketManager {
     // Handle typing indicators
     socket.on(
       "typing-start",
-      (data: { receiver?: string; chatRoom?: string }) => {
-        this.handleStartTyping(socket, data.receiver, data.chatRoom);
+      async (data: { receiver?: string; chatRoom?: string }) => {
+        await this.handleStartTyping(socket, data.receiver, data.chatRoom);
       }
     );
 
     socket.on(
       "typing-stop",
-      (data: { receiver?: string; chatRoom?: string }) => {
-        this.handleStopTyping(socket, data.receiver, data.chatRoom);
+      async (data: { receiver?: string; chatRoom?: string }) => {
+        await this.handleStopTyping(socket, data.receiver, data.chatRoom);
       }
     );
 
@@ -461,16 +461,24 @@ class SocketManager {
     });
   }
 
-  private handleStartTyping(
+  private async handleStartTyping(
     socket: AuthenticatedSocket,
     receiver?: string,
     chatRoom?: string
-  ): void {
+  ): Promise<void> {
     if (!socket.user) return;
+
+    // Use static messages instead of fetching user names
+    let userName = "User";
+    if (chatRoom) {
+      userName = "Someone";
+    }
+
+    console.log('Using static userName for typing indicator:', userName);
 
     const typingData = {
       userId: socket.user.id,
-      userName: socket.user.email,
+      userName: userName,
       timestamp: new Date(),
     };
 
@@ -481,9 +489,10 @@ class SocketManager {
       typingUsers[socket.user.id] = typingData;
       this.typingUsers.set(roomId, typingUsers);
 
-      this.io?.to(roomId).emit("user-typing", {
+      console.log('Emitting typing event to room:', roomId, 'with userName:', userName);
+      socket.to(roomId).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: true,
       });
     } else if (chatRoom) {
@@ -492,20 +501,29 @@ class SocketManager {
       typingUsers[socket.user.id] = typingData;
       this.typingUsers.set(chatRoom, typingUsers);
 
+      console.log('Emitting typing event to group:', chatRoom, 'with userName:', userName);
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: true,
       });
     }
   }
 
-  private handleStopTyping(
+  private async handleStopTyping(
     socket: AuthenticatedSocket,
     receiver?: string,
     chatRoom?: string
-  ): void {
+  ): Promise<void> {
     if (!socket.user) return;
+
+    // Use static messages instead of fetching user names
+    let userName = "User";
+    if (chatRoom) {
+      userName = "Someone";
+    }
+
+    console.log('Using static userName for typing indicator:', userName);
 
     if (receiver) {
       // Private chat stop typing
@@ -514,9 +532,9 @@ class SocketManager {
       delete typingUsers[socket.user.id];
       this.typingUsers.set(roomId, typingUsers);
 
-      this.io?.to(roomId).emit("user-typing", {
+      socket.to(roomId).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: false,
       });
     } else if (chatRoom) {
@@ -527,7 +545,7 @@ class SocketManager {
 
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: false,
       });
     }
