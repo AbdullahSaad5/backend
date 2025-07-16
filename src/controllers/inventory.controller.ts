@@ -5,8 +5,10 @@ import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
+import path from "path";
+import fs from "fs";
 import { processVariationsUtility } from "@/utils/processVariation.util";
-const XLSX = require('xlsx');
+const XLSX = require("xlsx");
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -291,32 +293,32 @@ export const inventoryController = {
   //       prodInfo.operating_system?.[0]?.value
   //     ];
   //     break;
-    // case "all in one":
-    //   fields = [
-    //     prodInfo.type?.[0]?.value,
-    //     prodInfo.memory?.[0]?.value,
-    //     prodInfo.processor_description?.[0]?.value,
-    //     prodInfo.operating_system?.[0]?.value
-    //   ];
+  // case "all in one":
+  //   fields = [
+  //     prodInfo.type?.[0]?.value,
+  //     prodInfo.memory?.[0]?.value,
+  //     prodInfo.processor_description?.[0]?.value,
+  //     prodInfo.operating_system?.[0]?.value
+  //   ];
 
-    //       case "mini pc":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "computers":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "projectors":
-    //         fields = [prodInfo.type, prodInfo.model];
-    //         break;
-    //       case "monitors":
-    //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
-    //         break;
-    //       case "gaming pc":
-    //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
-    //         break;
-    //       case "network equipments":
-    //         fields = [prodInfo.networkType, prodInfo.processorType];
-    //         break;
+  //       case "mini pc":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "computers":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "projectors":
+  //         fields = [prodInfo.type, prodInfo.model];
+  //         break;
+  //       case "monitors":
+  //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
+  //         break;
+  //       case "gaming pc":
+  //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
+  //         break;
+  //       case "network equipments":
+  //         fields = [prodInfo.networkType, prodInfo.processorType];
+  //         break;
   //         default:
   //           fields = ["UNKNOWN"];
   //       }
@@ -356,45 +358,45 @@ export const inventoryController = {
   //   }
   // },
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
-  try {
-    const templates = await inventoryService.getInventoryByCondition({
-      isTemplate: true,
-    });
-
-    if (!templates.length) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: "No templates found",
+    try {
+      const templates = await inventoryService.getInventoryByCondition({
+        isTemplate: true,
       });
-    }
 
-    const templateList = templates.map((template: any, index: number) => {
-      const inventoryId = template._id;
-      const templateAlias = template.alias;
-      const kind = (template.kind || "UNKNOWN").toLowerCase();
+      if (!templates.length) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No templates found",
+        });
+      }
 
-      // Properly access the category name
-      const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
-      const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
+      const templateList = templates.map((template: any, index: number) => {
+        const inventoryId = template._id;
+        const templateAlias = template.alias;
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-      const prodInfo = template.prodTechInfo || {};
-      let fields: string[] = [];
+        // Properly access the category name
+        const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
+        const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
 
-      // Use proper field access based on your actual data structure
-      switch (itemCategory.toLowerCase()) {
-        case "laptops":
-          fields = [
-            prodInfo.processor_description?.[0]?.value || prodInfo.processor,
-            prodInfo.model_name?.[0]?.value || prodInfo.model,
-          ];
-          break;
-              case "all in one":
-      fields = [
-        prodInfo.type?.[0]?.value,
-        prodInfo.memory?.[0]?.value,
-        prodInfo.processor_description?.[0]?.value,
-        prodInfo.operating_system?.[0]?.value
-      ];
+        const prodInfo = template.prodTechInfo || {};
+        let fields: string[] = [];
+
+        // Use proper field access based on your actual data structure
+        switch (itemCategory.toLowerCase()) {
+          case "laptops":
+            fields = [
+              prodInfo.processor_description?.[0]?.value || prodInfo.processor,
+              prodInfo.model_name?.[0]?.value || prodInfo.model,
+            ];
+            break;
+          case "all in one":
+            fields = [
+              prodInfo.type?.[0]?.value,
+              prodInfo.memory?.[0]?.value,
+              prodInfo.processor_description?.[0]?.value,
+              prodInfo.operating_system?.[0]?.value,
+            ];
 
           case "mini pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
@@ -414,39 +416,39 @@ export const inventoryController = {
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
-        // Add other cases
-        default:
-          fields = ["UNKNOWN"];
-      }
+          // Add other cases
+          default:
+            fields = ["UNKNOWN"];
+        }
 
-      const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-      const srno = (index + 1).toString().padStart(2, "0");
-      const templateName =
-        ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+        const srno = (index + 1).toString().padStart(2, "0");
+        const templateName =
+          ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-      return { templateName, inventoryId, templateAlias };
-    });
+        return { templateName, inventoryId, templateAlias };
+      });
 
-    // Sorting logic remains the same
-    templateList.sort((a, b) => {
-      const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
-      const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
-      return numB - numA;
-    });
+      // Sorting logic remains the same
+      templateList.sort((a, b) => {
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
+      });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Templates fetched successfully",
-      data: templateList,
-    });
-  } catch (error: any) {
-    console.error("Error fetching templates:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: error.message || "Error fetching templates",
-    });
-  }
-},
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Templates fetched successfully",
+        data: templateList,
+      });
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching templates",
+      });
+    }
+  },
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -1056,274 +1058,370 @@ export const inventoryController = {
     }
   },
 
-//bulk delete
-bulkDeleteInventory: async (req: Request, res: Response) => {
-  try {
-    // First check if body exists and has inventoryIds
-    // if (!req.body || !req.body.inventoryIds) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Request body must contain inventoryIds array"
-    //   });
-    // }
+  //bulk delete
+  bulkDeleteInventory: async (req: Request, res: Response) => {
+    try {
+      // First check if body exists and has inventoryIds
+      // if (!req.body || !req.body.inventoryIds) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Request body must contain inventoryIds array"
+      //   });
+      // }
 
-    const { inventoryIds= [], selectAllPages = false, filters = {} } = req.body;
+      const { inventoryIds = [], selectAllPages = false, filters = {} } = req.body;
 
-    if (selectAllPages) {
-          // Handle filter-based deletion
-          const query: any = {};
+      if (selectAllPages) {
+        // Handle filter-based deletion
+        const query: any = {};
 
-          if (filters.status) {
-            query.status = filters.status;
-          }
-          if (filters.isTemplate !== undefined) {
-            query.isTemplate = filters.isTemplate;
-          }
-          if (filters.isBlocked !== undefined) {
-            query.isBlocked = filters.isBlocked;
-          }
-
-          const result = await Inventory.deleteMany(query);
-          return res.status(200).json({
-            success: true,
-            message: `Deleted ${result.deletedCount} listings`,
-            deletedCount: result.deletedCount
-          });
-        } else {
-    // Ensure inventoryIds is an array
-    if (!Array.isArray(inventoryIds)) {
-      return res.status(400).json({
-        success: false,
-        message: "inventoryIds must be an array"
-      });
-    }
-  }
-
-    // Check if array is empty
-    if (inventoryIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No inventory IDs provided"
-      });
-    }
-
-    // Validate each ID
-    const invalidIds = inventoryIds.filter(id => {
-      // Handle cases where id might be null/undefined
-      if (!id) return true;
-      // Check if valid ObjectId
-      return !mongoose.Types.ObjectId.isValid(id);
-    });
-
-    if (invalidIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid inventory IDs: ${invalidIds.join(', ')}`
-      });
-    }
-
-    // Perform deletion
-    const result = await Inventory.deleteMany({
-      _id: { $in: inventoryIds }
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: `Deleted ${result.deletedCount} items`,
-      deletedCount: result.deletedCount
-    });
-
-  } catch (error: any) {
-    console.error("Error in bulk delete:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to perform bulk delete",
-      // Only include stack in development
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
-  }
-},
-
-
- generateXLSXTemplate : async (req:Request, res:Response) => {
-  try {
-    // Dummy data for testing - replace with req.body or req.query in actual implementation
-    const attributes = [
-      {
-        name: 'Name',
-        type: 'string',
-        required: true
-      },
-      {
-        name: 'Email',
-        type: 'string',
-        required: true
-      },
-      {
-        name: 'Status',
-        type: 'enum',
-        enums: ['Active', 'Inactive', 'Pending', 'Suspended'],
-        required: true
-      },
-      {
-        name: 'Role',
-        type: 'enum',
-        enums: ['Admin', 'User', 'Manager', 'Guest'],
-        required: true
-      },
-      {
-        name: 'Department',
-        type: 'enum',
-        enums: ['IT', 'HR', 'Finance', 'Marketing', 'Sales'],
-        required: false
-      },
-      {
-        name: 'Age',
-        type: 'number',
-        required: false
-      },
-      {
-        name: 'Join Date',
-        type: 'date',
-        required: true
-      }
-    ];
-
-    // Create a new workbook
-    const workbook = XLSX.utils.book_new();
-
-    // Create the main worksheet
-    const worksheet = XLSX.utils.aoa_to_sheet([]);
-
-    // Add headers
-    const headers = attributes.map(attr => attr.name);
-    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
-
-    // Add sample data row (optional - remove if you don't want sample data)
-    const sampleData = [
-      'John Doe',
-      'john@example.com',
-      'Active',
-      'User',
-      'IT',
-      30,
-      '2024-01-15'
-    ];
-    XLSX.utils.sheet_add_aoa(worksheet, [sampleData], { origin: 'A2' });
-
-    // Set column widths
-    const colWidths = attributes.map(attr => ({ width: Math.max(attr.name.length, 15) }));
-    worksheet['!cols'] = colWidths;
-
-    // Add data validation for enum columns
-    attributes.forEach((attr, index) => {
-      if (attr.type === 'enum' && attr.enums && attr.enums.length > 0) {
-        const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
-
-        // Create validation for the entire column (rows 2 to 1000)
-        const validationRange = `${columnLetter}2:${columnLetter}1000`;
-
-        if (!worksheet['!dataValidation']) {
-          worksheet['!dataValidation'] = [];
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.isTemplate !== undefined) {
+          query.isTemplate = filters.isTemplate;
+        }
+        if (filters.isBlocked !== undefined) {
+          query.isBlocked = filters.isBlocked;
         }
 
-        // Add dropdown validation
-        worksheet['!dataValidation'].push({
-          type: 'list',
-          allowBlank: !attr.required,
-          sqref: validationRange,
-          formulas: [`"${attr.enums.join(',')}"`],
-          showDropdown: true,
-          showInputMessage: true,
-          showErrorMessage: true,
-          errorTitle: 'Invalid Value',
-          errorMessage: `Please select a valid ${attr.name} from the dropdown list: ${attr.enums.join(', ')}`,
-          promptTitle: `Select ${attr.name}`,
-          promptMessage: `Choose from: ${attr.enums.join(', ')}`
+        const result = await Inventory.deleteMany(query);
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      } else {
+        // Ensure inventoryIds is an array
+        if (!Array.isArray(inventoryIds)) {
+          return res.status(400).json({
+            success: false,
+            message: "inventoryIds must be an array",
+          });
+        }
+      }
+
+      // Check if array is empty
+      if (inventoryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No inventory IDs provided",
         });
       }
-    });
 
-    // Add the main worksheet to workbook
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Template');
+      // Validate each ID
+      const invalidIds = inventoryIds.filter((id) => {
+        // Handle cases where id might be null/undefined
+        if (!id) return true;
+        // Check if valid ObjectId
+        return !mongoose.Types.ObjectId.isValid(id);
+      });
 
-    // Create a separate sheet for enum reference
-    const enumSheet = XLSX.utils.aoa_to_sheet([]);
-    const enumData = [['Attribute', 'Valid Values']];
-
-    attributes.forEach(attr => {
-      if (attr.type === 'enum' && attr.enums) {
-        attr.enums.forEach((enumValue, index) => {
-          enumData.push([
-            index === 0 ? attr.name : '', // Only show attribute name for first enum value
-            enumValue
-          ]);
+      if (invalidIds.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid inventory IDs: ${invalidIds.join(", ")}`,
         });
-        enumData.push(['', '']); // Add empty row between different attributes
       }
-    });
 
-    XLSX.utils.sheet_add_aoa(enumSheet, enumData, { origin: 'A1' });
-    enumSheet['!cols'] = [{ width: 20 }, { width: 30 }];
-    XLSX.utils.book_append_sheet(workbook, enumSheet, 'Valid Values Reference');
+      // Perform deletion
+      const result = await Inventory.deleteMany({
+        _id: { $in: inventoryIds },
+      });
 
-    // Create instructions sheet
-    const instructionsSheet = XLSX.utils.aoa_to_sheet([]);
-    const instructions = [
-      ['Instructions for using this template:'],
-      [''],
-      ['1. Fill in the data in the "Data Template" sheet'],
-      ['2. For dropdown columns, click on the cell to see available options'],
-      ['3. Only values from the dropdown lists are accepted'],
-      ['4. Required fields are marked and must be filled'],
-      ['5. Check the "Valid Values Reference" sheet for all valid options'],
-      [''],
-      ['Column Details:'],
-      ['']
-    ];
+      return res.status(200).json({
+        success: true,
+        message: `Deleted ${result.deletedCount} items`,
+        deletedCount: result.deletedCount,
+      });
+    } catch (error: any) {
+      console.error("Error in bulk delete:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to perform bulk delete",
+        // Only include stack in development
+        ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
+      });
+    }
+  },
 
-    // Add attribute details to instructions
-    attributes.forEach(attr => {
-      instructions.push([
-        `${attr.name}:`,
-        `Type: ${attr.type}`,
-        `Required: ${attr.required ? 'Yes' : 'No'}`,
-        attr.enums ? `Valid Values: ${attr.enums.join(', ')}` : ''
-      ]);
-    });
+  generateXLSXTemplate: async (req, res) => {
+    try {
+      // Get attributes from request body or use dummy data for testing
+      const { attributes } = req.body || {};
+      // Use provided attributes or fallback to dummy data
+      const templateAttributes = attributes || [
+        {
+          name: "Name",
+          type: "string",
+          required: true,
+        },
+        {
+          name: "Email",
+          type: "string",
+          required: true,
+        },
+        {
+          name: "Status",
+          type: "enum",
+          enums: ["Active", "Inactive", "Pending", "Suspended"],
+          required: true,
+        },
+        {
+          name: "Role",
+          type: "enum",
+          enums: ["Admin", "User", "Manager", "Guest"],
+          required: true,
+        },
+        {
+          name: "Department",
+          type: "enum",
+          enums: ["IT", "HR", "Finance", "Marketing", "Sales"],
+          required: false,
+        },
+        {
+          name: "Age",
+          type: "number",
+          required: false,
+        },
+        {
+          name: "Join Date",
+          type: "date",
+          required: true,
+        },
+      ];
 
-    XLSX.utils.sheet_add_aoa(instructionsSheet, instructions, { origin: 'A1' });
-    instructionsSheet['!cols'] = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 50 }];
-    XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
 
-    // Generate buffer
-    const buffer = XLSX.write(workbook, {
-      type: 'buffer',
-      bookType: 'xlsx',
-      compression: true
-    });
+      // Create the main worksheet
+      const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-    // Set response headers
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename="data-template.xlsx"');
-    res.setHeader('Content-Length', buffer.length);
+      // Add headers
+      const headers = templateAttributes.map((attr) => attr.name);
+      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
 
-    // Send the file
-    res.send(buffer);
+      // Add sample data row (optional - remove if you don't want sample data)
+      const sampleData = ["John Doe", "john@example.com", "Active", "User", "IT", 30, "2024-01-15"];
+      XLSX.utils.sheet_add_aoa(worksheet, [sampleData], { origin: "A2" });
 
-  } catch (error: any) {
-    console.error('Error generating XLSX template:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error generating XLSX template',
-      error: error.message
-    });
-  }
-}
+      // Set column widths
+      const colWidths = templateAttributes.map((attr) => ({ width: Math.max(attr.name.length, 15) }));
+      worksheet["!cols"] = colWidths;
 
+      // Add data validation for enum columns
+      templateAttributes.forEach((attr, index) => {
+        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+          const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
 
-// Alternative version if you want to save to file system instead of sending as response:
-/*
+          // Create validation for the entire column (rows 2 to 1000)
+          const validationRange = `${columnLetter}2:${columnLetter}1000`;
+
+          if (!worksheet["!dataValidation"]) {
+            worksheet["!dataValidation"] = [];
+          }
+
+          // Add dropdown validation
+          worksheet["!dataValidation"].push({
+            type: "list",
+            allowBlank: !attr.required,
+            sqref: validationRange,
+            formulas: [`"${attr.enums.join(",")}"`],
+            showDropdown: true,
+            showInputMessage: true,
+            showErrorMessage: true,
+            errorTitle: "Invalid Value",
+            errorMessage: `Please select a valid ${attr.name} from the dropdown list: ${attr.enums.join(", ")}`,
+            promptTitle: `Select ${attr.name}`,
+            promptMessage: `Choose from: ${attr.enums.join(", ")}`,
+          });
+        }
+      });
+
+      // Add the main worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Template");
+
+      // Create a separate sheet for enum reference
+      const enumSheet = XLSX.utils.aoa_to_sheet([]);
+      const enumData = [["Attribute", "Valid Values"]];
+
+      templateAttributes.forEach((attr) => {
+        if (attr.type === "enum" && attr.enums) {
+          attr.enums.forEach((enumValue, index) => {
+            enumData.push([
+              index === 0 ? attr.name : "", // Only show attribute name for first enum value
+              enumValue,
+            ]);
+          });
+          enumData.push(["", ""]); // Add empty row between different attributes
+        }
+      });
+
+      XLSX.utils.sheet_add_aoa(enumSheet, enumData, { origin: "A1" });
+      enumSheet["!cols"] = [{ width: 20 }, { width: 30 }];
+      XLSX.utils.book_append_sheet(workbook, enumSheet, "Valid Values Reference");
+
+      // Create instructions sheet
+      const instructionsSheet = XLSX.utils.aoa_to_sheet([]);
+      const instructions = [
+        ["Instructions for using this template:"],
+        [""],
+        ['1. Fill in the data in the "Data Template" sheet'],
+        ["2. For dropdown columns, click on the cell to see available options"],
+        ["3. Only values from the dropdown lists are accepted"],
+        ["4. Required fields are marked and must be filled"],
+        ['5. Check the "Valid Values Reference" sheet for all valid options'],
+        [""],
+        ["Column Details:"],
+        [""],
+      ];
+
+      // Add attribute details to instructions
+      templateAttributes.forEach((attr) => {
+        instructions.push([
+          `${attr.name}:`,
+          `Type: ${attr.type}`,
+          `Required: ${attr.required ? "Yes" : "No"}`,
+          attr.enums ? `Valid Values: ${attr.enums.join(", ")}` : "",
+        ]);
+      });
+
+      XLSX.utils.sheet_add_aoa(instructionsSheet, instructions, { origin: "A1" });
+      instructionsSheet["!cols"] = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 50 }];
+      XLSX.utils.book_append_sheet(workbook, instructionsSheet, "Instructions");
+
+      // Generate buffer
+      const buffer = XLSX.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+        compression: true,
+      });
+
+      // Create exports directory if it doesn't exist
+      const exportsDir = path.join(__dirname, "../../exports");
+      if (!fs.existsSync(exportsDir)) {
+        fs.mkdirSync(exportsDir, { recursive: true });
+      }
+
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `data-template-${timestamp}.xlsx`;
+      const filepath = path.join(exportsDir, filename);
+
+      // Save file to project directory
+      fs.writeFileSync(filepath, buffer);
+
+      // Set response headers for browser download
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+
+      // Send the file for download AND save to project
+      res.send(buffer);
+
+      // Log success
+      console.log(`✅ XLSX template generated successfully!`);
+      console.log(`📁 File saved to: ${filepath}`);
+      console.log(`📊 File size: ${(buffer.length / 1024).toFixed(2)} KB`);
+    } catch (error: any) {
+      console.error("❌ Error generating XLSX template:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error generating XLSX template",
+        error: error.message,
+      });
+    }
+  },
+
+  // Alternative function that only saves to file (no HTTP response)
+  saveXLSXTemplate: async (attributes: any, customFilename = null) => {
+    try {
+      // Use the same logic as above but without res.send()
+      const templateAttributes = attributes || [
+        {
+          name: "Name",
+          type: "string",
+          required: true,
+        },
+        {
+          name: "Email",
+          type: "string",
+          required: true,
+        },
+        {
+          name: "Status",
+          type: "enum",
+          enums: ["Active", "Inactive", "Pending", "Suspended"],
+          required: true,
+        },
+        {
+          name: "Role",
+          type: "enum",
+          enums: ["Admin", "User", "Manager", "Guest"],
+          required: true,
+        },
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+      // Add headers
+      const headers = templateAttributes.map((attr: any) => attr.name);
+      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+
+      // Add validation for enum columns
+      templateAttributes.forEach((attr: any, index: any) => {
+        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+          const columnLetter = String.fromCharCode(65 + index);
+          const validationRange = `${columnLetter}2:${columnLetter}1000`;
+
+          if (!worksheet["!dataValidation"]) {
+            worksheet["!dataValidation"] = [];
+          }
+
+          worksheet["!dataValidation"].push({
+            type: "list",
+            allowBlank: !attr.required,
+            sqref: validationRange,
+            formulas: [`"${attr.enums.join(",")}"`],
+            showDropdown: true,
+            showInputMessage: true,
+            showErrorMessage: true,
+            errorTitle: "Invalid Value",
+            errorMessage: `Please select a valid ${attr.name} from the dropdown list`,
+            promptTitle: `Select ${attr.name}`,
+            promptMessage: `Choose from: ${attr.enums.join(", ")}`,
+          });
+        }
+      });
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Template");
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = customFilename || `template-${timestamp}.xlsx`;
+
+      // Create exports directory
+      const exportsDir = path.join(__dirname, "../../exports");
+      if (!fs.existsSync(exportsDir)) {
+        fs.mkdirSync(exportsDir, { recursive: true });
+      }
+
+      const filepath = path.join(exportsDir, filename);
+
+      // Write file
+      XLSX.writeFile(workbook, filepath);
+
+      console.log(`✅ Template saved to: ${filepath}`);
+      return filepath;
+    } catch (error) {
+      console.error("❌ Error saving XLSX template:", error);
+      throw error;
+    }
+  },
+
+  // Alternative version if you want to save to file system instead of sending as response:
+  /*
 const generateXLSXTemplateToFile = async (attributes, filename = 'template.xlsx') => {
   // ... same logic as above but instead of res.send(buffer), use:
   // const fs = require('fs');
