@@ -117,9 +117,13 @@ export const attendanceService = {
   },
 
   // Admin: get all employees' attendance for a date
-  getAllForDate: async () => {
+  getAllForDate: async (startDate?: Date, endDate?: Date) => {
     try {
-      const attendance = await Attendance.find();
+      const query: any = {};
+      if (startDate && endDate) {
+        query.date = { $gte: startDate, $lte: endDate };
+      }
+      const attendance = await Attendance.find(query).sort({ date: -1 });
       return attendance;
     } catch (err: any) {
       throw new Error(err.message);
