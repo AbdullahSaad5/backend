@@ -43,6 +43,8 @@ export const processedPayrollController = {
     try {
       const { id } = req.params;
       const update = req.body;
+      console.log("Update data: ", update);
+
       const processedPayroll =
         await processedPayrollService.updateProcessedPayrollById(id, update);
       if (!processedPayroll) {

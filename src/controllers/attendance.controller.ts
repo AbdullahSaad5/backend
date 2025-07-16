@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { attendanceService } from "@/services/attendance.service";
+import { Shift } from "@/models/workshift.model";
+import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
 export const attendanceController = {
   // Employee self check-in
@@ -10,7 +12,20 @@ export const attendanceController = {
       const token = req.headers.authorization?.split(" ")[1];
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
-      console.log("userId : ", userId);
+      // check if user has shift and work mode
+      const shift = await Shift.findOne({
+        where: { userId },
+      });
+      if (!shift) {
+        return res.status(400).json({ message: "No shift found for user" });
+      }
+      const workMode = await Workmode.findOne({
+        where: { userId },
+      });
+      if (!workMode) {
+        return res.status(400).json({ message: "No work mode found for user" });
+      }
+
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { shiftId, workModeId, checkIn } = req.body;
       if (!checkIn) {
