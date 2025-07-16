@@ -1,39 +1,38 @@
 import * as XLSX from "xlsx";
 import { ProductCategory } from "@/models";
 import dotenv from "dotenv";
-import { ebayListingService } from "@/services";
 import { inventoryController } from "@/controllers";
+import { getStoredAmazonAccessToken } from "./amazon-helpers.util";
 
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportStandardTemplateGenerator = {
-  fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
+  fetchAllAmazonCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
     try {
       const result = await ProductCategory.aggregate([
         {
           $match: {
-            $or: [{ ebayCategoryId: { $exists: true, $ne: null } }, { ebayCategoryId: { $exists: true, $ne: null } }],
+            $or: [
+              { amazonCategoryId: { $exists: true, $ne: null } },
+              { amazonCategoryId: { $exists: true, $ne: null } },
+            ],
           },
         },
         {
           $project: {
             _id: 0,
             name: 1,
-            ebayCategoryId: 1,
+            amazonCategoryId: 1,
           },
         },
       ]);
-
       // Build array of { id, name } from both possible ID fields
       const allCategories = result.flatMap((item) => {
         const categories: { id: string; name: string }[] = [];
-        if (item.ebayCategoryId) {
-          categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
+        if (item.amazonCategoryId) {
+          categories.push({ id: item.amazonCategoryId.toString(), name: item.name });
         }
-        // if (item.ebayCategoryId) {
-        //   categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
-        // }
         return categories;
       });
 
@@ -47,7 +46,7 @@ export const bulkImportStandardTemplateGenerator = {
   fetchAspectsForAllCategories: async () => {
     try {
       // Step 1: Get all category ID-name pairs
-      const categoryIdNamePairs = await bulkImportStandardTemplateGenerator.fetchAllCategoryIds(); // [{ id, name }]
+      const categoryIdNamePairs = await bulkImportStandardTemplateGenerator.fetchAllAmazonCategoryIds(); // [{ id, name }]
       if (categoryIdNamePairs.length === 0) {
         console.log("No category IDs found.");
         return;
@@ -56,7 +55,7 @@ export const bulkImportStandardTemplateGenerator = {
       // Step 2: Fetch aspects for each category using Promise.allSettled
       const results = await Promise.allSettled(
         categoryIdNamePairs.map(async ({ id, name }) => {
-          const aspects = await ebayListingService.fetchEbayCategoryAspects(id);
+          const aspects = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(id);
           return { categoryId: id, categoryName: name, aspects };
         })
       );
@@ -93,7 +92,48 @@ export const bulkImportStandardTemplateGenerator = {
       throw error;
     }
   },
+  getAmazonActualSchema: async (id: any) => {
+    try {
+      const productType = id;
+      if (!productType) {
+        return res.status(400).json({ error: "Missing productType parameter" });
+      }
 
+      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
+
+      const accessToken = await getStoredAmazonAccessToken();
+
+      // Fetch SP API product type schema metadata
+      const spApiResponse = await fetch(spApiUrl, {
+        method: "GET",
+        headers: { "x-amz-access-token": accessToken ?? "", "Content-Type": "application/json" },
+      });
+
+      if (!spApiResponse.ok) {
+        return res.status(spApiResponse.status).json({ error: "Failed to fetch product type schema" });
+      }
+
+      const spApiData = await spApiResponse.json();
+
+      const schemaUrl = spApiData.schema?.link?.resource;
+      if (!schemaUrl) {
+        return res.status(400).json({ error: "Schema link resource not found" });
+      }
+
+      // Fetch actual schema JSON from schemaUrl (usually public S3 URL with token)
+      const schemaResponse = await fetch(schemaUrl);
+      if (!schemaResponse.ok) {
+        return res.status(schemaResponse.status).json({ error: "Failed to fetch actual schema" });
+      }
+
+      const actualSchema = await schemaResponse.json();
+      console.log("actual Schema", actualSchema);
+
+      return actualSchema;
+    } catch (error: any) {
+      return res.status(500).json({ error: "Internal server error", details: error.message });
+    }
+  },
   exportCategoryAspectsToExcel: async (
     allCategoryAspects: { categoryId: string; categoryName: string; aspects: any }[],
     filePath: string = "CategoryAspects.xlsx"
