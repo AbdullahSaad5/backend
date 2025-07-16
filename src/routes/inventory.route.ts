@@ -4,6 +4,7 @@ import { Router } from "express";
 import { handleBulkImport, handleBulkExport } from "@/controllers/inventory.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 import { bulkImportUtility } from "@/utils/bulkImport.util";
+import { inventoryService } from "@/services";
 
 export const inventory = (router: Router) => {
   // TODO: inventoryValidation.addInventory
@@ -41,6 +42,7 @@ export const inventory = (router: Router) => {
 
   // Fetch all Draft inventory  names
   router.get("/drafts", inventoryController.getAllDraftInventoryNames);
+  router.get("/generate-xlsx-template", inventoryController.generateXLSXTemplate);
 
   // Update a draft inventory by ID (subsequent steps)
 
@@ -72,6 +74,4 @@ export const inventory = (router: Router) => {
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);
- 
-  
 };
