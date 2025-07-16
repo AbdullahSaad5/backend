@@ -1,14 +1,16 @@
-import { ebayListingService, inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
-import path from "path";
 import ExcelJS from "exceljs";
 import fs from "fs";
-import XLSX from "xlsx";
+import * as XLSX from "xlsx";
+import path from "path";
+import AdmZip from "adm-zip";
+
 import { processVariationsUtility } from "@/utils/processVariation.util";
 export const inventoryController = {
   // Controller - inventoryController.js
@@ -1145,13 +1147,12 @@ export const inventoryController = {
       });
     }
   },
-
   generateXLSXTemplate: async (req: Request, res: Response) => {
     try {
-      const { attributes } = req.body || {};
+      // const { attributes } = req.body || {};
 
       // Use provided attributes or fallback to dummy data
-      const templateAttributes = attributes || [
+      const templateAttributes = [
         {
           name: "Name",
           type: "string",
@@ -1426,56 +1427,4 @@ export const inventoryController = {
       });
     }
   },
-
-  // Test function to verify dropdown functionality
-  testDropdowns: async () => {
-    const testAttributes = [
-      {
-        name: "Product",
-        type: "string",
-        required: true,
-      },
-      {
-        name: "Category",
-        type: "enum",
-        enums: ["Electronics", "Clothing", "Books", "Home"],
-        required: true,
-      },
-      {
-        name: "Status",
-        type: "enum",
-        enums: ["Available", "Out of Stock", "Discontinued"],
-        required: true,
-      },
-      {
-        name: "Priority",
-        type: "enum",
-        enums: ["High", "Medium", "Low"],
-        required: false,
-      },
-    ];
-
-    // Mock request and response
-    const req: any = { body: { attributes: testAttributes } };
-    const res: any = {
-      setHeader: () => {},
-      send: (buffer: any) => {
-        const fs = require("fs");
-        fs.writeFileSync("./test-dropdown-template.xlsx", buffer);
-        console.log("✅ Test template created: test-dropdown-template.xlsx");
-      },
-    };
-
-    await inventoryController.generateXLSXTemplate(req, res);
-  },
-
-  // Alternative version if you want to save to file system instead of sending as response:
-  /*
-const generateXLSXTemplateToFile = async (attributes, filename = 'template.xlsx') => {
-  // ... same logic as above but instead of res.send(buffer), use:
-  // const fs = require('fs');
-  // fs.writeFileSync(filename, buffer);
-  // return filename;
-};
-*/
 };

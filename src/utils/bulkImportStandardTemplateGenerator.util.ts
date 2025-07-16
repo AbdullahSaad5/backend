@@ -1,13 +1,9 @@
-import fs from "fs";
 import * as XLSX from "xlsx";
-import path from "path";
-import AdmZip from "adm-zip";
-import { uploadFileToFirebase } from "./firebase";
 import { ProductCategory } from "@/models";
-
 import dotenv from "dotenv";
-import { ebayListingService, inventoryService } from "@/services";
-import { addLog } from "./bulkImportLogs.util";
+import { ebayListingService } from "@/services";
+import { inventoryController } from "@/controllers";
+
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
@@ -144,5 +140,47 @@ export const bulkImportStandardTemplateGenerator = {
 
     XLSX.writeFile(workbook, filePath);
     console.log(`✅ Excel file generated: ${filePath}`);
+  },
+
+  // Test function to verify dropdown functionality
+  testDropdowns: async () => {
+    const testAttributes = [
+      {
+        name: "Product",
+        type: "string",
+        required: true,
+      },
+      {
+        name: "Category",
+        type: "enum",
+        enums: ["Electronics", "Clothing", "Books", "Home"],
+        required: true,
+      },
+      {
+        name: "Status",
+        type: "enum",
+        enums: ["Available", "Out of Stock", "Discontinued"],
+        required: true,
+      },
+      {
+        name: "Priority",
+        type: "enum",
+        enums: ["High", "Medium", "Low"],
+        required: false,
+      },
+    ];
+
+    // Mock request and response
+    const req: any = { body: { attributes: testAttributes } };
+    const res: any = {
+      setHeader: () => {},
+      send: (buffer: any) => {
+        const fs = require("fs");
+        fs.writeFileSync("./test-dropdown-template.xlsx", buffer);
+        console.log("✅ Test template created: test-dropdown-template.xlsx");
+      },
+    };
+
+    await inventoryController.generateXLSXTemplate(req, res);
   },
 };
