@@ -6,9 +6,10 @@ import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import path from "path";
+import ExcelJS from "exceljs";
 import fs from "fs";
+import XLSX from "xlsx";
 import { processVariationsUtility } from "@/utils/processVariation.util";
-const XLSX = require("xlsx");
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -1145,10 +1146,10 @@ export const inventoryController = {
     }
   },
 
-  generateXLSXTemplate: async (req, res) => {
+  generateXLSXTemplate: async (req: Request, res: Response) => {
     try {
-      // Get attributes from request body or use dummy data for testing
       const { attributes } = req.body || {};
+
       // Use provided attributes or fallback to dummy data
       const templateAttributes = attributes || [
         {
@@ -1180,122 +1181,210 @@ export const inventoryController = {
           required: false,
         },
         {
-          name: "Age",
-          type: "number",
-          required: false,
-        },
-        {
-          name: "Join Date",
-          type: "date",
+          name: "Priority",
+          type: "enum",
+          enums: ["High", "Medium", "Low"],
           required: true,
         },
       ];
 
       // Create a new workbook
-      const workbook = XLSX.utils.book_new();
+      const workbook = new ExcelJS.Workbook();
 
-      // Create the main worksheet
-      const worksheet = XLSX.utils.aoa_to_sheet([]);
+      // Step 1: Create enum reference sheets first
+      const enumSheets: any = {};
+      templateAttributes.forEach((attr: any, index: any) => {
+        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+          const sheetName = `List_${attr.name.replace(/\s+/g, "_")}`;
+          const enumSheet: any = workbook.addWorksheet(sheetName);
 
-      // Add headers
-      const headers = templateAttributes.map((attr) => attr.name);
-      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
+          // Add enum values to the sheet
+          attr.enums.forEach((value: any, rowIndex: any) => {
+            enumSheet.getCell(rowIndex + 1, 1).value = value;
+          });
 
-      // Add sample data row (optional - remove if you don't want sample data)
-      const sampleData = ["John Doe", "john@example.com", "Active", "User", "IT", 30, "2024-01-15"];
-      XLSX.utils.sheet_add_aoa(worksheet, [sampleData], { origin: "A2" });
+          // Store reference for later use
+          enumSheets[index] = {
+            sheetName,
+            range: `${sheetName}!$A$1:$A$${attr.enums.length}`,
+            count: attr.enums.length,
+          };
+
+          // Hide the reference sheet
+          enumSheet.state = "hidden";
+        }
+      });
+
+      // Step 2: Create the main data sheet
+      const worksheet = workbook.addWorksheet("Data_Entry");
+
+      // Add headers with styling
+      const headerRow = worksheet.getRow(1);
+      templateAttributes.forEach((attr: any, index: any) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = attr.name;
+
+        // Style the header
+        cell.font = { bold: true, color: { argb: "FFFFFF" } };
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "4472C4" },
+        };
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
 
       // Set column widths
-      const colWidths = templateAttributes.map((attr) => ({ width: Math.max(attr.name.length, 15) }));
-      worksheet["!cols"] = colWidths;
-
-      // Add data validation for enum columns
-      templateAttributes.forEach((attr, index) => {
-        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
-          const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
-
-          // Create validation for the entire column (rows 2 to 1000)
-          const validationRange = `${columnLetter}2:${columnLetter}1000`;
-
-          if (!worksheet["!dataValidation"]) {
-            worksheet["!dataValidation"] = [];
-          }
-
-          // Add dropdown validation
-          worksheet["!dataValidation"].push({
-            type: "list",
-            allowBlank: !attr.required,
-            sqref: validationRange,
-            formulas: [`"${attr.enums.join(",")}"`],
-            showDropdown: true,
-            showInputMessage: true,
-            showErrorMessage: true,
-            errorTitle: "Invalid Value",
-            errorMessage: `Please select a valid ${attr.name} from the dropdown list: ${attr.enums.join(", ")}`,
-            promptTitle: `Select ${attr.name}`,
-            promptMessage: `Choose from: ${attr.enums.join(", ")}`,
-          });
-        }
+      templateAttributes.forEach((attr: any, index: any) => {
+        const column = worksheet.getColumn(index + 1);
+        column.width = Math.max(attr.name.length + 5, 15);
       });
 
-      // Add the main worksheet to workbook
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Template");
+      // Add sample data row
+      const sampleRow = worksheet.getRow(2);
+      templateAttributes.forEach((attr: any, index: any) => {
+        const cell = sampleRow.getCell(index + 1);
 
-      // Create a separate sheet for enum reference
-      const enumSheet = XLSX.utils.aoa_to_sheet([]);
-      const enumData = [["Attribute", "Valid Values"]];
-
-      templateAttributes.forEach((attr) => {
         if (attr.type === "enum" && attr.enums) {
-          attr.enums.forEach((enumValue, index) => {
-            enumData.push([
-              index === 0 ? attr.name : "", // Only show attribute name for first enum value
-              enumValue,
-            ]);
-          });
-          enumData.push(["", ""]); // Add empty row between different attributes
+          cell.value = attr.enums[0]; // Use first enum value as sample
+        } else if (attr.type === "string") {
+          cell.value = attr.name === "Name" ? "John Doe" : attr.name === "Email" ? "john@example.com" : "Sample Text";
+        } else if (attr.type === "number") {
+          cell.value = 100;
+        } else if (attr.type === "date") {
+          cell.value = new Date("2024-01-15");
+        } else {
+          cell.value = "";
+        }
+
+        // Style the sample data
+        cell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          bottom: { style: "thin" },
+          right: { style: "thin" },
+        };
+      });
+
+      // Step 3: Add data validation (dropdowns) for enum columns
+      templateAttributes.forEach((attr: any, index: any) => {
+        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+          const columnLetter = String.fromCharCode(65 + index);
+
+          // Apply validation to the entire column (from row 2 to 1000)
+          for (let row = 2; row <= 1000; row++) {
+            const cell = worksheet.getCell(`${columnLetter}${row}`);
+
+            // Set data validation
+            cell.dataValidation = {
+              type: "list",
+              allowBlank: !attr.required,
+              formulae: [`"${attr.enums.join(",")}"`],
+              showErrorMessage: true,
+              errorStyle: "error",
+              errorTitle: "Invalid Entry",
+              error: `Value must be selected from the dropdown list for ${attr.name}`,
+              showInputMessage: true,
+              promptTitle: `Select ${attr.name}`,
+              prompt: "Click the dropdown arrow to select a value",
+            };
+
+            // Add border to empty cells
+            cell.border = {
+              top: { style: "thin" },
+              left: { style: "thin" },
+              bottom: { style: "thin" },
+              right: { style: "thin" },
+            };
+          }
         }
       });
 
-      XLSX.utils.sheet_add_aoa(enumSheet, enumData, { origin: "A1" });
-      enumSheet["!cols"] = [{ width: 20 }, { width: 30 }];
-      XLSX.utils.book_append_sheet(workbook, enumSheet, "Valid Values Reference");
-
-      // Create instructions sheet
-      const instructionsSheet = XLSX.utils.aoa_to_sheet([]);
-      const instructions = [
-        ["Instructions for using this template:"],
-        [""],
-        ['1. Fill in the data in the "Data Template" sheet'],
-        ["2. For dropdown columns, click on the cell to see available options"],
-        ["3. Only values from the dropdown lists are accepted"],
-        ["4. Required fields are marked and must be filled"],
-        ['5. Check the "Valid Values Reference" sheet for all valid options'],
-        [""],
-        ["Column Details:"],
-        [""],
+      // Freeze the header row
+      worksheet.views = [
+        {
+          state: "frozen",
+          xSplit: 0,
+          ySplit: 1,
+        },
       ];
 
-      // Add attribute details to instructions
-      templateAttributes.forEach((attr) => {
+      // Step 4: Create instructions sheet
+      const instructionsSheet = workbook.addWorksheet("Instructions");
+
+      const instructions = [
+        ["📋 XLSX Template Usage Instructions"],
+        [""],
+        ["🔧 How to Use:"],
+        ['1. Go to the "Data_Entry" sheet'],
+        ["2. Click on any cell in columns with dropdowns"],
+        ["3. You will see a dropdown arrow appear"],
+        ["4. Click the dropdown arrow to select values"],
+        ["5. Only values from the dropdown are allowed"],
+        [""],
+        ["📊 Column Information:"],
+        ["Column Name", "Data Type", "Required", "Valid Options"],
+        ["─────────────", "──────────", "────────", "─────────────"],
+      ];
+
+      templateAttributes.forEach((attr: any) => {
         instructions.push([
-          `${attr.name}:`,
-          `Type: ${attr.type}`,
-          `Required: ${attr.required ? "Yes" : "No"}`,
-          attr.enums ? `Valid Values: ${attr.enums.join(", ")}` : "",
+          attr.name,
+          attr.type.toUpperCase(),
+          attr.required ? "YES" : "NO",
+          attr.enums ? attr.enums.join(", ") : "Free text",
         ]);
       });
 
-      XLSX.utils.sheet_add_aoa(instructionsSheet, instructions, { origin: "A1" });
-      instructionsSheet["!cols"] = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 50 }];
-      XLSX.utils.book_append_sheet(workbook, instructionsSheet, "Instructions");
+      instructions.push([""]);
+      instructions.push(["⚠️ Important Notes:"]);
+      instructions.push(["• Dropdown columns will show an arrow when selected"]);
+      instructions.push(["• Required fields must be filled"]);
+      instructions.push(["• Invalid entries will show error messages"]);
+      instructions.push(["• Sample data is provided in row 2"]);
 
-      // Generate buffer
-      const buffer = XLSX.write(workbook, {
-        type: "buffer",
-        bookType: "xlsx",
-        compression: true,
+      // Add instructions to the sheet
+      instructions.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const excelCell = instructionsSheet.getCell(rowIndex + 1, colIndex + 1);
+          excelCell.value = cell;
+
+          // Style the first row (title)
+          if (rowIndex === 0) {
+            excelCell.font = { bold: true, size: 16, color: { argb: "4472C4" } };
+          }
+
+          // Style section headers
+          if (cell && (cell.includes("🔧") || cell.includes("📊") || cell.includes("⚠️"))) {
+            excelCell.font = { bold: true, size: 12, color: { argb: "4472C4" } };
+          }
+
+          // Style table headers
+          if (rowIndex === 10 && colIndex < 4) {
+            excelCell.font = { bold: true };
+            excelCell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "E7E6E6" },
+            };
+          }
+        });
       });
+
+      // Set column widths for instructions
+      instructionsSheet.getColumn(1).width = 25;
+      instructionsSheet.getColumn(2).width = 15;
+      instructionsSheet.getColumn(3).width = 10;
+      instructionsSheet.getColumn(4).width = 50;
+
+      // Step 5: Generate and save file
+      const buffer: any = await workbook.xlsx.writeBuffer();
 
       // Create exports directory if it doesn't exist
       const exportsDir = path.join(__dirname, "../../exports");
@@ -1305,7 +1394,7 @@ export const inventoryController = {
 
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `data-template-${timestamp}.xlsx`;
+      const filename = `template-with-dropdowns-${timestamp}.xlsx`;
       const filepath = path.join(exportsDir, filename);
 
       // Save file to project directory
@@ -1316,13 +1405,18 @@ export const inventoryController = {
       res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
       res.setHeader("Content-Length", buffer.length);
 
-      // Send the file for download AND save to project
+      // Send the file
       res.send(buffer);
 
       // Log success
-      console.log(`✅ XLSX template generated successfully!`);
+      console.log(`✅ XLSX template with dropdowns generated successfully!`);
       console.log(`📁 File saved to: ${filepath}`);
-      console.log(`📊 File size: ${(buffer.length / 1024).toFixed(2)} KB`);
+      console.log(
+        `🎯 Dropdown columns: ${templateAttributes
+          .filter((attr: any) => attr.type === "enum")
+          .map((attr: any) => attr.name)
+          .join(", ")}`
+      );
     } catch (error: any) {
       console.error("❌ Error generating XLSX template:", error);
       res.status(500).json({
@@ -1333,91 +1427,46 @@ export const inventoryController = {
     }
   },
 
-  // Alternative function that only saves to file (no HTTP response)
-  saveXLSXTemplate: async (attributes: any, customFilename = null) => {
-    try {
-      // Use the same logic as above but without res.send()
-      const templateAttributes = attributes || [
-        {
-          name: "Name",
-          type: "string",
-          required: true,
-        },
-        {
-          name: "Email",
-          type: "string",
-          required: true,
-        },
-        {
-          name: "Status",
-          type: "enum",
-          enums: ["Active", "Inactive", "Pending", "Suspended"],
-          required: true,
-        },
-        {
-          name: "Role",
-          type: "enum",
-          enums: ["Admin", "User", "Manager", "Guest"],
-          required: true,
-        },
-      ];
+  // Test function to verify dropdown functionality
+  testDropdowns: async () => {
+    const testAttributes = [
+      {
+        name: "Product",
+        type: "string",
+        required: true,
+      },
+      {
+        name: "Category",
+        type: "enum",
+        enums: ["Electronics", "Clothing", "Books", "Home"],
+        required: true,
+      },
+      {
+        name: "Status",
+        type: "enum",
+        enums: ["Available", "Out of Stock", "Discontinued"],
+        required: true,
+      },
+      {
+        name: "Priority",
+        type: "enum",
+        enums: ["High", "Medium", "Low"],
+        required: false,
+      },
+    ];
 
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.aoa_to_sheet([]);
+    // Mock request and response
+    const req: any = { body: { attributes: testAttributes } };
+    const res: any = {
+      setHeader: () => {},
+      send: (buffer: any) => {
+        const fs = require("fs");
+        fs.writeFileSync("./test-dropdown-template.xlsx", buffer);
+        console.log("✅ Test template created: test-dropdown-template.xlsx");
+      },
+    };
 
-      // Add headers
-      const headers = templateAttributes.map((attr: any) => attr.name);
-      XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: "A1" });
-
-      // Add validation for enum columns
-      templateAttributes.forEach((attr: any, index: any) => {
-        if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
-          const columnLetter = String.fromCharCode(65 + index);
-          const validationRange = `${columnLetter}2:${columnLetter}1000`;
-
-          if (!worksheet["!dataValidation"]) {
-            worksheet["!dataValidation"] = [];
-          }
-
-          worksheet["!dataValidation"].push({
-            type: "list",
-            allowBlank: !attr.required,
-            sqref: validationRange,
-            formulas: [`"${attr.enums.join(",")}"`],
-            showDropdown: true,
-            showInputMessage: true,
-            showErrorMessage: true,
-            errorTitle: "Invalid Value",
-            errorMessage: `Please select a valid ${attr.name} from the dropdown list`,
-            promptTitle: `Select ${attr.name}`,
-            promptMessage: `Choose from: ${attr.enums.join(", ")}`,
-          });
-        }
-      });
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Data Template");
-
-      // Generate filename
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = customFilename || `template-${timestamp}.xlsx`;
-
-      // Create exports directory
-      const exportsDir = path.join(__dirname, "../../exports");
-      if (!fs.existsSync(exportsDir)) {
-        fs.mkdirSync(exportsDir, { recursive: true });
-      }
-
-      const filepath = path.join(exportsDir, filename);
-
-      // Write file
-      XLSX.writeFile(workbook, filepath);
-
-      console.log(`✅ Template saved to: ${filepath}`);
-      return filepath;
-    } catch (error) {
-      console.error("❌ Error saving XLSX template:", error);
-      throw error;
-    }
+    await inventoryController.generateXLSXTemplate(req, res);
   },
 
   // Alternative version if you want to save to file system instead of sending as response:
