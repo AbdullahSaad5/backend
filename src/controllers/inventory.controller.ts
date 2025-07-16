@@ -6,7 +6,7 @@ import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
 import { processVariationsUtility } from "@/utils/processVariation.util";
-
+const XLSX = require('xlsx');
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -270,8 +270,8 @@ export const inventoryController = {
   //       const kind = (template.kind || "UNKNOWN").toLowerCase();
 
   //       // const itemCategory = template.productInfo.productCategory?.name;
-  //       const itemCategory = template.productInfo?.productCategory?.name || 
-  //                    template.productInfo?.productCategory?.toString() || 
+  //       const itemCategory = template.productInfo?.productCategory?.name ||
+  //                    template.productInfo?.productCategory?.toString() ||
   //                    "UNKNOWN";
 
   //       // console.log("kindiiii : ", kind);
@@ -421,7 +421,7 @@ export const inventoryController = {
 
       const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
       const srno = (index + 1).toString().padStart(2, "0");
-      const templateName = 
+      const templateName =
         ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
       return { templateName, inventoryId, templateAlias };
@@ -1072,7 +1072,7 @@ bulkDeleteInventory: async (req: Request, res: Response) => {
     if (selectAllPages) {
           // Handle filter-based deletion
           const query: any = {};
-          
+
           if (filters.status) {
             query.status = filters.status;
           }
@@ -1082,7 +1082,7 @@ bulkDeleteInventory: async (req: Request, res: Response) => {
           if (filters.isBlocked !== undefined) {
             query.isBlocked = filters.isBlocked;
           }
-    
+
           const result = await Inventory.deleteMany(query);
           return res.status(200).json({
             success: true,
@@ -1142,5 +1142,193 @@ bulkDeleteInventory: async (req: Request, res: Response) => {
       ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
     });
   }
+},
+
+
+ generateXLSXTemplate : async (req:Request, res:Response) => {
+  try {
+    // Dummy data for testing - replace with req.body or req.query in actual implementation
+    const attributes = [
+      {
+        name: 'Name',
+        type: 'string',
+        required: true
+      },
+      {
+        name: 'Email',
+        type: 'string',
+        required: true
+      },
+      {
+        name: 'Status',
+        type: 'enum',
+        enums: ['Active', 'Inactive', 'Pending', 'Suspended'],
+        required: true
+      },
+      {
+        name: 'Role',
+        type: 'enum',
+        enums: ['Admin', 'User', 'Manager', 'Guest'],
+        required: true
+      },
+      {
+        name: 'Department',
+        type: 'enum',
+        enums: ['IT', 'HR', 'Finance', 'Marketing', 'Sales'],
+        required: false
+      },
+      {
+        name: 'Age',
+        type: 'number',
+        required: false
+      },
+      {
+        name: 'Join Date',
+        type: 'date',
+        required: true
+      }
+    ];
+
+    // Create a new workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Create the main worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
+
+    // Add headers
+    const headers = attributes.map(attr => attr.name);
+    XLSX.utils.sheet_add_aoa(worksheet, [headers], { origin: 'A1' });
+
+    // Add sample data row (optional - remove if you don't want sample data)
+    const sampleData = [
+      'John Doe',
+      'john@example.com',
+      'Active',
+      'User',
+      'IT',
+      30,
+      '2024-01-15'
+    ];
+    XLSX.utils.sheet_add_aoa(worksheet, [sampleData], { origin: 'A2' });
+
+    // Set column widths
+    const colWidths = attributes.map(attr => ({ width: Math.max(attr.name.length, 15) }));
+    worksheet['!cols'] = colWidths;
+
+    // Add data validation for enum columns
+    attributes.forEach((attr, index) => {
+      if (attr.type === 'enum' && attr.enums && attr.enums.length > 0) {
+        const columnLetter = String.fromCharCode(65 + index); // A, B, C, etc.
+
+        // Create validation for the entire column (rows 2 to 1000)
+        const validationRange = `${columnLetter}2:${columnLetter}1000`;
+
+        if (!worksheet['!dataValidation']) {
+          worksheet['!dataValidation'] = [];
+        }
+
+        // Add dropdown validation
+        worksheet['!dataValidation'].push({
+          type: 'list',
+          allowBlank: !attr.required,
+          sqref: validationRange,
+          formulas: [`"${attr.enums.join(',')}"`],
+          showDropdown: true,
+          showInputMessage: true,
+          showErrorMessage: true,
+          errorTitle: 'Invalid Value',
+          errorMessage: `Please select a valid ${attr.name} from the dropdown list: ${attr.enums.join(', ')}`,
+          promptTitle: `Select ${attr.name}`,
+          promptMessage: `Choose from: ${attr.enums.join(', ')}`
+        });
+      }
+    });
+
+    // Add the main worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Template');
+
+    // Create a separate sheet for enum reference
+    const enumSheet = XLSX.utils.aoa_to_sheet([]);
+    const enumData = [['Attribute', 'Valid Values']];
+
+    attributes.forEach(attr => {
+      if (attr.type === 'enum' && attr.enums) {
+        attr.enums.forEach((enumValue, index) => {
+          enumData.push([
+            index === 0 ? attr.name : '', // Only show attribute name for first enum value
+            enumValue
+          ]);
+        });
+        enumData.push(['', '']); // Add empty row between different attributes
+      }
+    });
+
+    XLSX.utils.sheet_add_aoa(enumSheet, enumData, { origin: 'A1' });
+    enumSheet['!cols'] = [{ width: 20 }, { width: 30 }];
+    XLSX.utils.book_append_sheet(workbook, enumSheet, 'Valid Values Reference');
+
+    // Create instructions sheet
+    const instructionsSheet = XLSX.utils.aoa_to_sheet([]);
+    const instructions = [
+      ['Instructions for using this template:'],
+      [''],
+      ['1. Fill in the data in the "Data Template" sheet'],
+      ['2. For dropdown columns, click on the cell to see available options'],
+      ['3. Only values from the dropdown lists are accepted'],
+      ['4. Required fields are marked and must be filled'],
+      ['5. Check the "Valid Values Reference" sheet for all valid options'],
+      [''],
+      ['Column Details:'],
+      ['']
+    ];
+
+    // Add attribute details to instructions
+    attributes.forEach(attr => {
+      instructions.push([
+        `${attr.name}:`,
+        `Type: ${attr.type}`,
+        `Required: ${attr.required ? 'Yes' : 'No'}`,
+        attr.enums ? `Valid Values: ${attr.enums.join(', ')}` : ''
+      ]);
+    });
+
+    XLSX.utils.sheet_add_aoa(instructionsSheet, instructions, { origin: 'A1' });
+    instructionsSheet['!cols'] = [{ width: 25 }, { width: 20 }, { width: 15 }, { width: 50 }];
+    XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Instructions');
+
+    // Generate buffer
+    const buffer = XLSX.write(workbook, {
+      type: 'buffer',
+      bookType: 'xlsx',
+      compression: true
+    });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="data-template.xlsx"');
+    res.setHeader('Content-Length', buffer.length);
+
+    // Send the file
+    res.send(buffer);
+
+  } catch (error: any) {
+    console.error('Error generating XLSX template:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating XLSX template',
+      error: error.message
+    });
+  }
 }
+
+
+// Alternative version if you want to save to file system instead of sending as response:
+/*
+const generateXLSXTemplateToFile = async (attributes, filename = 'template.xlsx') => {
+  // ... same logic as above but instead of res.send(buffer), use:
+  // const fs = require('fs');
+  // fs.writeFileSync(filename, buffer);
+  // return filename;
+};
+*/
 };
