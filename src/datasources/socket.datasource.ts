@@ -191,7 +191,7 @@ class SocketManager {
               // Receiver is online, mark as delivered immediately
               try {
                 console.log('Receiver is online, marking message as delivered:', message._id);
-                const updatedMessage = await ChatService.markAsDelivered(message._id);
+                const updatedMessage = await ChatService.markAsDelivered(message._id as string);
                 if (updatedMessage) {
                   console.log('Message marked as delivered, notifying sender');
                   // Notify sender about delivery status
@@ -266,7 +266,7 @@ class SocketManager {
                 if (onlineParticipants.length > 0) {
                   try {
                     console.log('Group message: marking as delivered for online participants');
-                    const updatedMessage = await ChatService.markAsDelivered(message._id);
+                    const updatedMessage = await ChatService.markAsDelivered(message._id as string);
                     if (updatedMessage) {
                       // Notify sender about delivery status
                       this.io?.to(socket.user!.socketId).emit("message-delivered", {
