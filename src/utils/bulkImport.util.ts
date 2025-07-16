@@ -2,11 +2,9 @@ import fs from "fs";
 import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
-import { v4 as uuidv4 } from "uuid";
-import mongoose from "mongoose";
-import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { ProductCategory, User } from "@/models";
-import Papa from "papaparse";
+import { uploadFileToFirebase } from "./firebase";
+import { ProductCategory } from "@/models";
+
 import dotenv from "dotenv";
 import { ebayListingService, inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
