@@ -1240,35 +1240,30 @@ function createEnumSheets(workbook: ExcelJS.Workbook, attributes: ParsedAttribut
         return;
       }
 
-      // Create a safe sheet name
-      let baseSheetName = `List_${attr.name.replace(/[^a-zA-Z0-9]/g, "_")}_${categoryId}`;
-      let enumSheetName = baseSheetName;
+      // Generate a base name, replacing dots with underscores for nested attributes
+      let baseSheetName = `List_${attr.name.replace(/[^a-zA-Z0-9]/g, "_")}`;
+      let enumSheetName = createSafeSheetName(baseSheetName, categoryId);
       let counter = 1;
 
-      // Handle duplicate sheet names by adding counter
-      while (createdSheetNames.has(enumSheetName)) {
-        enumSheetName = `${baseSheetName}_${counter}`;
+      // Ensure unique sheet name by appending counter if needed
+      while (createdSheetNames.has(enumSheetName.toLowerCase())) {
+        enumSheetName = createSafeSheetName(`${baseSheetName}_${counter}`, categoryId);
         counter++;
       }
 
-      // Ensure sheet name doesn't exceed Excel's 31 character limit
-      if (enumSheetName.length > 31) {
-        const suffix = counter > 1 ? `_${counter - 1}` : "";
-        const maxBaseLength = 31 - suffix.length;
-        enumSheetName = baseSheetName.substring(0, maxBaseLength) + suffix;
-      }
-
-      console.log(`[createEnumSheets] Creating enum sheet: ${enumSheetName} with values:`, attr.enums);
+      console.log(
+        `[createEnumSheets] Creating enum sheet: ${enumSheetName} for attribute: ${attr.name} with values:`,
+        attr.enums
+      );
 
       try {
         const enumSheet = workbook.addWorksheet(enumSheetName);
-        createdSheetNames.add(enumSheetName);
+        createdSheetNames.add(enumSheetName.toLowerCase()); // Store lowercase for case-insensitive comparison
 
         attr.enums.forEach((value: string, rowIndex: number) => {
           enumSheet.getCell(rowIndex + 1, 1).value = value;
         });
 
-        // Store by attribute name instead of index for better matching
         enumSheets[attr.name] = {
           sheetName: enumSheetName,
           range: `${enumSheetName}!$A$1:$A${attr.enums.length}`,
@@ -1277,8 +1272,8 @@ function createEnumSheets(workbook: ExcelJS.Workbook, attributes: ParsedAttribut
 
         enumSheet.state = "hidden";
       } catch (error) {
-        console.error(`[createEnumSheets] Error creating sheet ${enumSheetName}:`, error);
-        throw error;
+        console.error(`[createEnumSheets] Error creating sheet ${enumSheetName} for attribute ${attr.name}:`, error);
+        // Continue with the next attribute instead of throwing
       }
     }
   });
