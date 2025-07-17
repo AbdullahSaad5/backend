@@ -6,16 +6,14 @@ export const workshift = (router: Router) => {
   // router.post("/", authenticate, authorize(["admin", "manager"]), shiftController.createShift);
   router.post("/", shiftController.createShift);
 
-  // Get all shifts
-  // router.get("/", authenticate, shiftController.getAllShifts);
+  router.post("/assign", shiftController.assignShift);
   router.get("/", shiftController.getAllShifts);
 
-  // Get shift by ID
-  // router.get("/:id", authenticate, shiftController.getShiftById);
   router.get("/:id", shiftController.getShiftById);
 
   // Update shift
   router.patch("/:id", shiftController.patchShiftEmployees);
+
   // router.put("/:id", authenticate, authorize(["admin", "manager"]), shiftController.updateShift);
 
   // router.delete("/:id", authenticate, authorize(["admin", "manager"]), shiftController.deleteShift);

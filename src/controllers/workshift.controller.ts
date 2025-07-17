@@ -4,6 +4,7 @@ import { StatusCodes } from "http-status-codes";
 import { isValidObjectId, Types } from "mongoose";
 import { IUser } from "@/contracts/user.contract";
 import { workshiftService } from "@/services/workshift.service";
+import { User } from "@/models/user.model";
 
 export const shiftController = {
   createShift: async (req: Request, res: Response) => {
@@ -47,6 +48,43 @@ export const shiftController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to create shift",
+        error: error.message,
+      });
+    }
+  },
+
+  assignShift: async (req: Request, res: Response) => {
+    try {
+      const { shiftId, employeeIds } = req.body;
+
+      const shift = await Shift.findById(shiftId);
+
+      if (!shift) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Shift not found",
+        });
+      }
+
+      // check for array of employeeIds
+      if (!Array.isArray(employeeIds)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Employee IDs must be an array",
+        });
+      }
+      shift.employees = employeeIds;
+      await shift.save();
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Shift assigned successfully",
+        data: shift,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to assign shift",
         error: error.message,
       });
     }
