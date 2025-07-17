@@ -106,6 +106,30 @@ export const workmodeController = {
     }
   },
 
+  async addEmployeesToWorkmode(req: Request, res: Response) {
+    const workmode = await Workmode.findById(req.params.id);
+    if (!workmode) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "Workmode not found",
+      });
+    }
+    const { employees } = req.body;
+    if (!employees || !Array.isArray(employees)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: "Employees array is required",
+      });
+    }
+    workmode.employees = employees;
+    await workmode.save();
+    return res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Employees updated successfully",
+      data: workmode,
+    });
+  },
+
   async updateWorkmode(req: Request, res: Response) {
     try {
       const { id } = req.params;

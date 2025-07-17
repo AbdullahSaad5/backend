@@ -35,7 +35,6 @@ export const userService = {
       additionalAccessRights,
       restrictedAccessRights,
       phoneNumber,
-      isEmployee,
       dob,
     } = data;
 
@@ -60,7 +59,6 @@ export const userService = {
       phoneNumber,
       dob,
       supplierKey, // Ensure supplierKey is set
-      isEmployee,
     });
 
     return await newUser.save();
@@ -229,13 +227,6 @@ export const userService = {
       console.error("Error during search and filter:", error);
       throw new Error("Error during search and filter");
     }
-  },
-
-  getEmployeeList: async () => {
-    return {
-      message: "Employee list fetched successfully",
-      employees: [],
-    };
   },
 };
 

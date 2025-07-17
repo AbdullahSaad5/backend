@@ -17,7 +17,6 @@ export const user = (router: Router) => {
   router.get("/:id", userValidation.validateId, userController.getUserDetails);
 
   router.get("/address/:id", userController.getUserAddress);
-  router.get("/employee", userController.getEmployeeList);
 
   // route for update user
   router.patch("/:id", userValidation.updateUser, userController.updateUser);

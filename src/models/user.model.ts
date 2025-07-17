@@ -48,7 +48,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       ref: "SupplierCategory",
       required: false,
     },
-    isEmployee: { type: Boolean, default: false },
     additionalAccessRights: { type: [String], default: [] },
     restrictedAccessRights: { type: [String], default: [] },
     resetPasswordToken: { type: String },
