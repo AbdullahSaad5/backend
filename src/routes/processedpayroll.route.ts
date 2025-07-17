@@ -1,18 +1,33 @@
 import { Router } from "express";
 import { processedPayrollController } from "../controllers/processedpayroll.controller";
+import { adminRoleCheck } from "@/middlewares/auth.middleware";
 
-const processedPayroll = (router: Router) => {
+export const processedpayroll = (router: Router) => {
   // Create processed payroll
-  router.post("/", processedPayrollController.createProcessedPayroll);
+  router.post(
+    "/",
+    adminRoleCheck,
+    processedPayrollController.createProcessedPayroll
+  );
 
   // Get all processed payrolls
-  router.get("/", processedPayrollController.getAllProcessedPayrolls);
+  router.get(
+    "/",
+    adminRoleCheck,
+    processedPayrollController.getAllProcessedPayrolls
+  );
 
   // Get processed payroll by id
-  router.get("/:id", processedPayrollController.getProcessedPayrollById);
+  router.get(
+    "/:id",
+    adminRoleCheck,
+    processedPayrollController.getProcessedPayrollById
+  );
 
   // Update processed payroll by id
-  router.patch("/:id", processedPayrollController.updateProcessedPayrollById);
+  router.patch(
+    "/:id",
+    adminRoleCheck,
+    processedPayrollController.updateProcessedPayrollById
+  );
 };
-
-export default processedPayroll;

@@ -38,8 +38,12 @@ class SocketManager {
         methods: ["GET", "POST"],
         credentials: true,
       },
-      pingTimeout: 60000,
-      pingInterval: 25000,
+      pingTimeout: 60000,        // Increased from 60000 to be more tolerant
+      pingInterval: 25000,       // Keep at 25 seconds
+      transports: ['websocket', 'polling'], // Add polling as fallback
+      allowEIO3: true,           // Allow Engine.IO v3 clients
+      maxHttpBufferSize: 1e6,    // 1MB buffer size
+      connectTimeout: 45000,     // 45 second connection timeout
     });
 
     this.io.use(this.authMiddleware.bind(this));
@@ -191,7 +195,7 @@ class SocketManager {
               // Receiver is online, mark as delivered immediately
               try {
                 console.log('Receiver is online, marking message as delivered:', message._id);
-                const updatedMessage = await ChatService.markAsDelivered(message._id);
+                const updatedMessage = await ChatService.markAsDelivered(message._id as string);
                 if (updatedMessage) {
                   console.log('Message marked as delivered, notifying sender');
                   // Notify sender about delivery status
@@ -266,7 +270,7 @@ class SocketManager {
                 if (onlineParticipants.length > 0) {
                   try {
                     console.log('Group message: marking as delivered for online participants');
-                    const updatedMessage = await ChatService.markAsDelivered(message._id);
+                    const updatedMessage = await ChatService.markAsDelivered(message._id as string);
                     if (updatedMessage) {
                       // Notify sender about delivery status
                       this.io?.to(socket.user!.socketId).emit("message-delivered", {
@@ -338,15 +342,15 @@ class SocketManager {
     // Handle typing indicators
     socket.on(
       "typing-start",
-      (data: { receiver?: string; chatRoom?: string }) => {
-        this.handleStartTyping(socket, data.receiver, data.chatRoom);
+      async (data: { receiver?: string; chatRoom?: string }) => {
+        await this.handleStartTyping(socket, data.receiver, data.chatRoom);
       }
     );
 
     socket.on(
       "typing-stop",
-      (data: { receiver?: string; chatRoom?: string }) => {
-        this.handleStopTyping(socket, data.receiver, data.chatRoom);
+      async (data: { receiver?: string; chatRoom?: string }) => {
+        await this.handleStopTyping(socket, data.receiver, data.chatRoom);
       }
     );
 
@@ -455,22 +459,37 @@ class SocketManager {
       socket.emit("online-users", onlineUsers);
     });
 
+    // Handle heartbeat from client
+    socket.on("heartbeat", () => {
+      console.log(`Heartbeat received from ${socket.user?.email}`);
+      // Send heartbeat response back to client
+      socket.emit("heartbeat-response");
+    });
+
     // Handle disconnect
     socket.on("disconnect", () => {
       this.handleDisconnect(socket);
     });
   }
 
-  private handleStartTyping(
+  private async handleStartTyping(
     socket: AuthenticatedSocket,
     receiver?: string,
     chatRoom?: string
-  ): void {
+  ): Promise<void> {
     if (!socket.user) return;
+
+    // Use static messages instead of fetching user names
+    let userName = "User";
+    if (chatRoom) {
+      userName = "Someone";
+    }
+
+    console.log('Using static userName for typing indicator:', userName);
 
     const typingData = {
       userId: socket.user.id,
-      userName: socket.user.email,
+      userName: userName,
       timestamp: new Date(),
     };
 
@@ -481,9 +500,10 @@ class SocketManager {
       typingUsers[socket.user.id] = typingData;
       this.typingUsers.set(roomId, typingUsers);
 
-      this.io?.to(roomId).emit("user-typing", {
+      console.log('Emitting typing event to room:', roomId, 'with userName:', userName);
+      socket.to(roomId).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: true,
       });
     } else if (chatRoom) {
@@ -492,20 +512,29 @@ class SocketManager {
       typingUsers[socket.user.id] = typingData;
       this.typingUsers.set(chatRoom, typingUsers);
 
+      console.log('Emitting typing event to group:', chatRoom, 'with userName:', userName);
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: true,
       });
     }
   }
 
-  private handleStopTyping(
+  private async handleStopTyping(
     socket: AuthenticatedSocket,
     receiver?: string,
     chatRoom?: string
-  ): void {
+  ): Promise<void> {
     if (!socket.user) return;
+
+    // Use static messages instead of fetching user names
+    let userName = "User";
+    if (chatRoom) {
+      userName = "Someone";
+    }
+
+    console.log('Using static userName for typing indicator:', userName);
 
     if (receiver) {
       // Private chat stop typing
@@ -514,9 +543,9 @@ class SocketManager {
       delete typingUsers[socket.user.id];
       this.typingUsers.set(roomId, typingUsers);
 
-      this.io?.to(roomId).emit("user-typing", {
+      socket.to(roomId).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: false,
       });
     } else if (chatRoom) {
@@ -527,7 +556,7 @@ class SocketManager {
 
       socket.to(chatRoom).emit("user-typing", {
         userId: socket.user.id,
-        userName: socket.user.email,
+        userName: userName,
         isTyping: false,
       });
     }
@@ -556,6 +585,17 @@ class SocketManager {
     setTimeout(() => {
       this.connectedUsers.delete(socket.user!.id);
     }, 30000); // 30 seconds delay
+  }
+
+  // Keep users online even with weak connections
+  private keepUserOnline(userId: string): void {
+    const user = this.connectedUsers.get(userId);
+    if (user) {
+      // Keep user as online even if they have weak connection
+      user.isOnline = true;
+      user.lastSeen = new Date();
+      this.connectedUsers.set(userId, user);
+    }
   }
 
   private broadcastUserStatus(userId: string, isOnline: boolean): void {

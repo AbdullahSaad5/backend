@@ -2,11 +2,9 @@ import fs from "fs";
 import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
-import { v4 as uuidv4 } from "uuid";
-import mongoose from "mongoose";
-import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { ProductCategory, User } from "@/models";
-import Papa from "papaparse";
+import { uploadFileToFirebase } from "./firebase";
+import { ProductCategory } from "@/models";
+
 import dotenv from "dotenv";
 import { ebayListingService, inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
@@ -302,138 +300,5 @@ export const bulkImportUtility = {
         console.error("❌ Error cleaning up files:", err);
       }
     }
-  },
-  fetchAllCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
-    try {
-      const result = await ProductCategory.aggregate([
-        {
-          $match: {
-            $or: [{ ebayCategoryId: { $exists: true, $ne: null } }, { ebayCategoryId: { $exists: true, $ne: null } }],
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            name: 1,
-            ebayCategoryId: 1,
-          },
-        },
-      ]);
-
-      // Build array of { id, name } from both possible ID fields
-      const allCategories = result.flatMap((item) => {
-        const categories: { id: string; name: string }[] = [];
-        if (item.ebayCategoryId) {
-          categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
-        }
-        // if (item.ebayCategoryId) {
-        //   categories.push({ id: item.ebayCategoryId.toString(), name: item.name });
-        // }
-        return categories;
-      });
-
-      return allCategories;
-    } catch (error) {
-      console.error("Error fetching category IDs:", error);
-      throw new Error("Failed to fetch category IDs");
-    }
-  },
-
-  fetchAspectsForAllCategories: async () => {
-    try {
-      // Step 1: Get all category ID-name pairs
-      const categoryIdNamePairs = await bulkImportUtility.fetchAllCategoryIds(); // [{ id, name }]
-      if (categoryIdNamePairs.length === 0) {
-        console.log("No category IDs found.");
-        return;
-      }
-
-      // Step 2: Fetch aspects for each category using Promise.allSettled
-      const results = await Promise.allSettled(
-        categoryIdNamePairs.map(async ({ id, name }) => {
-          const aspects = await ebayListingService.fetchEbayCategoryAspects(id);
-          return { categoryId: id, categoryName: name, aspects };
-        })
-      );
-
-      // Step 3: Filter fulfilled
-      const fulfilledResults = results
-        .filter(
-          (
-            result
-          ): result is PromiseFulfilledResult<{
-            categoryId: string;
-            categoryName: string;
-            aspects: any;
-          }> => result.status === "fulfilled" && !!result.value?.categoryId
-        )
-        .map((result) => result.value);
-
-      // Step 4: Log rejected ones
-      const failedCategories = results
-        .map((res, index) => ({ res, index }))
-        .filter(({ res }) => res.status === "rejected")
-        .map(({ index }) => categoryIdNamePairs[index].id);
-
-      if (failedCategories.length > 0) {
-        console.warn("Some categories failed to fetch aspects:", failedCategories);
-      }
-
-      // Step 5: Export to Excel with names and aspects
-      bulkImportUtility.exportCategoryAspectsToExcel(fulfilledResults);
-
-      return fulfilledResults;
-    } catch (error) {
-      console.error("Error fetching aspects for all categories:", error);
-      throw error;
-    }
-  },
-
-  exportCategoryAspectsToExcel: async (
-    allCategoryAspects: { categoryId: string; categoryName: string; aspects: any }[],
-    filePath: string = "CategoryAspects.xlsx"
-  ) => {
-    const workbook = XLSX.utils.book_new();
-
-    allCategoryAspects.forEach(({ categoryId, categoryName, aspects }) => {
-      const aspectList = aspects?.aspects || [];
-
-      const uniqueHeaders = new Set<string>();
-
-      // Add static required fields first
-      const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
-      staticHeaders.forEach((header) => uniqueHeaders.add(header));
-
-      // Add dynamic headers with required & variation flags
-      aspectList.forEach((aspect: any) => {
-        let title = aspect.localizedAspectName || "Unknown";
-        const isRequired = aspect.aspectConstraint?.aspectRequired;
-        const isVariation = aspect.aspectConstraint?.aspectEnabledForVariations;
-
-        if (isRequired) title += "*";
-        if (isVariation) title += " (variation allowed)";
-
-        uniqueHeaders.add(title);
-      });
-
-      const headers = Array.from(uniqueHeaders);
-      const data = [headers]; // first row is header
-
-      const worksheet = XLSX.utils.aoa_to_sheet(data);
-
-      const idPart = ` (${categoryId})`;
-      let safeName = categoryName.replace(/[\\/?*[\]:]/g, ""); // clean illegal chars
-
-      const maxNameLength = 31 - idPart.length;
-      if (safeName.length > maxNameLength) {
-        safeName = safeName.slice(0, maxNameLength); // trim name only
-      }
-
-      const sheetName = `${safeName}${idPart}`;
-      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-    });
-
-    XLSX.writeFile(workbook, filePath);
-    console.log(`✅ Excel file generated: ${filePath}`);
   },
 };

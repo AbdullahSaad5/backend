@@ -1,10 +1,14 @@
-import { ebayListingService, inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
+import ExcelJS from "exceljs";
+import fs from "fs";
+import path from "path";
+import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 import { processVariationsUtility } from "@/utils/processVariation.util";
 
 export const inventoryController = {
@@ -270,8 +274,8 @@ export const inventoryController = {
   //       const kind = (template.kind || "UNKNOWN").toLowerCase();
 
   //       // const itemCategory = template.productInfo.productCategory?.name;
-  //       const itemCategory = template.productInfo?.productCategory?.name || 
-  //                    template.productInfo?.productCategory?.toString() || 
+  //       const itemCategory = template.productInfo?.productCategory?.name ||
+  //                    template.productInfo?.productCategory?.toString() ||
   //                    "UNKNOWN";
 
   //       // console.log("kindiiii : ", kind);
@@ -291,32 +295,32 @@ export const inventoryController = {
   //       prodInfo.operating_system?.[0]?.value
   //     ];
   //     break;
-    // case "all in one":
-    //   fields = [
-    //     prodInfo.type?.[0]?.value,
-    //     prodInfo.memory?.[0]?.value,
-    //     prodInfo.processor_description?.[0]?.value,
-    //     prodInfo.operating_system?.[0]?.value
-    //   ];
+  // case "all in one":
+  //   fields = [
+  //     prodInfo.type?.[0]?.value,
+  //     prodInfo.memory?.[0]?.value,
+  //     prodInfo.processor_description?.[0]?.value,
+  //     prodInfo.operating_system?.[0]?.value
+  //   ];
 
-    //       case "mini pc":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "computers":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "projectors":
-    //         fields = [prodInfo.type, prodInfo.model];
-    //         break;
-    //       case "monitors":
-    //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
-    //         break;
-    //       case "gaming pc":
-    //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
-    //         break;
-    //       case "network equipments":
-    //         fields = [prodInfo.networkType, prodInfo.processorType];
-    //         break;
+  //       case "mini pc":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "computers":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "projectors":
+  //         fields = [prodInfo.type, prodInfo.model];
+  //         break;
+  //       case "monitors":
+  //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
+  //         break;
+  //       case "gaming pc":
+  //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
+  //         break;
+  //       case "network equipments":
+  //         fields = [prodInfo.networkType, prodInfo.processorType];
+  //         break;
   //         default:
   //           fields = ["UNKNOWN"];
   //       }
@@ -356,45 +360,45 @@ export const inventoryController = {
   //   }
   // },
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
-  try {
-    const templates = await inventoryService.getInventoryByCondition({
-      isTemplate: true,
-    });
-
-    if (!templates.length) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: "No templates found",
+    try {
+      const templates = await inventoryService.getInventoryByCondition({
+        isTemplate: true,
       });
-    }
 
-    const templateList = templates.map((template: any, index: number) => {
-      const inventoryId = template._id;
-      const templateAlias = template.alias;
-      const kind = (template.kind || "UNKNOWN").toLowerCase();
+      if (!templates.length) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No templates found",
+        });
+      }
 
-      // Properly access the category name
-      const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
-      const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
+      const templateList = templates.map((template: any, index: number) => {
+        const inventoryId = template._id;
+        const templateAlias = template.alias;
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-      const prodInfo = template.prodTechInfo || {};
-      let fields: string[] = [];
+        // Properly access the category name
+        const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
+        const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
 
-      // Use proper field access based on your actual data structure
-      switch (itemCategory.toLowerCase()) {
-        case "laptops":
-          fields = [
-            prodInfo.processor_description?.[0]?.value || prodInfo.processor,
-            prodInfo.model_name?.[0]?.value || prodInfo.model,
-          ];
-          break;
-              case "all in one":
-      fields = [
-        prodInfo.type?.[0]?.value,
-        prodInfo.memory?.[0]?.value,
-        prodInfo.processor_description?.[0]?.value,
-        prodInfo.operating_system?.[0]?.value
-      ];
+        const prodInfo = template.prodTechInfo || {};
+        let fields: string[] = [];
+
+        // Use proper field access based on your actual data structure
+        switch (itemCategory.toLowerCase()) {
+          case "laptops":
+            fields = [
+              prodInfo.processor_description?.[0]?.value || prodInfo.processor,
+              prodInfo.model_name?.[0]?.value || prodInfo.model,
+            ];
+            break;
+          case "all in one":
+            fields = [
+              prodInfo.type?.[0]?.value,
+              prodInfo.memory?.[0]?.value,
+              prodInfo.processor_description?.[0]?.value,
+              prodInfo.operating_system?.[0]?.value,
+            ];
 
           case "mini pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
@@ -414,39 +418,39 @@ export const inventoryController = {
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
-        // Add other cases
-        default:
-          fields = ["UNKNOWN"];
-      }
+          // Add other cases
+          default:
+            fields = ["UNKNOWN"];
+        }
 
-      const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-      const srno = (index + 1).toString().padStart(2, "0");
-      const templateName = 
-        ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+        const srno = (index + 1).toString().padStart(2, "0");
+        const templateName =
+          ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-      return { templateName, inventoryId, templateAlias };
-    });
+        return { templateName, inventoryId, templateAlias };
+      });
 
-    // Sorting logic remains the same
-    templateList.sort((a, b) => {
-      const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
-      const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
-      return numB - numA;
-    });
+      // Sorting logic remains the same
+      templateList.sort((a, b) => {
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
+      });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Templates fetched successfully",
-      data: templateList,
-    });
-  } catch (error: any) {
-    console.error("Error fetching templates:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: error.message || "Error fetching templates",
-    });
-  }
-},
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Templates fetched successfully",
+        data: templateList,
+      });
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching templates",
+      });
+    }
+  },
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -1056,91 +1060,323 @@ export const inventoryController = {
     }
   },
 
-//bulk delete
-bulkDeleteInventory: async (req: Request, res: Response) => {
-  try {
-    // First check if body exists and has inventoryIds
-    // if (!req.body || !req.body.inventoryIds) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Request body must contain inventoryIds array"
-    //   });
-    // }
+  //bulk delete
+  bulkDeleteInventory: async (req: Request, res: Response) => {
+    try {
+      // First check if body exists and has inventoryIds
+      // if (!req.body || !req.body.inventoryIds) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Request body must contain inventoryIds array"
+      //   });
+      // }
 
-    const { inventoryIds= [], selectAllPages = false, filters = {} } = req.body;
+      const { inventoryIds = [], selectAllPages = false, filters = {} } = req.body;
 
-    if (selectAllPages) {
-          // Handle filter-based deletion
-          const query: any = {};
-          
-          if (filters.status) {
-            query.status = filters.status;
-          }
-          if (filters.isTemplate !== undefined) {
-            query.isTemplate = filters.isTemplate;
-          }
-          if (filters.isBlocked !== undefined) {
-            query.isBlocked = filters.isBlocked;
-          }
-    
-          const result = await Inventory.deleteMany(query);
-          return res.status(200).json({
-            success: true,
-            message: `Deleted ${result.deletedCount} listings`,
-            deletedCount: result.deletedCount
+      if (selectAllPages) {
+        // Handle filter-based deletion
+        const query: any = {};
+
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.isTemplate !== undefined) {
+          query.isTemplate = filters.isTemplate;
+        }
+        if (filters.isBlocked !== undefined) {
+          query.isBlocked = filters.isBlocked;
+        }
+
+        const result = await Inventory.deleteMany(query);
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      } else {
+        // Ensure inventoryIds is an array
+        if (!Array.isArray(inventoryIds)) {
+          return res.status(400).json({
+            success: false,
+            message: "inventoryIds must be an array",
           });
-        } else {
-    // Ensure inventoryIds is an array
-    if (!Array.isArray(inventoryIds)) {
-      return res.status(400).json({
+        }
+      }
+
+      // Check if array is empty
+      if (inventoryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No inventory IDs provided",
+        });
+      }
+
+      // Validate each ID
+      const invalidIds = inventoryIds.filter((id) => {
+        // Handle cases where id might be null/undefined
+        if (!id) return true;
+        // Check if valid ObjectId
+        return !mongoose.Types.ObjectId.isValid(id);
+      });
+
+      if (invalidIds.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid inventory IDs: ${invalidIds.join(", ")}`,
+        });
+      }
+
+      // Perform deletion
+      const result = await Inventory.deleteMany({
+        _id: { $in: inventoryIds },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Deleted ${result.deletedCount} items`,
+        deletedCount: result.deletedCount,
+      });
+    } catch (error: any) {
+      console.error("Error in bulk delete:", error);
+      return res.status(500).json({
         success: false,
-        message: "inventoryIds must be an array"
+        message: error.message || "Failed to perform bulk delete",
+        // Only include stack in development
+        ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
       });
     }
-  }
+  },
 
-    // Check if array is empty
-    if (inventoryIds.length === 0) {
-      return res.status(400).json({
+  generateXLSXTemplate: async (req: Request, res: Response) => {
+    try {
+      // Fetch category attributes
+      const categoryResults = await bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories();
+
+      if (!categoryResults || categoryResults.length === 0) {
+        throw new Error("No category attributes found");
+      }
+
+      // Create a new workbook
+      const workbook = new ExcelJS.Workbook();
+
+      // Process each category
+      categoryResults.forEach(({ categoryId, categoryName, attributes }) => {
+        // Clean category name for sheet
+        const idPart = ` (${categoryId})`;
+        let safeName = categoryName.replace(/[\\/?*[\]:]/g, "");
+        const maxNameLength = 31 - idPart.length;
+        if (safeName.length > maxNameLength) {
+          safeName = safeName.slice(0, maxNameLength);
+        }
+        const sheetName = `${safeName}${idPart}`;
+
+        // Create worksheet for category
+        const worksheet = workbook.addWorksheet(sheetName);
+
+        // Create enum reference sheets for this category
+        const enumSheets: any = {};
+        attributes.forEach((attr: any, index: any) => {
+          if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+            const enumSheetName = `List_${attr.name.replace(/\s+/g, "_")}_${categoryId}`;
+            const enumSheet = workbook.addWorksheet(enumSheetName);
+
+            // Add enum values
+            attr.enums.forEach((value: any, rowIndex: any) => {
+              enumSheet.getCell(rowIndex + 1, 1).value = value;
+            });
+
+            // Store reference
+            enumSheets[index] = {
+              sheetName: enumSheetName,
+              range: `${enumSheetName}!$A$1:$A$${attr.enums.length}`,
+              count: attr.enums.length,
+            };
+
+            enumSheet.state = "hidden";
+          }
+        });
+
+        // Prepare headers
+        const uniqueHeaders = new Set<string>();
+        const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
+        staticHeaders.forEach((header) => uniqueHeaders.add(header));
+
+        attributes.forEach((attr: any) => {
+          let title = attr.name || "Unknown";
+          const isRequired = attr.required;
+          const isVariation = attr.variation;
+
+          if (isRequired) title += "*";
+          if (isVariation) title += " (variation allowed)";
+          uniqueHeaders.add(title);
+        });
+
+        const headers = Array.from(uniqueHeaders);
+        const headerRow = worksheet.getRow(1);
+
+        // Add headers with styling
+        headers.forEach((header, index) => {
+          const cell = headerRow.getCell(index + 1);
+          cell.value = header;
+          cell.font = { bold: true, color: { argb: "FFFFFF" } };
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "4472C4" },
+          };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
+        });
+
+        // Set column widths
+        headers.forEach((header, index) => {
+          const column = worksheet.getColumn(index + 1);
+          column.width = Math.max(header.length + 5, 15);
+        });
+
+        // Add sample data row
+        const sampleRow = worksheet.getRow(2);
+        headers.forEach((header, index) => {
+          const cell = sampleRow.getCell(index + 1);
+          const attr = attributes.find((a) => header.startsWith(a.name)) || {};
+
+          if (header.includes("Allow Variations")) {
+            cell.value = "Yes/No";
+          } else if (header.includes("Title")) {
+            cell.value = "Sample Product Title";
+          } else if (header.includes("Description")) {
+            cell.value = "Sample Product Description";
+          } else if (header.includes("inventoryCondition")) {
+            cell.value = "New";
+          } else if (header.includes("Brand")) {
+            cell.value = "Sample Brand";
+          } else if (attr.type === "enum" && attr.enums) {
+            cell.value = attr.enums[1] || "";
+          } else if (attr.type === "string") {
+            cell.value = `Sample ${attr.name || "Text"}`;
+          } else if (attr.type === "number") {
+            cell.value = 100;
+          } else if (attr.type === "date") {
+            cell.value = new Date("2024-01-15");
+          } else {
+            cell.value = "";
+          }
+
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
+        });
+
+        // Add data validation for enum columns
+        attributes.forEach((attr: any, index: any) => {
+          if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+            const headerIndex = headers.findIndex((h) => h.startsWith(attr.name));
+            if (headerIndex >= 0) {
+              const columnLetter = String.fromCharCode(65 + headerIndex);
+
+              for (let row = 2; row <= 1000; row++) {
+                const cell = worksheet.getCell(`${columnLetter}${row}`);
+                cell.dataValidation = {
+                  type: "list",
+                  allowBlank: !attr.required,
+                  formulae: [`"${attr.enums.join(",")}"`],
+                  showErrorMessage: true,
+                  errorStyle: "error",
+                  errorTitle: "Invalid Entry",
+                  error: `Value must be selected from the dropdown list for ${attr.name}`,
+                  showInputMessage: true,
+                  promptTitle: `Select ${attr.name}`,
+                  prompt: "Click the dropdown arrow to select a value",
+                };
+                cell.border = {
+                  top: { style: "thin" },
+                  left: { style: "thin" },
+                  bottom: { style: "thin" },
+                  right: { style: "thin" },
+                };
+              }
+            }
+          }
+        });
+
+        // Freeze header row
+        worksheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
+      });
+
+      // Create instructions sheet
+      const instructionsSheet = workbook.addWorksheet("Instructions");
+      const instructions = [
+        ["📋 XLSX Template Usage Instructions"],
+        [""],
+        ["🔧 How to Use:"],
+        ["1. Go to the category-specific sheet"],
+        ["2. Click on any cell in columns with dropdowns"],
+        ["3. You will see a dropdown arrow appear"],
+        ["4. Click the dropdown arrow to select values"],
+        ["5. Only values from the dropdown are allowed"],
+        [""],
+        ["📊 Notes:"],
+        ["• Each sheet represents a category"],
+        ["• Headers with * are required"],
+        ["• Headers with (variation allowed) support variations"],
+        ["• Dropdown columns show valid values"],
+        ["• Sample data is provided in row 2"],
+      ];
+
+      instructions.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const excelCell = instructionsSheet.getCell(rowIndex + 1, colIndex + 1);
+          excelCell.value = cell;
+          if (rowIndex === 0) {
+            excelCell.font = { bold: true, size: 16, color: { argb: "4472C4" } };
+          }
+          if (cell && (cell.includes("🔧") || cell.includes("📊"))) {
+            excelCell.font = { bold: true, size: 12, color: { argb: "4472C4" } };
+          }
+        });
+      });
+
+      instructionsSheet.getColumn(1).width = 50;
+
+      // Generate and save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const exportsDir = path.join(__dirname, "../../exports");
+      if (!fs.existsSync(exportsDir)) {
+        fs.mkdirSync(exportsDir, { recursive: true });
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `category-template-${timestamp}.xlsx`;
+      const filepath = path.join(ExportsDir, filename);
+
+      fs.writeFileSync(filepath, buffer);
+
+      // Set response headers
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", buffer.length);
+
+      // Send file
+      res.send(buffer);
+
+      console.log(`✅ XLSX template with category sheets generated successfully!`);
+      console.log(`📁 File saved to: ${filepath}`);
+      console.log(`🎯 Categories processed: ${categoryResults.map((c) => c.categoryName).join(", ")}`);
+    } catch (error: any) {
+      console.error("❌ Error generating XLSX template:", error);
+      res.status(500).json({
         success: false,
-        message: "No inventory IDs provided"
+        message: "Error generating XLSX template",
+        error: error.message,
       });
     }
-
-    // Validate each ID
-    const invalidIds = inventoryIds.filter(id => {
-      // Handle cases where id might be null/undefined
-      if (!id) return true;
-      // Check if valid ObjectId
-      return !mongoose.Types.ObjectId.isValid(id);
-    });
-
-    if (invalidIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid inventory IDs: ${invalidIds.join(', ')}`
-      });
-    }
-
-    // Perform deletion
-    const result = await Inventory.deleteMany({
-      _id: { $in: inventoryIds }
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: `Deleted ${result.deletedCount} items`,
-      deletedCount: result.deletedCount
-    });
-
-  } catch (error: any) {
-    console.error("Error in bulk delete:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to perform bulk delete",
-      // Only include stack in development
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
-  }
-}
+  },
 };

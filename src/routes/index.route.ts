@@ -1,6 +1,5 @@
 import { Router } from "express";
 
-// Routes
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { multer as files } from "./multer.route";
 import { user } from "./user.route";
@@ -52,11 +51,11 @@ import { employee } from "./employee.route";
 import { workmode } from "./workmode.route";
 import { attendance } from "./attendance.route";
 import { leaveRequest } from "./leave-request.route";
-import payroll from "./payroll.route";
+import { payroll } from "./payroll.route";
+import { processedpayroll } from "./processedpayroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 import { task } from "./task.route";
-import processedPayroll from "./processedpayroll.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -121,8 +120,8 @@ const routes: {
   attendance,
   leaveRequest,
   payroll,
+  processedpayroll,
   task,
-  processedPayroll,
 };
 
 // Loop through all routes and pass the router to each route
