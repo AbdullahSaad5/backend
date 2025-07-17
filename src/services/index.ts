@@ -25,5 +25,6 @@ export { ebayCustomPolicyService } from "./ebay-custom-policy.service";
 export { ebayPaymentPolicyService } from "./ebay-payment-policy.service";
 export { ebayFulfillmentPolicyService } from "./ebay-fulfillment-policy.service";
 export { ebayReturnPolicyService } from "./ebay-return-policy.service";
+export { EbayChatService } from "./ebay-chat.service";
 export { amazonListingService } from "./amazon-listing.service";
 export { taskService } from "./task.service";
