@@ -303,6 +303,7 @@ export const bulkImportStandardTemplateGenerator = {
     }
 
     const attributes: ParsedAttribute[] = [];
+    const processedAttributes = new Set<string>();
 
     function extractAttributes(properties: any, parentPath: string = "") {
       if (!properties) return;
@@ -315,11 +316,23 @@ export const bulkImportStandardTemplateGenerator = {
           return;
         }
 
+        // Skip if we've already processed this attribute
+        if (processedAttributes.has(currentPath)) {
+          console.log(`[parseSchemaAttributes] Skipping duplicate attribute: ${currentPath}`);
+          return;
+        }
+
         console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
+
+        // Determine if this is an enum attribute
+        const hasEnums = prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0;
+        const attributeType = hasEnums ? "enum" : prop.type || "unknown";
+
         const attrInfo: ParsedAttribute = {
           name: currentPath,
-          type: prop.type || "unknown",
+          type: attributeType,
           required: schema.required?.includes(key) || false,
+          enums: hasEnums ? prop.enum : [],
           validations: {
             title: prop.title || "",
             description: prop.description || "",
@@ -340,7 +353,12 @@ export const bulkImportStandardTemplateGenerator = {
           },
         };
 
+        if (hasEnums) {
+          console.log(`[parseSchemaAttributes] Found enums for ${currentPath}:`, attrInfo.enums);
+        }
+
         attributes.push(attrInfo);
+        processedAttributes.add(currentPath);
 
         if (prop.type === "array" && prop.items?.properties) {
           console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
@@ -354,6 +372,14 @@ export const bulkImportStandardTemplateGenerator = {
 
     extractAttributes(schema.properties);
     console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
+
+    // Log enum attributes for debugging
+    const enumAttributes = attributes.filter((attr) => attr.type === "enum");
+    console.log(
+      `[parseSchemaAttributes] Found ${enumAttributes.length} enum attributes:`,
+      enumAttributes.map((attr: any) => ({ name: attr.name, enumCount: attr.enums.length }))
+    );
+
     return attributes;
   },
 };

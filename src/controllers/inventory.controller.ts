@@ -1179,30 +1179,25 @@ export const inventoryController = {
 
   generateXLSXTemplate: async (req: Request, res: Response) => {
     try {
-      // Fetch and parse category attributes
-      // const categoryResults: CategoryResult[] =
-      //   await bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories();
-      // if (!categoryResults || categoryResults.length === 0) {
-      //   throw new Error("No category attributes found");
-      // };
-
-      const workbook: any = new ExcelJS.Workbook();
+      const workbook = new ExcelJS.Workbook();
       const categoryId = "PERSONAL_COMPUTER";
       const categoryName = "Personal Computer";
-      // Process each category
-      // for (const { categoryId, categoryName, attributes } of categoryResults) {
+
       const schema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
       const parsedAttributes = await bulkImportStandardTemplateGenerator.parseSchemaAttributes(schema);
+
+      if (!parsedAttributes || parsedAttributes.length === 0) {
+        throw new Error("No attributes found for category");
+      }
 
       const worksheet = workbook.addWorksheet(createSafeSheetName(categoryName, categoryId));
       const enumSheets = createEnumSheets(workbook, parsedAttributes, categoryId);
       const headers = prepareHeaders(parsedAttributes);
 
       styleHeaders(worksheet, headers);
-      addDataValidation(worksheet, headers, parsedAttributes);
+      addDataValidation(worksheet, headers, parsedAttributes, enumSheets);
 
       worksheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
-      // }
 
       createInstructionsSheet(workbook);
       const buffer = await generateAndSaveFile(workbook, res);
@@ -1210,7 +1205,7 @@ export const inventoryController = {
       res.send(buffer);
       console.log(`✅ XLSX template with category sheets generated successfully!`);
       console.log(`📁 File saved to: ${path.join(__dirname, "../../exports")}`);
-      // console.log(`🎯 Categories processed: ${categoryResults.map((c) => c.categoryName).join(", ")}`);
+      console.log(`🎯 Category processed: ${categoryName}`);
     } catch (error: any) {
       console.error("❌ Error generating XLSX template:", error);
       res.status(500).json({
@@ -1221,6 +1216,7 @@ export const inventoryController = {
     }
   },
 };
+
 // Creates a safe sheet name
 function createSafeSheetName(categoryName: string, categoryId: string): string {
   const idPart = ` (${categoryId})`;
@@ -1232,27 +1228,61 @@ function createSafeSheetName(categoryName: string, categoryId: string): string {
   return `${safeName}${idPart}`;
 }
 
-// Creates enum reference sheets
 function createEnumSheets(workbook: ExcelJS.Workbook, attributes: ParsedAttribute[], categoryId: string): any {
   const enumSheets: any = {};
+  const createdSheetNames = new Set<string>();
+
   attributes.forEach((attr, index) => {
-    if (attr.type === "enum" && attr.validations.enum && attr.validations.enum.length > 0) {
-      const enumSheetName = `List_${attr.name.replace(/\s+/g, "_")}_${categoryId}`;
-      const enumSheet = workbook.addWorksheet(enumSheetName);
+    if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
+      // Skip if we already processed this attribute
+      if (enumSheets[attr.name]) {
+        console.log(`[createEnumSheets] Skipping duplicate attribute: ${attr.name}`);
+        return;
+      }
 
-      attr.validations.enum.forEach((value: string, rowIndex: number) => {
-        enumSheet.getCell(rowIndex + 1, 1).value = value;
-      });
+      // Create a safe sheet name
+      let baseSheetName = `List_${attr.name.replace(/[^a-zA-Z0-9]/g, "_")}_${categoryId}`;
+      let enumSheetName = baseSheetName;
+      let counter = 1;
 
-      enumSheets[index] = {
-        sheetName: enumSheetName,
-        range: `${enumSheetName}!$A$1:$A$${attr.validations.enum.length}`,
-        count: attr.validations.enum.length,
-      };
+      // Handle duplicate sheet names by adding counter
+      while (createdSheetNames.has(enumSheetName)) {
+        enumSheetName = `${baseSheetName}_${counter}`;
+        counter++;
+      }
 
-      enumSheet.state = "hidden";
+      // Ensure sheet name doesn't exceed Excel's 31 character limit
+      if (enumSheetName.length > 31) {
+        const suffix = counter > 1 ? `_${counter - 1}` : "";
+        const maxBaseLength = 31 - suffix.length;
+        enumSheetName = baseSheetName.substring(0, maxBaseLength) + suffix;
+      }
+
+      console.log(`[createEnumSheets] Creating enum sheet: ${enumSheetName} with values:`, attr.enums);
+
+      try {
+        const enumSheet = workbook.addWorksheet(enumSheetName);
+        createdSheetNames.add(enumSheetName);
+
+        attr.enums.forEach((value: string, rowIndex: number) => {
+          enumSheet.getCell(rowIndex + 1, 1).value = value;
+        });
+
+        // Store by attribute name instead of index for better matching
+        enumSheets[attr.name] = {
+          sheetName: enumSheetName,
+          range: `${enumSheetName}!$A$1:$A${attr.enums.length}`,
+          count: attr.enums.length,
+        };
+
+        enumSheet.state = "hidden";
+      } catch (error) {
+        console.error(`[createEnumSheets] Error creating sheet ${enumSheetName}:`, error);
+        throw error;
+      }
     }
   });
+  console.log(`[createEnumSheets] Created ${Object.keys(enumSheets).length} enum sheets`);
   return enumSheets;
 }
 
@@ -1299,19 +1329,61 @@ function styleHeaders(worksheet: ExcelJS.Worksheet, headers: string[]) {
   });
 }
 
-// Adds data validation for enum columns
-function addDataValidation(worksheet: ExcelJS.Worksheet, headers: string[], attributes: ParsedAttribute[]) {
+// Fixed: Adds data validation for enum columns
+function addDataValidation(
+  worksheet: ExcelJS.Worksheet,
+  headers: string[],
+  attributes: ParsedAttribute[],
+  enumSheets: any
+) {
+  console.log(`[addDataValidation] Starting validation for ${attributes.length} attributes`);
+  console.log(`[addDataValidation] Available enum sheets:`, Object.keys(enumSheets));
+
   attributes.forEach((attr, index) => {
-    if (attr.type === "enum" && attr.validations.enum && attr.validations.enum.length > 0) {
-      const headerIndex = headers.findIndex((h) => h.startsWith(attr.name));
+    // Check if attribute has enums and they exist
+    if (attr.enums && attr.enums.length > 0) {
+      console.log(`[addDataValidation] Processing attribute: ${attr.name} with enums:`, attr.enums);
+
+      // Find the corresponding enum sheet using attribute name
+      const enumSheetInfo = enumSheets[attr.name];
+      if (!enumSheetInfo) {
+        console.warn(`[addDataValidation] No enum sheet found for attribute ${attr.name}`);
+        return;
+      }
+
+      // Find the header that matches this attribute (with possible suffixes)
+      const possibleHeaders = [
+        attr.name,
+        `${attr.name}*`,
+        `${attr.name} (variation allowed)`,
+        `${attr.name}* (variation allowed)`,
+      ];
+
+      let headerIndex = -1;
+      let matchedHeader = "";
+
+      for (const possibleHeader of possibleHeaders) {
+        headerIndex = headers.indexOf(possibleHeader);
+        if (headerIndex >= 0) {
+          matchedHeader = possibleHeader;
+          break;
+        }
+      }
+
       if (headerIndex >= 0) {
         const columnLetter = String.fromCharCode(65 + headerIndex);
+
+        console.log(
+          `[addDataValidation] Applying validation for ${attr.name} in column ${columnLetter} (header: ${matchedHeader}) with range ${enumSheetInfo.range}`
+        );
+
+        // Apply validation to a reasonable number of rows (1000 should be enough)
         for (let row = 2; row <= 1000; row++) {
           const cell = worksheet.getCell(`${columnLetter}${row}`);
           cell.dataValidation = {
             type: "list",
             allowBlank: !attr.required,
-            formulae: [`"${attr.validations.enum.join(",")}"`],
+            formulae: [enumSheetInfo.range],
             showErrorMessage: true,
             errorStyle: "error",
             errorTitle: "Invalid Entry",
@@ -1327,6 +1399,8 @@ function addDataValidation(worksheet: ExcelJS.Worksheet, headers: string[], attr
             right: { style: "thin" },
           };
         }
+      } else {
+        console.warn(`[addDataValidation] Header not found for attribute ${attr.name}. Available headers:`, headers);
       }
     }
   });
@@ -1370,7 +1444,7 @@ function createInstructionsSheet(workbook: ExcelJS.Workbook) {
 }
 
 // Generates and saves the XLSX file
-async function generateAndSaveFile(workbook: ExcelJS.Workbook, res: Response): Promise<string> {
+async function generateAndSaveFile(workbook: ExcelJS.Workbook, res: Response): Promise<Buffer> {
   const buffer: any = await workbook.xlsx.writeBuffer();
   const exportsDir = path.join(__dirname, "../../exports");
   if (!fs.existsSync(exportsDir)) {
