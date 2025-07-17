@@ -1,16 +1,21 @@
 import { Router } from "express";
 import { workmodeController } from "@/controllers/workmode.controller";
+import { adminRoleCheck } from "@/middlewares/auth.middleware";
 
 export const workmode = (router: Router) => {
   // Create a new workmode
-  router.post("/", workmodeController.createWorkmode);
+  router.post("/", adminRoleCheck, workmodeController.createWorkmode);
 
   // Get all workmodes
-  router.get("/", workmodeController.getAllWorkmodes);
+  router.get("/", adminRoleCheck, workmodeController.getAllWorkmodes);
 
   // Get workmode by ID
-  router.get("/:id", workmodeController.getWorkmodeById);
-  router.post("/:id", workmodeController.addEmployeesToWorkmode);
+  router.get("/:id", adminRoleCheck, workmodeController.getWorkmodeById);
+  router.post(
+    "/:id",
+    adminRoleCheck,
+    workmodeController.addEmployeesToWorkmode
+  );
   // Update workmode (full update)
   router.put("/:id", workmodeController.updateWorkmode);
 
