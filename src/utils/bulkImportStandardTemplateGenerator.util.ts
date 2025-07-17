@@ -252,50 +252,7 @@ export const bulkImportStandardTemplateGenerator = {
     XLSX.writeFile(workbook, filePath);
     console.log(`✅ Excel file generated: ${filePath}`);
   },
-
-  // Test function to verify dropdown functionality
-  testDropdowns: async () => {
-    const testAttributes = [
-      {
-        name: "Product",
-        type: "string",
-        required: true,
-      },
-      {
-        name: "Category",
-        type: "enum",
-        enums: ["Electronics", "Clothing", "Books", "Home"],
-        required: true,
-      },
-      {
-        name: "Status",
-        type: "enum",
-        enums: ["Available", "Out of Stock", "Discontinued"],
-        required: true,
-      },
-      {
-        name: "Priority",
-        type: "enum",
-        enums: ["High", "Medium", "Low"],
-        required: false,
-      },
-    ];
-
-    // Mock request and response
-    const req: any = { body: { attributes: testAttributes } };
-    const res: any = {
-      setHeader: () => {},
-      send: (buffer: any) => {
-        const fs = require("fs");
-        fs.writeFileSync("./test-dropdown-template.xlsx", buffer);
-        console.log("✅ Test template created: test-dropdown-template.xlsx");
-      },
-    };
-
-    await inventoryController.generateXLSXTemplate(req, res);
-  },
-
-  parseSchemaAttributes: async (schema: any) => {
+  parseSchemaAttributes: async (schema: any): Promise<ParsedAttribute[]> => {
     console.log("[parseSchemaAttributes] Starting schema parsing");
     if (!schema?.properties) {
       console.warn("[parseSchemaAttributes] Invalid or empty schema provided");
@@ -311,18 +268,15 @@ export const bulkImportStandardTemplateGenerator = {
       Object.entries(properties).forEach(([key, prop]: [string, any]) => {
         const currentPath = parentPath ? `${parentPath}.${key}` : key;
 
+        // Skip system properties
         if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
-          console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
           return;
         }
 
-        // Skip if we've already processed this attribute
+        // Skip if already processed
         if (processedAttributes.has(currentPath)) {
-          console.log(`[parseSchemaAttributes] Skipping duplicate attribute: ${currentPath}`);
           return;
         }
-
-        console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
 
         // Determine if this is an enum attribute
         const hasEnums = prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0;
@@ -353,32 +307,23 @@ export const bulkImportStandardTemplateGenerator = {
           },
         };
 
-        if (hasEnums) {
-          console.log(`[parseSchemaAttributes] Found enums for ${currentPath}:`, attrInfo.enums);
-        }
-
         attributes.push(attrInfo);
         processedAttributes.add(currentPath);
 
+        // Recursively process nested properties
         if (prop.type === "array" && prop.items?.properties) {
-          console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
           extractAttributes(prop.items.properties, currentPath);
         } else if (prop.type === "object" && prop.properties) {
-          console.log(`[parseSchemaAttributes] Processing nested object properties for ${currentPath}`);
           extractAttributes(prop.properties, currentPath);
         }
       });
     }
 
     extractAttributes(schema.properties);
-    console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
 
-    // Log enum attributes for debugging
+    // Log summary
     const enumAttributes = attributes.filter((attr) => attr.type === "enum");
-    console.log(
-      `[parseSchemaAttributes] Found ${enumAttributes.length} enum attributes:`,
-      enumAttributes.map((attr: any) => ({ name: attr.name, enumCount: attr.enums.length }))
-    );
+    console.log(`[parseSchemaAttributes] Completed. Total: ${attributes.length}, Enums: ${enumAttributes.length}`);
 
     return attributes;
   },
