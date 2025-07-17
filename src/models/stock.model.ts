@@ -90,6 +90,8 @@ const StockSchema = new Schema<IStockModel>(
     },
     purchaseDate: { type: Date, default: Date.now },
     markAsStock: { type: Boolean },
+    images: [mediaSchema],
+    videos: [mediaSchema],
   },
   { timestamps: true }
 );

@@ -20,6 +20,8 @@ export const stockService = {
       stockInvoice,
       markAsStock,
       priceBreakdown,
+      images,
+      videos,
     } = data;
 
     // Validate inventory existence
@@ -75,6 +77,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();
@@ -106,6 +110,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();

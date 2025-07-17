@@ -23,6 +23,8 @@ export const stockController = {
         receivedBy,
         purchaseDate,
         markAsStock,
+        images,
+        videos
       } = req.body;
 
       // Validate inventory existence and fetch `isVariation`
@@ -84,6 +86,8 @@ export const stockController = {
         usableUnits,
         costPricePerUnit,
         purchasePricePerUnit,
+        images,
+        videos,
       };
 
       // Pass to service for actual stock creation
