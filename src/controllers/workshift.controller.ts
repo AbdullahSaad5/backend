@@ -55,7 +55,7 @@ export const shiftController = {
 
   assignShift: async (req: Request, res: Response) => {
     try {
-      const { shiftId, employeeIds } = req.body;
+      const { shiftId, userIds } = req.body;
 
       const shift = await Shift.findById(shiftId);
 
@@ -67,13 +67,13 @@ export const shiftController = {
       }
 
       // check for array of employeeIds
-      if (!Array.isArray(employeeIds)) {
+      if (!Array.isArray(userIds)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Employee IDs must be an array",
         });
       }
-      shift.employees = employeeIds;
+      shift.employees = userIds;
       await shift.save();
 
       res.status(StatusCodes.OK).json({
