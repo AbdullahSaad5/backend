@@ -295,7 +295,7 @@ export const bulkImportStandardTemplateGenerator = {
     await inventoryController.generateXLSXTemplate(req, res);
   },
 
-  parseSchemaAttributes: async (schema: any) => {
+  parseSchemaAttributes: async (schema: any): Promise<ParsedAttribute[]> => {
     console.log("[parseSchemaAttributes] Starting schema parsing");
     if (!schema?.properties) {
       console.warn("[parseSchemaAttributes] Invalid or empty schema provided");
@@ -309,14 +309,22 @@ export const bulkImportStandardTemplateGenerator = {
       if (!properties) return;
 
       Object.entries(properties).forEach(([key, prop]: [string, any]) => {
-        const currentPath = parentPath ? `${parentPath}.${key}` : key;
-
-        if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
+        // Skip non-attribute properties
+        if (
+          key === "$defs" ||
+          key === "$schema" ||
+          key === "$id" ||
+          key === "$comment" ||
+          key === "additionalProperties" ||
+          key === "allOf"
+        ) {
           console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
           return;
         }
 
-        // Skip if we've already processed this attribute
+        const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+        // Skip if already processed
         if (processedAttributes.has(currentPath)) {
           console.log(`[parseSchemaAttributes] Skipping duplicate attribute: ${currentPath}`);
           return;
@@ -360,6 +368,7 @@ export const bulkImportStandardTemplateGenerator = {
         attributes.push(attrInfo);
         processedAttributes.add(currentPath);
 
+        // Process nested properties for arrays and objects
         if (prop.type === "array" && prop.items?.properties) {
           console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
           extractAttributes(prop.items.properties, currentPath);
