@@ -1045,9 +1045,6 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
-  //bulk import inventory as CSV
-
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
