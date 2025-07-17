@@ -17,19 +17,21 @@ interface ParsedAttribute {
   name: string;
   type: string;
   required: boolean;
+  variation?: boolean;
+  enums?: string[];
   validations: {
-    title: string;
-    description: string;
-    editable: boolean;
-    hidden: boolean;
-    examples: any[];
+    title?: string;
+    description?: string;
+    editable?: boolean;
+    hidden?: boolean;
+    examples?: any[];
     minLength?: number;
     maxLength?: number;
     minimum?: number;
     maximum?: number;
-    enum: string[];
-    enumNames: string[];
-    selectors: string[];
+    enum?: string[];
+    enumNames?: string[];
+    selectors?: any[];
     minItems?: number;
     maxItems?: number;
     minUniqueItems?: number;
@@ -107,17 +109,17 @@ export const bulkImportStandardTemplateGenerator = {
               console.warn(`[fetchAttributesForAllCategories] No schema returned for category ID=${id}`);
               throw new Error("Empty schema");
             }
-            const parsedAttributes = parseSchemaAttributes(schema);
-            if (parsedAttributes.length === 0) {
-              console.warn(
-                `[fetchAttributesForAllCategories] No attributes parsed for category ID=${id}, Name=${name}`
-              );
-            } else {
-              console.log(
-                `[fetchAttributesForAllCategories] Parsed ${parsedAttributes.length} attributes for category ID=${id}`
-              );
-            }
-            return { categoryId: id, categoryName: name, attributes: parsedAttributes };
+            // const parsedAttributes = inventoryController.parseSchemaAttributes(schema);
+            // if (parsedAttributes.length === 0) {
+            //   console.warn(
+            //     `[fetchAttributesForAllCategories] No attributes parsed for category ID=${id}, Name=${name}`
+            //   );
+            // } else {
+            //   console.log(
+            //     `[fetchAttributesForAllCategories] Parsed ${parsedAttributes.length} attributes for category ID=${id}`
+            //   );
+            // }
+            return { categoryId: id, categoryName: name };
           } catch (error) {
             console.error(`[fetchAttributesForAllCategories] Error processing category ID=${id}:`, error);
             throw error;
@@ -130,7 +132,7 @@ export const bulkImportStandardTemplateGenerator = {
       const fulfilledResults = results
         .filter(
           (result): result is PromiseFulfilledResult<CategoryResult> =>
-            result.status === "fulfilled" && !!result.value?.categoryId && !!result.value?.attributes
+            result.status === "fulfilled" && !!result.value?.categoryId
         )
         .map((result) => result.value);
       console.log(`[fetchAttributesForAllCategories] Found ${fulfilledResults.length} fulfilled results`);
@@ -154,7 +156,7 @@ export const bulkImportStandardTemplateGenerator = {
       // Step 5: Export to Excel with parsed attributes
       if (fulfilledResults.length > 0) {
         console.log("[fetchAttributesForAllCategories] Exporting attributes to Excel");
-        await bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
+        // await bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
         console.log("[fetchAttributesForAllCategories] Successfully exported attributes to Excel");
       } else {
         console.warn("[fetchAttributesForAllCategories] No valid attributes to export");
@@ -171,14 +173,11 @@ export const bulkImportStandardTemplateGenerator = {
   },
   getAmazonActualSchema: async (id: string): Promise<any> => {
     try {
-      if (!id) {
-        throw new Error("Missing productType parameter");
-      }
+      if (!id) throw new Error("Missing productType parameter");
 
       const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${id}?marketplaceIds=A1F83G8C2ARO7P`;
       const accessToken = await getStoredAmazonAccessToken();
 
-      // Fetch SP API product type schema metadata
       const spApiResponse = await fetch(spApiUrl, {
         method: "GET",
         headers: {
@@ -193,19 +192,13 @@ export const bulkImportStandardTemplateGenerator = {
 
       const spApiData = await spApiResponse.json();
       const schemaUrl = spApiData.schema?.link?.resource;
-      if (!schemaUrl) {
-        throw new Error("Schema link resource not found");
-      }
+      if (!schemaUrl) throw new Error("Schema link resource not found");
 
-      // Fetch actual schema JSON from schemaUrl
       const schemaResponse = await fetch(schemaUrl);
-      if (!schemaResponse.ok) {
-        throw new Error(`Failed to fetch actual schema: ${schemaResponse.statusText}`);
-      }
+      if (!schemaResponse.ok) throw new Error(`Failed to fetch actual schema: ${schemaResponse.statusText}`);
 
       const actualSchema = await schemaResponse.json();
-      console.log(`Fetched schema for productType ${id}`, actualSchema);
-
+      console.log(`Fetched schema for productType ${id}`);
       return actualSchema;
     } catch (error: any) {
       console.error(`Error fetching schema for productType ${id}:`, error.message);
@@ -301,67 +294,66 @@ export const bulkImportStandardTemplateGenerator = {
 
     await inventoryController.generateXLSXTemplate(req, res);
   },
+
+  parseSchemaAttributes: async (schema: any) => {
+    console.log("[parseSchemaAttributes] Starting schema parsing");
+    if (!schema?.properties) {
+      console.warn("[parseSchemaAttributes] Invalid or empty schema provided");
+      return [];
+    }
+
+    const attributes: ParsedAttribute[] = [];
+
+    function extractAttributes(properties: any, parentPath: string = "") {
+      if (!properties) return;
+
+      Object.entries(properties).forEach(([key, prop]: [string, any]) => {
+        const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+        if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
+          console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
+          return;
+        }
+
+        console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
+        const attrInfo: ParsedAttribute = {
+          name: currentPath,
+          type: prop.type || "unknown",
+          required: schema.required?.includes(key) || false,
+          validations: {
+            title: prop.title || "",
+            description: prop.description || "",
+            editable: prop.editable !== false,
+            hidden: prop.hidden || false,
+            examples: prop.examples || [],
+            minLength: prop.minLength,
+            maxLength: prop.maxLength,
+            minimum: prop.minimum,
+            maximum: prop.maximum,
+            enum: prop.enum || [],
+            enumNames: prop.enumNames || [],
+            selectors: prop.selectors || [],
+            minItems: prop.minItems,
+            maxItems: prop.maxItems,
+            minUniqueItems: prop.minUniqueItems,
+            maxUniqueItems: prop.maxUniqueItems,
+          },
+        };
+
+        attributes.push(attrInfo);
+
+        if (prop.type === "array" && prop.items?.properties) {
+          console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
+          extractAttributes(prop.items.properties, currentPath);
+        } else if (prop.type === "object" && prop.properties) {
+          console.log(`[parseSchemaAttributes] Processing nested object properties for ${currentPath}`);
+          extractAttributes(prop.properties, currentPath);
+        }
+      });
+    }
+
+    extractAttributes(schema.properties);
+    console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
+    return attributes;
+  },
 };
-function parseSchemaAttributes(schema: any): ParsedAttribute[] {
-  console.log("[parseSchemaAttributes] Starting schema parsing");
-  if (!schema?.properties) {
-    console.warn("[parseSchemaAttributes] Invalid or empty schema provided");
-    return [];
-  }
-
-  const attributes: ParsedAttribute[] = [];
-
-  function extractAttributes(properties: any, parentPath: string = "") {
-    if (!properties) return;
-
-    Object.entries(properties).forEach(([key, prop]: [string, any]) => {
-      const currentPath = parentPath ? `${parentPath}.${key}` : key;
-
-      // Skip $defs and other non-attribute properties
-      if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
-        console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
-        return;
-      }
-
-      console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
-      const attrInfo: ParsedAttribute = {
-        name: currentPath,
-        type: prop.type || "unknown",
-        required: schema.required?.includes(key) || false,
-        validations: {
-          title: prop.title || "",
-          description: prop.description || "",
-          editable: prop.editable !== false,
-          hidden: prop.hidden || false,
-          examples: prop.examples || [],
-          minLength: prop.minLength,
-          maxLength: prop.maxLength,
-          minimum: prop.minimum,
-          maximum: prop.maximum,
-          enum: prop.enum || [],
-          enumNames: prop.enumNames || [],
-          selectors: prop.selectors || [],
-          minItems: prop.minItems,
-          maxItems: prop.maxItems,
-          minUniqueItems: prop.minUniqueItems,
-          maxUniqueItems: prop.maxUniqueItems,
-        },
-      };
-
-      attributes.push(attrInfo);
-
-      // Handle nested items
-      if (prop.type === "array" && prop.items?.properties) {
-        console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
-        extractAttributes(prop.items.properties, currentPath);
-      } else if (prop.type === "object" && prop.properties) {
-        console.log(`[parseSchemaAttributes] Processing nested object properties for ${currentPath}`);
-        extractAttributes(prop.properties, currentPath);
-      }
-    });
-  }
-
-  extractAttributes(schema.properties);
-  console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
-  return attributes;
-}

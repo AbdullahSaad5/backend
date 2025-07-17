@@ -10,7 +10,37 @@ import fs from "fs";
 import path from "path";
 import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 import { processVariationsUtility } from "@/utils/processVariation.util";
+interface ParsedAttribute {
+  name: string;
+  type: string;
+  required: boolean;
+  variation?: boolean;
+  enums?: string[];
+  validations: {
+    title?: string;
+    description?: string;
+    editable?: boolean;
+    hidden?: boolean;
+    examples?: any[];
+    minLength?: number;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+    enum?: string[];
+    enumNames?: string[];
+    selectors?: any[];
+    minItems?: number;
+    maxItems?: number;
+    minUniqueItems?: number;
+    maxUniqueItems?: number;
+  };
+}
 
+interface CategoryResult {
+  categoryId: string;
+  categoryName: string;
+  attributes: ParsedAttribute[];
+}
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -1149,227 +1179,38 @@ export const inventoryController = {
 
   generateXLSXTemplate: async (req: Request, res: Response) => {
     try {
-      // Fetch category attributes
-      const categoryResults = await bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories();
+      // Fetch and parse category attributes
+      // const categoryResults: CategoryResult[] =
+      //   await bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories();
+      // if (!categoryResults || categoryResults.length === 0) {
+      //   throw new Error("No category attributes found");
+      // };
 
-      if (!categoryResults || categoryResults.length === 0) {
-        throw new Error("No category attributes found");
-      }
-
-      // Create a new workbook
-      const workbook = new ExcelJS.Workbook();
-
+      const workbook: any = new ExcelJS.Workbook();
+      const categoryId = "PERSONAL_COMPUTER";
+      const categoryName = "Personal Computer";
       // Process each category
-      categoryResults.forEach(({ categoryId, categoryName, attributes }) => {
-        // Clean category name for sheet
-        const idPart = ` (${categoryId})`;
-        let safeName = categoryName.replace(/[\\/?*[\]:]/g, "");
-        const maxNameLength = 31 - idPart.length;
-        if (safeName.length > maxNameLength) {
-          safeName = safeName.slice(0, maxNameLength);
-        }
-        const sheetName = `${safeName}${idPart}`;
+      // for (const { categoryId, categoryName, attributes } of categoryResults) {
+      const schema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
+      const parsedAttributes = await bulkImportStandardTemplateGenerator.parseSchemaAttributes(schema);
 
-        // Create worksheet for category
-        const worksheet = workbook.addWorksheet(sheetName);
+      const worksheet = workbook.addWorksheet(createSafeSheetName(categoryName, categoryId));
+      const enumSheets = createEnumSheets(workbook, parsedAttributes, categoryId);
+      const headers = prepareHeaders(parsedAttributes);
 
-        // Create enum reference sheets for this category
-        const enumSheets: any = {};
-        attributes.forEach((attr: any, index: any) => {
-          if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
-            const enumSheetName = `List_${attr.name.replace(/\s+/g, "_")}_${categoryId}`;
-            const enumSheet = workbook.addWorksheet(enumSheetName);
+      styleHeaders(worksheet, headers);
+      addDataValidation(worksheet, headers, parsedAttributes);
 
-            // Add enum values
-            attr.enums.forEach((value: any, rowIndex: any) => {
-              enumSheet.getCell(rowIndex + 1, 1).value = value;
-            });
+      worksheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
+      // }
 
-            // Store reference
-            enumSheets[index] = {
-              sheetName: enumSheetName,
-              range: `${enumSheetName}!$A$1:$A$${attr.enums.length}`,
-              count: attr.enums.length,
-            };
+      createInstructionsSheet(workbook);
+      const buffer = await generateAndSaveFile(workbook, res);
 
-            enumSheet.state = "hidden";
-          }
-        });
-
-        // Prepare headers
-        const uniqueHeaders = new Set<string>();
-        const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
-        staticHeaders.forEach((header) => uniqueHeaders.add(header));
-
-        attributes.forEach((attr: any) => {
-          let title = attr.name || "Unknown";
-          const isRequired = attr.required;
-          const isVariation = attr.variation;
-
-          if (isRequired) title += "*";
-          if (isVariation) title += " (variation allowed)";
-          uniqueHeaders.add(title);
-        });
-
-        const headers = Array.from(uniqueHeaders);
-        const headerRow = worksheet.getRow(1);
-
-        // Add headers with styling
-        headers.forEach((header, index) => {
-          const cell = headerRow.getCell(index + 1);
-          cell.value = header;
-          cell.font = { bold: true, color: { argb: "FFFFFF" } };
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "4472C4" },
-          };
-          cell.alignment = { vertical: "middle", horizontal: "center" };
-          cell.border = {
-            top: { style: "thin" },
-            left: { style: "thin" },
-            bottom: { style: "thin" },
-            right: { style: "thin" },
-          };
-        });
-
-        // Set column widths
-        headers.forEach((header, index) => {
-          const column = worksheet.getColumn(index + 1);
-          column.width = Math.max(header.length + 5, 15);
-        });
-
-        // Add sample data row
-        const sampleRow = worksheet.getRow(2);
-        headers.forEach((header, index) => {
-          const cell = sampleRow.getCell(index + 1);
-          const attr = attributes.find((a) => header.startsWith(a.name)) || {};
-
-          if (header.includes("Allow Variations")) {
-            cell.value = "Yes/No";
-          } else if (header.includes("Title")) {
-            cell.value = "Sample Product Title";
-          } else if (header.includes("Description")) {
-            cell.value = "Sample Product Description";
-          } else if (header.includes("inventoryCondition")) {
-            cell.value = "New";
-          } else if (header.includes("Brand")) {
-            cell.value = "Sample Brand";
-          } else if (attr.type === "enum" && attr.enums) {
-            cell.value = attr.enums[1] || "";
-          } else if (attr.type === "string") {
-            cell.value = `Sample ${attr.name || "Text"}`;
-          } else if (attr.type === "number") {
-            cell.value = 100;
-          } else if (attr.type === "date") {
-            cell.value = new Date("2024-01-15");
-          } else {
-            cell.value = "";
-          }
-
-          cell.border = {
-            top: { style: "thin" },
-            left: { style: "thin" },
-            bottom: { style: "thin" },
-            right: { style: "thin" },
-          };
-        });
-
-        // Add data validation for enum columns
-        attributes.forEach((attr: any, index: any) => {
-          if (attr.type === "enum" && attr.enums && attr.enums.length > 0) {
-            const headerIndex = headers.findIndex((h) => h.startsWith(attr.name));
-            if (headerIndex >= 0) {
-              const columnLetter = String.fromCharCode(65 + headerIndex);
-
-              for (let row = 2; row <= 1000; row++) {
-                const cell = worksheet.getCell(`${columnLetter}${row}`);
-                cell.dataValidation = {
-                  type: "list",
-                  allowBlank: !attr.required,
-                  formulae: [`"${attr.enums.join(",")}"`],
-                  showErrorMessage: true,
-                  errorStyle: "error",
-                  errorTitle: "Invalid Entry",
-                  error: `Value must be selected from the dropdown list for ${attr.name}`,
-                  showInputMessage: true,
-                  promptTitle: `Select ${attr.name}`,
-                  prompt: "Click the dropdown arrow to select a value",
-                };
-                cell.border = {
-                  top: { style: "thin" },
-                  left: { style: "thin" },
-                  bottom: { style: "thin" },
-                  right: { style: "thin" },
-                };
-              }
-            }
-          }
-        });
-
-        // Freeze header row
-        worksheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
-      });
-
-      // Create instructions sheet
-      const instructionsSheet = workbook.addWorksheet("Instructions");
-      const instructions = [
-        ["📋 XLSX Template Usage Instructions"],
-        [""],
-        ["🔧 How to Use:"],
-        ["1. Go to the category-specific sheet"],
-        ["2. Click on any cell in columns with dropdowns"],
-        ["3. You will see a dropdown arrow appear"],
-        ["4. Click the dropdown arrow to select values"],
-        ["5. Only values from the dropdown are allowed"],
-        [""],
-        ["📊 Notes:"],
-        ["• Each sheet represents a category"],
-        ["• Headers with * are required"],
-        ["• Headers with (variation allowed) support variations"],
-        ["• Dropdown columns show valid values"],
-        ["• Sample data is provided in row 2"],
-      ];
-
-      instructions.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-          const excelCell = instructionsSheet.getCell(rowIndex + 1, colIndex + 1);
-          excelCell.value = cell;
-          if (rowIndex === 0) {
-            excelCell.font = { bold: true, size: 16, color: { argb: "4472C4" } };
-          }
-          if (cell && (cell.includes("🔧") || cell.includes("📊"))) {
-            excelCell.font = { bold: true, size: 12, color: { argb: "4472C4" } };
-          }
-        });
-      });
-
-      instructionsSheet.getColumn(1).width = 50;
-
-      // Generate and save file
-      const buffer = await workbook.xlsx.writeBuffer();
-      const exportsDir = path.join(__dirname, "../../exports");
-      if (!fs.existsSync(exportsDir)) {
-        fs.mkdirSync(exportsDir, { recursive: true });
-      }
-
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const filename = `category-template-${timestamp}.xlsx`;
-      const filepath = path.join(ExportsDir, filename);
-
-      fs.writeFileSync(filepath, buffer);
-
-      // Set response headers
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-      res.setHeader("Content-Length", buffer.length);
-
-      // Send file
       res.send(buffer);
-
       console.log(`✅ XLSX template with category sheets generated successfully!`);
-      console.log(`📁 File saved to: ${filepath}`);
-      console.log(`🎯 Categories processed: ${categoryResults.map((c) => c.categoryName).join(", ")}`);
+      console.log(`📁 File saved to: ${path.join(__dirname, "../../exports")}`);
+      // console.log(`🎯 Categories processed: ${categoryResults.map((c) => c.categoryName).join(", ")}`);
     } catch (error: any) {
       console.error("❌ Error generating XLSX template:", error);
       res.status(500).json({
@@ -1380,3 +1221,171 @@ export const inventoryController = {
     }
   },
 };
+// Creates a safe sheet name
+function createSafeSheetName(categoryName: string, categoryId: string): string {
+  const idPart = ` (${categoryId})`;
+  let safeName = categoryName.replace(/[\\/?*[\]:]/g, "");
+  const maxNameLength = 31 - idPart.length;
+  if (safeName.length > maxNameLength) {
+    safeName = safeName.slice(0, maxNameLength);
+  }
+  return `${safeName}${idPart}`;
+}
+
+// Creates enum reference sheets
+function createEnumSheets(workbook: ExcelJS.Workbook, attributes: ParsedAttribute[], categoryId: string): any {
+  const enumSheets: any = {};
+  attributes.forEach((attr, index) => {
+    if (attr.type === "enum" && attr.validations.enum && attr.validations.enum.length > 0) {
+      const enumSheetName = `List_${attr.name.replace(/\s+/g, "_")}_${categoryId}`;
+      const enumSheet = workbook.addWorksheet(enumSheetName);
+
+      attr.validations.enum.forEach((value: string, rowIndex: number) => {
+        enumSheet.getCell(rowIndex + 1, 1).value = value;
+      });
+
+      enumSheets[index] = {
+        sheetName: enumSheetName,
+        range: `${enumSheetName}!$A$1:$A$${attr.validations.enum.length}`,
+        count: attr.validations.enum.length,
+      };
+
+      enumSheet.state = "hidden";
+    }
+  });
+  return enumSheets;
+}
+
+// Prepares headers for the worksheet
+function prepareHeaders(attributes: ParsedAttribute[]): string[] {
+  const uniqueHeaders = new Set<string>();
+  const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
+  staticHeaders.forEach((header) => uniqueHeaders.add(header));
+
+  attributes.forEach((attr) => {
+    let title = attr.name || "Unknown";
+    if (attr.required) title += "*";
+    if (attr.variation) title += " (variation allowed)";
+    uniqueHeaders.add(title);
+  });
+
+  return Array.from(uniqueHeaders);
+}
+
+// Styles worksheet headers
+function styleHeaders(worksheet: ExcelJS.Worksheet, headers: string[]) {
+  const headerRow = worksheet.getRow(1);
+  headers.forEach((header, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: "FFFFFF" } };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "4472C4" },
+    };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" },
+    };
+  });
+
+  headers.forEach((header, index) => {
+    const column = worksheet.getColumn(index + 1);
+    column.width = Math.max(header.length + 5, 15);
+  });
+}
+
+// Adds data validation for enum columns
+function addDataValidation(worksheet: ExcelJS.Worksheet, headers: string[], attributes: ParsedAttribute[]) {
+  attributes.forEach((attr, index) => {
+    if (attr.type === "enum" && attr.validations.enum && attr.validations.enum.length > 0) {
+      const headerIndex = headers.findIndex((h) => h.startsWith(attr.name));
+      if (headerIndex >= 0) {
+        const columnLetter = String.fromCharCode(65 + headerIndex);
+        for (let row = 2; row <= 1000; row++) {
+          const cell = worksheet.getCell(`${columnLetter}${row}`);
+          cell.dataValidation = {
+            type: "list",
+            allowBlank: !attr.required,
+            formulae: [`"${attr.validations.enum.join(",")}"`],
+            showErrorMessage: true,
+            errorStyle: "error",
+            errorTitle: "Invalid Entry",
+            error: `Value must be selected from the dropdown list for ${attr.name}`,
+            showInputMessage: true,
+            promptTitle: `Select ${attr.name}`,
+            prompt: "Click the dropdown arrow to select a value",
+          };
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
+        }
+      }
+    }
+  });
+}
+
+// Creates instructions sheet
+function createInstructionsSheet(workbook: ExcelJS.Workbook) {
+  const instructionsSheet = workbook.addWorksheet("Instructions");
+  const instructions = [
+    ["📋 XLSX Template Usage Instructions"],
+    [""],
+    ["🔧 How to Use:"],
+    ["1. Go to the category-specific sheet"],
+    ["2. Click on any cell in columns with dropdowns"],
+    ["3. You will see a dropdown arrow appear"],
+    ["4. Click the dropdown arrow to select values"],
+    ["5. Only values from the dropdown are allowed"],
+    [""],
+    ["📊 Notes:"],
+    ["• Each sheet represents a category"],
+    ["• Headers with * are required"],
+    ["• Headers with (variation allowed) support variations"],
+    ["• Dropdown columns show valid values"],
+    ["• Sample data is provided in row 2"],
+  ];
+
+  instructions.forEach((row, rowIndex) => {
+    row.forEach((cell, colIndex) => {
+      const excelCell = instructionsSheet.getCell(rowIndex + 1, colIndex + 1);
+      excelCell.value = cell;
+      if (rowIndex === 0) {
+        excelCell.font = { bold: true, size: 16, color: { argb: "4472C4" } };
+      }
+      if (cell && (cell.includes("🔧") || cell.includes("📊"))) {
+        excelCell.font = { bold: true, size: 12, color: { argb: "4472C4" } };
+      }
+    });
+  });
+
+  instructionsSheet.getColumn(1).width = 50;
+}
+
+// Generates and saves the XLSX file
+async function generateAndSaveFile(workbook: ExcelJS.Workbook, res: Response): Promise<string> {
+  const buffer: any = await workbook.xlsx.writeBuffer();
+  const exportsDir = path.join(__dirname, "../../exports");
+  if (!fs.existsSync(exportsDir)) {
+    fs.mkdirSync(exportsDir, { recursive: true });
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const filename = `category-template-${timestamp}.xlsx`;
+  const filepath = path.join(exportsDir, filename);
+
+  fs.writeFileSync(filepath, buffer);
+
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Length", buffer.length);
+
+  return buffer;
+}
