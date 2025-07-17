@@ -349,8 +349,6 @@ export const userController = {
     }
   },
 
-  getEmployeeList: async (req: Request, res: Response) => {},
-
   searchAndFilterUsers: async (req: Request, res: Response) => {
     try {
       // Extract filters from query params
