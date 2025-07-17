@@ -309,28 +309,17 @@ export const bulkImportStandardTemplateGenerator = {
       if (!properties) return;
 
       Object.entries(properties).forEach(([key, prop]: [string, any]) => {
-        // Skip non-attribute properties
-        if (
-          key === "$defs" ||
-          key === "$schema" ||
-          key === "$id" ||
-          key === "$comment" ||
-          key === "additionalProperties" ||
-          key === "allOf"
-        ) {
-          console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
+        const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+        // Skip system properties
+        if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
           return;
         }
-
-        const currentPath = parentPath ? `${parentPath}.${key}` : key;
 
         // Skip if already processed
         if (processedAttributes.has(currentPath)) {
-          console.log(`[parseSchemaAttributes] Skipping duplicate attribute: ${currentPath}`);
           return;
         }
-
-        console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
 
         // Determine if this is an enum attribute
         const hasEnums = prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0;
@@ -361,33 +350,23 @@ export const bulkImportStandardTemplateGenerator = {
           },
         };
 
-        if (hasEnums) {
-          console.log(`[parseSchemaAttributes] Found enums for ${currentPath}:`, attrInfo.enums);
-        }
-
         attributes.push(attrInfo);
         processedAttributes.add(currentPath);
 
-        // Process nested properties for arrays and objects
+        // Recursively process nested properties
         if (prop.type === "array" && prop.items?.properties) {
-          console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
           extractAttributes(prop.items.properties, currentPath);
         } else if (prop.type === "object" && prop.properties) {
-          console.log(`[parseSchemaAttributes] Processing nested object properties for ${currentPath}`);
           extractAttributes(prop.properties, currentPath);
         }
       });
     }
 
     extractAttributes(schema.properties);
-    console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
 
-    // Log enum attributes for debugging
+    // Log summary
     const enumAttributes = attributes.filter((attr) => attr.type === "enum");
-    console.log(
-      `[parseSchemaAttributes] Found ${enumAttributes.length} enum attributes:`,
-      enumAttributes.map((attr: any) => ({ name: attr.name, enumCount: attr.enums.length }))
-    );
+    console.log(`[parseSchemaAttributes] Completed. Total: ${attributes.length}, Enums: ${enumAttributes.length}`);
 
     return attributes;
   },
