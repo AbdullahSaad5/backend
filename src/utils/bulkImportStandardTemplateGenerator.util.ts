@@ -7,6 +7,42 @@ import { getStoredAmazonAccessToken } from "./amazon-helpers.util";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
+
+interface CategoryIdNamePair {
+  id: string;
+  name: string;
+}
+
+interface ParsedAttribute {
+  name: string;
+  type: string;
+  required: boolean;
+  validations: {
+    title: string;
+    description: string;
+    editable: boolean;
+    hidden: boolean;
+    examples: any[];
+    minLength?: number;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+    enum: string[];
+    enumNames: string[];
+    selectors: string[];
+    minItems?: number;
+    maxItems?: number;
+    minUniqueItems?: number;
+    maxUniqueItems?: number;
+  };
+}
+
+interface CategoryResult {
+  categoryId: string;
+  categoryName: string;
+  attributes: ParsedAttribute[];
+}
+
 export const bulkImportStandardTemplateGenerator = {
   fetchAllAmazonCategoryIds: async (): Promise<{ id: string; name: string }[]> => {
     try {
@@ -44,57 +80,92 @@ export const bulkImportStandardTemplateGenerator = {
   },
 
   fetchAttributesForAllCategories: async () => {
+    console.log("[fetchAttributesForAllCategories] Starting attribute fetch process at", new Date().toISOString());
+
     try {
       // Step 1: Get all category ID-name pairs
-      const categoryIdNamePairs = await bulkImportStandardTemplateGenerator.fetchAllAmazonCategoryIds(); // [{ id, name }]
+      console.log("[fetchAttributesForAllCategories] Fetching category ID-name pairs");
+      const categoryIdNamePairs: CategoryIdNamePair[] =
+        await bulkImportStandardTemplateGenerator.fetchAllAmazonCategoryIds();
+
       if (!categoryIdNamePairs || categoryIdNamePairs.length === 0) {
-        console.log("No category IDs found.");
+        console.warn("[fetchAttributesForAllCategories] No category IDs found");
         return [];
       }
+      console.log(`[fetchAttributesForAllCategories] Retrieved ${categoryIdNamePairs.length} category ID-name pairs`);
 
-      // Step 2: Fetch aspects for each category using Promise.allSettled
+      // Step 2: Fetch schemas for each category using Promise.allSettled
+      console.log("[fetchAttributesForAllCategories] Fetching schemas for categories");
       const results = await Promise.allSettled(
-        categoryIdNamePairs.map(async ({ id, name }) => {
-          const aspects = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(id);
-          return { categoryId: id, categoryName: name, aspects };
+        categoryIdNamePairs.map(async ({ id, name }: CategoryIdNamePair, index: number) => {
+          console.log(
+            `[fetchAttributesForAllCategories] Processing category ${index + 1}/${categoryIdNamePairs.length}: ID=${id}, Name=${name}`
+          );
+          try {
+            const schema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(id);
+            if (!schema) {
+              console.warn(`[fetchAttributesForAllCategories] No schema returned for category ID=${id}`);
+              throw new Error("Empty schema");
+            }
+            const parsedAttributes = parseSchemaAttributes(schema);
+            if (parsedAttributes.length === 0) {
+              console.warn(
+                `[fetchAttributesForAllCategories] No attributes parsed for category ID=${id}, Name=${name}`
+              );
+            } else {
+              console.log(
+                `[fetchAttributesForAllCategories] Parsed ${parsedAttributes.length} attributes for category ID=${id}`
+              );
+            }
+            return { categoryId: id, categoryName: name, attributes: parsedAttributes };
+          } catch (error) {
+            console.error(`[fetchAttributesForAllCategories] Error processing category ID=${id}:`, error);
+            throw error;
+          }
         })
       );
 
       // Step 3: Filter fulfilled results
+      console.log("[fetchAttributesForAllCategories] Filtering fulfilled results");
       const fulfilledResults = results
         .filter(
-          (
-            result
-          ): result is PromiseFulfilledResult<{
-            categoryId: string;
-            categoryName: string;
-            aspects: any;
-          }> => result.status === "fulfilled" && !!result.value?.categoryId && !!result.value.aspects
+          (result): result is PromiseFulfilledResult<CategoryResult> =>
+            result.status === "fulfilled" && !!result.value?.categoryId && !!result.value?.attributes
         )
         .map((result) => result.value);
+      console.log(`[fetchAttributesForAllCategories] Found ${fulfilledResults.length} fulfilled results`);
 
       // Step 4: Log rejected results
       const failedCategories = results
         .filter((result) => result.status === "rejected")
-        .map((result, index) => ({
-          categoryId: categoryIdNamePairs[index].id,
-          reason: result.reason?.message || "Unknown error",
-        }));
-
+        .map((result: PromiseRejectedResult, index) => {
+          const categoryId = categoryIdNamePairs[index]?.id || "unknown";
+          const reason = result.reason?.message || "Unknown error";
+          console.error(`[fetchAttributesForAllCategories] Failed category ID=${categoryId}: ${reason}`);
+          return { categoryId, reason };
+        });
       if (failedCategories.length > 0) {
-        console.warn("Some categories failed to fetch aspects:", failedCategories);
+        console.warn(
+          `[fetchAttributesForAllCategories] ${failedCategories.length} categories failed to fetch attributes:`,
+          failedCategories
+        );
       }
 
-      // Step 5: Export to Excel with names and aspects
+      // Step 5: Export to Excel with parsed attributes
       if (fulfilledResults.length > 0) {
+        console.log("[fetchAttributesForAllCategories] Exporting attributes to Excel");
         await bulkImportStandardTemplateGenerator.exportCategoryAspectsToExcel(fulfilledResults);
+        console.log("[fetchAttributesForAllCategories] Successfully exported attributes to Excel");
       } else {
-        console.log("No valid attributes to export.");
+        console.warn("[fetchAttributesForAllCategories] No valid attributes to export");
       }
 
+      console.log(
+        `[fetchAttributesForAllCategories] Process completed. Fulfilled: ${fulfilledResults.length}, Failed: ${failedCategories.length}`
+      );
       return fulfilledResults;
     } catch (error) {
-      console.error("Error fetching attributes for all categories:", error);
+      console.error("[fetchAttributesForAllCategories] Fatal error fetching attributes for all categories:", error);
       throw error;
     }
   },
@@ -231,3 +302,66 @@ export const bulkImportStandardTemplateGenerator = {
     await inventoryController.generateXLSXTemplate(req, res);
   },
 };
+function parseSchemaAttributes(schema: any): ParsedAttribute[] {
+  console.log("[parseSchemaAttributes] Starting schema parsing");
+  if (!schema?.properties) {
+    console.warn("[parseSchemaAttributes] Invalid or empty schema provided");
+    return [];
+  }
+
+  const attributes: ParsedAttribute[] = [];
+
+  function extractAttributes(properties: any, parentPath: string = "") {
+    if (!properties) return;
+
+    Object.entries(properties).forEach(([key, prop]: [string, any]) => {
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+      // Skip $defs and other non-attribute properties
+      if (key === "$defs" || key === "$schema" || key === "$id" || key === "$comment") {
+        console.log(`[parseSchemaAttributes] Skipping non-attribute property: ${key}`);
+        return;
+      }
+
+      console.log(`[parseSchemaAttributes] Processing attribute: ${currentPath}`);
+      const attrInfo: ParsedAttribute = {
+        name: currentPath,
+        type: prop.type || "unknown",
+        required: schema.required?.includes(key) || false,
+        validations: {
+          title: prop.title || "",
+          description: prop.description || "",
+          editable: prop.editable !== false,
+          hidden: prop.hidden || false,
+          examples: prop.examples || [],
+          minLength: prop.minLength,
+          maxLength: prop.maxLength,
+          minimum: prop.minimum,
+          maximum: prop.maximum,
+          enum: prop.enum || [],
+          enumNames: prop.enumNames || [],
+          selectors: prop.selectors || [],
+          minItems: prop.minItems,
+          maxItems: prop.maxItems,
+          minUniqueItems: prop.minUniqueItems,
+          maxUniqueItems: prop.maxUniqueItems,
+        },
+      };
+
+      attributes.push(attrInfo);
+
+      // Handle nested items
+      if (prop.type === "array" && prop.items?.properties) {
+        console.log(`[parseSchemaAttributes] Processing nested array properties for ${currentPath}`);
+        extractAttributes(prop.items.properties, currentPath);
+      } else if (prop.type === "object" && prop.properties) {
+        console.log(`[parseSchemaAttributes] Processing nested object properties for ${currentPath}`);
+        extractAttributes(prop.properties, currentPath);
+      }
+    });
+  }
+
+  extractAttributes(schema.properties);
+  console.log(`[parseSchemaAttributes] Completed parsing. Found ${attributes.length} attributes`);
+  return attributes;
+}

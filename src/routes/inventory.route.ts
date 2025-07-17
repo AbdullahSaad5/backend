@@ -48,7 +48,6 @@ export const inventory = (router: Router) => {
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-  //
 
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
 
@@ -72,7 +71,9 @@ export const inventory = (router: Router) => {
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
 
   router.get("/fetch-all-categories", bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories); // only usable route to get all gategories from ebay and to create bulk import template
+
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
+
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);
 };
