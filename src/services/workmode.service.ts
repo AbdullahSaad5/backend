@@ -32,10 +32,8 @@ export const workmodeService = {
   },
 
   async patchWorkmode(id: string, employeeIds: string[]) {
-    // Remove these employees from any other workmodes first
     await this.removeUsersFromOtherWorkmodes(employeeIds);
 
-    // Add employees to the specified workmode
     return await Workmode.findByIdAndUpdate(
       id,
       { $addToSet: { employees: { $each: employeeIds } } },

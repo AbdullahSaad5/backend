@@ -10,7 +10,7 @@ export const workmode = (router: Router) => {
 
   // Get workmode by ID
   router.get("/:id", workmodeController.getWorkmodeById);
-
+  router.post("/:id", workmodeController.addEmployeesToWorkmode);
   // Update workmode (full update)
   router.put("/:id", workmodeController.updateWorkmode);
 
@@ -19,4 +19,4 @@ export const workmode = (router: Router) => {
 
   // Delete workmode
   router.delete("/:id", workmodeController.deleteWorkmode);
-}; 
+};
