@@ -1,7 +1,6 @@
-import { every10Second } from "./Every10Second";
-import { anotherCron } from "./AnotherCron";
+import { markAbsentCron, autoCheckoutCron } from "./attendance";
 
-export function initCron() {
-  every10Second();
-  anotherCron();
-}
+export const initCron = () => {
+  markAbsentCron();
+  autoCheckoutCron();
+};
