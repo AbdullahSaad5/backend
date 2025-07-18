@@ -3,6 +3,7 @@ import { attendanceService } from "@/services/attendance.service";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
+import { Types } from "mongoose";
 export const attendanceController = {
   // Employee self check-in
   checkIn: async (req: Request, res: Response) => {
@@ -12,22 +13,22 @@ export const attendanceController = {
       const token = req.headers.authorization?.split(" ")[1];
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
-      // check if user has shift and work mode
+      const userObjectId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId;
+
       const shift = await Shift.findOne({
-        where: { userId },
+        employees: { $in: [userObjectId] },
       });
       if (!shift) {
         return res.status(400).json({ message: "No shift found for user" });
       }
       const workMode = await Workmode.findOne({
-        where: { userId },
+        employees: { $in: [userObjectId] },
       });
       if (!workMode) {
         return res.status(400).json({ message: "No work mode found for user" });
       }
-
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const { shiftId, workModeId, checkIn } = req.body;
+      const { checkIn } = req.body;
       if (!checkIn) {
         return res.status(400).json({ message: "Check-in time is required" });
       }
@@ -35,8 +36,8 @@ export const attendanceController = {
       const checkInDate = new Date(checkIn);
       const attendance = await attendanceService.checkIn(
         userId,
-        shiftId,
-        workModeId,
+        shift._id as string,
+        workMode._id as string,
         checkInDate
       );
       res.status(200).json(attendance);
@@ -49,8 +50,7 @@ export const attendanceController = {
   checkOut: async (req: Request, res: Response) => {
     try {
       const user = req.context?.user;
-      if (!user || !user.id)
-        return res.status(401).json({ message: "Unauthorized" });
+      if (!user || !user.id) return res.status(401).json({ message: "Unauthorized" });
       const attendance = await attendanceService.checkOut(user.id);
       res.status(200).json(attendance);
     } catch (err: any) {
@@ -62,8 +62,7 @@ export const attendanceController = {
   getOwnAttendance: async (req: Request, res: Response) => {
     try {
       const user = req.context?.user;
-      if (!user || !user.id)
-        return res.status(401).json({ message: "Unauthorized" });
+      if (!user || !user.id) return res.status(401).json({ message: "Unauthorized" });
       const { startDate, endDate } = req.query;
       const attendance = await attendanceService.getAttendance(
         user.id,
@@ -79,21 +78,12 @@ export const attendanceController = {
   // Admin: mark attendance for any employee
   adminMark: async (req: Request, res: Response) => {
     try {
-      const {
-        employeeId,
-        date,
-        status,
-        shiftId,
-        workModeId,
-        checkIn,
-        checkOut,
-      } = req.body;
+      const { employeeId, date, status, shiftId, workModeId, checkIn, checkOut } = req.body;
 
       // Basic validation for required fields
       if (!employeeId || !date || !status) {
         return res.status(400).json({
-          message:
-            "Missing required fields: employeeId, date, and status are mandatory",
+          message: "Missing required fields: employeeId, date, and status are mandatory",
         });
       }
 
@@ -101,8 +91,7 @@ export const attendanceController = {
       if (status === "present") {
         if (!checkIn || !checkOut) {
           return res.status(400).json({
-            message:
-              "Check-in and Check-out times are required for present status",
+            message: "Check-in and Check-out times are required for present status",
           });
         }
       }
@@ -126,10 +115,7 @@ export const attendanceController = {
     try {
       const { attendanceId } = req.params;
       const update = req.body;
-      const attendance = await attendanceService.updateAttendance(
-        attendanceId,
-        update
-      );
+      const attendance = await attendanceService.updateAttendance(attendanceId, update);
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -145,17 +131,11 @@ export const attendanceController = {
       if (!startDate && !endDate) {
         const now = new Date();
         endDate = now.toISOString();
-        startDate = new Date(
-          now.getTime() - 30 * 24 * 60 * 60 * 1000
-        ).toISOString();
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       } else {
         // If provided, convert to Date
-        startDate = startDate
-          ? new Date(startDate as string).toISOString()
-          : undefined;
-        endDate = endDate
-          ? new Date(endDate as string).toISOString()
-          : undefined;
+        startDate = startDate ? new Date(startDate as string).toISOString() : undefined;
+        endDate = endDate ? new Date(endDate as string).toISOString() : undefined;
       }
       const attendance = await attendanceService.getAttendance(
         employeeId,
@@ -190,14 +170,9 @@ export const attendanceController = {
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
       const { latitude, longitude } = req.body;
-      if (!userId || !latitude || !longitude)
-        return res.status(400).json({ message: "Missing required fields" });
+      if (!userId || !latitude || !longitude) return res.status(400).json({ message: "Missing required fields" });
 
-      const attendance = await attendanceService.geoLocationAttendanceMark(
-        userId,
-        latitude,
-        longitude
-      );
+      const attendance = await attendanceService.geoLocationAttendanceMark(userId, latitude, longitude);
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
