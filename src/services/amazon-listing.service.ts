@@ -22,14 +22,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, token });
     } catch (error) {
       console.error("Error getting Amazon token:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to get application token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get application token",
+        details: error,
+      });
     }
   },
 
@@ -132,14 +130,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.error("Error in authorization callback:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to exchange code for access token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to exchange code for access token",
+        details: error,
+      });
     }
   },
 
@@ -149,14 +145,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       console.error("Error refreshing token:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to refresh Amazon access token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to refresh Amazon access token",
+        details: error,
+      });
     }
   },
   // Function to check the status of your submitted listing
@@ -1177,6 +1171,7 @@ export const amazonListingService = {
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER";
+      const listPrice = variation.retailPrice;
       console.log("variation.retailPrice", variation.retailPrice);
       const childSku = amazonListingService.generateChildSku(variation);
 
@@ -1192,6 +1187,7 @@ export const amazonListingService = {
           condition_type: condition_type || [{ value: "new_new" }],
           item_name: item_name || [],
           brand: brand || [],
+
           product_description: product_description || [],
           child_parent_sku_relationship: [
             { child_relationship_type: "variation", marketplace_id: "A1F83G8C2ARO7P", parent_sku: sku },
@@ -1229,6 +1225,7 @@ export const amazonListingService = {
           item_display_weight: item_display_weight || [],
           item_package_weight: item_package_weight || [],
           item_package_dimensions: item_package_dimensions || [],
+          list_price: [{ currency: "GBP", value_with_tax: listPrice, marketplace_id: "A1F83G8C2ARO7P" }],
           epr_product_packaging: epr_product_packaging || [],
           ...amazonListingService.prepareChildImageLocators(variation),
           ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
@@ -1485,14 +1482,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: orders });
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to fetch Amazon orders",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to fetch Amazon orders",
+        details: error,
+      });
     }
   },
 
@@ -1598,14 +1593,12 @@ export const amazonListingService = {
         .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: transformedCategories });
     } catch (error: any) {
       console.error("❌ Error getting Amazon categories:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to get Amazon categories",
-          details: error.message,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get Amazon categories",
+        details: error.message,
+      });
     }
   },
 

@@ -23,6 +23,8 @@ export const stockController = {
         receivedBy,
         purchaseDate,
         markAsStock,
+        images,
+        videos
       } = req.body;
 
       // Validate inventory existence and fetch `isVariation`
@@ -84,6 +86,8 @@ export const stockController = {
         usableUnits,
         costPricePerUnit,
         purchasePricePerUnit,
+        images,
+        videos,
       };
 
       // Pass to service for actual stock creation
@@ -253,7 +257,7 @@ export const stockController = {
         }
         stock.selectedVariations = req.body.selectedVariations;
       } else {
-        const { totalUnits, usableUnits, costPricePerUnit, purchasePricePerUnit } = req.body;
+        const { totalUnits, usableUnits, costPricePerUnit, purchasePricePerUnit, } = req.body;
         if (
           totalUnits === undefined ||
           usableUnits === undefined ||
@@ -279,6 +283,8 @@ export const stockController = {
       stock.receivedBy = req.body.receivedBy || stock.receivedBy;
       stock.purchaseDate = req.body.purchaseDate || stock.purchaseDate;
       stock.markAsStock = req.body.markAsStock || stock.markAsStock;
+      stock.images = req.body.images || stock.images;
+      stock.videos = req.body.videos || stock.videos;
 
       await stock.save();
 

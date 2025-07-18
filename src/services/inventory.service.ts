@@ -47,7 +47,7 @@ export const inventoryService = {
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
       const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
-      const status = stepData.status || "draft"; // Default to 'draft' if not provided  
+      const status = stepData.status || "draft"; // Default to 'draft' if not provided
       const {
         kind,
         item_name,
@@ -535,7 +535,7 @@ export const inventoryService = {
     }
   },
 
-  //bulk import inventory as CSV
+  //bulk import inventory
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
