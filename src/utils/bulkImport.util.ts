@@ -11,7 +11,130 @@ import { addLog } from "./bulkImportLogs.util";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
+
+interface NestedStructure {
+  [key: string]: any;
+}
+
+interface ColumnInfo {
+  originalHeader: string;
+  cleanedHeader: string;
+  isRequired: boolean;
+  isVariationAllowed: boolean;
+  path: string[];
+  rootAttribute: string;
+}
+
 export const bulkImportUtility = {
+  // Helper function to parse column headers and extract nested paths
+  parseColumnHeaders: (headers: string[]): ColumnInfo[] => {
+    return headers.map((header, index) => {
+      if (typeof header !== "string") {
+        return {
+          originalHeader: header,
+          cleanedHeader: header,
+          isRequired: false,
+          isVariationAllowed: false,
+          path: [header],
+          rootAttribute: header,
+        };
+      }
+
+      let cleaned = header.trim();
+      const isRequired = cleaned.endsWith("*");
+      const isVariationAllowed = /\(variation allowed\)/i.test(cleaned);
+
+      // Remove markers
+      if (isRequired) {
+        cleaned = cleaned.replace("*", "").trim();
+      }
+      if (isVariationAllowed) {
+        cleaned = cleaned.replace(/\(variation allowed\)/i, "").trim();
+      }
+
+      // Split by dots to get nested path
+      const path = cleaned
+        .split(".")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const rootAttribute = path[0] || cleaned;
+
+      return {
+        originalHeader: header,
+        cleanedHeader: cleaned,
+        isRequired,
+        isVariationAllowed,
+        path,
+        rootAttribute,
+      };
+    });
+  },
+
+  // Helper function to set nested value in object
+  setNestedValue: (obj: any, path: string[], value: any, isArray: boolean = false) => {
+    let current = obj;
+
+    // Navigate to the parent of the final property
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      if (!current[key]) {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+
+    // Set the final value
+    const finalKey = path[path.length - 1];
+    if (isArray && Array.isArray(value)) {
+      current[finalKey] = value;
+    } else {
+      current[finalKey] = value;
+    }
+  },
+
+  // Helper function to build nested object structure from row data
+  buildNestedObject: (rowData: any[], columnInfos: ColumnInfo[]): NestedStructure => {
+    const result: NestedStructure = {};
+    const attributeGroups: { [key: string]: any } = {};
+
+    // Group columns by root attribute
+    columnInfos.forEach((colInfo, index) => {
+      const value = rowData[index];
+      const { rootAttribute, path, isVariationAllowed } = colInfo;
+
+      if (!attributeGroups[rootAttribute]) {
+        attributeGroups[rootAttribute] = {};
+      }
+
+      // Handle variation allowed fields as arrays
+      if (isVariationAllowed && typeof value === "string" && value.trim()) {
+        const arrayValue = value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        bulkImportUtility.setNestedValue(attributeGroups[rootAttribute], path.slice(1), arrayValue, true);
+      } else {
+        const processedValue = value?.toString().trim() ?? "";
+        if (processedValue) {
+          bulkImportUtility.setNestedValue(attributeGroups[rootAttribute], path.slice(1), processedValue);
+        }
+      }
+    });
+
+    // Convert grouped data to array of objects format
+    Object.keys(attributeGroups).forEach((rootAttr) => {
+      const attrData = attributeGroups[rootAttr];
+
+      // Check if this attribute has nested structure
+      if (Object.keys(attrData).length > 0) {
+        // Convert to array of objects format
+        result[rootAttr] = [attrData];
+      }
+    });
+
+    return result;
+  },
+
   validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
     const sheetNames = workbook.SheetNames;
     const validRows: { row: number; data: any }[] = [];
@@ -32,7 +155,7 @@ export const bulkImportUtility = {
       }
 
       if (!match) {
-        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
+        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (AMAZON_CATEGORY)"`);
         continue;
       }
 
@@ -44,29 +167,11 @@ export const bulkImportUtility = {
 
       const [headerRow, ...rows]: any = data;
 
-      const requiredIndexes: number[] = [];
-      const variationAllowedIndexes: number[] = [];
-      const requiredFields = new Set<string>();
-      const variationFields = new Set<string>();
+      // Parse column headers to understand nested structure
+      const columnInfos = bulkImportUtility.parseColumnHeaders(headerRow);
 
-      const cleanedHeaders = headerRow.map((h: string, idx: number) => {
-        if (typeof h !== "string") return h;
-
-        let clean = h.trim();
-        if (clean.endsWith("*")) {
-          clean = clean.replace("*", "").trim();
-          requiredIndexes.push(idx);
-          requiredFields.add(clean);
-        }
-
-        if (/\(variation allowed\)/i.test(clean)) {
-          clean = clean.replace(/\(variation allowed\)/i, "").trim();
-          variationAllowedIndexes.push(idx);
-          variationFields.add(clean);
-        }
-
-        return clean;
-      });
+      // Get required columns
+      const requiredColumns = columnInfos.filter((col) => col.isRequired);
 
       let sheetValidCount = 0;
       let sheetInvalidCount = 0;
@@ -74,101 +179,91 @@ export const bulkImportUtility = {
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
-        requiredIndexes.forEach((reqIdx) => {
-          const val = (row[reqIdx] ?? "").toString().trim();
+        // Validate required fields
+        requiredColumns.forEach((colInfo) => {
+          const colIndex = columnInfos.findIndex((c) => c.originalHeader === colInfo.originalHeader);
+          const val = (row[colIndex] ?? "").toString().trim();
           if (!val) {
-            errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
+            errors.push(`Missing required field "${colInfo.cleanedHeader}"`);
           }
         });
-
-        const rowObj: Record<string, any> = {};
-
-        cleanedHeaders.forEach((key: string, idx: number) => {
-          const rawValue = row[idx];
-
-          if (variationFields.has(key)) {
-            if (typeof rawValue === "string" && rawValue.trim()) {
-              rowObj[key] = rawValue
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean);
-            } else {
-              rowObj[key] = [];
-            }
-          } else {
-            rowObj[key] = rawValue?.toString().trim() ?? "";
-          }
-        });
-
-        rowObj.productCategoryName = categoryName.trim();
-        rowObj.productCategory = categoryId;
-        // rowObj.ebayCategoryId = categoryId;
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
         if (errors.length > 0) {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
-        } else {
-          // const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
-          // const imageFolderPath = path.join(mediaBasePath, "images");
-          // const videoFolderPath = path.join(mediaBasePath, "videos");
-
-          const categoryIdStr = String(categoryId);
-
-          // Find the folder that includes exactly this category ID
-          const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
-
-          // if (!matchingFolder) {
-          //   console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
-          //   continue;
-          // }
-          if (!matchingFolder) {
-            const globalRowIndex = validRows.length + invalidRows.length + 1;
-            const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
-
-            console.warn(`⚠️ ${errorMessage}`);
-            addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
-
-            invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
-            sheetInvalidCount++;
-            continue;
-          }
-
-          const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
-          const imageFolderPath = path.join(mediaBasePath, "images");
-          const videoFolderPath = path.join(mediaBasePath, "videos");
-
-          const uploadedImages: string[] = [];
-          const uploadedVideos: string[] = [];
-
-          if (fs.existsSync(imageFolderPath)) {
-            const imageFiles = fs.readdirSync(imageFolderPath);
-            for (const file of imageFiles) {
-              const filePath = path.join(imageFolderPath, file);
-              const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
-              const url = await uploadFileToFirebase(filePath, destination);
-              uploadedImages.push(url);
-            }
-          }
-
-          if (fs.existsSync(videoFolderPath)) {
-            const videoFiles = fs.readdirSync(videoFolderPath);
-            for (const file of videoFiles) {
-              const filePath = path.join(videoFolderPath, file);
-              const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
-              const url = await uploadFileToFirebase(filePath, destination);
-              uploadedVideos.push(url);
-            }
-          }
-
-          rowObj.images = uploadedImages;
-          rowObj.videos = uploadedVideos;
-
-          validRows.push({ row: globalRowIndex, data: rowObj });
-          validIndexes.add(globalRowIndex);
-          sheetValidCount++;
+          continue;
         }
+
+        // Build nested object structure
+        const nestedData = bulkImportUtility.buildNestedObject(row, columnInfos);
+
+        // Add category information
+        nestedData.productCategoryName = categoryName.trim();
+        nestedData.productCategory = categoryId;
+
+        const categoryIdStr = String(categoryId);
+
+        // Find matching media folder
+        const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
+
+        if (!matchingFolder) {
+          const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
+          console.warn(`⚠️ ${errorMessage}`);
+          addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
+          invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
+          sheetInvalidCount++;
+          continue;
+        }
+
+        const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
+        const imageFolderPath = path.join(mediaBasePath, "images");
+        const videoFolderPath = path.join(mediaBasePath, "videos");
+
+        const uploadedImages: string[] = [];
+        const uploadedVideos: string[] = [];
+
+        // Upload images
+        if (fs.existsSync(imageFolderPath)) {
+          const imageFiles = fs.readdirSync(imageFolderPath);
+          for (const file of imageFiles) {
+            const filePath = path.join(imageFolderPath, file);
+            const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
+            const url = await uploadFileToFirebase(filePath, destination);
+            uploadedImages.push(url);
+          }
+        }
+
+        // Upload videos
+        if (fs.existsSync(videoFolderPath)) {
+          const videoFiles = fs.readdirSync(videoFolderPath);
+          for (const file of videoFiles) {
+            const filePath = path.join(videoFolderPath, file);
+            const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
+            const url = await uploadFileToFirebase(filePath, destination);
+            uploadedVideos.push(url);
+          }
+        }
+
+        // Add media to nested structure
+        if (uploadedImages.length > 0) {
+          nestedData.images = uploadedImages.map((url) => ({
+            value: url,
+            marketplace_id: "A1F83G8C2ARO7P", // Default marketplace_id
+          }));
+        }
+
+        if (uploadedVideos.length > 0) {
+          nestedData.videos = uploadedVideos.map((url) => ({
+            value: url,
+            marketplace_id: "A1F83G8C2ARO7P", // Default marketplace_id
+          }));
+        }
+
+        validRows.push({ row: globalRowIndex, data: nestedData });
+        validIndexes.add(globalRowIndex);
+        sheetValidCount++;
       }
 
       if (sheetValidCount > 0 || sheetInvalidCount > 0) {
@@ -260,7 +355,6 @@ export const bulkImportUtility = {
         const rows = XLSX.utils.sheet_to_json(sheet);
 
         if (rows.length === 0) {
-          // addLog(`⚠️ Sheet "${sheetName}" is empty. Skipping.`);
           continue;
         }
 
