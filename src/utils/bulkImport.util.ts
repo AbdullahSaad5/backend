@@ -3,10 +3,10 @@ import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
 import { uploadFileToFirebase } from "./firebase";
-import { ProductCategory } from "@/models";
+
 
 import dotenv from "dotenv";
-import { ebayListingService, inventoryService } from "@/services";
+import {inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
