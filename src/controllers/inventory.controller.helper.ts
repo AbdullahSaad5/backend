@@ -1,12 +1,8 @@
 import { Request, Response } from "express";
 import { inventoryService } from "@/services"; // Adjust import path as needed
-import { processZipFile } from "@/utils/bulkImport.util";
-import { Inventory } from "@/models";
+import { bulkImportUtility } from "@/utils/bulkImport.util";
 import { addLog, getLogs, clearLogs } from "@/utils/bulkImportLogs.util"; // Adjust import path as needed
-import { Parser } from "json2csv";
-import * as fs from "fs";
-import { v4 as uuidv4 } from "uuid";
-import path from "path";
+
 // Assuming you have the service imported
 
 export const handleBulkImport = async (req: Request, res: Response) => {
@@ -14,13 +10,14 @@ export const handleBulkImport = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       addLog("❌ No file uploaded");
-      return res.status(400).json({ error: "No file uploaded", logs: getLogs() });
+      return res
+        .status(400)
+        .json({ error: "No file uploaded", logs: getLogs() });
     }
-
     addLog("📂 File uploaded, processing started...");
     const zipFilePath = req.file.path;
 
-    await processZipFile(zipFilePath);
+    await bulkImportUtility.processZipFile(zipFilePath);
 
     // Send back detailed logs and status
     res.status(200).json({
@@ -28,25 +25,51 @@ export const handleBulkImport = async (req: Request, res: Response) => {
       logs: getLogs(), // Send logs to frontend
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     addLog(`❌ Error: ${errorMessage}`);
     res.status(500).json({ error: errorMessage, logs: getLogs() });
   }
 };
+
+// Updated controller to handle both specific IDs and "select all pages"
 export const handleBulkExport = async (req: Request, res: Response) => {
+  
   try {
-    const { inventoryIds } = req.body;
-    if (!Array.isArray(inventoryIds) || inventoryIds.length === 0) {
-      return res.status(400).json({ error: "inventoryIds must be a non-empty array" });
+    const { inventoryIds, selectAllPages } = req.body;
+
+    // Validate input - either specific IDs or select all flag
+    if (
+      !selectAllPages &&
+      (!Array.isArray(inventoryIds) || inventoryIds.length === 0)
+    ) {
+      return res.status(400).json({
+        error:
+          "Either inventoryIds must be a non-empty array or selectAllPages must be true",
+      });
     }
 
-    const { fromCache, file } = await inventoryService.exportInventory(inventoryIds);
+    // if (selectAllPages) {
+    //   return res.status(400).json({
+    //     error: "filters are required when selectAllPages is true",
+    //   });
+    // }
+
+    const { fromCache, file, totalExported } =
+      await inventoryService.exportInventory({
+        inventoryIds: inventoryIds || [],
+        selectAllPages: selectAllPages || false,
+        // filters: filters || {},
+      });
 
     res.status(200).json({
-      message: fromCache ? "Served from cache" : "Generated new CSV",
-      data: file, // base64-encoded CSV string
+      message: fromCache ? "Served from cache" : "Generated new Excel file",
+      file, // single base64 encoded Excel file string
+      totalExported, // number of items exported
+      selectAllPages: selectAllPages || false,
     });
   } catch (err: any) {
+    console.error("Bulk export error:", err);
     res.status(500).json({ error: err.message });
   }
 };

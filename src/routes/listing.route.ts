@@ -31,17 +31,18 @@ export const listing = (router: Router) => {
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
+  
   // Update a draft listing by ID (subsequent steps)
   router.patch(
     "/:id",
     // listingValidation.updateListing,
     listingController.updateDraftListingController
   );
-
   router.get("/", listingController.getAllListing);
 
   router.get("/:id", listingValidation.validateId, listingController.getListingById);
 
+  router.delete("/bulk-delete", listingController.bulkDeleteListing);
   router.delete("/:id", listingValidation.validateId, listingController.deleteListing);
 
   router.patch("/:id", listingValidation.updateListing, listingController.updateListingById);

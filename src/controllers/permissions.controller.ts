@@ -36,8 +36,18 @@ export const permissionsController = {
             "VIEW_INVENTORY",
             "ADD_STOCK",
             "VIEW_STOCK",
-            "MANAGE_VARIATION",
+            "VIEW_LISTING",
+            "ADD_LISTING",
             "MANAGE_DISCOUNTS",
+          ],
+        },
+        bundleManagement: {
+          parent: "MANAGE_BUNDLES",
+          children: [
+            // "ADD_SUPPLIERS_CATEGORY",
+            // "VIEW_SUPPLIERS_CATEGORY",
+            "ADD_BUNDLES",
+            "VIEW_BUNDLES",
           ],
         },
         // discountAndTaxes: {
@@ -51,18 +61,90 @@ export const permissionsController = {
         // },
         gamersCommunity: {
           parent: "GAMERS_COMMUNITY",
-          children: ["VIEW_GAMERS_COMMUNITY", "VIEW_BLOGS"],
+          children: [
+            "VIEW_BLOGS_CATEGORY",
+            "ADD_BLOGS_CATEGORY",
+            "VIEW_BLOGS",
+            "ADD_BLOGS",
+            "VIEW_GAMERS_COMMUNITY",
+            "ADD_GAMERS_COMMUNITY",
+          ],
         },
-        policies: {
+         accountingManagement: {
+          parent: "MANAGE_ACCOUNTING",
+          children: [
+            "ADD_EXPENSE_CATEGORY",
+            "VIEW_EXPENSE_CATEGORY",
+            "ADD_EXPENSE",
+            "VIEW_EXPENSE",
+            "VIEW_REVENUE",
+            "ADD_REVENUE",
+            "VIEW_INVENTORY_PURCHASES",
+          ],
+        },
+        hrManagement: {
+          parent: "HR_MANAGEMENET",
+          children: [
+            "VIEW_EMPLOYEES",
+            "ADD_EMPLOYEES",
+            "VIEW_WORK_SHIFT",
+            "ADD_WORK_SHIFT",
+            "VIEW_ATTENDANCE",
+          ],
+        },
+        complaintsManagement: {
+          parent: "COMPLAINTS_MANAGEMENET",
+          children: [
+            "VIEW_COMPLAINTS_CATEGORY",
+            "ADD_COMPLAINTS_CATEGORY",
+            "VIEW_COMPLAINTS",
+            "ADD_COMPLAINTS",
+          ],
+        },
+        guideManagement: {
+          parent: "MANAGE_GUIDES",
+          children: [
+            "VIEW_GUIDES_CATEGORY",
+            "ADD_GUIDE_CATEGORY",
+            "VIEW_GUIDES",
+            "ADD_GUIDES",
+          ],
+        },
+        leadsManagement: {
+          parent: "LEADS_MANAGEMENT",
+          children: [
+            "ADD_LEADS_CATEGORIES",
+            "VIEW_LEADS_CATEGORIES",
+            "ADD_LEADS",
+            "VIEW_LEADS",
+          ],
+        },
+         policies: {
           parent: "MANAGE_POLICIES",
           children: [
-            "VIEW_POLICIES",
+            "VIEW_CUSTOM_POLICIES",
+            "ADD_CUSTOM_POLICIES",
             "VIEW_PAYMENT_POLICIES",
-            "VIEW_POSTAGE_POLICIES",
+            "ADD_PAYMENT_POLICIES",
+            "VIEW_FULFILLMENT_POLICIES",
+            "ADD_FULFILLMENT_POLICIES",
+            "VIEW_RETURN_POLICIES",
+            "ADD_RETURN_POLICIES",
+            "ADD_SUBSCRIPTIONS",
             "VIEW_SUBSCRIPTIONS",
+            "ADD_FAQ_CATEGORY",
+            "VIEW_FAQ_CATEGORY",
+            "ADD_FAQS",
             "VIEW_FAQS",
           ],
         },
+        ticketing: {
+          parent: "MANAGE_TICKETING",
+        },
+        documents: {
+          parent: "MANAGE_DOCUMENTS",
+        },
+       
         setting: {
           parent: "SETTINGS",
         },

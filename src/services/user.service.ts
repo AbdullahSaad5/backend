@@ -3,7 +3,6 @@ import {
   IUser,
   UserCreatePayload,
   UserUpdatePayload,
-
 } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
@@ -98,17 +97,29 @@ export const userService = {
   },
 
   createAddress: (addresss: IUserAddress, userId: string) => {
-    const { country, address, label, appartment, city, postalCode, isDefault } =
-      addresss;
+    const {
+      country,
+      address,
+      county,
+      appartment,
+      city,
+      postalCode,
+      isDefault,
+      longitude,
+      latitude,
+    } = addresss;
+
     const newAddress = new Address({
       userId,
-      label,
+      county,
       address,
       city,
       appartment,
       postalCode,
       country,
       isDefault,
+      longitude,
+      latitude,
     });
     return newAddress.save();
   },

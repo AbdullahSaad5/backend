@@ -1,49 +1,326 @@
 {
-  "stepData": {
-    "step": "prodDelivery",
-    "postagePolicy": {
-      "name": "postagePolicy",
-      "value": "test shitty newwwwewewe shipping",
-      "isAmz": true,
-      "isEbay": true,
-      "isWeb": true
-    },
-    "packageWeight": {
-      "weightKg": {
-        "name": "weightKg",
-        "value": "234342523453 kg"
+  "inventoryId": {
+    "$oid": "684852788b36f12049a54b9e"
+  },
+  "selectedStockId": {
+    "$oid": "68385df2aadeb91174b25e6a"
+  },
+  "listingType": "product",
+  "listingHasVariations": false,
+  "listingWithStock": true,
+  "isBlocked": false,
+  "publishToEbay": true,
+  "publishToAmazon": false,
+  "publishToWebsite": false,
+  "status": "draft",
+  "isTemplate": false,
+  "stocks": [],
+  "stockThreshold": 10,
+  "kind": "listing_product",
+  "prodTechInfo": {
+    "bullet_point": [
+      {
+        "value": "Intel 11th Generation Core i7-1165G7 processor with Intel Iris Xe Graphics",
+        "marketplace_id": "A1F83G8C2ARO7P"
       },
-      "weightG": {
-        "name": "weightG",
-        "value": "200 g"
+      {
+        "value": "16GB LPDDR4x RAM and 512GB PCIe NVMe SSD storage",
+        "marketplace_id": "A1F83G8C2ARO7P"
       },
-      "isAmz": true,
-      "isEbay": true,
-      "isWeb": true
-    },
-    "packageDimensions": {
-      "isAmz": true,
-      "isEbay": true,
-      "isWeb": true,
-      "dimensionLength": {
-        "name": "dimensionLength",
-        "value": "10 cm"
+      {
+        "value": "13.3-inch FHD (1920x1080) InfinityEdge non-touch display",
+        "marketplace_id": "A1F83G8C2ARO7P"
       },
-      "dimensionWidth": {
-        "name": "dimensionWidth",
-        "value": "10 cm"
+      {
+        "value": "Wi-Fi 6 AX1650 and Bluetooth 5.1 connectivity",
+        "marketplace_id": "A1F83G8C2ARO7P"
       },
-      "dimensionHeight": {
-        "name": "dimensionHeight",
-        "value": "20 cm"
+      {
+        "value": "Windows 11 Home pre-installed with premium build quality",
+        "marketplace_id": "A1F83G8C2ARO7P"
       }
-    },
-    "irregularPackage": {
-      "name": "irregularPackage",
-      "value": true,
-      "isAmz": true,
-      "isEbay": true,
-      "isWeb": true
+    ],
+    "solid_state_storage_drive": [
+      {
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "capacity": {
+          "value": 512,
+          "unit": "GB"
+        },
+        "form_factor": "M.2",
+        "interface": "pci_e",
+        "maximum_random_read": {
+          "value": 300000,
+          "unit": "IOPS"
+        },
+        "maximum_random_write": {
+          "value": 250000,
+          "unit": "IOPS"
+        },
+        "maximum_sequential_read": {
+          "value": 3500,
+          "unit": "Mbps"
+        },
+        "maximum_sequential_write": {
+          "value": 3000,
+          "unit": "Mbps"
+        }
+      }
+    ],
+    "cpu_model": [
+      {
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "codename": [
+          {
+            "value": "Tiger Lake",
+            "language_tag": "en_UK"
+          }
+        ],
+        "family": [
+          {
+            "value": "Core i7"
+          }
+        ],
+        "generation": [
+          {
+            "value": "11th Generation",
+            "language_tag": "en_UK"
+          }
+        ],
+        "l1_cache_size": [
+          {
+            "value": 192,
+            "unit": "KB"
+          }
+        ],
+        "l2_cache_size": [
+          {
+            "value": 5,
+            "unit": "MB"
+          }
+        ],
+        "l3_cache_size": [
+          {
+            "value": 12,
+            "unit": "MB"
+          }
+        ],
+        "manufacturer": [
+          {
+            "value": "Intel",
+            "language_tag": "en_UK"
+          }
+        ],
+        "model_number": [
+          {
+            "value": "i7-1165G7",
+            "language_tag": "en_UK"
+          }
+        ],
+        "speed": [
+          {
+            "value": 2.8,
+            "unit": "GHz"
+          }
+        ],
+        "speed_maximum": [
+          {
+            "value": 4.7,
+            "unit": "GHz"
+          }
+        ]
+      }
+    ],
+    "display": [
+      {
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "resolution_maximum": [
+          {
+            "value": "1920x1080",
+            "unit": "pixels",
+            "language_tag": "en_UK"
+          }
+        ],
+        "size": [
+          {
+            "value": 13.3,
+            "unit": "inches"
+          }
+        ],
+        "technology": [
+          {
+            "value": "LED",
+            "language_tag": "en_UK"
+          }
+        ],
+        "type": [
+          {
+            "value": "LCD",
+            "language_tag": "en_UK"
+          }
+        ]
+      }
+    ],
+    "manufacturer": [
+      {
+        "value": "Dell Inc.",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "model_name": [
+      {
+        "value": "XPS 13 9310",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "model_number": [
+      {
+        "value": "XPS13-9310-i7-16-512",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "condition_type": [
+      {
+        "value": "new_new",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "color": [
+      {
+        "value": "Platinum Silver",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "item_dimensions": [
+      {
+        "length": {
+          "value": "11.64",
+          "unit": "inches"
+        },
+        "width": {
+          "value": "7.82",
+          "unit": "inches"
+        },
+        "height": {
+          "value": "0.58",
+          "unit": "inches"
+        },
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "memory_storage_capacity": [
+      {
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "value": 16000,
+        "unit": "MB"
+      }
+    ],
+    "item_weight": [
+      {
+        "value": "2.64",
+        "unit": "pounds",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "generic_keyword": [
+      {
+        "value": "laptop computer notebook ultrabook portable",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "max_order_quantity": [
+      {
+        "value": 10,
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "fulfillment_availability": [
+      {
+        "fulfillment_channel_code": "DEFAULT",
+        "quantity": 50,
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "recommended_browse_nodes": [
+      {
+        "value": "Laptops",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "country_of_origin": [
+      {
+        "value": "CN",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "supplier_declared_dg_hz_regulation": [
+      {
+        "value": "not_applicable",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ]
+  },
+  "prodPricing": {
+    "vat": 20,
+
+    "listingWithoutStockVariations": [],
+    "currentEbayVariationsSKU": [],
+    "selectedVariations": [],
+    "warrantyDocument": []
+  },
+  "prodSeo": {
+    "seoTags": [],
+    "relevantTags": [],
+    "suggestedTags": []
+  },
+  "productInfo": {
+    "item_name": [
+      {
+        "value": "Dell XPS 13 Laptop - Intel Core i7-1165G7, 16GB RAM, 512GB SSD, 13.3 FHD Display",
+        "marketplace_id": "A1F83G8C2ARO7P",
+        "language_tag": "e_UK"
+      }
+    ],
+    "amazonCategoryId": "567890",
+    "brand_name": [
+      {
+        "value": "Dell",
+        "language_tag": "en_UK",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "product_description": [
+      {
+        "value": "The Dell XPS 13 features an Intel Core i7 processor, 16GB RAM, and a 512GB SSD, offering performance and style in a compact design.",
+        "language_tag": "en_UK",
+        "marketplace_id": "A1F83G8C2ARO7P"
+      }
+    ],
+    "sku": "",
+    "productCategory": {
+      "$oid": "683720a498047d13e2205613"
     }
-  }
+  },
+  "prodMedia": {
+    "images": [
+      {
+        "id": "media-1748526052167-25kk2rv",
+        "size": 75742,
+        "url": "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FNetwork%20Equipment%20Part.webp?alt=media&token=572ebfdd-1069-403a-ba56-0082aaf27eb7",
+        "type": "image/webp"
+      }
+    ],
+    "videos": []
+  },
+  "createdAt": {
+    "$date": "2025-06-02T19:02:50.316Z"
+  },
+  "updatedAt": {
+    "$date": "2025-06-02T19:02:50.316Z"
+  },
+  "__v": 0
 }
+
+
+
+  

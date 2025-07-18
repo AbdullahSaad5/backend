@@ -1,6 +1,5 @@
 import { Router } from "express";
 
-// Routes
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { multer as files } from "./multer.route";
 import { user } from "./user.route";
@@ -8,6 +7,7 @@ import { auth } from "./user-auth.route";
 import { userCategory } from "./user-category.route";
 import { supplier } from "./supplier.route";
 import { supplierCategory } from "./supplier-category.routes";
+import { blogCategory } from "./blog-category.route";
 import { productCategory } from "./product-category.route";
 import { productBrand } from "./product-brand.route";
 import { listing } from "./listing.route";
@@ -15,9 +15,13 @@ import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
+import { document } from "./documents.route";
+import { blog } from "./blog.route";
 import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
+import { ticket } from "./ticket.route";
 import { variations } from "./variations.route";
+import { gamerComunity } from "./gamer-comunity.route";
 import { paymentPolicy } from "./payment-policy.route";
 import { discriminatorRouter } from "./discriminator.route";
 import { faqsPolicy } from "./faqs-policy.route";
@@ -29,12 +33,36 @@ import { customPolicy } from "./custom-policy.route";
 import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
-import {ebay} from "./ebay.route";
+import { ebay } from "./ebay.route";
+import { amazon } from "./amazon.route";
+import { complaintcategory } from "./complaintcategory.route";
+import { expense } from "./expense.route";
+import { workshift } from "./workshift.route";
+import { expensecategory } from "./expensecategory.route";
+import { complaint } from "./complaint.routes";
+import { revenue } from "./revenue.routes";
+import { guidescategory } from "./guidescategory.route";
+import { guide } from "./guide.route";
+import { faqcategory } from "./faqcategory.route";
+import { faq } from "./faq.route";
+import { gtin } from "./gtin.route";
+import { newsletter } from "./newsletter.route";
+import { employee } from "./employee.route";
+import { workmode } from "./workmode.route";
+import { attendance } from "./attendance.route";
+import { leaveRequest } from "./leave-request.route";
+import { payroll } from "./payroll.route";
+import { processedpayroll } from "./processedpayroll.route";
+import { leadscategory } from "./leadscategory.route";
+import { lead } from "./lead.route";
+import { task } from "./task.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+
+// Register processedPayroll route
 
 // Define all routes
 const routes: {
@@ -47,13 +75,25 @@ const routes: {
   auth,
   userCategory,
   variations,
+  complaint,
+  blog,
+  expense,
+  document,
+  expensecategory,
+  workshift,
   supplier,
+  complaintcategory,
   supplierCategory,
   stock,
   listing,
   inventory,
   ebay,
+  ticket,
+  gtin,
+  amazon,
   productCategory,
+  gamerComunity,
+  blogCategory,
   productBrand,
   customPolicy,
   returnPolicy,
@@ -66,8 +106,22 @@ const routes: {
   discount,
   taxes,
   faqsPolicy,
+  revenue,
+  guidescategory,
+  guide,
+  faqcategory,
+  faq,
+  newsletter,
+  leadscategory,
+  lead,
   chat,
-  // discriminator,
+  employee,
+  workmode,
+  attendance,
+  leaveRequest,
+  payroll,
+  processedpayroll,
+  task,
 };
 
 // Loop through all routes and pass the router to each route

@@ -3,7 +3,7 @@ import { IUserCategory , UserCategoryModel } from "@/contracts/user-category.con
 
 
 const userCategorySchema = new Schema<IUserCategory >({
-    role: { type: String, required: true, lowercase: true},
+    role: { type: String, required: true, lowercase: true , unique: true},
     description: { type: String },
     permissions: { type: [String], required: true },
     isBlocked: { type: Boolean, default: false },

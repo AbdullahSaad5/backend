@@ -11,4 +11,6 @@ export { inventoryValidation } from "./inventory.validation";
 export { orderValidation } from "./order.validation";
 export { cartValidation } from "./cart.validation";
 export { variationValidation } from "./variation.validation";
-export { faqsValidation } from "./faqs.validation"
+export { faqsValidation } from "./faqs.validation";
+export { createLeadValidation, updateLeadValidation, updateLeadStatusValidation } from "./lead.validation";
+export { createTaskSchema, updateTaskSchema, updateTaskStatusSchema, updateTaskPrioritySchema, updateTaskAssigneesSchema } from "./task.validation";

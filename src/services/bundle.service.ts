@@ -3,31 +3,41 @@ import { IBundle, IBundleUpdatePayload } from "@/contracts/bundle.contract"; // 
 
 export const bundleService = {
   // Add a new bundle
-  addBundle: async (bundleData: IBundle) => {
-    try {
-      const newBundle = new Bundle(bundleData); // Create a new Bundle instance
-      await newBundle.save(); // Save the new bundle to the database
-      return newBundle; // Return the saved bundle
-    } catch (error) {
-      console.error("Error adding bundle:", error);
-      throw new Error("Failed to add bundle to the database");
+ addBundle: async (bundleData: IBundle) => {
+    // Check for existing bundle name
+    const existingBundle = await Bundle.findOne({ name: bundleData.name });
+    if (existingBundle) {
+      throw new Error("Bundle with this name already exists");
     }
+
+    const newBundle = new Bundle(bundleData);
+    await newBundle.save();
+    return newBundle;
   },
+ 
 
   // Get all bundles
   getAllBundles: async () => {
     try {
-      return await Bundle.find().populate({
-        path: "items",
-        populate: [
-          { path: "productId", model: "Inventory" },
-          { path: "variationId", model: "Variation" },
-          { path: "stockId", model: "Stock" },
-        ],
-      });
+      return await Bundle.find()
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
     } catch (error) {
       console.error("Error fetching bundles:", error);
       throw new Error("Failed to retrieve bundles from the database");
+    }
+  },
+
+  getAllPublishedBundles: async (condition: Record<string, any>) => {
+    try {
+      return await Bundle.find(condition)
+        .populate("items.productId")
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
+    } catch (error) {
+      console.error("Error fetching published bundles:", error);
+      throw new Error("Failed to retrieve published bundles from the database");
     }
   },
 
@@ -35,8 +45,8 @@ export const bundleService = {
     try {
       const bundle = await Bundle.findById(bundleId)
         .populate("items.productId")
-        .populate("items.variationId")
-        .populate("items.stockId");
+        .populate("items.stockId")
+        .populate("items.selectedVariations.variationId");
 
       if (!bundle) {
         throw new Error("Bundle not found");

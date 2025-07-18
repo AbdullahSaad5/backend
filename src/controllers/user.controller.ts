@@ -8,10 +8,15 @@ import sendEmail from "@/utils/nodeMailer";
 
 export const userController = {
   createUser: async (req: Request, res: Response) => {
-    try {
-      const { email, address } = req.body;
+    console.log("req.body : ", req.body);
 
-      const userExists = await userService.findExistingEmail(email);
+    try {
+      const { email, address, longitude, latitude } = req.body;
+      console.log("longitude : ", longitude);
+      console.log("latitude : ", latitude);
+
+      const userExists: IUser | null =
+        await userService.findExistingEmail(email);
       if (userExists) {
         return res
           .status(StatusCodes.CONFLICT)
@@ -48,8 +53,23 @@ export const userController = {
       }
 
       // Handle address update/addition if provided
+      if (longitude && latitude) {
+        req.body.address = [
+          {
+            longitude,
+            latitude,
+          },
+        ];
+      }
       if (address && Array.isArray(address)) {
-        for (const addr of address) {
+        // Merge longitude/latitude into each address if present at root
+        const addressesToSave = address.map((addr) => ({
+          ...addr,
+          longitude: addr.longitude ?? longitude,
+          latitude: addr.latitude ?? latitude,
+        }));
+
+        for (const addr of addressesToSave) {
           const createdAddress = await userService.createAddress(
             addr,
             newUser._id as string
@@ -59,7 +79,6 @@ export const userController = {
           }
         }
       }
-
       // Send email to the new user
       try {
         const password = req.body.password; // Assuming the password is passed in the request body
@@ -377,3 +396,5 @@ export const userController = {
     }
   },
 };
+
+// new route to get Employee List

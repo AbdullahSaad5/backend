@@ -4,5 +4,5 @@ import { Router } from "express";
 
 export const me = (router: Router) => {
   // Route for user registration
-  router.get("/", authGuard.isAuth ,meController.info);
+  router.get("/", authGuard.isAuth, meController.info);
 };

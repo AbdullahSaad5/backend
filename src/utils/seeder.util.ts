@@ -10,91 +10,192 @@ const seedData = async () => {
     description: "This category is just for super admin usage.",
     permissions: [
       "DASHBOARD",
+
       "MANAGE_USERS",
-      "MANAGE_SUPPLIERS",
-      "MANAGE_INVENTORY",
-      "GAMERS_COMMUNITY",
-      "MANAGE_POLICIES",
-      "SETTINGS",
       "ADD_USERS_CATEGORY",
       "VIEW_USERS_CATEGORY",
       "ADD_USERS",
       "VIEW_USERS",
+
+      "MANAGE_SUPPLIERS",
       "ADD_SUPPLIERS_CATEGORY",
       "VIEW_SUPPLIERS_CATEGORY",
       "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
+
+      "MANAGE_INVENTORY",
       "ADD_INVENTORY_CATEGORY",
       "VIEW_INVENTORY_CATEGORY",
       "ADD_INVENTORY",
       "VIEW_INVENTORY",
-      "VIEW_GAMERS_COMMUNITY",
-      "VIEW_BLOGS",
-      "VIEW_POLICIES",
-      "VIEW_PAYMENT_POLICIES",
-      "VIEW_POSTAGE_POLICIES",
-      "VIEW_SUBSCRIPTIONS",
-      "VIEW_FAQS",
-      "MANAGE_TAXES_AND_DISCOUNTS",
-      "ADD_TAXES",
-      "VIEW_TAXES",
-      "ADD_DISCOUNTS",
-      "VIEW_DISCOUNTS",
-      "MANAGE_VARIATION",
-      "MANAGE_DISCOUNTS",
-      "VIEW_STOCK",
       "ADD_STOCK",
+      "VIEW_STOCK",
+      "VIEW_LISTING",
+      "ADD_LISTING",
+      "MANAGE_DISCOUNTS",
+
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
+
+      "GAMERS_COMMUNITY",
+      "VIEW_BLOGS_CATEGORY",
+      "ADD_BLOGS_CATEGORY",
+      "VIEW_BLOGS",
+      "ADD_BLOGS",
+      "VIEW_GAMERS_COMMUNITY",
+      "ADD_GAMERS_COMMUNITY",
+
+      "HR_MANAGEMENET",
+      "VIEW_EMPLOYEES",
+      "ADD_EMPLOYEES",
+      "VIEW_WORK_SHIFT",
+      "ADD_WORK_SHIFT",
+      "VIEW_ATTENDANCE",
+
+      "MANAGE_TICKETING",
+
+      "MANAGE_DOCUMENTS",
+
+      "MANAGE_POLICIES",
+      "VIEW_CUSTOM_POLICIES",
+      "ADD_CUSTOM_POLICIES",
+      "VIEW_PAYMENT_POLICIES",
+      "ADD_PAYMENT_POLICIES",
+      "VIEW_FULFILLMENT_POLICIES",
+      "ADD_FULFILLMENT_POLICIES",
+      "VIEW_RETURN_POLICIES",
+      "ADD_RETURN_POLICIES",
+      "ADD_SUBSCRIPTIONS",
+      "VIEW_SUBSCRIPTIONS",
+      "ADD_FAQ_CATEGORY",
+      "VIEW_FAQ_CATEGORY",
+      "ADD_FAQS",
+      "VIEW_FAQS",
+
+      "COMPLAINTS_MANAGEMENET",
+      "VIEW_COMPLAINTS_CATEGORY",
+      "ADD_COMPLAINTS_CATEGORY",
+      "VIEW_COMPLAINTS",
+      "ADD_COMPLAINTS",
+
+      "LEADS_MANAGEMENT",
+      "ADD_LEADS_CATEGORIES",
+      "VIEW_LEADS_CATEGORIES",
+      "ADD_LEADS",
+      "VIEW_LEADS",
+
+      "MANAGE_ACCOUNTING",
+      "ADD_EXPENSE_CATEGORY",
+      "VIEW_EXPENSE_CATEGORY",
+      "ADD_EXPENSE",
+      "VIEW_EXPENSE",
+      "VIEW_REVENUE",
+      "ADD_REVENUE",
+      "VIEW_INVENTORY_PURCHASES",
+
+      "MANAGE_GUIDES",
+      "VIEW_GUIDES_CATEGORY",
+      "ADD_GUIDE_CATEGORY",
+      "VIEW_GUIDES",
+      "ADD_GUIDES",
+
+      "SETTINGS",
     ],
     isBlocked: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
+
   const adminCategoryData = {
     _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"), // Unique ID for super admin
     role: "admin",
     description: "Admin has Access to Everything",
     permissions: [
       "DASHBOARD",
+
       "MANAGE_USERS",
-      "MANAGE_SUPPLIERS",
-      "MANAGE_INVENTORY",
-      "GAMERS_COMMUNITY",
-      "MANAGE_POLICIES",
-      "SETTINGS",
-      "ADD_USERS_CATEGORY",
-      "VIEW_USERS_CATEGORY",
+      // "ADD_USERS_CATEGORY",
+      // "VIEW_USERS_CATEGORY",
       "ADD_USERS",
       "VIEW_USERS",
+
+      "MANAGE_SUPPLIERS",
       "ADD_SUPPLIERS_CATEGORY",
       "VIEW_SUPPLIERS_CATEGORY",
       "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
-      "VIEW_INVENTORY_CATEGORY",
+
+      "MANAGE_INVENTORY",
+      // "ADD_INVENTORY_CATEGORY",
+      // "VIEW_INVENTORY_CATEGORY",
       "ADD_INVENTORY",
       "VIEW_INVENTORY",
-      "VIEW_GAMERS_COMMUNITY",
-      "VIEW_BLOGS",
-      "VIEW_POLICIES",
-      "VIEW_PAYMENT_POLICIES",
-      "VIEW_POSTAGE_POLICIES",
-      "VIEW_SUBSCRIPTIONS",
-      "VIEW_FAQS",
-      "MANAGE_TAXES_AND_DISCOUNTS",
-      "ADD_TAXES",
-      "VIEW_TAXES",
-      "ADD_DISCOUNTS",
-      "VIEW_DISCOUNTS",
-      "MANAGE_VARIATION",
-      "MANAGE_DISCOUNTS",
-      "VIEW_STOCK",
       "ADD_STOCK",
+      "VIEW_STOCK",
+      "VIEW_LISTING",
+      "ADD_LISTING",
+      "MANAGE_DISCOUNTS",
+
+      "COMPLAINTS_MANAGEMENET",
+      "VIEW_COMPLAINTS_CATEGORY",
+      "ADD_COMPLAINTS_CATEGORY",
+      "VIEW_COMPLAINTS",
+      "ADD_COMPLAINTS",
+
+      // "LEADS_MANAGEMENT",
+      // "ADD_LEADS_CATEGORIES",
+      // "VIEW_LEADS_CATEGORIES",
+      // "ADD_LEADS",
+      // "VIEW_LEADS",
+
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
+
+      // "GAMERS_COMMUNITY",
+      // "VIEW_BLOGS_CATEGORY",
+      // "ADD_BLOGS_CATEGORY",
+      // "VIEW_BLOGS",
+      // "ADD_BLOGS",
+      // "VIEW_GAMERS_COMMUNITY",
+      // "ADD_GAMERS_COMMUNITY",
+
+      // "HR_MANAGEMENET",
+      // "VIEW_EMPLOYEES",
+      // "ADD_EMPLOYEES",
+      // "VIEW_WORK_SHIFT",
+      // "ADD_WORK_SHIFT",
+      // "VIEW_ATTENDANCE",
+
+      // "MANAGE_TICKETING",
+
+      "MANAGE_DOCUMENTS",
+
+      // "MANAGE_POLICIES",
+      // "VIEW_CUSTOM_POLICIES",
+      // "ADD_CUSTOM_POLICIES",
+      // "VIEW_PAYMENT_POLICIES",
+      // "ADD_PAYMENT_POLICIES",
+      // "VIEW_FULFILLMENT_POLICIES",
+      // "ADD_FULFILLMENT_POLICIES",
+      // "VIEW_RETURN_POLICIES",
+      // "ADD_RETURN_POLICIES",
+
+      "SETTINGS",
     ],
     isBlocked: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
-  let userCategory = await UserCategory.findOne({ role: superAdminCategoryData.role });
-  let adminUserCategory = await UserCategory.findOne({ role: adminCategoryData.role });
+
+  let userCategory = await UserCategory.findOne({
+    role: superAdminCategoryData.role,
+  });
+
+  let adminUserCategory = await UserCategory.findOne({
+    role: adminCategoryData.role,
+  });
 
   if (!userCategory) {
     // If not found, create the user category (role)
@@ -105,7 +206,10 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
+      !userCategory.permissions.every(
+        (permission, index) =>
+          permission === superAdminCategoryData.permissions[index]
+      )
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
@@ -122,7 +226,10 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
+      !adminUserCategory.permissions.every(
+        (permission, index) =>
+          permission === adminCategoryData.permissions[index]
+      )
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
@@ -131,6 +238,7 @@ const seedData = async () => {
       console.log("Admin User Category already exists and matches.");
     }
   }
+
   // 2. Seed Supplier User Category (New Category)
   const supplierCategoryData = {
     _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"), // Unique ID for supplier
@@ -138,28 +246,73 @@ const seedData = async () => {
     description: "This is Supplier Category",
     permissions: [
       "DASHBOARD",
-      "SETTINGS",
+
       "MANAGE_USERS",
+      // "ADD_USERS_CATEGORY",
+      // "VIEW_USERS_CATEGORY",
       "ADD_USERS",
       "VIEW_USERS",
+
       "MANAGE_SUPPLIERS",
+      "ADD_SUPPLIERS_CATEGORY",
       "VIEW_SUPPLIERS_CATEGORY",
+      "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
+
       "MANAGE_INVENTORY",
+      // "ADD_INVENTORY_CATEGORY",
+      // "VIEW_INVENTORY_CATEGORY",
+      "ADD_INVENTORY",
       "VIEW_INVENTORY",
-      "VIEW_INVENTORY_CATEGORY",
-      "MANAGE_TAXES_AND_DISCOUNTS",
-      "ADD_TAXES",
-      "VIEW_TAXES",
-      "ADD_DISCOUNTS",
-      "VIEW_DISCOUNTS",
+      "ADD_STOCK",
+      "VIEW_STOCK",
+      "VIEW_LISTING",
+      "ADD_LISTING",
+      "MANAGE_DISCOUNTS",
+
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
+
+      // "GAMERS_COMMUNITY",
+      // "VIEW_BLOGS_CATEGORY",
+      // "ADD_BLOGS_CATEGORY",
+      // "VIEW_BLOGS",
+      // "ADD_BLOGS",
+      // "VIEW_GAMERS_COMMUNITY",
+      // "ADD_GAMERS_COMMUNITY",
+
+      // "HR_MANAGEMENET",
+      // "VIEW_EMPLOYEES",
+      // "ADD_EMPLOYEES",
+      // "VIEW_WORK_SHIFT",
+      // "ADD_WORK_SHIFT",
+      // "VIEW_ATTENDANCE",
+
+      // "MANAGE_TICKETING",
+
+      "MANAGE_DOCUMENTS",
+
+      // "MANAGE_POLICIES",
+      // "VIEW_CUSTOM_POLICIES",
+      // "ADD_CUSTOM_POLICIES",
+      // "VIEW_PAYMENT_POLICIES",
+      // "ADD_PAYMENT_POLICIES",
+      // "VIEW_FULFILLMENT_POLICIES",
+      // "ADD_FULFILLMENT_POLICIES",
+      // "VIEW_RETURN_POLICIES",
+      // "ADD_RETURN_POLICIES",
+
+      "SETTINGS",
     ],
     isBlocked: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
 
-  let supplierCategory = await UserCategory.findOne({ role: supplierCategoryData.role });
+  let supplierCategory = await UserCategory.findOne({
+    role: supplierCategoryData.role,
+  });
 
   if (!supplierCategory) {
     // If not found, create the user category (role)
@@ -170,7 +323,10 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
+      !supplierCategory.permissions.every(
+        (permission, index) =>
+          permission === supplierCategoryData.permissions[index]
+      )
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
@@ -200,12 +356,14 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken:
+      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
+
   // 3. Seed admin User
   const adminData = {
     _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
-    firstName: "Mr",
+    firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
     password: "$2b$10$3BgdiUfdTySwQ6AEYTJemO/kzENfDUXU6h2oDG.zEFR7HaapCA9gu", // Already hashed
@@ -222,7 +380,8 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken:
+      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   let superAdmin = await User.findOne({ email: superAdminData.email });
 

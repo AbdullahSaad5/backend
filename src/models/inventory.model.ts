@@ -1,3 +1,4 @@
+import _ from "lodash";
 import mongoose, { Schema, model } from "mongoose";
 
 export const mediaSchema = {
@@ -33,12 +34,58 @@ export const productsTechnicalSchema = {
 export const prodInfoSchema = {
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory", required: true },
   ebayCategoryId: { type: String },
+  amazonCategoryId: { type: String },
   // productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  title: { type: String, required: true },
-  description: { type: String },
+  item_name: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_GB" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  product_description: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_GB" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
   inventoryImages: { type: [mediaSchema], _id: false },
-  inventoryCondition: { type: String, enum: ["used", "new"] },
-  brand: { type: [String], required: true },
+  brand: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  condition_type: [
+    {
+      _id: false,
+      value: {
+        type: String,
+        enum: [
+
+          "collectible_acceptable",
+          "collectible_good",
+          "collectible_like_new",
+          "collectible_very_good",
+          "new_new",
+          "new_oem",
+          "new_open_box",
+          "refurbished_refurbished",
+          "used_acceptable",
+          "used_good",
+          "used_like_new",
+          "used_very_good",
+        ],
+        default: "new_new",
+      },
+
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
 };
 
 // Main Inventory Schema
@@ -55,7 +102,6 @@ const inventorySchema = new Schema(
     isTemplate: { type: Boolean, default: false },
     alias: { type: String },
     isPart: { type: Boolean, default: false },
-
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },
@@ -77,298 +123,5 @@ Inventory.discriminator(
   "product",
   new mongoose.Schema({ prodTechInfo: productsTechnicalSchema, productInfo: prodInfoSchema }, options)
 );
-
-// old schemas for each product category
-// export const laptopTechnicalSchema = {
-//   processor: { type: [String], required: true },
-//   model: { type: [String] },
-//   operatingSystem: { type: String },
-//   storageType: { type: [String] },
-//   features: { type: [String] },
-//   ssdCapacity: { type: [String] },
-//   gpu: { type: String },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   mpn: { type: String },
-//   processorSpeed: { type: String },
-//   series: { type: String },
-//   ramSize: { type: [String] },
-//   californiaProp65Warning: { type: String },
-//   type: { type: String },
-//   releaseYear: { type: String },
-//   hardDriveCapacity: { type: [String] },
-//   color: { type: [String] },
-//   maxResolution: { type: String },
-//   mostSuitableFor: { type: [String] },
-//   screenSize: { type: [String], required: true },
-//   graphicsProcessingType: { type: String },
-//   connectivity: { type: [String] },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   weight: { type: String },
-//   width: { type: String },
-// };
-
-// export const allInOnePCTechnicalSchema = {
-//   processor: { type: [String] },
-//   model: { type: [String] },
-//   memory: { type: [String] },
-//   maxRamCapacity: { type: String },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   mpn: { type: String },
-//   processorSpeed: { type: String },
-//   series: { type: String },
-//   ramSize: { type: [String] },
-//   formFactor: { type: String },
-//   motherboardModel: { type: String },
-//   ean: { type: String },
-//   operatingSystem: { type: [String] },
-//   operatingSystemEdition: { type: String },
-//   storageType: { type: [String] },
-//   features: { type: [String] },
-//   ssdCapacity: { type: [String] },
-//   gpu: { type: [String] },
-//   type: { type: String },
-//   releaseYear: { type: String },
-//   inventoryType: { type: String, default: "All In One PC" },
-//   hardDriveCapacity: { type: [String] },
-//   color: { type: [String] },
-//   mostSuitableFor: { type: [String] },
-//   screenSize: { type: [String] },
-//   graphicsProcessingType: { type: String },
-//   connectivity: { type: [String] },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-// };
-
-// export const miniPCTechnicalSchema = {
-//   processor: { type: [String] },
-//   model: { type: [String] },
-//   memory: { type: [String] },
-//   maxRamCapacity: { type: String },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   mpn: { type: String },
-//   processorSpeed: { type: String },
-//   series: { type: String },
-//   ramSize: { type: [String] },
-//   formFactor: { type: String },
-//   motherboardModel: { type: String },
-//   ean: { type: String },
-//   operatingSystem: { type: [String] },
-//   operatingSystemEdition: { type: String },
-//   storageType: { type: [String] },
-//   features: { type: [String] },
-//   ssdCapacity: { type: [String] },
-//   gpu: { type: [String] },
-//   type: { type: String },
-//   releaseYear: { type: String },
-//   inventoryType: { type: String, default: "Mini PC" },
-//   hardDriveCapacity: { type: [String] },
-//   color: { type: [String] },
-//   mostSuitableFor: { type: [String] },
-//   screenSize: { type: String },
-//   graphicsProcessingType: { type: String },
-//   connectivity: { type: [String] },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-// };
-
-// export const projectorTechnicalSchema = {
-//   model: { type: [String] },
-//   type: { type: [String] },
-//   features: { type: [String] },
-//   connectivity: { type: [String] },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   mpn: { type: String }, //
-//   ean: { type: String },
-//   color: { type: [String] },
-//   numberOfLANPorts: { type: String },
-//   maximumWirelessData: { type: String },
-//   maximumLANDataRate: { type: String },
-//   ports: { type: [String] },
-//   toFit: { type: [String] },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-//   displayTechnology: { type: String },
-//   nativeResolution: { type: String },
-//   imageBrightness: { type: String },
-//   throwRatio: { type: String },
-//   aspectRatio: { type: String },
-//   maxResolution: { type: String },
-//   contrastRatio: { type: String },
-//   compatibleOperatingSystem: { type: String },
-//   californiaProp65Warning: { type: String },
-//   compatibleFormat: { type: String },
-//   lensMagnification: { type: String },
-//   yearManufactured: { type: String },
-// };
-
-// export const monitorTechnicalSchema = {
-//   model: { type: [String] },
-//   features: { type: [String] },
-//   color: { type: [String] },
-//   displayType: { type: String },
-//   maxResolution: { type: String },
-//   mostSuitableFor: { type: [String] },
-//   screenSize: { type: [String] },
-//   regionOfManufacture: { type: String },
-//   manufacturerWarranty: { type: String },
-//   aspectRatio: { type: String },
-//   ean: { type: String },
-//   mpn: { type: String },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   energyEfficiencyRating: { type: String },
-//   videoInputs: { type: String },
-//   refreshRate: { type: String },
-//   responseTime: { type: String },
-//   brightness: { type: String },
-//   contrastRatio: { type: String },
-//   ecRange: { type: String },
-//   productLine: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-//   // Newly added fields to match front-end initialValues
-//   energyStar: { type: String },
-//   connectivity: { type: [String] },
-//   californiaProp65Warning: { type: String },
-//   imageBrightness: { type: String },
-//   throwRatio: { type: String },
-//   compatibleOperatingSystem: { type: String },
-//   compatibleFormat: { type: String },
-//   lensMagnification: { type: String },
-//   yearManufactured: { type: String },
-//   nativeResolution: { type: String },
-//   displayTechnology: { type: String },
-//   weight: { type: String },
-// };
-
-// export const gamingPCTechnicalSchema = {
-//   processor: { type: [String] },
-//   model: { type: [String] },
-//   maxRamCapacity: { type: String },
-//   unitType: { type: String },
-//   unitQuantity: { type: String },
-//   mpn: { type: String },
-//   type: { type: String },
-//   processorSpeed: { type: [String] },
-//   ramSize: { type: [String] },
-//   formFactor: { type: [String] },
-//   motherboardModel: { type: String },
-//   ean: { type: String },
-//   series: { type: String },
-//   operatingSystem: { type: String },
-//   customBundle: { type: String },
-//   storageType: { type: [String] },
-//   features: { type: [String] },
-//   ssdCapacity: { type: [String] },
-//   gpu: { type: [String] },
-//   releaseYear: { type: String },
-//   hardDriveCapacity: { type: [String] },
-//   color: { type: [String] },
-//   mostSuitableFor: { type: [String] },
-//   screenSize: { type: [String] },
-//   graphicsProcessingType: { type: String },
-//   connectivity: { type: [String] },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-// };
-
-// export const networkEquipmentsTechnicalSchema = {
-//   model: { type: [String] },
-//   maxRamCapacity: { type: String },
-//   unitQuantity: { type: String },
-//   unitType: { type: String },
-//   productLine: { type: String },
-//   mpn: { type: String },
-//   type: { type: String },
-//   ramSize: { type: [String] },
-//   formFactor: { type: [String] },
-//   ean: { type: String },
-//   manufacturerWarranty: { type: String },
-//   regionOfManufacture: { type: String },
-//   interface: { type: String },
-//   networkConnectivity: { type: String },
-//   networkManagementType: { type: String },
-//   networkType: { type: String },
-//   processorManufacturer: { type: String },
-//   numberOfProcessors: { type: [String] },
-//   numberOfLANPorts: { type: [String] },
-//   numberOfVANPorts: { type: String },
-//   processorType: { type: String },
-//   raidLevel: { type: String },
-//   memoryType: { type: String },
-//   processorSpeed: { type: [String] },
-//   deviceConnectivity: { type: String },
-//   connectorType: { type: String },
-//   supportedWirelessProtocol: { type: String },
-//   height: { type: String },
-//   length: { type: String },
-//   width: { type: String },
-// };
-
-// old descriminators for each product category
-
-// // discriminator for laptops
-// Inventory.discriminator(
-//   "inventory_laptops",
-//   new mongoose.Schema({ prodTechInfo: laptopTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for all in one pc
-// Inventory.discriminator(
-//   "inventory_all_in_one_pc",
-//   new mongoose.Schema({ prodTechInfo: allInOnePCTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for mini pc
-// Inventory.discriminator(
-//   "inventory_mini_pc",
-//   new mongoose.Schema({ prodTechInfo: miniPCTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for projectors
-// Inventory.discriminator(
-//   "inventory_projectors",
-//   new mongoose.Schema({ prodTechInfo: projectorTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for Monitors
-// Inventory.discriminator(
-//   "inventory_monitors",
-//   new mongoose.Schema({ prodTechInfo: monitorTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for Gaming PC
-// Inventory.discriminator(
-//   "inventory_gaming_pc",
-//   new mongoose.Schema({ prodTechInfo: gamingPCTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// // discriminator for Network Equipments
-// Inventory.discriminator(
-//   "inventory_network_equipments",
-//   new mongoose.Schema({ prodTechInfo: networkEquipmentsTechnicalSchema, productInfo: prodInfoSchema }, options)
-// );
-
-// Compound index to ensure ean uniqueness across all discriminators (inventory_laptops, etc.)
 Inventory.schema.index({ ean: 1 }, { unique: false });
 export { Inventory };

@@ -1,11 +1,11 @@
-import { ebayListingService, listingService } from "@/services";
+import { amazonListingService, ebayListingService, listingService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformListingData } from "@/utils/transformListingData.util";
-import { Inventory, Listing } from "@/models";
-import { ebay } from "@/routes/ebay.route";
-import { productCategory } from "@/routes/product-category.route";
+import { Listing } from "@/models";
+import { getAmazonCredentials } from "@/utils/amazon-helpers.util";
+const { marketplaceId, sellerId } = getAmazonCredentials();
 
 export const listingController = {
   createDraftListing: async (req: Request, res: Response) => {
@@ -23,22 +23,6 @@ export const listingController = {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Invalid or missing 'productInfo' in request payload",
-        });
-      }
-
-      if (!mongoose.isValidObjectId(stepData.inventoryId)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Invalid or missing 'inventoryId' in request payload",
-        });
-      }
-
-      // Ensure inventoryId exists in database
-      const inventoryExists = await Inventory.exists({ _id: stepData.inventoryId });
-      if (!inventoryExists) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Inventory ID does not exist",
         });
       }
 
@@ -81,15 +65,132 @@ export const listingController = {
       const updatedListing = await listingService.updateDraftListing(listingId, stepData);
 
       let ebayResponse: any;
+      let amazonResponse: any;
 
-      // Step 2: Check if the listing already exists on eBay (based on ebayItemId)
+      // Step 2: Handle Amazon listing if published and enabled
+      if (updatedListing.status === "published" && updatedListing.publishToAmazon === true) {
+        console.log("Processing Amazon listing...");
+
+        try {
+          amazonResponse = await amazonListingService.addItemOnAmazon(updatedListing);
+
+          // Handle successful Amazon response
+          if (amazonResponse.status === 200) {
+            const updateData: any = {};
+
+            // For variation listings
+            if (updatedListing.listingHasVariations) {
+              // Parent was created successfully
+              if (amazonResponse.parentCreated && !updatedListing.amazonSku) {
+                updateData.amazonSku = updatedListing.productInfo.sku;
+              }
+
+              // Update submission info if available
+              if (amazonResponse.submissionId) {
+                updateData.amazonSubmissionId = amazonResponse.submissionId;
+              }
+
+              updateData.amazonResponse = amazonResponse;
+
+              // Update the listing with Amazon info
+              await listingService.updateDraftListing(updatedListing._id, updateData);
+
+              return res.status(StatusCodes.OK).json({
+                success: true,
+                message: amazonResponse.message || "Amazon variation listing processed successfully",
+                amazonResponse: {
+                  status: amazonResponse.status,
+                  message: amazonResponse.message,
+                  summary: amazonResponse.summary,
+                  parentCreated: amazonResponse.parentCreated,
+                  isUpdateFlow: amazonResponse.isUpdateFlow,
+                  totalVariations: amazonResponse.totalVariations,
+                  successfulChildSkus: amazonResponse.successfulChildSkus?.length || 0,
+                  failedChildSkus: amazonResponse.failedChildSkus?.length || 0,
+                },
+              });
+            } else {
+              // Simple listing
+              if (amazonResponse.submissionId) {
+                updateData.amazonSubmissionId = amazonResponse.submissionId;
+                updateData.amazonSku = amazonResponse.sku;
+                updateData.amazonResponse = amazonResponse.response;
+              }
+
+              await listingService.updateDraftListing(updatedListing._id, updateData);
+
+              return res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Amazon listing created successfully",
+              });
+            }
+          }
+          // Handle partial success (206)
+          else if (amazonResponse.status === 206) {
+            const updateData: any = {};
+
+            if (amazonResponse.parentCreated && !updatedListing.amazonSku) {
+              updateData.amazonSku = updatedListing.productInfo.sku;
+            }
+
+            if (amazonResponse.submissionId) {
+              updateData.amazonSubmissionId = amazonResponse.submissionId;
+            }
+
+            updateData.amazonResponse = amazonResponse;
+            await listingService.updateDraftListing(updatedListing._id, updateData);
+
+            return res.status(StatusCodes.PARTIAL_CONTENT).json({
+              success: true,
+              message: amazonResponse.message || "Partial success with Amazon listing",
+              amazonResponse: {
+                status: amazonResponse.status,
+                message: amazonResponse.message,
+                summary: amazonResponse.summary,
+                parentCreated: amazonResponse.parentCreated,
+                isUpdateFlow: amazonResponse.isUpdateFlow,
+                failedChildSkus: amazonResponse.failedChildSkus,
+                totalVariations: amazonResponse.totalVariations,
+              },
+            });
+          }
+          // Handle errors
+          else {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: amazonResponse.message || "Failed to sync with Amazon",
+              amazonError: {
+                status: amazonResponse.status,
+                message: amazonResponse.message,
+                error: amazonResponse.error,
+                issues: amazonResponse.errorResponse || [],
+                parentCreated: amazonResponse.parentCreated,
+                isUpdateFlow: amazonResponse.isUpdateFlow || false,
+                failedChildSkus: amazonResponse.failedChildSkus,
+                results: amazonResponse.results,
+              },
+            });
+          }
+        } catch (amazonError: any) {
+          console.error("Amazon API Error:", amazonError);
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Amazon API error occurred",
+            error: amazonError.message,
+          });
+        }
+      }
+
+      // Step 3: Handle eBay listing if needed
       if (updatedListing.ebayItemId) {
-        // Listing already exists on eBay → Update it
+        // Update existing eBay listing
         ebayResponse = await ebayListingService.reviseItemOnEbay(updatedListing);
       } else if (updatedListing.status === "published" && updatedListing.publishToEbay === true) {
-        // Listing is marked as 'published' → Create new item on eBay
+        // Create new eBay listing
         ebayResponse = await ebayListingService.addItemOnEbay(updatedListing);
       }
+
+      // Handle eBay response
       if (ebayResponse) {
         if (typeof ebayResponse === "string") {
           ebayResponse = JSON.parse(ebayResponse);
@@ -112,51 +213,273 @@ export const listingController = {
           });
         }
 
-        // if (ebayResponse?.status !== 200) {
-        //   return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        //     success: false,
-        //     message: "Failed to sync with eBay",
-        //     ebayResponse,
-        //     ebayErrors:
-        //       ebayResponse?.response?.AddFixedPriceItemResponse?.Errors || ebayResponse?.response?.ReviseItemResponse?.Errors,
-        //   });
-        // }
-
-        // Step 3: If it's a new item creation, update ebayItemId and sandboxUrl
+        // Update eBay item ID if it's a new listing
         if (ebayResponse && !updatedListing.ebayItemId && ebayResponse.itemId) {
           await listingService.updateDraftListing(updatedListing._id, {
             ebayItemId: ebayResponse.itemId,
             ebaySandboxUrl: ebayResponse.sandboxUrl,
-            ebayResponse, // optional: store raw response
+            ebayResponse,
           });
         }
       }
+      if (amazonResponse) {
+        // Handle saving submissionId if response was successful
+        if (amazonResponse.status === 200 && amazonResponse.submissionId) {
+          await listingService.updateDraftListing(updatedListing._id, {
+            amazonSubmissionId: amazonResponse.submissionId, // Save submissionId
+            amazonSku: amazonResponse.sku, // Save SKU
+            amazonResponse: amazonResponse.response, // Save full response
+          });
 
+          return res.status(StatusCodes.OK).json({
+            success: true,
+            message: amazonResponse
+              ? "Draft product updated and synced with Amazon successfully"
+              : "Draft product updated locally without syncing to Amazon",
+            // amazonResponse,
+          });
+        } else {
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: "Failed to sync with Amazon",
+            // amazonResponse,
+            amazonErrors: amazonResponse?.errorResponse || "Unknown error",
+          });
+        }
+      }
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: ebayResponse
-          ? "Draft product updated and synced with eBay successfully"
-          : "Draft product updated locally without syncing to eBay",
-        data: {
-          ...updatedListing.toObject(),
-          ebayItemId: ebayResponse?.itemId ?? updatedListing.ebayItemId,
-          ebaySandboxUrl: ebayResponse?.sandboxUrl ?? updatedListing.ebaySandboxUrl,
-        },
-        ebayResponse,
+        message: "Draft product updated successfully",
+        data: updatedListing,
       });
     } catch (error: any) {
       console.error("Error updating draft Listing:", error);
 
-      if (error.message.includes("eBay")) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          success: false,
-          message: `Error syncing Listing with eBay: ${error.message}`,
-        });
-      }
-
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || "Error updating draft listing",
+      });
+    }
+  },
+
+  // Controller to check Amazon listing status by SKU
+  checkAmazonListingStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+      // const { sellerId } = req.query;
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Call the checkListingStatus service function
+      const listingStatus = await amazonListingService.checkListingStatus(sku);
+
+      const listingStatusParsed = JSON.parse(listingStatus); // Parse the JSON string response
+
+      if (listingStatusParsed.status === 200) {
+        console.log(`✅ Successfully retrieved listing status for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing status retrieved successfully",
+          data: {
+            sellerId: sellerId, // Use the provided sellerId or fallback to default
+            marketplaceId: marketplaceId, // Default marketplaceId for UK
+            listingData: listingStatusParsed.listingData,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve listing status for SKU: ${sku}`, listingStatusParsed);
+        res.status(listingStatusParsed.status).json({
+          success: false,
+          message: "Failed to retrieve listing status",
+          error: {
+            status: listingStatusParsed.status,
+            statusText: listingStatusParsed.statusText,
+            details: listingStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonListingStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking listing status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to check Amazon submission status by submission ID
+  checkAmazonSubmissionStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { submissionId } = req.params;
+
+      // Validate required parameters
+      if (!submissionId) {
+        res.status(400).json({
+          success: false,
+          message: "Submission ID parameter is required",
+        });
+        return;
+      }
+
+      // Call the getSubmissionStatus service function
+      const submissionStatus = await amazonListingService.getSubmissionStatus(submissionId);
+
+      const submissionStatusParsed = JSON.parse(submissionStatus); // Parse the JSON string response
+
+      if (submissionStatusParsed.status === 200) {
+        console.log(`✅ Successfully retrieved submission status for ID: ${submissionId}`);
+        res.status(200).json({
+          success: true,
+          message: "Submission status retrieved successfully",
+          data: {
+            submissionId: submissionId,
+            submissionStatus: submissionStatusParsed.submissionStatus,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to retrieve submission status for ID: ${submissionId}`, submissionStatusParsed);
+        res.status(submissionStatusParsed.status).json({
+          success: false,
+          message: "Failed to retrieve submission status",
+          error: {
+            status: submissionStatusParsed.status,
+            statusText: submissionStatusParsed.statusText,
+            details: submissionStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in checkAmazonSubmissionStatus:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while checking submission status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Controller to get all listings for a seller
+  getItemFromAmazon: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { listingId } = req.params; // Get listingId from the request parameters
+      const { includedData } = req.query; // Optional query parameter for included data
+
+      // Validate required parameters
+      if (!listingId) {
+        res.status(400).json({
+          success: false,
+          message: "Listing ID parameter is required",
+        });
+        return;
+      }
+
+      // Call the service to get item details from Amazon
+      const itemDetails: any = await amazonListingService.getItemFromAmazon(listingId, includedData as string[]);
+
+      // Check if itemDetails has a status field and return accordingly
+      if (!itemDetails) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve item details from Amazon",
+        });
+        return;
+      }
+
+      // Send the response from the service
+      const parsedItemDetails = JSON.parse(itemDetails); // Parse the JSON response if necessary
+      res.status(parsedItemDetails.status || 500).json(parsedItemDetails);
+    } catch (error: any) {
+      console.error("Error in getItemFromAmazon route:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while retrieving item from Amazon",
+        error: error.message,
+      });
+    }
+  },
+  getAllItemsFromAmazon: async (req: Request, res: Response): Promise<void> => {
+    try {
+      // const { listingId } = req.params; // Get listingId from the request parameters
+      // const { includedData } = req.query; // Optional query parameter for included data
+
+      // Call the service to get item details from Amazon
+      const itemDetails: any = await amazonListingService.getAllItemsFromAmazon();
+
+      // Check if itemDetails has a status field and return accordingly
+      if (!itemDetails) {
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve all items details from Amazon",
+        });
+        return;
+      }
+
+      // Send the response from the service
+      const parsedItemDetails = JSON.parse(itemDetails); // Parse the JSON response if necessary
+      res.status(parsedItemDetails.status || 500).json(parsedItemDetails);
+    } catch (error: any) {
+      console.error("Error in getAllItemsFromAmazon route:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while retrieving item from Amazon",
+        error: error.message,
+      });
+    }
+  },
+  // Controller to delete/deactivate a listing
+  deleteAmazonListing: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { sku } = req.params;
+
+      // Validate required parameters
+      if (!sku) {
+        res.status(400).json({
+          success: false,
+          message: "SKU parameter is required",
+        });
+        return;
+      }
+
+      // Call the deleteItemFromAmazon service function
+      const deletionStatus = await amazonListingService.deleteItemFromAmazon(sku);
+
+      const deletionStatusParsed = JSON.parse(deletionStatus); // Parse the JSON string response
+
+      if (deletionStatusParsed.status === 200) {
+        console.log(`✅ Successfully deleted listing for SKU: ${sku}`);
+        res.status(200).json({
+          success: true,
+          message: "Listing deleted successfully",
+          data: {
+            sku: sku,
+            deletionResult: deletionStatusParsed.response,
+          },
+        });
+      } else {
+        console.error(`❌ Failed to delete listing for SKU: ${sku}`, deletionStatusParsed);
+        res.status(deletionStatusParsed.status).json({
+          success: false,
+          message: "Failed to delete listing",
+          error: {
+            status: deletionStatusParsed.status,
+            statusText: deletionStatusParsed.statusText,
+            details: deletionStatusParsed.errorResponse,
+          },
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in deleteAmazonListing:", error.message);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error while deleting listing",
+        error: error.message,
       });
     }
   },
@@ -709,6 +1032,7 @@ export const listingController = {
         userType,
         status, // Extract status properly
         isBlocked,
+        listingWithStock,
         isTemplate,
         publishToEbay,
         publishToAmazon,
@@ -725,6 +1049,7 @@ export const listingController = {
         userType: userType ? userType.toString() : undefined,
         status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
+        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined, // Convert only valid booleans
         publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
         publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
         publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
@@ -761,16 +1086,6 @@ export const listingController = {
       if (!Array.isArray(listingIds) || listingIds.length === 0) {
         return res.status(400).json({ message: "listingIds array is required" });
       }
-
-      // Validate discountType
-      // if (!["fixed", "percentage"].includes(discountType)) {
-      //   return res.status(400).json({ message: "Invalid discountType. Must be 'fixed' or 'percentage'." });
-      // }
-
-      // Validate discountValue and vat
-      // if (typeof discountValue !== "number") {
-      //   return res.status(400).json({ message: "discountValue must be numbers" });
-      // }
 
       // Call the service to perform the bulk update
       const result = await listingService.bulkUpdateListingTaxDiscount(
@@ -824,9 +1139,9 @@ export const listingController = {
         return res.status(404).json({ message: "Inventory item not found" });
       }
 
-      // Try to get either ebayProductCategoryId or ebayPartCategoryId
+      // Try to get either ebayCategoryId or ebayCategoryId
       const productCategory = listingItem?.productInfo?.productCategory;
-      const ebayCategoryId = productCategory?.ebayProductCategoryId || productCategory?.ebayPartCategoryId;
+      const ebayCategoryId = productCategory?.ebayCategoryId || productCategory?.ebayCategoryId;
 
       if (!ebayCategoryId) {
         return res.status(400).json({ message: "No eBay category ID found in product category" });
@@ -853,6 +1168,73 @@ export const listingController = {
     } catch (error) {
       console.error("❌ Error fetching data:", error);
       return res.status(500).json({ message: "Internal server error" });
+    }
+  },
+  bulkDeleteListing: async (req: Request, res: Response) => {
+    try {
+      const { listingIds = [], selectAllPages = false, filters = {} } = req.body;
+
+      if (selectAllPages) {
+        // Handle filter-based deletion
+        const query: any = {};
+
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.isTemplate !== undefined) {
+          query.isTemplate = filters.isTemplate;
+        }
+        if (filters.isBlocked !== undefined) {
+          query.isBlocked = filters.isBlocked;
+        }
+
+        const result = await Listing.deleteMany(query);
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      } else {
+        // Handle ID-based deletion
+        if (!Array.isArray(listingIds)) {
+          return res.status(400).json({
+            success: false,
+            message: "listingIds must be an array",
+          });
+        }
+
+        if (listingIds.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: "No listing IDs provided",
+          });
+        }
+
+        // Validate each ID
+        const invalidIds = listingIds.filter((id) => !mongoose.Types.ObjectId.isValid(id));
+        if (invalidIds.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid listing IDs: ${invalidIds.join(", ")}`,
+          });
+        }
+
+        const result = await Listing.deleteMany({
+          _id: { $in: listingIds },
+        });
+
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error in bulk delete listings:", error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || "Failed to perform bulk delete",
+      });
     }
   },
 };

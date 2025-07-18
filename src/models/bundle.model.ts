@@ -8,22 +8,24 @@ export const mediaSchema = {
   size: { type: Number },
   url: { type: String },
   type: { type: String },
+
   filename: { type: String },
 };
 
-const bundleSchema = new Schema( 
+const bundleSchema = new Schema(
   {
     // Bundle Name
     name: {
       type: String,
       required: true,
       trim: true,
+      unique: true,
     },
 
     // Promotional images with alt text
     images: { type: [mediaSchema], _id: false },
-
-
+    status: { type: String, enum: ["draft", "published"], default: "draft" },
+    isBlocked: { type: Boolean, default: false },
     // Items in the bundle
     items: [
       {
@@ -32,48 +34,73 @@ const bundleSchema = new Schema(
           ref: "Inventory",
           required: true,
         },
-        variationId: [{
-          type: Types.ObjectId,
-          ref: "Variation",
-          required: false,
-        }],
+        isPrime: { type: Boolean, default: false },
         stockId: {
           type: Types.ObjectId,
           ref: "Stock",
           required: true,
         },
-        quantity: {
+        isSimpleProduct: {
+          type: Boolean,
+          default: false,
+        },
+        selectedVariations: [
+          {
+            variationId: {
+              type: Types.ObjectId,
+              ref: "Variation",
+              required: true,
+            },
+            quantity: {
+              type: Number,
+              required: true,
+              min: 1,
+            },
+            customPrice: {
+              type: Number,
+              required: true,
+              min: 0,
+            },
+            _id: false,
+          },
+        ],
+        _id: false,
+      },
+    ],
+
+    // Total possible combinations in the bundle
+    totalCombinations: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    selectedBundleCombinations: [
+      {
+        combinationName: { type: String },
+        variationId: {
+          type: Types.ObjectId,
+          ref: "Variation",
+          required: true,
+        },
+        totalQuantity: {
           type: Number,
           required: true,
           min: 1,
         },
-        customPrice: {
+        costPricePerVariationCombination: {
           type: Number,
           required: true,
+          min: 0,
         },
-        _id: false 
+        _id: false,
       },
-      
     ],
 
-    // Bundle discount structure
-    discount: {
-      type: {
-        type: String,
-        enum: ["percentage", "fixed" , "none"],
-        required: true,
-      },
-      value: {
-        type: Number,
-        required: true,
-        min: 0,
-      },
-    },
 
     // Bundle expiration date
     validity: {
       type: Date,
-      required: true,
+      // required: true,
     },
   },
   { timestamps: true }

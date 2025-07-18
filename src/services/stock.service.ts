@@ -20,6 +20,8 @@ export const stockService = {
       stockInvoice,
       markAsStock,
       priceBreakdown,
+      images,
+      videos,
     } = data;
 
     // Validate inventory existence
@@ -75,6 +77,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();
@@ -106,6 +110,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();
@@ -122,6 +128,7 @@ export const stockService = {
         markAsStock: true, // Add this condition to filter only stocks with markAsStock = true
       })
         .populate("inventoryId")
+        .populate("productSupplier")
         .populate("selectedVariations.variationId")
         .populate("receivedBy");
     } catch (error: any) {

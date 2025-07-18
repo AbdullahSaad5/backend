@@ -1,251 +1,417 @@
 import fs from "fs";
+import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
-import { v4 as uuidv4 } from "uuid";
-import mongoose from "mongoose";
-import { adminStorage, uploadFileToFirebase } from "./firebase";
-import { Inventory, ProductCategory, User } from "@/models";
-import { Request, Response } from "express";
-import Papa from "papaparse";
+import { uploadFileToFirebase } from "./firebase";
+import { ProductCategory } from "@/models/product-category.model";
+
 import dotenv from "dotenv";
 import { inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
-
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
-const uploadToFirebase = async (filePath: string, destination: string): Promise<string | null> => {
-  if (!filePath) throw new Error("No file provided!");
-  try {
-    const storageFile = adminStorage.file(destination);
-    await storageFile.save(filePath, {
-      metadata: {
-        contentType: destination.includes("videos") ? "video/mp4" : "image/jpeg",
-      },
-      public: true,
-    });
-    console.log(`✅ Uploaded file to Firebase: ${destination}`);
-    return `https://storage.googleapis.com/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/${destination}`;
-  } catch (error) {
-    console.error("❌ Error uploading file:", error);
-    return null;
-  }
-};
 
-const validateCsvData = async (csvFilePath: string) => {
-  addLog(`📂 Validating CSV file: ${csvFilePath}`);
-  const requiredColumns = [
-    "brand",
-    "title",
-    "description",
-    "productSupplierKey",
-    "productCategory",
-    "processor",
-    "screenSize",
-  ];
+interface NestedStructure {
+  [key: string]: any;
+}
 
-  const csvContent = fs.readFileSync(csvFilePath, "utf8");
-  const parsedCSV = Papa.parse(csvContent, {
-    header: true,
-    skipEmptyLines: true,
-  });
+interface ColumnInfo {
+  originalHeader: string;
+  cleanedHeader: string;
+  isRequired: boolean;
+  isVariationAllowed: boolean;
+  path: string[];
+  rootAttribute: string;
+}
 
-  if (parsedCSV.errors.length > 0) throw new Error(`CSV Parsing Errors: ${JSON.stringify(parsedCSV.errors)}`);
-
-  const validRows: { row: number; data: any }[] = [];
-  const invalidRows: { row: number; errors: string[] }[] = [];
-  const validIndexes = new Set<number>();
-  // console.log("📂 Parsed CSV Data:", parsedCSV.data);
-
-  for (const [index, row] of (parsedCSV.data as any[]).entries()) {
-    const errors: string[] = [];
-
-    requiredColumns.forEach((col) => {
-      if (!row[col]?.trim()) errors.push(`${col} is missing or empty`);
-    });
-
-    if (!row.costPrice || isNaN(parseFloat(row.costPrice))) errors.push("Price must be a valid number");
-
-    if (row.productSupplierKey) {
-      const supplier = await User.findOne({
-        supplierKey: row.productSupplierKey,
-      }).select("_id");
-      if (!supplier) {
-        errors.push(`supplierKey ${row.productSupplierKey} does not exist in the database`);
-      } else {
-        row.productSupplier = supplier._id;
-      }
-    } else {
-      errors.push("productSupplierKey is required");
-    }
-
-    if (row.productCategory) {
-      const category = await ProductCategory.findOne({ name: row.productCategory }).select("_id");
-      if (!category) {
-        errors.push(`Product category '${row.productCategory}' does not exist in the database`);
-      } else {
-        row.productCategoryName = row.productCategory;
-        row.productCategory = category._id;
-        // Replace name with its ObjectId
-      }
-    } else {
-      errors.push("productCategory is required");
-    }
-
-    if (row.productSupplier && !mongoose.isValidObjectId(row.productSupplier))
-      errors.push("productSupplier must be a valid MongoDB ObjectId");
-    if (errors.length > 0) {
-      invalidRows.push({ row: index + 1, errors });
-    } else {
-      validRows.push({ row: index + 1, data: row });
-      validIndexes.add(index + 1);
-    }
-  }
-
-  addLog(`✅ Valid rows: ${validRows.length}, ❌ Invalid rows: ${invalidRows.length}`);
-  return { validRows, invalidRows, validIndexes };
-};
-
-const processZipFile = async (zipFilePath: string) => {
-  const extractPath = path.join(process.cwd(), "extracted");
-
-  try {
-    addLog(`📂 Processing ZIP file: ${zipFilePath}`);
-    if (!fs.existsSync(zipFilePath)) {
-      addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
-      throw new Error(`ZIP file does not exist: ${zipFilePath}`);
-    }
-
-    const zip = new AdmZip(zipFilePath);
-    if (!fs.existsSync(extractPath)) {
-      fs.mkdirSync(extractPath, { recursive: true });
-    }
-    zip.extractAllTo(extractPath, true);
-
-    const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
-    addLog(`🔹 Extracted files: ${extractedItems.join(", ")}`);
-
-    const mainFolder =
-      extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
-        ? path.join(extractPath, extractedItems[0])
-        : extractPath;
-
-    const files = fs.readdirSync(mainFolder);
-    addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
-
-    const csvFile = files.find((f) => f.endsWith(".csv"));
-    const mediaFolder = files.find((f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory());
-
-    if (!csvFile || !mediaFolder) {
-      addLog("❌ Invalid ZIP structure. Missing CSV or media folder.");
-      throw new Error("Invalid ZIP structure. Missing CSV or media folder.");
-    }
-
-    addLog(`✅ CSV File: ${csvFile}`);
-    addLog(`✅ Media Folder: ${mediaFolder}`);
-
-    // Proceed with CSV validation and bulk import
-    const { validRows, validIndexes, invalidRows } = await validateCsvData(path.join(mainFolder, csvFile));
-
-    // Log invalid rows
-    if (invalidRows.length > 0) {
-      addLog(`❌ Invalid Rows Found: ${invalidRows.length}`);
-      invalidRows.forEach((row) => {
-        addLog(`Row ${row.row} failed: ${row.errors.join(", ")}`);
+export const bulkImportUtility = {
+  // Helper function to validate if a product category ID is valid
+  isValidProductCategory: async (categoryId: string): Promise<boolean> => {
+    try {
+      const category = await ProductCategory.findOne({
+        amazonCategoryId: categoryId,
       });
+      return !!category;
+    } catch (error) {
+      console.error(`Error validating category ID ${categoryId}:`, error);
+      return false;
+    }
+  },
+
+  // Helper function to parse column headers and extract nested paths
+  parseColumnHeaders: (headers: string[]): ColumnInfo[] => {
+    return headers.map((header, index) => {
+      if (typeof header !== "string") {
+        return {
+          originalHeader: header,
+          cleanedHeader: header,
+          isRequired: false,
+          isVariationAllowed: false,
+          path: [header],
+          rootAttribute: header,
+        };
+      }
+
+      let cleaned = header.trim();
+      const isRequired = cleaned.endsWith("*");
+      const isVariationAllowed = /\(variation allowed\)/i.test(cleaned);
+
+      // Remove markers
+      if (isRequired) {
+        cleaned = cleaned.replace("*", "").trim();
+      }
+      if (isVariationAllowed) {
+        cleaned = cleaned.replace(/\(variation allowed\)/i, "").trim();
+      }
+
+      // Split by dots to get nested path
+      const path = cleaned
+        .split(".")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      const rootAttribute = path[0] || cleaned;
+
+      return {
+        originalHeader: header,
+        cleanedHeader: cleaned,
+        isRequired,
+        isVariationAllowed,
+        path,
+        rootAttribute,
+      };
+    });
+  },
+
+  // Helper function to set nested value in object
+  setNestedValue: (obj: any, path: string[], value: any, isArray: boolean = false) => {
+    let current = obj;
+
+    // Navigate to the parent of the final property
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      if (!current[key]) {
+        current[key] = {};
+      }
+      current = current[key];
     }
 
-    if (validRows.length === 0) {
-      addLog("❌ No valid rows found in CSV. Exiting.");
-      return;
+    // Set the final value
+    const finalKey = path[path.length - 1];
+    if (isArray && Array.isArray(value)) {
+      current[finalKey] = value;
+    } else {
+      current[finalKey] = value;
     }
+  },
 
-    // Log the valid rows before processing
-    addLog(`✅ Valid rows: ${validRows.length}`);
-    validRows.forEach((row, index) => {
-      addLog(`Row ${index + 1}: ${JSON.stringify(row.data)}`);
+  // Helper function to build nested object structure from row data
+  buildNestedObject: (rowData: any[], columnInfos: ColumnInfo[]): NestedStructure => {
+    const result: NestedStructure = {};
+    const attributeGroups: { [key: string]: any } = {};
+
+    // Group columns by root attribute
+    columnInfos.forEach((colInfo, index) => {
+      const value = rowData[index];
+      const { rootAttribute, path, isVariationAllowed } = colInfo;
+
+      if (!attributeGroups[rootAttribute]) {
+        attributeGroups[rootAttribute] = {};
+      }
+
+      // Handle variation allowed fields as arrays
+      if (isVariationAllowed && typeof value === "string" && value.trim()) {
+        const arrayValue = value
+          .split(",")
+          .map((v) => v.trim())
+          .filter(Boolean);
+        bulkImportUtility.setNestedValue(attributeGroups[rootAttribute], path.slice(1), arrayValue, true);
+      } else {
+        const processedValue = value?.toString().trim() ?? "";
+        if (processedValue) {
+          bulkImportUtility.setNestedValue(attributeGroups[rootAttribute], path.slice(1), processedValue);
+        }
+      }
     });
 
-    // Process media and files for valid rows
-    for (const [index, { data }] of validRows.entries()) {
-      const folderIndex = (index + 1).toString();
-      if (!validIndexes.has(index + 1)) continue;
+    // Convert grouped data to array of objects format
+    Object.keys(attributeGroups).forEach((rootAttr) => {
+      const attrData = attributeGroups[rootAttr];
 
-      addLog(`📂 Processing media for row: ${folderIndex}`);
-      const productMediaPath = path.join(mainFolder, mediaFolder, folderIndex);
-      if (!fs.existsSync(productMediaPath)) {
-        addLog(`❌ No media found for row: ${folderIndex}`);
+      // Check if this attribute has nested structure
+      if (Object.keys(attrData).length > 0) {
+        // Convert to array of objects format
+        result[rootAttr] = [attrData];
+      }
+    });
+
+    return result;
+  },
+
+  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
+    const sheetNames = workbook.SheetNames;
+    const validRows: { row: number; data: any }[] = [];
+    const invalidRows: { row: number; errors: string[] }[] = [];
+    const validIndexes = new Set<number>();
+
+    for (const sheetName of sheetNames) {
+      // Updated regex to extract category ID from parentheses
+      let match = sheetName.trim().match(/\(([^)]+)\)/);
+
+      if (!match) {
+        console.log(
+          `❌ Invalid sheet name format: "${sheetName}". Must contain category ID in parentheses like "name(CATEGORY_ID)"`
+        );
+        addLog(`❌ Skipping sheet "${sheetName}": Invalid format, must contain category ID in parentheses`);
         continue;
       }
 
-      const uploadFiles = async (files: string[], destination: string) => {
-        if (!files || files.length === 0) {
-          console.log(`❌ No files to upload for ${destination}`);
-          return [];
+      const categoryId = match[1].trim();
+
+      // Validate if the category ID is valid
+      if (!(await bulkImportUtility.isValidProductCategory(categoryId))) {
+        console.log(`❌ Invalid product category: "${categoryId}" in sheet "${sheetName}"`);
+        addLog(`❌ Skipping sheet "${sheetName}": Invalid product category "${categoryId}"`);
+        continue;
+      }
+
+      // Extract category name (everything before the parentheses)
+      const categoryName = sheetName.replace(/\([^)]+\)/, "").trim();
+
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
+
+      if (data.length < 2) {
+        addLog(`❌ Skipping sheet "${sheetName}": No data rows found`);
+        continue;
+      }
+
+      const [headerRow, ...rows]: any = data;
+
+      // Parse column headers to understand nested structure
+      const columnInfos = bulkImportUtility.parseColumnHeaders(headerRow);
+
+      // Get required columns
+      const requiredColumns = columnInfos.filter((col) => col.isRequired);
+
+      let sheetValidCount = 0;
+      let sheetInvalidCount = 0;
+
+      for (const [index, row] of rows.entries()) {
+        const errors: string[] = [];
+
+        // Validate required fields
+        requiredColumns.forEach((colInfo) => {
+          const colIndex = columnInfos.findIndex((c) => c.originalHeader === colInfo.originalHeader);
+          const val = (row[colIndex] ?? "").toString().trim();
+          if (!val) {
+            errors.push(`Missing required field "${colInfo.cleanedHeader}"`);
+          }
+        });
+
+        const globalRowIndex = validRows.length + invalidRows.length + 1;
+
+        if (errors.length > 0) {
+          invalidRows.push({ row: globalRowIndex, errors });
+          sheetInvalidCount++;
+          continue;
         }
-        try {
-          const uploads = files.map((file) => uploadFileToFirebase(file, `${destination}/${uuidv4()}`));
-          const results = await Promise.allSettled(uploads);
-          return results
-            .filter((res) => res.status === "fulfilled")
-            .map((res) => (res as PromiseFulfilledResult<string>).value);
-        } catch (error) {
-          console.error("❌ Error uploading files:", error);
-          return [];
+
+        // Build nested object structure
+        const nestedData = bulkImportUtility.buildNestedObject(row, columnInfos);
+
+        // Add category information
+        nestedData.productCategoryName = categoryName;
+        nestedData.productCategory = categoryId;
+
+        // Find matching media folder
+        const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryId));
+
+        if (!matchingFolder) {
+          const errorMessage = `Media folder not found for category ID: ${categoryId}`;
+          console.warn(`⚠️ ${errorMessage}`);
+          addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
+          invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
+          sheetInvalidCount++;
+          continue;
         }
+
+        const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
+        const imageFolderPath = path.join(mediaBasePath, "images");
+        const videoFolderPath = path.join(mediaBasePath, "videos");
+
+        const uploadedImages: string[] = [];
+        const uploadedVideos: string[] = [];
+
+        // Upload images
+        if (fs.existsSync(imageFolderPath)) {
+          const imageFiles = fs.readdirSync(imageFolderPath);
+          for (const file of imageFiles) {
+            const filePath = path.join(imageFolderPath, file);
+            const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
+            const url = await uploadFileToFirebase(filePath, destination);
+            uploadedImages.push(url);
+          }
+        }
+
+        // Upload videos
+        if (fs.existsSync(videoFolderPath)) {
+          const videoFiles = fs.readdirSync(videoFolderPath);
+          for (const file of videoFiles) {
+            const filePath = path.join(videoFolderPath, file);
+            const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
+            const url = await uploadFileToFirebase(filePath, destination);
+            uploadedVideos.push(url);
+          }
+        }
+
+        // Add media to nested structure
+        if (uploadedImages.length > 0) {
+          nestedData.images = uploadedImages.map((url) => ({
+            value: url,
+            marketplace_id: "A1F83G8C2ARO7P", // Default marketplace_id
+          }));
+        }
+
+        if (uploadedVideos.length > 0) {
+          nestedData.videos = uploadedVideos.map((url) => ({
+            value: url,
+            marketplace_id: "A1F83G8C2ARO7P", // Default marketplace_id
+          }));
+        }
+
+        validRows.push({ row: globalRowIndex, data: nestedData });
+        validIndexes.add(globalRowIndex);
+        sheetValidCount++;
+      }
+
+      if (sheetValidCount > 0 || sheetInvalidCount > 0) {
+        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
+        invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
+          addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+        });
+      }
+    }
+
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    return { validRows, invalidRows, validIndexes };
+  },
+
+  processZipFile: async (zipFilePath: string) => {
+    const extractPath = path.join(process.cwd(), "extracted");
+
+    try {
+      addLog(`📂 Processing ZIP file: ${zipFilePath}`);
+
+      if (!fs.existsSync(zipFilePath)) {
+        addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
+        throw new Error(`ZIP file does not exist: ${zipFilePath}`);
+      }
+
+      const zip = new AdmZip(zipFilePath);
+      if (!fs.existsSync(extractPath)) {
+        fs.mkdirSync(extractPath, { recursive: true });
+      }
+
+      zip.extractAllTo(extractPath, true);
+
+      const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
+      addLog(`🔹 Extracted files: ${extractedItems.join(", ")}`);
+
+      const mainFolder =
+        extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
+          ? path.join(extractPath, extractedItems[0])
+          : extractPath;
+
+      const files = fs.readdirSync(mainFolder);
+      addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
+
+      const isValidExcel = (filename: string) => {
+        return (
+          filename.endsWith(".xlsx") &&
+          !filename.startsWith("._") && // macOS metadata
+          !filename.startsWith(".~") && // Excel temp file
+          !filename.startsWith(".") // Hidden files like .DS_Store
+        );
       };
 
-      const imagesFolder = path.join(productMediaPath, "images");
-      data.images = fs.existsSync(imagesFolder)
-        ? await uploadFiles(
-            fs.readdirSync(imagesFolder).map((f) => path.join(imagesFolder, f)),
-            `products/${folderIndex}/images`
-          )
-        : [];
+      const xlsxFile = files.find(isValidExcel);
+      const mediaFolder = files.find(
+        (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
+      );
 
-      // Log the images for each row
-      console.log("Images for row:", data.images);
+      if (!xlsxFile || !mediaFolder) {
+        addLog("❌ Invalid ZIP structure. Missing XLSX or media folder.");
+        throw new Error("Invalid ZIP structure. Missing XLSX or media folder.");
+      }
 
-      // Uncomment if videos need to be uploaded
-      // const videosFolder = path.join(productMediaPath, "videos");
-      // data.videos = fs.existsSync(videosFolder)
-      //   ? await uploadFiles(
-      //       fs.readdirSync(videosFolder).map((f) => path.join(videosFolder, f)),
-      //       `products/${folderIndex}/videos`
-      //     )
-      //   : [];
+      const xlsxPath = path.join(mainFolder, xlsxFile);
+      const mediaFolderPath = path.join(mainFolder, mediaFolder);
+
+      addLog(`✅ XLSX File: ${xlsxFile}`);
+      addLog(`✅ Media Folder: ${mediaFolder}`);
+
+      const workbook = XLSX.readFile(xlsxPath, {
+        type: "file",
+        cellDates: true,
+        raw: false,
+        WTF: true,
+      });
+
+      const sheetNames = workbook.SheetNames;
+      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
+
+      if (sheetNames.length === 0) {
+        addLog("❌ XLSX file has no sheets.");
+        throw new Error("XLSX file has no sheets.");
+      }
+
+      let allValidRows: any = [];
+      let allInvalidRows: any = [];
+
+      for (const sheetName of sheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          continue;
+        }
+
+        addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
+
+        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook, mediaFolderPath);
+
+        allValidRows = allValidRows.concat(validRows);
+        allInvalidRows = allInvalidRows.concat(invalidRows);
+      }
+
+      console.log("✅ Total Valid Rows Ready:", allValidRows.length);
+      console.log("❌ Total Invalid Rows:", allInvalidRows.length);
+
+      if (allValidRows.length === 0) {
+        addLog("❌ No valid Inventory to import.");
+      } else {
+        addLog("🚀 Starting bulk import...");
+        await inventoryService.bulkImportInventory(allValidRows);
+        addLog("✅ Bulk import completed.");
+      }
+    } catch (error: any) {
+      addLog(`❌ Error processing ZIP file: ${error.message}`);
+      console.error("Full error details:", error);
+    } finally {
+      try {
+        if (fs.existsSync(extractPath)) {
+          fs.rmSync(extractPath, { recursive: true, force: true });
+          addLog("🗑️ Extracted files cleaned up.");
+        }
+        if (fs.existsSync(zipFilePath)) {
+          // fs.unlinkSync(zipFilePath);
+          console.log("🗑️ ZIP file deleted.");
+        }
+      } catch (err) {
+        console.error("❌ Error cleaning up files:", err);
+      }
     }
-
-    addLog("🚀 Starting bulk import...");
-
-    // Validate the structure of validRows before bulk import
-    validRows.forEach((row, index) => {
-      if (!row.data || !row.data.brand || !row.data.title) {
-        console.error(`❌ Missing essential data in row ${index + 1}:`, row);
-        addLog(`❌ Missing essential data in row ${index + 1}`);
-      }
-    });
-
-    // Bulk import valid rows
-    await inventoryService.bulkImportInventory(validRows);
-    addLog("✅ Bulk import completed.");
-  } catch (error: any) {
-    addLog(`❌ Error processing ZIP file: ${error.message}`);
-    console.error("Full error details:", error);
-  } finally {
-    try {
-      if (fs.existsSync(extractPath)) {
-        fs.rmSync(extractPath, { recursive: true, force: true });
-        addLog("🗑️ Extracted files cleaned up.");
-      }
-      if (fs.existsSync(zipFilePath)) {
-        // fs.unlinkSync(zipFilePath);
-        console.log("🗑️ ZIP file deleted.");
-      }
-    } catch (err) {
-      console.error("❌ Error cleaning up files:", err);
-    }
-  }
+  },
 };
-
-export { validateCsvData, processZipFile };

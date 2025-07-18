@@ -26,6 +26,9 @@ interface IStock extends Document {
   purchaseDate: Date;
   markAsStock: Boolean;
 
+  images?: typeof mediaSchema[];
+  videos?: typeof mediaSchema[];
+
   batchNumber: number;
 }
 
