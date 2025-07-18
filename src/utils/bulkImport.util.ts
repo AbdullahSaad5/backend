@@ -3,10 +3,10 @@ import * as XLSX from "xlsx";
 import path from "path";
 import AdmZip from "adm-zip";
 import { uploadFileToFirebase } from "./firebase";
-
+import { ProductCategory } from "@/models/product-category.model";
 
 import dotenv from "dotenv";
-import {inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -26,6 +26,19 @@ interface ColumnInfo {
 }
 
 export const bulkImportUtility = {
+  // Helper function to validate if a product category ID is valid
+  isValidProductCategory: async (categoryId: string): Promise<boolean> => {
+    try {
+      const category = await ProductCategory.findOne({
+        amazonCategoryId: categoryId,
+      });
+      return !!category;
+    } catch (error) {
+      console.error(`Error validating category ID ${categoryId}:`, error);
+      return false;
+    }
+  },
+
   // Helper function to parse column headers and extract nested paths
   parseColumnHeaders: (headers: string[]): ColumnInfo[] => {
     return headers.map((header, index) => {
@@ -142,28 +155,36 @@ export const bulkImportUtility = {
     const validIndexes = new Set<number>();
 
     for (const sheetName of sheetNames) {
-      let match = sheetName.trim().match(/^(.+?)\s*\((\d+)\)\s*$/);
-
-      // Optional auto-correct fallback
-      if (!match && sheetName.includes("(")) {
-        const parts = sheetName.split("(");
-        if (parts.length === 2 && /^\d+\)?$/.test(parts[1].trim())) {
-          const correctedName = `${parts[0].trim()} (${parts[1].replace(/\)/g, "").trim()})`;
-          console.log(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
-          match = correctedName.match(/^(.+?)\s*\((\d+)\)\s*$/);
-        }
-      }
+      // Updated regex to extract category ID from parentheses
+      let match = sheetName.trim().match(/\(([^)]+)\)/);
 
       if (!match) {
-        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (AMAZON_CATEGORY)"`);
+        console.log(
+          `❌ Invalid sheet name format: "${sheetName}". Must contain category ID in parentheses like "name(CATEGORY_ID)"`
+        );
+        addLog(`❌ Skipping sheet "${sheetName}": Invalid format, must contain category ID in parentheses`);
         continue;
       }
 
-      const [_, categoryName, categoryId] = match;
+      const categoryId = match[1].trim();
+
+      // Validate if the category ID is valid
+      if (!(await bulkImportUtility.isValidProductCategory(categoryId))) {
+        console.log(`❌ Invalid product category: "${categoryId}" in sheet "${sheetName}"`);
+        addLog(`❌ Skipping sheet "${sheetName}": Invalid product category "${categoryId}"`);
+        continue;
+      }
+
+      // Extract category name (everything before the parentheses)
+      const categoryName = sheetName.replace(/\([^)]+\)/, "").trim();
+
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
-      if (data.length < 2) continue;
+      if (data.length < 2) {
+        addLog(`❌ Skipping sheet "${sheetName}": No data rows found`);
+        continue;
+      }
 
       const [headerRow, ...rows]: any = data;
 
@@ -200,16 +221,14 @@ export const bulkImportUtility = {
         const nestedData = bulkImportUtility.buildNestedObject(row, columnInfos);
 
         // Add category information
-        nestedData.productCategoryName = categoryName.trim();
+        nestedData.productCategoryName = categoryName;
         nestedData.productCategory = categoryId;
 
-        const categoryIdStr = String(categoryId);
-
         // Find matching media folder
-        const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
+        const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryId));
 
         if (!matchingFolder) {
-          const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
+          const errorMessage = `Media folder not found for category ID: ${categoryId}`;
           console.warn(`⚠️ ${errorMessage}`);
           addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
           invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
