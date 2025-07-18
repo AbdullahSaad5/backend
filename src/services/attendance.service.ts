@@ -237,19 +237,28 @@ export const markAbsentForUsers = async () => {
         // Check if attendance exists for today
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const attendance = await Attendance.findOne({
+        const attendance: IAttendance | null = await Attendance.findOne({
           employeeId,
           date: today,
         });
-        if (!attendance || !attendance.checkIn) {
-          // Mark as absent
+        // Only mark absent if no attendance exists, or status is not present/leave/absent
+        if (!attendance) {
           await Attendance.create({
             employeeId,
             date: today,
             status: "absent",
-            shiftId: shift._id,
+            shiftId: shift._id as Types.ObjectId,
           });
+        } else if (
+          attendance.status !== "present" &&
+          attendance.status !== "leave" &&
+          attendance.status !== "absent"
+        ) {
+          attendance.status = "absent";
+          attendance.shiftId = shift._id as Types.ObjectId;
+          await attendance.save();
         }
+        // If already present, leave, or absent, do nothing
       }
     }
   }
@@ -279,10 +288,11 @@ export const autoCheckoutForUsers = async () => {
           date: today,
         });
         if (attendance && attendance.checkIn && !attendance.checkOut) {
-          // Auto-checkout
-          attendance.checkOut = now;
+          // Auto-checkout: set to shift end time (with buffer)
+          attendance.checkOut = shiftEnd;
           await attendance.save();
         }
+        // Never create a new attendance document here
       }
     }
   }
