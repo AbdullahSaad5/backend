@@ -148,41 +148,85 @@ export const bulkImportUtility = {
     return result;
   },
 
-  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
-    const sheetNames = workbook.SheetNames;
-    const validRows: { row: number; data: any }[] = [];
-    const invalidRows: { row: number; errors: string[] }[] = [];
-    const validIndexes = new Set<number>();
+  // First validate sheet names and filter only valid ones
+  validateSheetNames: async (sheetNames: string[]) => {
+    const validSheets: { name: string; categoryId: string; categoryName: string }[] = [];
+    const invalidSheets: { name: string; reason: string }[] = [];
 
     for (const sheetName of sheetNames) {
-      // Updated regex to extract category ID from parentheses
-      let match = sheetName.trim().match(/\(([^)]+)\)/);
+      // Extract category ID from parentheses
+      const match = sheetName.trim().match(/\(([^)]+)\)/);
 
       if (!match) {
-        console.log(
-          `❌ Invalid sheet name format: "${sheetName}". Must contain category ID in parentheses like "name(CATEGORY_ID)"`
-        );
-        addLog(`❌ Skipping sheet "${sheetName}": Invalid format, must contain category ID in parentheses`);
+        invalidSheets.push({
+          name: sheetName,
+          reason: "Invalid format - must contain category ID in parentheses like 'name(CATEGORY_ID)'",
+        });
         continue;
       }
 
       const categoryId = match[1].trim();
 
-      // Validate if the category ID is valid
+      // Validate if the category ID exists in database
       if (!(await bulkImportUtility.isValidProductCategory(categoryId))) {
-        console.log(`❌ Invalid product category: "${categoryId}" in sheet "${sheetName}"`);
-        addLog(`❌ Skipping sheet "${sheetName}": Invalid product category "${categoryId}"`);
+        invalidSheets.push({
+          name: sheetName,
+          reason: `Invalid product category ID: "${categoryId}"`,
+        });
         continue;
       }
 
       // Extract category name (everything before the parentheses)
       const categoryName = sheetName.replace(/\([^)]+\)/, "").trim();
 
+      validSheets.push({
+        name: sheetName,
+        categoryId,
+        categoryName,
+      });
+    }
+
+    // Log results
+    addLog(`📊 Sheet Validation Results:`);
+    addLog(`✅ Valid sheets: ${validSheets.length}`);
+    validSheets.forEach((sheet) => {
+      addLog(`  - "${sheet.name}" (Category: ${sheet.categoryId})`);
+    });
+
+    addLog(`❌ Invalid sheets: ${invalidSheets.length}`);
+    invalidSheets.forEach((sheet) => {
+      addLog(`  - "${sheet.name}": ${sheet.reason}`);
+    });
+
+    return { validSheets, invalidSheets };
+  },
+
+  // Process only valid sheets and extract data
+  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
+    const sheetNames = workbook.SheetNames;
+    const validRows: { row: number; data: any }[] = [];
+    const invalidRows: { row: number; errors: string[] }[] = [];
+    const validIndexes = new Set<number>();
+
+    // First, validate sheet names and get only valid ones
+    const { validSheets, invalidSheets } = await bulkImportUtility.validateSheetNames(sheetNames);
+
+    if (validSheets.length === 0) {
+      addLog("❌ No valid sheets found to process.");
+      return { validRows, invalidRows, validIndexes };
+    }
+
+    // Process only valid sheets
+    for (const sheetInfo of validSheets) {
+      const { name: sheetName, categoryId, categoryName } = sheetInfo;
+
+      addLog(`📄 Processing valid sheet: "${sheetName}"`);
+
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
       if (data.length < 2) {
-        addLog(`❌ Skipping sheet "${sheetName}": No data rows found`);
+        addLog(`⚠️ Sheet "${sheetName}": No data rows found`);
         continue;
       }
 
@@ -217,7 +261,7 @@ export const bulkImportUtility = {
           continue;
         }
 
-        // Build nested object structure
+        // Build nested object structure and convert to array format expected by DB
         const nestedData = bulkImportUtility.buildNestedObject(row, columnInfos);
 
         // Add category information
@@ -265,7 +309,7 @@ export const bulkImportUtility = {
           }
         }
 
-        // Add media to nested structure
+        // Add media to nested structure in array format
         if (uploadedImages.length > 0) {
           nestedData.images = uploadedImages.map((url) => ({
             value: url,
