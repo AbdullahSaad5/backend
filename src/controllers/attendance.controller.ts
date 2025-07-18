@@ -14,18 +14,19 @@ export const attendanceController = {
       const userId = decoded.id.toString();
       // check if user has shift and work mode
       const shift = await Shift.findOne({
-        where: { userId },
+        where: { employees: { $in: [userId] } },
       });
       if (!shift) {
         return res.status(400).json({ message: "No shift found for user" });
       }
       const workMode = await Workmode.findOne({
-        where: { userId },
+        where: {
+          employees: { $in: [userId] },
+        },
       });
       if (!workMode) {
         return res.status(400).json({ message: "No work mode found for user" });
       }
-
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
       const { shiftId, workModeId, checkIn } = req.body;
       if (!checkIn) {
