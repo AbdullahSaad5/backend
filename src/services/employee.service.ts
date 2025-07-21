@@ -2,6 +2,7 @@ import { User } from "@/models";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { Attendance } from "@/models/attendance.model";
+import { Types } from "mongoose";
 
 export const employeeService = {
   getEmployeeList: async () => {
@@ -17,18 +18,17 @@ export const employeeService = {
   },
   getEmployeeProfileDetails: async (userId: string) => {
     // Employee info - only select necessary fields
-    const employee = await User.findById(userId).select(
-      "_id firstName lastName email"
-    );
+    const employee = await User.findById(userId).select("_id firstName lastName email");
     if (!employee) {
       throw new Error("Employee not found");
     }
 
-    const shifts = await Shift.find({ employees: userId }).select(
+    const userObjectId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId;
+    const shifts = await Shift.find({ employees: { $in: [userId, userObjectId] } }).select(
       "shiftName shiftDescription startTime endTime isBlocked createdAt updatedAt"
     );
     // Workmodes
-    const workmodes = await Workmode.find({ employees: userId }).select(
+    const workmodes = await Workmode.find({ employees: { $in: [userId, userObjectId] } }).select(
       "modeName createdAt updatedAt"
     );
     // Today's attendance

@@ -22,16 +22,18 @@ const storage = multer.diskStorage({
   },
 });
 
-// File filter for XLSX files
+// File filter for XLSX and ZIP files
 const fileFilter = (req: any, file: Express.Multer.File, cb: FileFilterCallback) => {
   const allowedTypes = [
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
+    "application/zip",
+    "application/x-zip-compressed",
   ];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only XLSX files are allowed"));
+    cb(new Error("Only XLSX and ZIP files are allowed"));
   }
 };
 
