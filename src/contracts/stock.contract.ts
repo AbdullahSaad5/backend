@@ -1,5 +1,16 @@
 import mongoose, { Document } from "mongoose";
-import { mediaSchema } from "@/models/listing.model";
+
+const mediaSchema = {
+  id: { type: String },
+  originalname: { type: String },
+  encoding: { type: String },
+  mimetype: { type: String },
+  size: { type: Number },
+  url: { type: String },
+  type: { type: String },
+  filename: { type: String },
+};
+
 interface IStock extends Document {
   inventoryId: mongoose.Types.ObjectId;
   productSupplier: mongoose.Types.ObjectId;
