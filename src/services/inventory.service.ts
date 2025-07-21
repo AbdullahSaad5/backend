@@ -160,8 +160,6 @@ export const inventoryService = {
       // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
-        draftInventory.isTemplate = stepData.isTemplate || false;
-        draftInventory.alias = stepData.alias || "";
       }
 
       // if (draftInventory.isPart) {
