@@ -8,7 +8,7 @@ const mediaSchema = {
   mimetype: { type: String },
   size: { type: Number },
   url: { type: String },
-  type: { type: String },
+  fileType: { type: String },
   filename: { type: String },
 };
 interface IStockModel extends IStock, Document {
@@ -22,11 +22,7 @@ const StockSchema = new Schema<IStockModel>(
       ref: "Inventory",
       required: true,
     },
-    productSupplier: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
+    productSupplier: { type: Schema.Types.ObjectId, ref: "User", required: true },
 
     // ✅ Store only selected variations if isVariation: true
     selectedVariations: [
@@ -84,10 +80,7 @@ const StockSchema = new Schema<IStockModel>(
         comment: { type: String, required: false },
       },
     ],
-    stockInvoice: {
-      type: new Schema(mediaSchema, { _id: false }),
-      required: false,
-    },
+    stockInvoice: { type: mediaSchema, _id: false },
     batchNumber: { type: Number, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
     receivedBy: {
@@ -105,9 +98,7 @@ const StockSchema = new Schema<IStockModel>(
 
 // ✅ Virtual property to check if Inventory has variations
 StockSchema.virtual("isVariation").get(async function () {
-  const inventory = await mongoose
-    .model("Inventory")
-    .findById(this.inventoryId);
+  const inventory = await mongoose.model("Inventory").findById(this.inventoryId);
   return inventory ? inventory.isVariation : false;
 });
 
@@ -115,11 +106,7 @@ StockSchema.virtual("isVariation").get(async function () {
 StockSchema.pre<IStockModel>("save", async function (next) {
   if (!this.batchNumber) {
     try {
-      const lastStock = await mongoose
-        .model("Stock")
-        .findOne()
-        .sort({ batchNumber: -1 })
-        .exec();
+      const lastStock = await mongoose.model("Stock").findOne().sort({ batchNumber: -1 }).exec();
       this.batchNumber = lastStock ? lastStock.batchNumber + 1 : 1;
     } catch (error: any) {
       return next(error);

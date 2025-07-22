@@ -1,6 +1,9 @@
-import { markAbsentCron, autoCheckoutCron } from "./attendance";
+import { every10Second } from "./Every10Second";
+import { anotherCron } from "./AnotherCron";
+import { ebayMessageSync } from "./EbayMessageSync";
 
-export const initCron = () => {
-  markAbsentCron();
-  autoCheckoutCron();
-};
+export function initCron() {
+  every10Second();
+  anotherCron();
+  ebayMessageSync();
+}

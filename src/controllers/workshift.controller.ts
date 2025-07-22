@@ -174,7 +174,7 @@ export const shiftController = {
   updateShift: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { shiftName, shiftDescription, startTime, endTime } = req.body;
+      const updateData = req.body;
 
       if (!isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -183,19 +183,24 @@ export const shiftController = {
         });
       }
 
-      const updatedShift = await Shift.findByIdAndUpdate(
-        id,
-        {
-          shiftName,
-          shiftDescription,
-          startTime,
-          endTime,
-        },
-        {
-          new: true,
-          runValidators: true,
+      // Validate employee IDs if provided in update
+      if (updateData.employees) {
+        const invalidEmployees = updateData.employees.filter(
+          (id: string) => !isValidObjectId(id)
+        );
+        if (invalidEmployees.length > 0) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Invalid employee IDs provided",
+            invalidEmployees,
+          });
         }
-      );
+      }
+
+      const updatedShift = await Shift.findByIdAndUpdate(id, updateData, {
+        new: true,
+        runValidators: true,
+      }).populate("employees", "firstName lastName email");
 
       if (!updatedShift) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -277,6 +282,58 @@ export const shiftController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to fetch employee shifts",
+        error: error.message,
+      });
+    }
+  },
+
+  patchShiftEmployees: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { employees } = req.body;
+
+      if (!isValidObjectId(id)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid shift ID",
+        });
+      }
+
+      if (!employees || !Array.isArray(employees)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Employees array is required",
+        });
+      }
+
+      if (employees.some((id) => !isValidObjectId(id))) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid employee IDs provided",
+        });
+      }
+
+      const updatedShift = await workshiftService.patchShiftEmployees(
+        id,
+        employees
+      );
+
+      if (!updatedShift) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Shift not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Shift employees updated successfully",
+        data: updatedShift,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update shift employees",
         error: error.message,
       });
     }

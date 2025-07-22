@@ -1,12 +1,12 @@
 import { Iblog } from "@/models/blog.model";
 
 export const blogService = {
-  createblog: (title: String, content: string, category: string, coverImage: string, altText: string, seoTitle: string, authorName:string, focusKewword:string) => {
-    const newblog = new Iblog({ title, content, category, coverImage, altText, seoTitle, authorName, focusKewword });
+  createblog: (title: String, content: string, category: string) => {
+    const newblog = new Iblog({ title, content, category });
     return newblog.save();
   },
 
-  editblog: (id: string, data: { title?: string; content?: string; category?: string, coverImage?: string, altText?: string, seoTitle?: string, authorName?:string, focusKewword?:string }) => {
+  editblog: (id: string, data: { title?: string; content?: string; category?: string }) => {
     return Iblog.findByIdAndUpdate(id, data, { new: true });
   },
   deleteblog: (id: string) => {

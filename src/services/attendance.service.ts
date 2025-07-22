@@ -2,8 +2,6 @@ import { IAttendance } from "@/contracts/attendance.contract";
 import { Attendance } from "@/models/attendance.model";
 import { Address, User } from "@/models";
 import { Types } from "mongoose";
-import { Shift } from "@/models/workshift.model";
-
 export const attendanceService = {
   // Employee self check-in
   checkIn: async (
@@ -216,84 +214,4 @@ export const attendanceService = {
     }
     return attendance;
   },
-};
-
-/**
- * Cron: Mark employees absent if no check-in after shift end + grace period
- */
-export const markAbsentForUsers = async () => {
-  // Placeholder: 10 minutes grace period
-  const GRACE_MINUTES = 120;
-  const now = new Date();
-  // Get all shifts
-  const shifts = await Shift.find({ isBlocked: false }).populate("employees");
-  for (const shift of shifts) {
-    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-    for (const employeeId of shift.employees) {
-      // Calculate shift end + grace
-      const shiftEnd = new Date(now);
-      shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
-      if (now >= shiftEnd) {
-        // Check if attendance exists for today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const attendance: IAttendance | null = await Attendance.findOne({
-          employeeId,
-          date: today,
-        });
-        // Only mark absent if no attendance exists, or status is not present/leave/absent
-        if (!attendance) {
-          await Attendance.create({
-            employeeId,
-            date: today,
-            status: "absent",
-            shiftId: shift._id as Types.ObjectId,
-          });
-        } else if (
-          attendance.status !== "present" &&
-          attendance.status !== "leave" &&
-          attendance.status !== "absent"
-        ) {
-          attendance.status = "absent";
-          attendance.shiftId = shift._id as Types.ObjectId;
-          await attendance.save();
-        }
-        // If already present, leave, or absent, do nothing
-      }
-    }
-  }
-};
-
-/**
- * Cron: Auto-checkout employees if checked in but not checked out after shift end + buffer
- */
-export const autoCheckoutForUsers = async () => {
-  // Placeholder: 15 minutes buffer after shift end
-  const BUFFER_MINUTES = 120;
-  const now = new Date();
-  // Get all shifts
-  const shifts = await Shift.find({ isBlocked: false }).populate("employees");
-  for (const shift of shifts) {
-    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-    for (const employeeId of shift.employees) {
-      // Calculate shift end + buffer
-      const shiftEnd = new Date(now);
-      shiftEnd.setHours(endHour, endMinute + BUFFER_MINUTES, 0, 0);
-      if (now >= shiftEnd) {
-        // Check if attendance exists for today
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const attendance = await Attendance.findOne({
-          employeeId,
-          date: today,
-        });
-        if (attendance && attendance.checkIn && !attendance.checkOut) {
-          // Auto-checkout: set to shift end time (with buffer)
-          attendance.checkOut = shiftEnd;
-          await attendance.save();
-        }
-        // Never create a new attendance document here
-      }
-    }
-  }
 };
