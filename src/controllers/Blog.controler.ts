@@ -4,14 +4,13 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 
 export const blogController = {
   addblog: async (req: Request, res: Response) => {
-    
     try {
-      const { title, content, category, coverImage, altText, seoTitle, authorName, focusKewword } = req.body;
-      console.log(title, content, category,  coverImage, altText, seoTitle, authorName, focusKewword);
-      const newblog = await blogService.createblog(title, content, category, coverImage, altText, seoTitle, authorName, focusKewword); 
+      const { title, content, category } = req.body;
+      console.log(title, content, category);
+      const newblog = await blogService.createblog(title, content, category);
       res
         .status(StatusCodes.CREATED)
-        .json({ success: true, message: "Blog blog created successfully" , data: newblog});
+        .json({ success: true, message: "Blog blog created successfully", data: newblog });
     } catch (error: any) {
       console.error(error);
       if (error.title === "MongoServerError" && error.code === 11000) {
@@ -30,8 +29,8 @@ export const blogController = {
   editblog: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { title, content, category, coverImage, altText, seoTitle, authorName, focusKewword } = req.body;
-      const blog = await blogService.editblog(id, { title, content, category, coverImage, altText, seoTitle, authorName, focusKewword });
+      const { title, content, category } = req.body;
+      const blog = await blogService.editblog(id, { title, content, category });
       res.status(StatusCodes.OK).json({ success: true, message: "blog updated successfully", data: blog });
     } catch (error: any) {
       // console.error("Edit blog Error:", error);

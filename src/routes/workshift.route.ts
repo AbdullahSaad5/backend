@@ -12,7 +12,7 @@ export const workshift = (router: Router) => {
   router.get("/:id", shiftController.getShiftById);
 
   // Update shift
-  router.patch("/:id", shiftController.updateShift);
+  router.patch("/:id", shiftController.patchShiftEmployees);
 
   // router.put("/:id", authenticate, authorize(["admin", "manager"]), shiftController.updateShift);
 
