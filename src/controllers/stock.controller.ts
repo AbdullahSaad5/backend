@@ -17,6 +17,7 @@ export const stockController = {
         totalUnits,
         usableUnits,
         costPricePerUnit,
+        retailPricePerUnit,
         priceBreakdown,
         purchasePricePerUnit,
         receivedDate,
@@ -24,7 +25,7 @@ export const stockController = {
         purchaseDate,
         markAsStock,
         images,
-        videos
+        videos,
       } = req.body;
 
       // Validate inventory existence and fetch `isVariation`
@@ -46,13 +47,14 @@ export const stockController = {
             !variation.variationId ||
             !mongoose.Types.ObjectId.isValid(variation.variationId) ||
             variation.costPricePerUnit === undefined ||
+            variation.retailPricePerUnit === undefined ||
             variation.purchasePricePerUnit === undefined ||
             variation.totalUnits === undefined ||
             variation.usableUnits === undefined
           ) {
             return res.status(400).json({
               message:
-                "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
+                "Each variation must have a valid variationId, costPricePerUnit, retailPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits.",
             });
           }
         }
@@ -62,11 +64,12 @@ export const stockController = {
           totalUnits === undefined ||
           usableUnits === undefined ||
           costPricePerUnit === undefined ||
+          retailPricePerUnit === undefined ||
           purchasePricePerUnit === undefined
         ) {
           return res.status(400).json({
             message:
-              "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, and purchasePricePerUnit are required.",
+              "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, retailPricePerUnit, and purchasePricePerUnit are required.",
           });
         }
       }
@@ -85,6 +88,7 @@ export const stockController = {
         priceBreakdown,
         usableUnits,
         costPricePerUnit,
+        retailPricePerUnit,
         purchasePricePerUnit,
         images,
         videos,
@@ -257,11 +261,12 @@ export const stockController = {
         }
         stock.selectedVariations = req.body.selectedVariations;
       } else {
-        const { totalUnits, usableUnits, costPricePerUnit, purchasePricePerUnit, } = req.body;
+        const { totalUnits, usableUnits, costPricePerUnit, retailPricePerUnit, purchasePricePerUnit } = req.body;
         if (
           totalUnits === undefined ||
           usableUnits === undefined ||
           costPricePerUnit === undefined ||
+          retailPricePerUnit === undefined ||
           purchasePricePerUnit === undefined
         ) {
           return res.status(400).json({ message: "All stock details are required for non-variation stock." });
@@ -269,6 +274,7 @@ export const stockController = {
         stock.totalUnits = totalUnits;
         stock.usableUnits = usableUnits;
         stock.costPricePerUnit = costPricePerUnit;
+        stock.retailPricePerUnit = retailPricePerUnit;
         stock.purchasePricePerUnit = purchasePricePerUnit;
       }
 
