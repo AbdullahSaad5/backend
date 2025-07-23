@@ -12,7 +12,7 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  validateXLSXData: async (workbook: XLSX.WorkBook, mediaFolderPath: string) => {
+  validateXLSXData: async (workbook: XLSX.WorkBook) => {
     const sheetNames = workbook.SheetNames;
     const validRows: { row: number; data: any }[] = [];
     const invalidRows: { row: number; errors: string[] }[] = [];
@@ -102,7 +102,6 @@ export const bulkImportUtility = {
 
         rowObj.productCategoryName = categoryName.trim();
         rowObj.productCategory = categoryId;
-        // rowObj.ebayCategoryId = categoryId;
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -110,61 +109,6 @@ export const bulkImportUtility = {
           invalidRows.push({ row: globalRowIndex, errors });
           sheetInvalidCount++;
         } else {
-          // const mediaBasePath = path.join(mediaFolderPath, sheetName, String(index + 1));
-          // const imageFolderPath = path.join(mediaBasePath, "images");
-          // const videoFolderPath = path.join(mediaBasePath, "videos");
-
-          const categoryIdStr = String(categoryId);
-
-          // Find the folder that includes exactly this category ID
-          const matchingFolder = fs.readdirSync(mediaFolderPath).find((folder) => folder.includes(categoryIdStr));
-
-          // if (!matchingFolder) {
-          //   console.warn(`⚠️ Media folder not found for category ID: ${categoryIdStr}`);
-          //   continue;
-          // }
-          if (!matchingFolder) {
-            const globalRowIndex = validRows.length + invalidRows.length + 1;
-            const errorMessage = `Media folder not found for category ID: ${categoryIdStr}`;
-
-            console.warn(`⚠️ ${errorMessage}`);
-            addLog(`    ❌ Row ${globalRowIndex} error(s): ${errorMessage}`);
-
-            invalidRows.push({ row: globalRowIndex, errors: [errorMessage] });
-            sheetInvalidCount++;
-            continue;
-          }
-
-          const mediaBasePath = path.join(mediaFolderPath, matchingFolder, String(index + 1));
-          const imageFolderPath = path.join(mediaBasePath, "images");
-          const videoFolderPath = path.join(mediaBasePath, "videos");
-
-          const uploadedImages: string[] = [];
-          const uploadedVideos: string[] = [];
-
-          if (fs.existsSync(imageFolderPath)) {
-            const imageFiles = fs.readdirSync(imageFolderPath);
-            for (const file of imageFiles) {
-              const filePath = path.join(imageFolderPath, file);
-              const destination = `bulk/${sheetName}/${index + 1}/images/${file}`;
-              const url = await uploadFileToFirebase(filePath, destination);
-              uploadedImages.push(url);
-            }
-          }
-
-          if (fs.existsSync(videoFolderPath)) {
-            const videoFiles = fs.readdirSync(videoFolderPath);
-            for (const file of videoFiles) {
-              const filePath = path.join(videoFolderPath, file);
-              const destination = `bulk/${sheetName}/${index + 1}/videos/${file}`;
-              const url = await uploadFileToFirebase(filePath, destination);
-              uploadedVideos.push(url);
-            }
-          }
-
-          rowObj.images = uploadedImages;
-          rowObj.videos = uploadedVideos;
-
           validRows.push({ row: globalRowIndex, data: rowObj });
           validIndexes.add(globalRowIndex);
           sheetValidCount++;
@@ -179,65 +123,20 @@ export const bulkImportUtility = {
       }
     }
 
-    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} invalid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
 
-  processZipFile: async (zipFilePath: string) => {
-    const extractPath = path.join(process.cwd(), "extracted");
-
+  processXLSXFile: async (xlsxFilePath: string) => {
     try {
-      addLog(`📂 Processing ZIP file: ${zipFilePath}`);
+      addLog(`📄 Processing XLSX file: ${xlsxFilePath}`);
 
-      if (!fs.existsSync(zipFilePath)) {
-        addLog(`❌ ZIP file does not exist: ${zipFilePath}`);
-        throw new Error(`ZIP file does not exist: ${zipFilePath}`);
+      if (!fs.existsSync(xlsxFilePath)) {
+        addLog(`❌ XLSX file does not exist: ${xlsxFilePath}`);
+        throw new Error(`XLSX file does not exist: ${xlsxFilePath}`);
       }
 
-      const zip = new AdmZip(zipFilePath);
-      if (!fs.existsSync(extractPath)) {
-        fs.mkdirSync(extractPath, { recursive: true });
-      }
-
-      zip.extractAllTo(extractPath, true);
-
-      const extractedItems = fs.readdirSync(extractPath).filter((item) => item !== "__MACOSX");
-      addLog(`🔹 Extracted files: ${extractedItems.join(", ")}`);
-
-      const mainFolder =
-        extractedItems.length === 1 && fs.lstatSync(path.join(extractPath, extractedItems[0])).isDirectory()
-          ? path.join(extractPath, extractedItems[0])
-          : extractPath;
-
-      const files = fs.readdirSync(mainFolder);
-      addLog(`✅ Files inside extracted folder: ${files.join(", ")}`);
-
-      const isValidExcel = (filename: string) => {
-        return (
-          filename.endsWith(".xlsx") &&
-          !filename.startsWith("._") && // macOS metadata
-          !filename.startsWith(".~") && // Excel temp file
-          !filename.startsWith(".") // Hidden files like .DS_Store
-        );
-      };
-
-      const xlsxFile = files.find(isValidExcel);
-      const mediaFolder = files.find(
-        (f) => fs.lstatSync(path.join(mainFolder, f)).isDirectory() && f.toLowerCase().includes("media")
-      );
-
-      if (!xlsxFile || !mediaFolder) {
-        addLog("❌ Invalid ZIP structure. Missing XLSX or media folder.");
-        throw new Error("Invalid ZIP structure. Missing XLSX or media folder.");
-      }
-
-      const xlsxPath = path.join(mainFolder, xlsxFile);
-      const mediaFolderPath = path.join(mainFolder, mediaFolder);
-
-      addLog(`✅ XLSX File: ${xlsxFile}`);
-      addLog(`✅ Media Folder: ${mediaFolder}`);
-
-      const workbook = XLSX.readFile(xlsxPath, {
+      const workbook = XLSX.readFile(xlsxFilePath, {
         type: "file",
         cellDates: true,
         raw: false,
@@ -260,14 +159,13 @@ export const bulkImportUtility = {
         const rows = XLSX.utils.sheet_to_json(sheet);
 
         if (rows.length === 0) {
-          // addLog(`⚠️ Sheet "${sheetName}" is empty. Skipping.`);
           continue;
         }
 
         addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
 
         const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
-        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook, mediaFolderPath);
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook);
 
         allValidRows = allValidRows.concat(validRows);
         allInvalidRows = allInvalidRows.concat(invalidRows);
@@ -284,21 +182,8 @@ export const bulkImportUtility = {
         addLog("✅ Bulk import completed.");
       }
     } catch (error: any) {
-      addLog(`❌ Error processing ZIP file: ${error.message}`);
+      addLog(`❌ Error processing XLSX file: ${error.message}`);
       console.error("Full error details:", error);
-    } finally {
-      try {
-        if (fs.existsSync(extractPath)) {
-          fs.rmSync(extractPath, { recursive: true, force: true });
-          addLog("🗑️ Extracted files cleaned up.");
-        }
-        if (fs.existsSync(zipFilePath)) {
-          // fs.unlinkSync(zipFilePath);
-          console.log("🗑️ ZIP file deleted.");
-        }
-      } catch (err) {
-        console.error("❌ Error cleaning up files:", err);
-      }
     }
   },
 };
