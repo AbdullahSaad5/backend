@@ -292,7 +292,7 @@ const listingSchema = new Schema(
     publishToWebsite: { type: Boolean, default: false },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     isTemplate: { type: Boolean, default: false },
-    alias: { type: String, default: "" },
+    alias: { type: String },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
   },

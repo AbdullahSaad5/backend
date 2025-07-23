@@ -160,6 +160,8 @@ export const inventoryService = {
       // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
+        draftInventory.isTemplate = stepData.isTemplate || false;
+        draftInventory.alias = stepData.alias || "";
       }
 
       // if (draftInventory.isPart) {
@@ -548,212 +550,120 @@ export const inventoryService = {
           if (!data || typeof data !== "object") {
             console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
           } else {
-            console.log(`Data: ${JSON.stringify(data, null, 2)}`);
+            console.log(`Data: ${JSON.stringify(data)}`);
           }
         } catch (err) {
           console.log(`❌ Error while printing row ${row}:`, err);
         }
       });
-
       const bulkOperations: any = (
         await Promise.all(
           validRows
-            .filter(({ data }) => data && (data.title || data.item_name))
-            .map(async ({ row, data }) => {
-              try {
-                // Extract category information
-                const categoryId = data.productCategory || data.ebayCategoryId;
-                const categoryName = data.productCategoryName;
+            .map(({ row, data }) => {
+              const normalizedData: any = {};
+              for (const key in data) {
+                normalizedData[key.toLowerCase()] = data[key];
+              }
+              return { row, data: normalizedData };
+            })
+            .filter(({ data }) => data && data.title)
+            .map(async ({ row, data: normalizedData }) => {
+              const matchedCategory = await ProductCategory.findOne({
+                $or: [{ amazonCategoryId: normalizedData.amazoncategoryid }],
+              }).select("_id");
 
-                // Find matching category
-                const matchedCategory = await ProductCategory.findOne({
-                  $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
-                }).select("_id");
-
-                if (!matchedCategory) {
-                  addLog(`❌ No matching product category for ID: ${categoryId} or name: ${categoryName}`);
-                  return null;
-                }
-
-                // Process nested attributes
-                const processedData: any = {};
-
-                // Handle special fields that might not be in array format
-                const specialFields = ["productCategory", "productCategoryName", "ebayCategoryId", "images", "videos"];
-
-                Object.keys(data).forEach((key) => {
-                  if (specialFields.includes(key)) {
-                    // Skip special fields, handle separately
-                    return;
-                  }
-
-                  const value = data[key];
-                  if (Array.isArray(value)) {
-                    // Already in correct format
-                    processedData[key] = value;
-                  } else if (value && typeof value === "object") {
-                    // Convert single object to array format
-                    processedData[key] = [value];
-                  } else if (value !== undefined && value !== null && value !== "") {
-                    // Convert primitive values to array of objects with default structure
-                    processedData[key] = [
-                      {
-                        value: value.toString(),
-                        marketplace_id: "A1F83G8C2ARO7P", // Default marketplace
-                      },
-                    ];
-                  }
-                });
-
-                // Extract title from nested structure or use direct value
-                let title = "";
-                if (data.title) {
-                  if (Array.isArray(data.title) && data.title.length > 0) {
-                    title = data.title[0].value || data.title[0];
-                  } else if (typeof data.title === "string") {
-                    title = data.title;
-                  }
-                } else if (data.item_name) {
-                  if (Array.isArray(data.item_name) && data.item_name.length > 0) {
-                    title = data.item_name[0].value || data.item_name[0];
-                  } else if (typeof data.item_name === "string") {
-                    title = data.item_name;
-                  }
-                }
-
-                // Extract description
-                let description = "";
-                if (data.description) {
-                  if (Array.isArray(data.description) && data.description.length > 0) {
-                    description = data.description[0].value || data.description[0];
-                  } else if (typeof data.description === "string") {
-                    description = data.description;
-                  }
-                }
-
-                // Extract brand information
-                let brandList: string[] = [];
-                if (data.brand) {
-                  if (Array.isArray(data.brand)) {
-                    brandList = data.brand.map((b: any) => b.value || b).filter(Boolean);
-                  } else if (typeof data.brand === "string") {
-                    brandList = data.brand
-                      .split(",")
-                      .map((b: string) => b.trim())
-                      .filter(Boolean);
-                  }
-                }
-
-                const isMultiBrand = brandList.length > 1;
-
-                // Process images
-                const inventoryImages = (data.images || []).map((img: any) => {
-                  const url = img.value || img.url || img;
-                  return {
-                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    size: 0,
-                    url: url,
-                    type: "image/jpeg",
-                  };
-                });
-
-                // Extract condition type
-                let conditionType = "new_new";
-                if (data.condition_type) {
-                  if (Array.isArray(data.condition_type) && data.condition_type.length > 0) {
-                    conditionType = data.condition_type[0].value || data.condition_type[0];
-                  } else if (typeof data.condition_type === "string") {
-                    conditionType = data.condition_type;
-                  }
-                }
-
-                // Build productInfo object
-                const productInfo: any = {
-                  productCategory: matchedCategory._id,
-                  amazonCategoryId: categoryId,
-                  item_name: [
-                    {
-                      _id: false,
-                      value: title,
-                      language_tag: "en_GB",
-                      marketplace_id: "A1F83G8C2ARO7P",
-                    },
-                  ],
-                  product_description: [
-                    {
-                      _id: false,
-                      value: description,
-                      language_tag: "en_GB",
-                      marketplace_id: "A1F83G8C2ARO7P",
-                    },
-                  ],
-                  inventoryImages: inventoryImages,
-                  condition_type: conditionType,
-                  // brand: brandList,
-                  brand: [
-                    {
-                      _id: false,
-                      value: data.brand,
-                      marketplace_id: "A1F83G8C2ARO7P",
-                    },
-                  ],
-                };
-
-                // All other nested attributes go to prodTechInfo
-                const prodTechInfo = { ...processedData };
-
-                // Remove basic fields from prodTechInfo
-                delete prodTechInfo.item_name;
-                delete prodTechInfo.item_name;
-                delete prodTechInfo.product_description;
-                delete prodTechInfo.brand;
-                delete prodTechInfo.condition_type;
-
-                // Set kind based on category ID
-                const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
-                const kindType = productCategoryIds.has(categoryId?.toString()) ? "product" : "part";
-                const isPart = kindType === "part";
-
-                // Check for variation allowance
-                let isVariation = false;
-                if (data.allow_variations) {
-                  if (Array.isArray(data.allow_variations) && data.allow_variations.length > 0) {
-                    const allowVar = data.allow_variations[0].value || data.allow_variations[0];
-                    isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
-                  } else if (typeof data.allow_variations === "string") {
-                    isVariation = data.allow_variations.trim().toLowerCase() === "yes";
-                  }
-                }
-
-                // Remove allow_variations from prodTechInfo
-                delete prodTechInfo.allow_variations;
-
-                const docToInsert = {
-                  isBlocked: false,
-                  kind: kindType,
-                  status: "draft",
-                  isVariation,
-                  isMultiBrand,
-                  isTemplate: false,
-                  isPart,
-                  stocks: [],
-                  stockThreshold: 10,
-                  prodTechInfo,
-                  productInfo,
-                };
-
-                console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert, null, 2)}`);
-
-                return {
-                  insertOne: {
-                    document: docToInsert,
-                  },
-                };
-              } catch (error: any) {
-                console.error(`❌ Error processing row ${row}:`, error);
-                addLog(`❌ Error processing row ${row}: ${error.message}`);
+              if (!matchedCategory) {
+                addLog(`❌ No matching product category for Amazon ID: ${normalizedData.amazoncategoryid}`);
                 return null;
               }
+
+              // Normalize brand
+              let brandList = normalizedData.brand;
+              if (typeof brandList === "string") {
+                brandList = brandList
+                  .split(",")
+                  .map((b: string) => b.trim())
+                  .filter(Boolean);
+              } else if (!Array.isArray(brandList)) {
+                brandList = [brandList];
+              }
+
+              const isMultiBrand = brandList.length > 1;
+
+              const productInfo: any = {
+                productCategory: matchedCategory._id,
+                amazonCategoryId: normalizedData.amazoncategoryid,
+                title: normalizedData.title,
+                description: normalizedData.description,
+                inventoryImages: (normalizedData.images || []).map((url: string) => ({
+                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  size: 0,
+                  url,
+                  type: "image/jpeg",
+                })),
+                condition_type: normalizedData.condition_type || "new_new",
+                brand: brandList,
+              };
+
+              const prodTechInfo: Record<string, any> = {};
+              const knownFields = new Set([
+                "title",
+                "description",
+                "brand",
+                "images",
+                "videos",
+                "condition_type",
+                "productSupplier",
+                "productSupplierKey",
+                "productCategoryName",
+                "amazonCategoryId",
+              ]);
+
+              for (const key in normalizedData) {
+                if (!knownFields.has(key)) {
+                  prodTechInfo[key] = normalizedData[key];
+                }
+              }
+
+              // Set kind based on Amazon ID
+              const productCategoryIds = new Set([
+                "PERSONAL_COMPUTER",
+                "NETWORKING_DEVICE",
+                "NOTEBOOK_COMPUTER",
+                "MONITOR",
+                "VIDEO_PROJECTOR",
+              ]);
+              const kindType = productCategoryIds.has(normalizedData.amazoncategoryid?.toString()) ? "product" : "part";
+
+              // Set isPart based on kind
+              const isPart = kindType === "part";
+
+              // Set isVariation based on prodTechInfo["allow variations"]
+              const allowVar = prodTechInfo["allow variations"];
+              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
+              delete prodTechInfo["allow variations"]; // optional cleanup
+
+              const docToInsert = {
+                isBlocked: false,
+                kind: kindType,
+                status: "draft",
+                isVariation,
+                isMultiBrand,
+                isTemplate: false,
+                isPart,
+                stocks: [],
+                stockThreshold: 10,
+                prodTechInfo,
+                productInfo,
+              };
+
+              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
+
+              return {
+                insertOne: {
+                  document: docToInsert,
+                },
+              };
             })
         )
       ).filter(Boolean);
@@ -767,9 +677,9 @@ export const inventoryService = {
       addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
-      console.error("Full bulk import error:", error);
     }
   },
+
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
 

@@ -1,22 +1,12 @@
 import mongoose, { Document } from "mongoose";
-
-const mediaSchema = {
-  id: { type: String },
-  originalname: { type: String },
-  encoding: { type: String },
-  mimetype: { type: String },
-  size: { type: Number },
-  url: { type: String },
-  type: { type: String },
-  filename: { type: String },
-};
-
+import { mediaSchema } from "@/models/listing.model";
 interface IStock extends Document {
   inventoryId: mongoose.Types.ObjectId;
   productSupplier: mongoose.Types.ObjectId;
   selectedVariations?: {
     variationId: mongoose.Types.ObjectId;
     costPricePerUnit: number;
+    retailPricePerUnit: number;
     purchasePricePerUnit: number;
     totalUnits: number;
     usableUnits: number;
@@ -30,6 +20,7 @@ interface IStock extends Document {
   totalUnits?: number;
   usableUnits?: number;
   costPricePerUnit?: number;
+  retailPricePerUnit?: number;
   purchasePricePerUnit?: number;
 
   receivedDate: Date;
@@ -37,8 +28,8 @@ interface IStock extends Document {
   purchaseDate: Date;
   markAsStock: Boolean;
 
-  images?: typeof mediaSchema[];
-  videos?: typeof mediaSchema[];
+  images?: (typeof mediaSchema)[];
+  videos?: (typeof mediaSchema)[];
 
   batchNumber: number;
 }

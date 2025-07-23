@@ -100,7 +100,7 @@ const inventorySchema = new Schema(
     isVariation: { type: Boolean, default: false },
     isMultiBrand: { type: Boolean, default: false },
     isTemplate: { type: Boolean, default: false },
-    alias: { type: String, default: "" },
+    alias: { type: String },
     isPart: { type: Boolean, default: false },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
