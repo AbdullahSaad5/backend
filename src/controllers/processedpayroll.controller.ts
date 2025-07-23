@@ -1,10 +1,33 @@
 import { Request, Response } from "express";
 import { processedPayrollService } from "../services/processedpayroll.service";
+import { authService } from "../services/user-auth.service";
+import { jwtVerify } from "@/utils/jwt.util";
 
 export const processedPayrollController = {
   async createProcessedPayroll(req: Request, res: Response) {
     try {
-      const data = req.body;
+      // Extract token from Authorization header
+      const token = req.headers["authorization"]?.split(" ")[1];
+      if (!token) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Authorization token is required" });
+      }
+      // Decode token to get user id
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      // Find user by id
+      const user = await authService.findUserById(userId);
+      if (!user) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+      // Prepare processedBy and processedAt
+      const processedBy = user._id;
+      const processedAt = new Date();
+      // Merge with request body
+      const data = { ...req.body, processedBy, processedAt };
       const processedPayroll =
         await processedPayrollService.createProcessedPayroll(data);
       res.status(201).json({ success: true, data: processedPayroll });

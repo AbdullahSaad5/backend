@@ -1024,13 +1024,14 @@ export const listingController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error fetching listing statistics" });
     }
   },
-  searchAndFilterListing: async (req: Request, res: Response) => {
+  async searchAndFilterListing(req: Request, res: Response) {
     try {
       // Extract filters from query params
       const {
         searchQuery = "",
         userType,
-        status, // Extract status properly
+        listingType,
+        status,
         isBlocked,
         listingWithStock,
         isTemplate,
@@ -1047,17 +1048,21 @@ export const listingController = {
       const filters = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
-        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined, // Validate status
-        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined, // Convert only valid booleans
-        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined, // Convert only valid booleans
-        publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined, // Convert only valid booleans
-        publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined, // Convert only valid booleans
-        publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined, // Convert only valid booleans
-        isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined, // Convert only valid booleans
+        listingType:
+          listingType && ["product", "part", "bundle"].includes(listingType.toString())
+            ? listingType.toString()
+            : undefined, // Validate listingType
+        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined,
+        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined,
+        listingWithStock: listingWithStock === "true" ? true : listingWithStock === "false" ? false : undefined,
+        publishToAmazon: publishToAmazon === "true" ? true : publishToAmazon === "false" ? false : undefined,
+        publishToEbay: publishToEbay === "true" ? true : publishToEbay === "false" ? false : undefined,
+        publishToWebsite: publishToWebsite === "true" ? true : publishToWebsite === "false" ? false : undefined,
+        isTemplate: isTemplate === "true" ? true : isTemplate === "false" ? false : undefined,
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
-        page: Math.max(parseInt(page as string, 10) || 1, 1), // Ensure valid positive integer
-        limit: parseInt(limit as string, 10) || 10, // Default to 10 if invalid
+        page: Math.max(parseInt(page as string, 10) || 1, 1),
+        limit: parseInt(limit as string, 10) || 10,
       };
 
       // Call the service to search and filter the listing

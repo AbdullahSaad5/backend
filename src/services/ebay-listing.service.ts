@@ -424,7 +424,7 @@ export const ebayListingService = {
         "10";
 
       // console.log("listingQuantity", listingQuantity);
-      const listingDescriptionData = generateListingDescription(ebayData);
+      // const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
@@ -450,7 +450,7 @@ export const ebayListingService = {
           <Title>${escapeXml(title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-           <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${escapeXml(ebayData.productInfo.product_description)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -597,7 +597,7 @@ export const ebayListingService = {
 
       // console.log("retailPrice", retailPrice);
 
-      const listingDescriptionData = generateListingDescription(ebayData);
+      // const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
@@ -625,7 +625,7 @@ export const ebayListingService = {
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
           <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
 
-           <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${escapeXml(ebayData.productInfo.product_description)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
