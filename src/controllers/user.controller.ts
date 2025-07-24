@@ -84,14 +84,14 @@ export const userController = {
         const password = req.body.password; // Assuming the password is passed in the request body
         const emailContent = `
         <p>Dear ${newUser.firstName || "User"},</p>
-        <p>Your account has been created by the Bav-IT admin. Below are your login credentials:</p>
+        <p>Your account has been created by Build-My-Rig admin. Below are your login credentials:</p>
         <p><strong>Email:</strong> ${newUser.email}</p>
         <p><strong>Password:</strong> ${password}</p>
       `;
 
         await sendEmail({
           to: newUser.email,
-          subject: "Your Bav-IT Account Has Been Created",
+          subject: "Your Build-My-Rig Account Has Been Created",
           html: emailContent,
         });
       } catch (emailError) {
@@ -283,7 +283,7 @@ export const userController = {
 
       const emailContent = `
       <p>Dear ${userName},</p>
-      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Bav-IT admin.</p>
+      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Build-My-Rig admin.</p>
       <p>If you have any questions, please contact support.</p>
     `;
 
@@ -291,7 +291,7 @@ export const userController = {
       if (userEmailAddress) {
         await sendEmail({
           to: userEmailAddress,
-          subject: `Your Bav-IT Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
+          subject: `Your Build-My-Rig Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
           html: emailContent,
         });
       }
