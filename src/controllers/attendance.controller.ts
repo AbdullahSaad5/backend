@@ -3,6 +3,7 @@ import { attendanceService } from "@/services/attendance.service";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
+import { Types } from "mongoose";
 export const attendanceController = {
   checkIn: async (req: Request, res: Response) => {
     try {
