@@ -112,7 +112,11 @@ export const bulkImportUtility = {
       CAMERA: ["color", "memory_storage_capacity"],
     };
 
+    console.log(`📚 Starting validation for workbook with ${sheetNames.length} sheet(s): ${sheetNames.join(", ")}`);
+
     for (const sheetName of sheetNames) {
+      console.log(`\n📄 Processing sheet: "${sheetName}"`);
+
       // Match sheet name with format "Name (ID)"
       let match = sheetName.trim().match(/^(.+?)\s*\((.+?)\)\s*$/);
 
@@ -133,6 +137,7 @@ export const bulkImportUtility = {
       }
 
       const [_, categoryName, categoryId] = match;
+      // console.log(`🔍 Extracted categoryName: "${categoryName}", categoryId: "${categoryId}"`);
 
       // Validate categoryId against database
       const matchedCategory = await ProductCategory.findOne({
@@ -142,6 +147,7 @@ export const bulkImportUtility = {
         console.log(`❌ No matching category found in database for ID: "${categoryId}" in sheet: "${sheetName}"`);
         continue;
       }
+      // console.log(`✅ Category "${categoryName}" (ID: ${categoryId}) found in database`);
 
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
@@ -152,11 +158,14 @@ export const bulkImportUtility = {
       }
 
       const [headerRow, ...rows]: any = data;
+      // console.log(`📋 Sheet "${sheetName}" headers: ${headerRow.join(", ")}`);
+      // console.log(`📊 Processing ${rows.length} data row(s) in sheet "${sheetName}"`);
 
       // Get Amazon schema for the category
       const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
       const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
       const variationAspects = categoryVariationAspects[categoryKey] || [];
+      console.log(`🔧 Variation aspects for category "${categoryKey}": ${variationAspects.join(", ") || "none"}`);
 
       // Create variation fields set from variation aspects
       const variationFields = new Set<string>(variationAspects);
@@ -165,6 +174,10 @@ export const bulkImportUtility = {
       let sheetInvalidCount = 0;
 
       for (const [index, row] of rows.entries()) {
+        const globalRowIndex = validRows.length + invalidRows.length + 1;
+        console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
+        // console.log(`📥 Raw row data: ${JSON.stringify(row)}`);
+
         const errors: string[] = [];
 
         // Transform row data into the required format
@@ -175,14 +188,16 @@ export const bulkImportUtility = {
           categoryId,
           categoryName
         );
+        // console.log(`📤 Transformed row data: ${JSON.stringify(rowObj, null, 2)}`);
 
         // Validate transformed data against schema
         const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
         if (!validationResult.valid) {
           errors.push(...validationResult.errors);
+          // console.log(`❌ Validation errors for row ${globalRowIndex}: ${errors.join(", ")}`);
+        } else {
+          console.log(`✅ Row ${globalRowIndex} passed validation`);
         }
-
-        const globalRowIndex = validRows.length + invalidRows.length + 1;
 
         if (errors.length > 0) {
           invalidRows.push({ row: globalRowIndex, errors });
@@ -195,14 +210,14 @@ export const bulkImportUtility = {
       }
 
       if (sheetValidCount > 0 || sheetInvalidCount > 0) {
-        addLog(`📄 Sheet "${sheetName}": ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
+        // console.log(`📄 Sheet "${sheetName}" summary: ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
         invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
-          addLog(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
+          // console.log(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
         });
       }
     }
 
-    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    console.log(`\n🧪 Final Validation Summary: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
 
@@ -213,6 +228,10 @@ export const bulkImportUtility = {
     categoryId: string,
     categoryName: string
   ): Promise<Record<string, any>> => {
+    // console.log(`🔄 Starting transformation for row data: ${JSON.stringify(row)}`);
+    // console.log(`📋 Headers: ${headers.join(", ")}`);
+    // console.log(`🔧 Variation fields: ${Array.from(variationFields).join(", ") || "none"}`);
+
     const rowObj: Record<string, any> = {};
 
     // Process headers to identify nested fields (e.g., brand.name, brand.value)
@@ -221,6 +240,7 @@ export const bulkImportUtility = {
     headers.forEach((header: string, idx: number) => {
       const cleanHeader = header.trim();
       const rawValue = row[idx] ?? "";
+      // console.log(`🔍 Processing header "${cleanHeader}" with value: "${rawValue}"`);
 
       // Handle variation fields (split into arrays)
       if (variationFields.has(cleanHeader)) {
@@ -229,8 +249,10 @@ export const bulkImportUtility = {
             .split(",")
             .map((v) => v.trim())
             .filter(Boolean);
+          // console.log(`✅ Variation field "${cleanHeader}" transformed to: ${JSON.stringify(rowObj[cleanHeader])}`);
         } else {
           rowObj[cleanHeader] = [];
+          // console.log(`⚠️ Variation field "${cleanHeader}" is empty, set to empty array`);
         }
         return;
       }
@@ -244,23 +266,30 @@ export const bulkImportUtility = {
         const existingEntry = nestedFields[parent].find((entry) => entry.name === child);
         if (!existingEntry) {
           nestedFields[parent].push({ name: child, value: rawValue?.toString().trim() ?? "" });
+          // console.log(`🔗 Added nested field "${parent}.${child}" with value: "${rawValue}"`);
         }
         return;
       }
 
       // Handle regular fields
       rowObj[cleanHeader] = rawValue?.toString().trim() ?? "";
+      // console.log(`📋 Added regular field "${cleanHeader}" with value: "${rowObj[cleanHeader]}"`);
     });
 
     // Convert nested fields into the required format (e.g., brand: [{ name: "", value: "" }])
     Object.keys(nestedFields).forEach((parent) => {
       rowObj[parent] = nestedFields[parent];
+      // console.log(`🔗 Transformed nested field "${parent}": ${JSON.stringify(rowObj[parent])}`);
     });
 
     // Add category information
     rowObj.productCategoryName = categoryName.trim();
     rowObj.productCategory = categoryId.trim();
+    // console.log(
+    //   `🏷️ Added category info - productCategoryName: "${rowObj.productCategoryName}", productCategory: "${rowObj.productCategory}"`
+    // );
 
+    // console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
     return rowObj;
   },
 };
