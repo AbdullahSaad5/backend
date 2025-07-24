@@ -15,11 +15,12 @@ uploads
 
 
 
-
 amazon_tokens_client.json
 amazon_tokens_sandbox.json
 ebay_tokens_client.json
 ebay_tokens_sandbox.json
+ebay_tokens.json
+
 
 
 firebase-admin
