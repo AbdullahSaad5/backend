@@ -11,6 +11,73 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
+  processXLSXFile: async (xlsxFilePath: string) => {
+    try {
+      addLog(`📄 Processing XLSX file: ${xlsxFilePath}`);
+
+      if (!fs.existsSync(xlsxFilePath)) {
+        addLog(`❌ XLSX file does not exist: ${xlsxFilePath}`);
+        throw new Error(`XLSX file does not exist: ${xlsxFilePath}`);
+      }
+
+      const workbook = XLSX.readFile(xlsxFilePath, {
+        type: "file",
+        cellDates: true,
+        raw: false,
+        WTF: true,
+      });
+
+      const sheetNames = workbook.SheetNames;
+
+      if (sheetNames.length === 0) {
+        addLog("❌ XLSX file has no sheets.");
+        throw new Error("XLSX file has no sheets.");
+      }
+
+      let allValidRows: any = [];
+      let allInvalidRows: any = [];
+
+      for (const sheetName of sheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet);
+
+        if (rows.length === 0) {
+          addLog(`📄 Skipping empty sheet: "${sheetName}"`);
+          continue;
+        }
+
+        // Validate sheet before processing
+        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook);
+
+        // Skip sheet if it has no valid rows and was marked invalid (e.g., invalid name or no matching category)
+        if (validRows.length === 0 && invalidRows.length === 0) {
+          addLog(`📄 Skipping invalid sheet: "${sheetName}"`);
+          continue;
+        }
+
+        addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
+
+        allValidRows = allValidRows.concat(validRows);
+        allInvalidRows = allInvalidRows.concat(invalidRows);
+      }
+
+      console.log("✅ Total Valid Rows Ready:", allValidRows.length);
+      console.log("❌ Total Invalid Rows:", allInvalidRows.length);
+
+      if (allValidRows.length === 0) {
+        addLog("❌ No valid Inventory to import.");
+      } else {
+        addLog("🚀 Starting bulk import...");
+        await inventoryService.bulkImportInventory(allValidRows);
+        addLog("✅ Bulk import completed.");
+      }
+    } catch (error: any) {
+      addLog(`❌ Error processing XLSX file: ${error.message}`);
+      console.error("Full error details:", error);
+    }
+  },
+
   validateXLSXData: async (
     workbook: XLSX.WorkBook
   ): Promise<{
@@ -137,73 +204,6 @@ export const bulkImportUtility = {
 
     addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
-  },
-
-  processXLSXFile: async (xlsxFilePath: string) => {
-    try {
-      addLog(`📄 Processing XLSX file: ${xlsxFilePath}`);
-
-      if (!fs.existsSync(xlsxFilePath)) {
-        addLog(`❌ XLSX file does not exist: ${xlsxFilePath}`);
-        throw new Error(`XLSX file does not exist: ${xlsxFilePath}`);
-      }
-
-      const workbook = XLSX.readFile(xlsxFilePath, {
-        type: "file",
-        cellDates: true,
-        raw: false,
-        WTF: true,
-      });
-
-      const sheetNames = workbook.SheetNames;
-
-      if (sheetNames.length === 0) {
-        addLog("❌ XLSX file has no sheets.");
-        throw new Error("XLSX file has no sheets.");
-      }
-
-      let allValidRows: any = [];
-      let allInvalidRows: any = [];
-
-      for (const sheetName of sheetNames) {
-        const sheet = workbook.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json(sheet);
-
-        if (rows.length === 0) {
-          addLog(`📄 Skipping empty sheet: "${sheetName}"`);
-          continue;
-        }
-
-        // Validate sheet before processing
-        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
-        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook);
-
-        // Skip sheet if it has no valid rows and was marked invalid (e.g., invalid name or no matching category)
-        if (validRows.length === 0 && invalidRows.length === 0) {
-          addLog(`📄 Skipping invalid sheet: "${sheetName}"`);
-          continue;
-        }
-
-        addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
-
-        allValidRows = allValidRows.concat(validRows);
-        allInvalidRows = allInvalidRows.concat(invalidRows);
-      }
-
-      console.log("✅ Total Valid Rows Ready:", allValidRows.length);
-      console.log("❌ Total Invalid Rows:", allInvalidRows.length);
-
-      if (allValidRows.length === 0) {
-        addLog("❌ No valid Inventory to import.");
-      } else {
-        addLog("🚀 Starting bulk import...");
-        await inventoryService.bulkImportInventory(allValidRows);
-        addLog("✅ Bulk import completed.");
-      }
-    } catch (error: any) {
-      addLog(`❌ Error processing XLSX file: ${error.message}`);
-      console.error("Full error details:", error);
-    }
   },
 
   transformRowData: async (
