@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import { Shift } from "@/models/workshift.model";
 import { StatusCodes } from "http-status-codes";
-import { isValidObjectId, Types } from "mongoose";
-import { IUser } from "@/contracts/user.contract";
-import { workshiftService } from "@/services/workshift.service";
-import { User } from "@/models/user.model";
+import { isValidObjectId } from "mongoose";
 
 export const shiftController = {
   createShift: async (req: Request, res: Response) => {
@@ -170,7 +167,6 @@ export const shiftController = {
     }
   },
 
-  // Update shift
   updateShift: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
