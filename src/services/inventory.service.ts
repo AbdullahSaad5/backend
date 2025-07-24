@@ -1,6 +1,6 @@
 import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
-import { validate } from "@/utils/validate";
 import mongoose from "mongoose";
+import { validate } from "@/utils/validate";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 import fs from "fs";
@@ -535,7 +535,7 @@ export const inventoryService = {
   },
 
   //bulk import inventory
-  // Enhanced bulkImportInventory function with Amazon schema validation
+
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
