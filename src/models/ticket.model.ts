@@ -32,7 +32,7 @@ const TicketSchema = new Schema<ITicket>(
     },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Closed","Resolved"],
+      enum: ["Open", "In Progress", "Closed", "Resolved"],
       default: "Open",
     },
     priority: {
@@ -40,7 +40,7 @@ const TicketSchema = new Schema<ITicket>(
       enum: ["Low", "Medium", "High", "Urgent"],
       default: "Medium",
     },
-    
+
     description: {
       type: String,
       required: true,
@@ -65,6 +65,14 @@ const TicketSchema = new Schema<ITicket>(
       closedAt: {
         type: Date
       }
+    },
+    isEscalated: {
+      type: Boolean,
+      default: false,
+    },
+    chatMessageId: {
+      type: String,
+      default: null,
     },
   },
   {
