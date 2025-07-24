@@ -234,8 +234,39 @@ export const bulkImportUtility = {
 
     const rowObj: Record<string, any> = {};
 
+    // ALL HELPER FUNCTIONS DEFINED FIRST - BEFORE ANY USAGE
+
+    // Helper function to determine if a root field should be an array
+    const isComplexArrayField = (fieldName: string): boolean => {
+      const arrayFields = [
+        "display",
+        "brand",
+        "bullet_point",
+        "processor_description",
+        "country_of_origin",
+        "recommended_browse_nodes",
+        "memory_storage_capacity",
+        "computer_memory",
+        "hard_disk",
+        "weight",
+        "epr_product_packaging",
+      ];
+      return arrayFields.includes(fieldName);
+    };
+
+    // Helper function to determine if a simple field should be an array
+    const shouldBeArray = (fieldName: string): boolean => {
+      const simpleArrayFields = [
+        "bullet_point",
+        "processor_description",
+        "country_of_origin",
+        "recommended_browse_nodes",
+      ];
+      return simpleArrayFields.includes(fieldName);
+    };
+
     // Helper function to determine if field needs language tag
-    const needsLanguageTag = (fieldType: string) => {
+    const needsLanguageTag = (fieldType: string): boolean => {
       const textFields = [
         "bullet_point",
         "processor_description",
@@ -250,18 +281,19 @@ export const bulkImportUtility = {
     };
 
     // Helper function to determine if field needs unit
-    const needsUnit = (fieldType: string) => {
+    const needsUnit = (fieldType: string): boolean => {
       const measurementFields = ["size", "capacity", "weight", "resolution"];
       return measurementFields.some((field) => fieldType.toLowerCase().includes(field));
     };
 
     // Helper function to get default unit based on field type
-    const getDefaultUnit = (fieldType: string) => {
+    const getDefaultUnit = (fieldType: string): string => {
       const fieldLower = fieldType.toLowerCase();
       if (fieldLower.includes("size") && fieldLower.includes("display")) return "inches";
       if (fieldLower.includes("resolution")) return "dots_per_inch";
       if (fieldLower.includes("weight")) return "grams";
       if (fieldLower.includes("capacity")) return "gigabytes";
+      if (fieldLower.includes("percentage")) return "percent";
       return "units"; // default
     };
 
@@ -305,8 +337,6 @@ export const bulkImportUtility = {
           current = current[key][0]; // Work with first object in array
         } else {
           if (!current[key]) {
-            // Determine if next level should be an object or array
-            const nextKey = path[i + 1];
             current[key] = {};
           }
           current = current[key];
@@ -335,6 +365,48 @@ export const bulkImportUtility = {
       }
     };
 
+    // Clean up empty nested objects (for HYBRID strategy)
+    const cleanupEmptyObjects = (obj: any): any => {
+      if (Array.isArray(obj)) {
+        return obj.map(cleanupEmptyObjects).filter((item) => {
+          if (typeof item === "object" && item !== null) {
+            const keys = Object.keys(item);
+            return (
+              keys.length > 0 &&
+              keys.some((key) => {
+                if (key === "marketplace_id") return false; // Don't count default marketplace_id
+                const value = item[key];
+                if (typeof value === "string") return value.trim() !== "";
+                if (Array.isArray(value)) return value.length > 0;
+                return value != null;
+              })
+            );
+          }
+          return item != null && item !== "";
+        });
+      } else if (typeof obj === "object" && obj !== null) {
+        const cleaned: any = {};
+        let hasContent = false;
+
+        for (const [key, value] of Object.entries(obj)) {
+          const cleanedValue = cleanupEmptyObjects(value);
+          if (
+            cleanedValue != null &&
+            cleanedValue !== "" &&
+            !(Array.isArray(cleanedValue) && cleanedValue.length === 0)
+          ) {
+            cleaned[key] = cleanedValue;
+            if (key !== "marketplace_id") hasContent = true;
+          }
+        }
+
+        return hasContent ? cleaned : null;
+      }
+      return obj;
+    };
+
+    // END OF HELPER FUNCTIONS - NOW START MAIN PROCESSING
+
     // Group headers by their root field
     const fieldGroups: Record<string, string[]> = {};
 
@@ -342,13 +414,13 @@ export const bulkImportUtility = {
       const cleanHeader = header.trim();
       const rawValue = row[idx] ?? "";
 
-      console.log(`🔍 Processing header "${cleanHeader}" with value: "${rawValue}"`);
+      // console.log(`🔍 Processing header "${cleanHeader}" with value: "${rawValue}"`);
 
       // Check if value is empty (configurable behavior)
       const isEmpty = !rawValue || rawValue.toString().trim() === "";
 
       if (isEmpty) {
-        console.log(`⚠️ Found empty value for header "${cleanHeader}"`);
+        // console.log(`⚠️ Found empty value for header "${cleanHeader}"`);
 
         // For variation fields, always create empty array
         if (variationFields.has(cleanHeader)) {
@@ -407,7 +479,7 @@ export const bulkImportUtility = {
         const isArrayField = isComplexArrayField(rootField);
 
         setNestedValue(rowObj, parts, rawValue, isArrayField);
-        console.log(`🔗 Set nested field "${cleanHeader}" with value: "${rawValue}"`);
+        // console.log(`🔗 Set nested field "${cleanHeader}" with value: "${rawValue}"`);
         return;
       }
 
@@ -423,33 +495,6 @@ export const bulkImportUtility = {
       }
     });
 
-    // Helper function to determine if a root field should be an array
-    const isComplexArrayField = (fieldName: string) => {
-      const arrayFields = [
-        "display",
-        "brand",
-        "bullet_point",
-        "processor_description",
-        "country_of_origin",
-        "recommended_browse_nodes",
-        "memory_storage_capacity",
-        "computer_memory",
-        "hard_disk",
-      ];
-      return arrayFields.includes(fieldName);
-    };
-
-    // Helper function to determine if a simple field should be an array
-    const shouldBeArray = (fieldName: string) => {
-      const simpleArrayFields = [
-        "bullet_point",
-        "processor_description",
-        "country_of_origin",
-        "recommended_browse_nodes",
-      ];
-      return simpleArrayFields.includes(fieldName);
-    };
-
     // Post-process to ensure proper array structures
     Object.keys(rowObj).forEach((key) => {
       if (isComplexArrayField(key) && !Array.isArray(rowObj[key])) {
@@ -459,44 +504,6 @@ export const bulkImportUtility = {
         console.log(`🔄 Converted "${key}" to array format`);
       }
     });
-    const cleanupEmptyObjects = (obj: any): any => {
-      if (Array.isArray(obj)) {
-        return obj.map(cleanupEmptyObjects).filter((item) => {
-          if (typeof item === "object" && item !== null) {
-            const keys = Object.keys(item);
-            return (
-              keys.length > 0 &&
-              keys.some((key) => {
-                if (key === "marketplace_id") return false; // Don't count default marketplace_id
-                const value = item[key];
-                if (typeof value === "string") return value.trim() !== "";
-                if (Array.isArray(value)) return value.length > 0;
-                return value != null;
-              })
-            );
-          }
-          return item != null && item !== "";
-        });
-      } else if (typeof obj === "object" && obj !== null) {
-        const cleaned: any = {};
-        let hasContent = false;
-
-        for (const [key, value] of Object.entries(obj)) {
-          const cleanedValue = cleanupEmptyObjects(value);
-          if (
-            cleanedValue != null &&
-            cleanedValue !== "" &&
-            !(Array.isArray(cleanedValue) && cleanedValue.length === 0)
-          ) {
-            cleaned[key] = cleanedValue;
-            if (key !== "marketplace_id") hasContent = true;
-          }
-        }
-
-        return hasContent ? cleaned : null;
-      }
-      return obj;
-    };
 
     // Apply cleanup for hybrid strategy
     const EMPTY_VALUE_STRATEGY = "STRATEGY_HYBRID";
@@ -523,34 +530,5 @@ export const bulkImportUtility = {
 
     console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
     return rowObj;
-  },
-
-  // Additional helper function for complex nested field processing
-  processComplexNestedField: (fieldPath: string, value: string, targetObj: any) => {
-    const parts = fieldPath.split(".");
-    let current = targetObj;
-
-    // Navigate through the nested structure
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-
-      if (i === 0) {
-        // Root level - ensure it's an array for complex fields
-        if (!current[part]) current[part] = [];
-        if (current[part].length === 0) current[part].push({});
-        current = current[part][0];
-      } else {
-        // Nested levels
-        if (!current[part]) current[part] = [];
-        if (current[part].length === 0) current[part].push({});
-        current = current[part][0];
-      }
-    }
-
-    // Set the final value
-    const finalKey = parts[parts.length - 1];
-    current[finalKey] = value;
-
-    return targetObj;
   },
 };
