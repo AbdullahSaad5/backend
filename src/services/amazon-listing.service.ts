@@ -1470,23 +1470,79 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
+      // Debug logging
+      // console.log("🔍 Debug - marketplaceId:", marketplaceId);
+      // console.log("🔍 Debug - sellerId:", sellerId);
+      // console.log("🔍 Debug - redirectUri:", redirectUri);
+      // console.log("🔍 Debug - token present:", !!token);
+      // console.log("🔍 Debug - token first 20 chars:", token.substring(0, 20) + "...");
+
       const currentDate = new Date();
       const startDate = new Date(currentDate.getTime() - 90 * 24 * 60 * 60 * 1000); // 90 days ago
 
-      const response = await fetch(
-        `${process.env.AMAZON_API_ENDPOINT}/orders/v0/orders?CreatedAfter=${startDate.toISOString()}`,
-        { headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token } }
-      );
+      // Try different parameter formats - Amazon SP-API Orders might expect different names
+      const queryParams = new URLSearchParams();
 
-      const orders = await response.json();
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: orders });
+      // Use the exact Amazon SP-API parameter name: MarketplaceIds (capital M, I, plural)
+      queryParams.append('MarketplaceIds', marketplaceId);
+      queryParams.append('CreatedAfter', startDate.toISOString());
+
+      // Add sellerId if available
+      if (sellerId) {
+        queryParams.append('SellerId', sellerId);
+      }
+
+      const finalUrl = `${redirectUri}/orders/v0/orders?${queryParams.toString()}`;
+      
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "x-amz-access-token": token,
+        "Content-Type": "application/json"
+      };
+      console.log("🔍 Debug - Headers:", JSON.stringify(headers, null, 2));
+
+      const response = await fetch(finalUrl, {
+        method: 'GET',
+        headers
+      });
+
+      // Parse response as text, then try/catch JSON.parse (like other functions)
+      const rawResponse = await response.text();
+      let orders: any = {};
+      try {
+        orders = JSON.parse(rawResponse);
+      } catch (err) {
+        console.error("Error parsing Amazon Orders API response as JSON", err);
+        orders = { error: "Failed to parse Amazon Orders API response" };
+      }
+
+      // Log for debugging
+      // console.log("Amazon Orders API response:", rawResponse);
+      // console.log("🔍 Debug - Response status:", response.status);
+      // console.log("🔍 Debug - Response headers:", Object.fromEntries(response.headers.entries()));
+
+      if (response.ok) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: ReasonPhrases.OK,
+          data: orders
+        });
+      } else {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Failed to fetch Amazon orders",
+          error: orders.error || orders.message || "Amazon API error",
+          details: orders
+        });
+      }
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         error: "Failed to fetch Amazon orders",
-        details: error,
+        details: error.message,
       });
     }
   },
