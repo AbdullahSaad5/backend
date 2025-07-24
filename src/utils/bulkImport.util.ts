@@ -8,15 +8,45 @@ import { ProductCategory } from "@/models";
 import dotenv from "dotenv";
 import { ebayListingService, inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
+import { bulkImportStandardTemplateGenerator } from "./bulkImportStandardTemplateGenerator.util";
+import { validate } from "@/utils/validate";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  validateXLSXData: async (workbook: XLSX.WorkBook) => {
+  validateXLSXData: async (
+    workbook: XLSX.WorkBook
+  ): Promise<{
+    validRows: { row: number; data: any }[];
+    invalidRows: { row: number; errors: string[] }[];
+    validIndexes: Set<number>;
+  }> => {
     const sheetNames = workbook.SheetNames;
     const validRows: { row: number; data: any }[] = [];
     const invalidRows: { row: number; errors: string[] }[] = [];
     const validIndexes = new Set<number>();
+
+    const categoryVariationAspects: { [key: string]: string[] } = {
+      PERSONAL_COMPUTER: [
+        "processor_description",
+        "hard_disk.size",
+        "display.size",
+        "memory_storage_capacity",
+        "computer_memory.size",
+      ],
+      LAPTOP: [
+        "processor_description",
+        "hard_disk.size",
+        "display.size",
+        "memory_storage_capacity",
+        "computer_memory.size",
+      ],
+      MONITOR: ["display.size", "display.resolution"],
+      MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
+      TABLET: ["memory_storage_capacity", "display.size", "color"],
+      HEADPHONES: ["color", "connection_type"],
+      CAMERA: ["color", "memory_storage_capacity"],
+    };
 
     for (const sheetName of sheetNames) {
       // Match sheet name with format "Name (ID)"
@@ -44,7 +74,6 @@ export const bulkImportUtility = {
       const matchedCategory = await ProductCategory.findOne({
         amazonCategoryId: categoryId.trim(),
       });
-
       if (!matchedCategory) {
         console.log(`❌ No matching category found in database for ID: "${categoryId}" in sheet: "${sheetName}"`);
         continue;
@@ -81,12 +110,18 @@ export const bulkImportUtility = {
         return clean;
       });
 
+      // Get Amazon schema for the category
+      const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
+      const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
+      const variationAspects = categoryVariationAspects[categoryKey] || [];
+
       let sheetValidCount = 0;
       let sheetInvalidCount = 0;
 
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
+        // Check required fields
         requiredIndexes.forEach((reqIdx) => {
           const val = (row[reqIdx] ?? "").toString().trim();
           if (!val) {
@@ -94,27 +129,20 @@ export const bulkImportUtility = {
           }
         });
 
-        const rowObj: Record<string, any> = {};
+        // Transform row data into the required format
+        const rowObj = await bulkImportUtility.transformRowData(
+          row,
+          cleanedHeaders,
+          variationFields,
+          categoryId,
+          categoryName
+        );
 
-        cleanedHeaders.forEach((key: string, idx: number) => {
-          const rawValue = row[idx];
-
-          if (variationFields.has(key)) {
-            if (typeof rawValue === "string" && rawValue.trim()) {
-              rowObj[key] = rawValue
-                .split(",")
-                .map((v) => v.trim())
-                .filter(Boolean);
-            } else {
-              rowObj[key] = [];
-            }
-          } else {
-            rowObj[key] = rawValue?.toString().trim() ?? "";
-          }
-        });
-
-        rowObj.productCategoryName = categoryName.trim();
-        rowObj.productCategory = categoryId.trim();
+        // Validate transformed data against schema
+        const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
+        if (!validationResult.valid) {
+          errors.push(...validationResult.errors);
+        }
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -157,7 +185,6 @@ export const bulkImportUtility = {
       });
 
       const sheetNames = workbook.SheetNames;
-      // addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
       if (sheetNames.length === 0) {
         addLog("❌ XLSX file has no sheets.");
@@ -172,13 +199,21 @@ export const bulkImportUtility = {
         const rows = XLSX.utils.sheet_to_json(sheet);
 
         if (rows.length === 0) {
+          addLog(`📄 Skipping empty sheet: "${sheetName}"`);
+          continue;
+        }
+
+        // Validate sheet before processing
+        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
+        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook);
+
+        // Skip sheet if it has no valid rows and was marked invalid (e.g., invalid name or no matching category)
+        if (validRows.length === 0 && invalidRows.length === 0) {
+          addLog(`📄 Skipping invalid sheet: "${sheetName}"`);
           continue;
         }
 
         addLog(`📄 Processing sheet: "${sheetName}" with ${rows.length} rows`);
-
-        const partialWorkbook = { Sheets: { [sheetName]: sheet }, SheetNames: [sheetName] };
-        const { validRows, invalidRows } = await bulkImportUtility.validateXLSXData(partialWorkbook);
 
         allValidRows = allValidRows.concat(validRows);
         allInvalidRows = allInvalidRows.concat(invalidRows);
@@ -198,5 +233,63 @@ export const bulkImportUtility = {
       addLog(`❌ Error processing XLSX file: ${error.message}`);
       console.error("Full error details:", error);
     }
+  },
+
+  transformRowData: async (
+    row: any[],
+    headers: string[],
+    variationFields: Set<string>,
+    categoryId: string,
+    categoryName: string
+  ): Promise<Record<string, any>> => {
+    const rowObj: Record<string, any> = {};
+
+    // Process headers to identify nested fields (e.g., brand.name, brand.value)
+    const nestedFields: Record<string, { name: string; value: string }[]> = {};
+
+    headers.forEach((header: string, idx: number) => {
+      const cleanHeader = header.trim();
+      const rawValue = row[idx] ?? "";
+
+      // Handle variation fields (split into arrays)
+      if (variationFields.has(cleanHeader)) {
+        if (typeof rawValue === "string" && rawValue.trim()) {
+          rowObj[cleanHeader] = rawValue
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean);
+        } else {
+          rowObj[cleanHeader] = [];
+        }
+        return;
+      }
+
+      // Handle nested fields (e.g., brand.name, brand.value)
+      if (cleanHeader.includes(".")) {
+        const [parent, child] = cleanHeader.split(".");
+        if (!nestedFields[parent]) {
+          nestedFields[parent] = [];
+        }
+        const existingEntry = nestedFields[parent].find((entry) => entry.name === child);
+        if (!existingEntry) {
+          nestedFields[parent].push({ name: child, value: rawValue?.toString().trim() ?? "" });
+        }
+        return;
+      }
+
+      // Handle regular fields
+      rowObj[cleanHeader] = rawValue?.toString().trim() ?? "";
+    });
+
+    // Convert nested fields into the required format (e.g., brand: [{ name: "", value: "" }])
+    Object.keys(nestedFields).forEach((parent) => {
+      rowObj[parent] = nestedFields[parent];
+    });
+
+    // Add category information
+    rowObj.productCategoryName = categoryName.trim();
+    rowObj.productCategory = categoryId.trim();
+
+    return rowObj;
   },
 };
