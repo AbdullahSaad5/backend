@@ -19,24 +19,37 @@ export const bulkImportUtility = {
     const validIndexes = new Set<number>();
 
     for (const sheetName of sheetNames) {
-      let match = sheetName.trim().match(/^(.+?)\s*\((\d+)\)\s*$/);
+      // Match sheet name with format "Name (ID)"
+      let match = sheetName.trim().match(/^(.+?)\s*\((.+?)\)\s*$/);
 
       // Optional auto-correct fallback
       if (!match && sheetName.includes("(")) {
         const parts = sheetName.split("(");
-        if (parts.length === 2 && /^\d+\)?$/.test(parts[1].trim())) {
-          const correctedName = `${parts[0].trim()} (${parts[1].replace(/\)/g, "").trim()})`;
+        if (parts.length === 2 && parts[1].includes(")")) {
+          const id = parts[1].replace(/\)/g, "").trim();
+          const correctedName = `${parts[0].trim()} (${id})`;
           console.log(`⚠️ Auto-corrected sheet name: "${sheetName}" → "${correctedName}"`);
-          match = correctedName.match(/^(.+?)\s*\((\d+)\)\s*$/);
+          match = correctedName.match(/^(.+?)\s*\((.+?)\)\s*$/);
         }
       }
 
       if (!match) {
-        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "name (number)"`);
+        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "Name (ID)"`);
         continue;
       }
 
       const [_, categoryName, categoryId] = match;
+
+      // Validate categoryId against database
+      const matchedCategory = await ProductCategory.findOne({
+        amazonCategoryId: categoryId.trim(),
+      });
+
+      if (!matchedCategory) {
+        console.log(`❌ No matching category found in database for ID: "${categoryId}" in sheet: "${sheetName}"`);
+        continue;
+      }
+
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
@@ -101,7 +114,7 @@ export const bulkImportUtility = {
         });
 
         rowObj.productCategoryName = categoryName.trim();
-        rowObj.productCategory = categoryId;
+        rowObj.productCategory = categoryId.trim();
 
         const globalRowIndex = validRows.length + invalidRows.length + 1;
 
@@ -123,7 +136,7 @@ export const bulkImportUtility = {
       }
     }
 
-    addLog(`🧪 Final Validation: ✅ ${validRows.length} invalid, ❌ ${invalidRows.length} invalid`);
+    addLog(`🧪 Final Validation: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
 
@@ -144,7 +157,7 @@ export const bulkImportUtility = {
       });
 
       const sheetNames = workbook.SheetNames;
-      addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
+      // addLog(`📄 Found worksheets: ${sheetNames.join(", ")}`);
 
       if (sheetNames.length === 0) {
         addLog("❌ XLSX file has no sheets.");

@@ -543,9 +543,8 @@ export const inventoryService = {
         return;
       }
 
-      addLog("🔹 Valid Rows Received for Bulk Import:");
+      addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
 
-      // Category variation aspects mapping
       const categoryVariationAspects: { [key: string]: string[] } = {
         PERSONAL_COMPUTER: [
           "processor_description",
@@ -566,7 +565,6 @@ export const inventoryService = {
         TABLET: ["memory_storage_capacity", "display.size", "color"],
         HEADPHONES: ["color", "connection_type"],
         CAMERA: ["color", "memory_storage_capacity"],
-        // Add more categories as needed
       };
 
       const bulkOperations: any = (
@@ -574,73 +572,65 @@ export const inventoryService = {
           validRows
             .filter(({ data }) => data && (data.title || data.item_name))
             .map(async ({ row, data }) => {
+              addLog(`\n📦 Row ${row}: Starting processing`);
+              addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
+
               try {
-                // Extract category information
                 const categoryId = data.productCategory || data.ebayCategoryId;
                 const categoryName = data.productCategoryName;
 
-                // Find matching category
+                addLog(`🔎 Row ${row}: Looking for Category with ID: ${categoryId} or Name: ${categoryName}`);
+
                 const matchedCategory = await ProductCategory.findOne({
                   $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
                 }).select("_id name");
 
                 if (!matchedCategory) {
-                  addLog(`❌ Row ${row}: No matching product category for ID: ${categoryId} or name: ${categoryName}`);
+                  addLog(`❌ Row ${row}: No matching product category found.`);
                   return null;
                 }
 
-                // Get Amazon schema for this category
+                addLog(`✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id})`);
+
                 let amazonSchema = null;
                 let variationAspects: string[] | any = [];
 
                 try {
                   amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
-
-                  // Get variation aspects for this category
                   const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
                   variationAspects = categoryVariationAspects[categoryKey] || [];
-
-                  addLog(`✅ Row ${row}: Retrieved Amazon schema for category: ${categoryName}`);
-                } catch (schemaError: any) {
                   addLog(
-                    `⚠️ Row ${row}: Could not retrieve Amazon schema for category ${categoryName}: ${schemaError.message}`
+                    `📘 Row ${row}: Amazon schema & variation aspects fetched. Aspects: ${variationAspects.join(", ")}`
                   );
-                  // Continue processing without schema validation
+                } catch (schemaError: any) {
+                  addLog(`⚠️ Row ${row}: Schema fetch failed - ${schemaError.message}`);
                 }
 
-                // Process and prepare payload from sheet data
                 const processedPayload = processSheetDataToPayload(data, row);
+                addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
 
-                // Validate against Amazon schema if available
                 if (amazonSchema && processedPayload) {
                   const validationResult = validate(amazonSchema, processedPayload, variationAspects);
-
                   if (!validationResult.valid) {
-                    addLog(`❌ Row ${row}: Schema validation failed:`);
+                    addLog(`❌ Row ${row}: Validation failed. Errors:`);
                     validationResult.errors.forEach((error: any) => {
                       const fieldName = error.title || error.path.replace("root.", "");
                       addLog(`   • ${fieldName}: ${error.message}`);
                     });
-
-                    // You can decide whether to skip this row or continue with warnings
-                    // For now, we'll log the errors but continue processing
                     addLog(`⚠️ Row ${row}: Continuing with validation errors...`);
                   } else {
-                    addLog(`✅ Row ${row}: Schema validation passed`);
+                    addLog(`✅ Row ${row}: Payload validated successfully.`);
                   }
                 }
 
-                // Extract title from nested structure or use direct value
                 let title = extractNestedValue(data, ["title", "item_name"]);
                 if (!title) {
-                  addLog(`❌ Row ${row}: No title or item_name found`);
+                  addLog(`❌ Row ${row}: Missing title/item_name`);
                   return null;
                 }
 
-                // Extract description
                 let description = extractNestedValue(data, ["description"]);
 
-                // Extract brand information
                 let brandList: string[] = [];
                 const brandValue = extractNestedValue(data, ["brand"]);
                 if (brandValue) {
@@ -654,9 +644,10 @@ export const inventoryService = {
                   }
                 }
 
+                addLog(`🏷️ Row ${row}: Brands found: ${brandList.join(", ")}`);
+
                 const isMultiBrand = brandList.length > 1;
 
-                // Process images
                 const inventoryImages = (data.images || []).map((img: any) => {
                   const url = img.value || img.url || img;
                   return {
@@ -667,10 +658,10 @@ export const inventoryService = {
                   };
                 });
 
-                // Extract condition type
+                addLog(`🖼️ Row ${row}: Image URLs: ${inventoryImages.map((img: any) => img.url).join(", ")}`);
+
                 let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
 
-                // Build productInfo object
                 const productInfo: any = {
                   productCategory: matchedCategory._id,
                   amazonCategoryId: categoryId,
@@ -690,7 +681,7 @@ export const inventoryService = {
                       marketplace_id: "A1F83G8C2ARO7P",
                     },
                   ],
-                  inventoryImages: inventoryImages,
+                  inventoryImages,
                   condition_type: conditionType,
                   brand: [
                     {
@@ -701,7 +692,6 @@ export const inventoryService = {
                   ],
                 };
 
-                // Process all other attributes for prodTechInfo
                 const prodTechInfo = processNestedAttributes(data, [
                   "title",
                   "item_name",
@@ -716,17 +706,14 @@ export const inventoryService = {
                   "allow_variations",
                 ]);
 
-                // Set kind based on category ID
+                addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
+
                 const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
                 const kindType = productCategoryIds.has(categoryId?.toString()) ? "product" : "part";
                 const isPart = kindType === "part";
 
-                // Check for variation allowance
-                let isVariation = false;
                 const allowVariations = extractNestedValue(data, ["allow_variations"]);
-                if (allowVariations) {
-                  isVariation = allowVariations.toString().toLowerCase() === "yes";
-                }
+                const isVariation = allowVariations?.toString().toLowerCase() === "yes";
 
                 const docToInsert = {
                   isBlocked: false,
@@ -742,7 +729,7 @@ export const inventoryService = {
                   productInfo,
                 };
 
-                addLog(`✅ Row ${row}: Document prepared for insertion`);
+                addLog(`✅ Row ${row}: Final Document Ready: ${JSON.stringify(docToInsert, null, 2)}`);
 
                 return {
                   insertOne: {
@@ -750,7 +737,7 @@ export const inventoryService = {
                   },
                 };
               } catch (error: any) {
-                addLog(`❌ Row ${row}: Error processing - ${error.message}`);
+                addLog(`❌ Row ${row}: Error during processing - ${error.message}`);
                 return null;
               }
             })
@@ -758,15 +745,15 @@ export const inventoryService = {
       ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
-        addLog("✅ No new Inventory to insert.");
+        addLog("⚠️ No valid documents to insert after processing.");
         return;
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
-      console.error("Full bulk import error:", error);
+      console.error("Full error:", error);
     }
   },
 
