@@ -569,14 +569,11 @@ export const inventoryService = {
             .filter(({ data }) => data && data.title)
             .map(async ({ row, data: normalizedData }) => {
               const matchedCategory = await ProductCategory.findOne({
-                $or: [
-                  { ebayCategoryId: normalizedData.ebaycategoryid },
-                  // { ebayCategoryId: normalizedData.ebaycategoryid },
-                ],
+                $or: [{ amazonCategoryId: normalizedData.amazoncategoryid }],
               }).select("_id");
 
               if (!matchedCategory) {
-                addLog(`❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`);
+                addLog(`❌ No matching product category for Amazon ID: ${normalizedData.amazoncategoryid}`);
                 return null;
               }
 
@@ -595,7 +592,7 @@ export const inventoryService = {
 
               const productInfo: any = {
                 productCategory: matchedCategory._id,
-                ebayCategoryId: normalizedData.ebaycategoryid,
+                amazonCategoryId: normalizedData.amazoncategoryid,
                 title: normalizedData.title,
                 description: normalizedData.description,
                 inventoryImages: (normalizedData.images || []).map((url: string) => ({
@@ -619,7 +616,7 @@ export const inventoryService = {
                 "productSupplier",
                 "productSupplierKey",
                 "productCategoryName",
-                "ebayCategoryId",
+                "amazonCategoryId",
               ]);
 
               for (const key in normalizedData) {
@@ -628,9 +625,15 @@ export const inventoryService = {
                 }
               }
 
-              // Set kind based on eBay ID
-              const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
-              const kindType = productCategoryIds.has(normalizedData.ebaycategoryid?.toString()) ? "product" : "part";
+              // Set kind based on Amazon ID
+              const productCategoryIds = new Set([
+                "PERSONAL_COMPUTER",
+                "NETWORKING_DEVICE",
+                "NOTEBOOK_COMPUTER",
+                "MONITOR",
+                "VIDEO_PROJECTOR",
+              ]);
+              const kindType = productCategoryIds.has(normalizedData.amazoncategoryid?.toString()) ? "product" : "part";
 
               // Set isPart based on kind
               const isPart = kindType === "part";
