@@ -4,7 +4,6 @@ import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
 export const attendanceController = {
-  // Employee self check-in
   checkIn: async (req: Request, res: Response) => {
     try {
       console.log("req.body : ", req.body);
@@ -12,6 +11,10 @@ export const attendanceController = {
       const token = req.headers.authorization?.split(" ")[1];
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
+      const userObjectId = Types.ObjectId.isValid(userId)
+        ? new Types.ObjectId(userId)
+        : userId;
+
       const shift = await Shift.findOne({
         where: { userId },
       });
