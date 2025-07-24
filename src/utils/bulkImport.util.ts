@@ -163,9 +163,8 @@ export const bulkImportUtility = {
 
       // Get Amazon schema for the category
       const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
-      const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
-      const variationAspects = categoryVariationAspects[categoryKey] || [];
-      console.log(`🔧 Variation aspects for category "${categoryKey}": ${variationAspects.join(", ") || "none"}`);
+      const variationAspects = categoryVariationAspects[categoryId] || [];
+      console.log(`🔧 Variation aspects for category "${categoryId}": ${variationAspects.join(", ") || "none"}`);
 
       // Create variation fields set from variation aspects
       const variationFields = new Set<string>(variationAspects);
