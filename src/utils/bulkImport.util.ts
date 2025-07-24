@@ -234,6 +234,57 @@ export const bulkImportUtility = {
 
     const rowObj: Record<string, any> = {};
 
+    // Helper function to determine if field needs language tag
+    const needsLanguageTag = (fieldType: string) => {
+      const textFields = [
+        "bullet_point",
+        "processor_description",
+        "technology",
+        "type",
+        "name",
+        "description",
+        "title",
+        "feature",
+      ];
+      return textFields.some((field) => fieldType.toLowerCase().includes(field));
+    };
+
+    // Helper function to determine if field needs unit
+    const needsUnit = (fieldType: string) => {
+      const measurementFields = ["size", "capacity", "weight", "resolution"];
+      return measurementFields.some((field) => fieldType.toLowerCase().includes(field));
+    };
+
+    // Helper function to get default unit based on field type
+    const getDefaultUnit = (fieldType: string) => {
+      const fieldLower = fieldType.toLowerCase();
+      if (fieldLower.includes("size") && fieldLower.includes("display")) return "inches";
+      if (fieldLower.includes("resolution")) return "dots_per_inch";
+      if (fieldLower.includes("weight")) return "grams";
+      if (fieldLower.includes("capacity")) return "gigabytes";
+      return "units"; // default
+    };
+
+    // Helper function to create value objects with proper structure
+    const createValueObject = (value: string, fieldType: string) => {
+      const baseObj: any = { value: value };
+
+      // Add marketplace_id for most fields
+      baseObj.marketplace_id = "A1F83G8C2ARO7P"; // Default marketplace ID
+
+      // Add language_tag for text fields
+      if (needsLanguageTag(fieldType)) {
+        baseObj.language_tag = "en_GB";
+      }
+
+      // Add unit for measurement fields
+      if (needsUnit(fieldType)) {
+        baseObj.unit = getDefaultUnit(fieldType);
+      }
+
+      return baseObj;
+    };
+
     // Helper function to set nested value in object
     const setNestedValue = (obj: any, path: string[], value: any, isArrayField: boolean = false) => {
       let current = obj;
@@ -284,57 +335,6 @@ export const bulkImportUtility = {
       }
     };
 
-    // Helper function to create value objects with proper structure
-    const createValueObject = (value: string, fieldType: string) => {
-      const baseObj: any = { value: value };
-
-      // Add marketplace_id for most fields
-      baseObj.marketplace_id = "A1F83G8C2ARO7P"; // Default marketplace ID
-
-      // Add language_tag for text fields
-      if (needsLanguageTag(fieldType)) {
-        baseObj.language_tag = "en_GB";
-      }
-
-      // Add unit for measurement fields
-      if (needsUnit(fieldType)) {
-        baseObj.unit = getDefaultUnit(fieldType);
-      }
-
-      return baseObj;
-    };
-
-    // Helper function to determine if field needs language tag
-    const needsLanguageTag = (fieldType: string) => {
-      const textFields = [
-        "bullet_point",
-        "processor_description",
-        "technology",
-        "type",
-        "name",
-        "description",
-        "title",
-        "feature",
-      ];
-      return textFields.some((field) => fieldType.toLowerCase().includes(field));
-    };
-
-    // Helper function to determine if field needs unit
-    const needsUnit = (fieldType: string) => {
-      const measurementFields = ["size", "capacity", "weight", "resolution"];
-      return measurementFields.some((field) => fieldType.toLowerCase().includes(field));
-    };
-
-    // Helper function to get default unit based on field type
-    const getDefaultUnit = (fieldType: string) => {
-      const fieldLower = fieldType.toLowerCase();
-      if (fieldLower.includes("size") && fieldLower.includes("display")) return "inches";
-      if (fieldLower.includes("resolution")) return "dots_per_inch";
-      if (fieldLower.includes("weight")) return "grams";
-      if (fieldLower.includes("capacity")) return "gigabytes";
-      return "units"; // default
-    };
-
     // Group headers by their root field
     const fieldGroups: Record<string, string[]> = {};
 
@@ -344,10 +344,38 @@ export const bulkImportUtility = {
 
       console.log(`🔍 Processing header "${cleanHeader}" with value: "${rawValue}"`);
 
-      // Skip empty values
-      if (!rawValue || rawValue.toString().trim() === "") {
-        console.log(`⚠️ Skipping empty value for header "${cleanHeader}"`);
-        return;
+      // Check if value is empty (configurable behavior)
+      const isEmpty = !rawValue || rawValue.toString().trim() === "";
+
+      if (isEmpty) {
+        console.log(`⚠️ Found empty value for header "${cleanHeader}"`);
+
+        // For variation fields, always create empty array
+        if (variationFields.has(cleanHeader)) {
+          rowObj[cleanHeader] = [];
+          console.log(`📋 Set empty variation field "${cleanHeader}" to empty array`);
+          return;
+        }
+
+        // For other fields, you can choose strategy:
+        // STRATEGY_SKIP: Skip empty fields entirely (recommended for validation)
+        // STRATEGY_INCLUDE: Include with empty string value
+        // STRATEGY_HYBRID: Skip simple fields, but allow partial nested objects
+
+        const EMPTY_VALUE_STRATEGY: any = "STRATEGY_HYBRID"; // Change this as needed
+
+        if (EMPTY_VALUE_STRATEGY === "STRATEGY_SKIP") {
+          return; // Skip this field entirely
+        } else if (EMPTY_VALUE_STRATEGY === "STRATEGY_INCLUDE") {
+          // Continue processing with empty value
+        } else if (EMPTY_VALUE_STRATEGY === "STRATEGY_HYBRID") {
+          // For nested fields, we'll handle them later to see if any sibling has value
+          // For simple fields, skip them
+          if (!cleanHeader.includes(".")) {
+            return; // Skip simple empty fields
+          }
+          // Continue for nested fields - we'll clean up empty parent objects later
+        }
       }
 
       // Handle variation fields (split into arrays)
@@ -431,6 +459,60 @@ export const bulkImportUtility = {
         console.log(`🔄 Converted "${key}" to array format`);
       }
     });
+    const cleanupEmptyObjects = (obj: any): any => {
+      if (Array.isArray(obj)) {
+        return obj.map(cleanupEmptyObjects).filter((item) => {
+          if (typeof item === "object" && item !== null) {
+            const keys = Object.keys(item);
+            return (
+              keys.length > 0 &&
+              keys.some((key) => {
+                if (key === "marketplace_id") return false; // Don't count default marketplace_id
+                const value = item[key];
+                if (typeof value === "string") return value.trim() !== "";
+                if (Array.isArray(value)) return value.length > 0;
+                return value != null;
+              })
+            );
+          }
+          return item != null && item !== "";
+        });
+      } else if (typeof obj === "object" && obj !== null) {
+        const cleaned: any = {};
+        let hasContent = false;
+
+        for (const [key, value] of Object.entries(obj)) {
+          const cleanedValue = cleanupEmptyObjects(value);
+          if (
+            cleanedValue != null &&
+            cleanedValue !== "" &&
+            !(Array.isArray(cleanedValue) && cleanedValue.length === 0)
+          ) {
+            cleaned[key] = cleanedValue;
+            if (key !== "marketplace_id") hasContent = true;
+          }
+        }
+
+        return hasContent ? cleaned : null;
+      }
+      return obj;
+    };
+
+    // Apply cleanup for hybrid strategy
+    const EMPTY_VALUE_STRATEGY = "STRATEGY_HYBRID";
+    if (EMPTY_VALUE_STRATEGY === "STRATEGY_HYBRID") {
+      Object.keys(rowObj).forEach((key) => {
+        if (key !== "productCategoryName" && key !== "productCategory") {
+          const cleaned = cleanupEmptyObjects(rowObj[key]);
+          if (cleaned == null || (Array.isArray(cleaned) && cleaned.length === 0)) {
+            delete rowObj[key];
+            console.log(`🧹 Removed empty field "${key}" after cleanup`);
+          } else {
+            rowObj[key] = cleaned;
+          }
+        }
+      });
+    }
 
     // Add category information
     rowObj.productCategoryName = categoryName.trim();
