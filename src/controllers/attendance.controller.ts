@@ -12,7 +12,6 @@ export const attendanceController = {
       const token = req.headers.authorization?.split(" ")[1];
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
-      // check if user has shift and work mode
       const shift = await Shift.findOne({
         where: { userId },
       });
@@ -76,7 +75,6 @@ export const attendanceController = {
     }
   },
 
-  // Admin: mark attendance for any employee
   adminMark: async (req: Request, res: Response) => {
     try {
       const {
