@@ -14,6 +14,11 @@ const guideSchema = new Schema<IGuide, IGuideModel>({
     required: [true, "Description is required"],
     trim: true,
   },
+  type:{
+    type: String,
+    required: [true, "Type is required"],
+    trim: true
+  },
   category: {
     type: Schema.Types.ObjectId, // Changed to ObjectId
     ref: "GuidesCategory", // Reference to GuidesCategory model

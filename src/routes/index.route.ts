@@ -37,6 +37,7 @@ import { ebay } from "./ebay.route";
 import { ebayChat } from "./ebay-chat.route";
 import { ebayChatSandbox } from "./ebay-chat-sandbox.route";
 import { amazon } from "./amazon.route";
+import { amazonChat } from "./amazon-chat.route";
 import { complaintcategory } from "./complaintcategory.route";
 import { expense } from "./expense.route";
 import { workshift } from "./workshift.route";
@@ -95,6 +96,7 @@ const routes: {
   ticket,
   gtin,
   amazon,
+  amazonChat,
   productCategory,
   gamerComunity,
   blogCategory,
