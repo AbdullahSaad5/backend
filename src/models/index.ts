@@ -21,4 +21,3 @@ export { Inventory } from "./inventory.model";
 export { Log } from "./log.model";
 export { Gtin } from "./gtin.model";
 export { TaskModel } from "./task.model";
-export { EbayChatModel, EbayConversationModel } from "./ebay-chat.model";
