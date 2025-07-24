@@ -6,6 +6,7 @@ export const guideService = {
   createGuide: async (data: {
     title: string;
     description: string;
+    type: string;
     category: string;
     content: string;
   }): Promise<IGuide> => {
