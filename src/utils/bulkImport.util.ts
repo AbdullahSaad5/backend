@@ -1,12 +1,9 @@
 import fs from "fs";
 import * as XLSX from "xlsx";
-import path from "path";
-import AdmZip from "adm-zip";
-import { uploadFileToFirebase } from "./firebase";
 import { ProductCategory } from "@/models";
 
 import dotenv from "dotenv";
-import { ebayListingService, inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { addLog } from "./bulkImportLogs.util";
 import { bulkImportStandardTemplateGenerator } from "./bulkImportStandardTemplateGenerator.util";
 import { validate } from "@/utils/validate";
@@ -82,38 +79,20 @@ export const bulkImportUtility = {
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
 
-      if (data.length < 2) continue;
+      if (data.length < 2) {
+        console.log(`⚠️ Sheet "${sheetName}" has no data rows (requires at least header and one data row)`);
+        continue;
+      }
 
       const [headerRow, ...rows]: any = data;
-
-      const requiredIndexes: number[] = [];
-      const variationAllowedIndexes: number[] = [];
-      const requiredFields = new Set<string>();
-      const variationFields = new Set<string>();
-
-      const cleanedHeaders = headerRow.map((h: string, idx: number) => {
-        if (typeof h !== "string") return h;
-
-        let clean = h.trim();
-        if (clean.endsWith("*")) {
-          clean = clean.replace("*", "").trim();
-          requiredIndexes.push(idx);
-          requiredFields.add(clean);
-        }
-
-        if (/\(variation allowed\)/i.test(clean)) {
-          clean = clean.replace(/\(variation allowed\)/i, "").trim();
-          variationAllowedIndexes.push(idx);
-          variationFields.add(clean);
-        }
-
-        return clean;
-      });
 
       // Get Amazon schema for the category
       const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
       const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
       const variationAspects = categoryVariationAspects[categoryKey] || [];
+
+      // Create variation fields set from variation aspects
+      const variationFields = new Set<string>(variationAspects);
 
       let sheetValidCount = 0;
       let sheetInvalidCount = 0;
@@ -121,18 +100,10 @@ export const bulkImportUtility = {
       for (const [index, row] of rows.entries()) {
         const errors: string[] = [];
 
-        // Check required fields
-        requiredIndexes.forEach((reqIdx) => {
-          const val = (row[reqIdx] ?? "").toString().trim();
-          if (!val) {
-            errors.push(`Missing required field "${cleanedHeaders[reqIdx]}"`);
-          }
-        });
-
         // Transform row data into the required format
         const rowObj = await bulkImportUtility.transformRowData(
           row,
-          cleanedHeaders,
+          headerRow,
           variationFields,
           categoryId,
           categoryName
