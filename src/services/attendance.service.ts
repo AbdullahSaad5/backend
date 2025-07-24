@@ -4,21 +4,10 @@ import { Address, User } from "@/models";
 import { Types } from "mongoose";
 export const attendanceService = {
   // Employee self check-in
-  checkIn: async (
-    employeeId: string,
-    shiftId: string,
-    workModeId: string,
-    checkIn: Date
-  ) => {
+  checkIn: async (employeeId: string, shiftId: string, workModeId: string, checkIn: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const isEmployee = await User.findOne({
-      _id: employeeId,
-      isEmployee: true,
-    });
-    if (!isEmployee) {
-      throw new Error("Only Employee can check in");
-    }
+    // Removed isEmployee check as requested
     let attendance = await Attendance.findOne({ employeeId, date: today });
     if (!attendance) {
       attendance = await Attendance.create({
@@ -91,24 +80,13 @@ export const attendanceService = {
   },
 
   // Admin: update attendance record
-  updateAttendance: async (
-    attendanceId: string,
-    update: Partial<IAttendance>
-  ) => {
-    const attendance = await Attendance.findByIdAndUpdate(
-      attendanceId,
-      update,
-      { new: true }
-    );
+  updateAttendance: async (attendanceId: string, update: Partial<IAttendance>) => {
+    const attendance = await Attendance.findByIdAndUpdate(attendanceId, update, { new: true });
     return attendance;
   },
 
   // Get attendance for employee (self or admin)
-  getAttendance: async (
-    employeeId: string,
-    startDate?: Date,
-    endDate?: Date
-  ) => {
+  getAttendance: async (employeeId: string, startDate?: Date, endDate?: Date) => {
     const query: any = { employeeId };
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
@@ -131,44 +109,27 @@ export const attendanceService = {
   },
 
   // Helper: Haversine formula to calculate distance in meters
-  haversineDistance: (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
+  haversineDistance: (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const toRad = (value: number) => (value * Math.PI) / 180;
     const R = 6371000; // Radius of Earth in meters
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   },
 
   // Admin: geo location attendance mark
-  geoLocationAttendanceMark: async (
-    userId: string,
-    latitude: number,
-    longitude: number
-  ) => {
+  geoLocationAttendanceMark: async (userId: string, latitude: number, longitude: number) => {
     const address = await Address.findOne({ userId: userId });
     if (!address) {
       throw new Error("Address not found");
     }
     console.log("address.latitude : ", address);
 
-    if (
-      !address.latitude ||
-      !address.longitude ||
-      address.latitude === 0 ||
-      address.longitude === 0
-    ) {
+    if (!address.latitude || !address.longitude || address.latitude === 0 || address.longitude === 0) {
       throw new Error("Latitude and longitude for employee not found in db");
     }
     console.log("address.latitude : ", address.latitude);
@@ -176,17 +137,10 @@ export const attendanceService = {
     console.log("latitude : ", latitude);
     console.log("longitude : ", longitude);
 
-    const distance = attendanceService.haversineDistance(
-      address.latitude,
-      address.longitude,
-      latitude,
-      longitude
-    );
+    const distance = attendanceService.haversineDistance(address.latitude, address.longitude, latitude, longitude);
 
     if (distance > 500) {
-      throw new Error(
-        `You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`
-      );
+      throw new Error(`You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`);
     }
 
     // Mark attendance (check-in) if within 500m
@@ -214,4 +168,80 @@ export const attendanceService = {
     }
     return attendance;
   },
+};
+
+/**
+ * Cron: Mark employees absent if no check-in after shift end + grace period
+ */
+export const markAbsentForUsers = async () => {
+  // Placeholder: 10 minutes grace period
+  const GRACE_MINUTES = 120;
+  const now = new Date();
+  // Get all shifts
+  const shifts = await Shift.find({ isBlocked: false }).populate("employees");
+  for (const shift of shifts) {
+    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+    for (const employeeId of shift.employees) {
+      // Calculate shift end + grace
+      const shiftEnd = new Date(now);
+      shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
+      if (now >= shiftEnd) {
+        // Check if attendance exists for today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const attendance: IAttendance | null = await Attendance.findOne({
+          employeeId,
+          date: today,
+        });
+        // Only mark absent if no attendance exists, or status is not present/leave/absent
+        if (!attendance) {
+          await Attendance.create({
+            employeeId,
+            date: today,
+            status: "absent",
+            shiftId: shift._id as Types.ObjectId,
+          });
+        } else if (attendance.status !== "present" && attendance.status !== "leave" && attendance.status !== "absent") {
+          attendance.status = "absent";
+          attendance.shiftId = shift._id as Types.ObjectId;
+          await attendance.save();
+        }
+        // If already present, leave, or absent, do nothing
+      }
+    }
+  }
+};
+
+/**
+ * Cron: Auto-checkout employees if checked in but not checked out after shift end + buffer
+ */
+export const autoCheckoutForUsers = async () => {
+  // Placeholder: 15 minutes buffer after shift end
+  const BUFFER_MINUTES = 120;
+  const now = new Date();
+  // Get all shifts
+  const shifts = await Shift.find({ isBlocked: false }).populate("employees");
+  for (const shift of shifts) {
+    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+    for (const employeeId of shift.employees) {
+      // Calculate shift end + buffer
+      const shiftEnd = new Date(now);
+      shiftEnd.setHours(endHour, endMinute + BUFFER_MINUTES, 0, 0);
+      if (now >= shiftEnd) {
+        // Check if attendance exists for today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const attendance = await Attendance.findOne({
+          employeeId,
+          date: today,
+        });
+        if (attendance && attendance.checkIn && !attendance.checkOut) {
+          // Auto-checkout: set to shift end time (with buffer)
+          attendance.checkOut = shiftEnd;
+          await attendance.save();
+        }
+        // Never create a new attendance document here
+      }
+    }
+  }
 };
