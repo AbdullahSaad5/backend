@@ -6,16 +6,17 @@ import { isValidObjectId } from "mongoose";
 export const guideController = {
   createGuide: async (req: Request, res: Response) => {
     try {
-      const { title, description, category, content } = req.body;
+      const { title, description, type, category, content } = req.body;
 
       // Validation
-      if (!title || !description || !category || !content) {
+      if (!title || !description || !type || !category || !content) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Missing required fields",
           errors: {
             ...(!title && { title: "Title is required" }),
             ...(!description && { description: "Description is required" }),
+            ...(!type && { description: "type is required" }),
             ...(!category && { category: "Category is required" }),
             ...(!content && { content: "Content is required" }),
           },
@@ -33,6 +34,7 @@ export const guideController = {
       const newGuide = await guideService.createGuide({
         title,
         description,
+        type,
         category,
         content,
       });
