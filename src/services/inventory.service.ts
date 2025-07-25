@@ -535,7 +535,6 @@ export const inventoryService = {
   },
 
   //bulk import inventory
-
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
@@ -545,35 +544,13 @@ export const inventoryService = {
 
       addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
 
-      const categoryVariationAspects: { [key: string]: string[] } = {
-        PERSONAL_COMPUTER: [
-          "processor_description",
-          "hard_disk.size",
-          "display.size",
-          "memory_storage_capacity",
-          "computer_memory.size",
-        ],
-        LAPTOP: [
-          "processor_description",
-          "hard_disk.size",
-          "display.size",
-          "memory_storage_capacity",
-          "computer_memory.size",
-        ],
-        MONITOR: ["display.size", "display.resolution"],
-        MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
-        TABLET: ["memory_storage_capacity", "display.size", "color"],
-        HEADPHONES: ["color", "connection_type"],
-        CAMERA: ["color", "memory_storage_capacity"],
-      };
-
       const bulkOperations: any = (
         await Promise.all(
           validRows
             .filter(({ data }) => data && (data.title || data.item_name))
             .map(async ({ row, data }) => {
               addLog(`\n📦 Row ${row}: Starting processing`);
-              addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
+              // addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
 
               try {
                 const categoryId = data.productCategory || data.ebayCategoryId;
@@ -592,36 +569,10 @@ export const inventoryService = {
 
                 addLog(`✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id})`);
 
-                let amazonSchema = null;
-                let variationAspects: string[] | any = [];
-
-                try {
-                  amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
-                  const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
-                  variationAspects = categoryVariationAspects[categoryKey] || [];
-                  addLog(
-                    `📘 Row ${row}: Amazon schema & variation aspects fetched. Aspects: ${variationAspects.join(", ")}`
-                  );
-                } catch (schemaError: any) {
-                  addLog(`⚠️ Row ${row}: Schema fetch failed - ${schemaError.message}`);
-                }
-
                 const processedPayload = processSheetDataToPayload(data, row);
                 addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
 
-                if (amazonSchema && processedPayload) {
-                  const validationResult = validate(amazonSchema, processedPayload, variationAspects);
-                  if (!validationResult.valid) {
-                    addLog(`❌ Row ${row}: Validation failed. Errors:`);
-                    validationResult.errors.forEach((error: any) => {
-                      const fieldName = error.title || error.path.replace("root.", "");
-                      addLog(`   • ${fieldName}: ${error.message}`);
-                    });
-                    addLog(`⚠️ Row ${row}: Continuing with validation errors...`);
-                  } else {
-                    addLog(`✅ Row ${row}: Payload validated successfully.`);
-                  }
-                }
+                // Validation logic removed - directly proceed with processing
 
                 let title = extractNestedValue(data, ["title", "item_name"]);
                 if (!title) {
@@ -729,7 +680,9 @@ export const inventoryService = {
                   productInfo,
                 };
 
-                addLog(`✅ Row ${row}: Final Document Ready: ${JSON.stringify(docToInsert, null, 2)}`);
+                addLog(
+                  `✅ Row ${row}: Final Document Ready (validation skipped): ${JSON.stringify(docToInsert, null, 2)}`
+                );
 
                 return {
                   insertOne: {
@@ -750,7 +703,7 @@ export const inventoryService = {
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted.`);
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted (validation skipped).`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
       console.error("Full error:", error);

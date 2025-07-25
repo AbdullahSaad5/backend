@@ -78,6 +78,7 @@ export const bulkImportUtility = {
     }
   },
 
+  // Updated validateXLSXData function - now skips validation and returns all transformed data as valid
   validateXLSXData: async (
     workbook: XLSX.WorkBook
   ): Promise<{
@@ -112,7 +113,7 @@ export const bulkImportUtility = {
       CAMERA: ["color", "memory_storage_capacity"],
     };
 
-    // console.log(`📚 Starting validation for workbook with ${sheetNames.length} sheet(s): ${sheetNames.join(", ")}`);
+    // console.log(`📚 Starting processing for workbook with ${sheetNames.length} sheet(s): ${sheetNames.join(", ")}`);
 
     for (const sheetName of sheetNames) {
       // console.log(`\n📄 Processing sheet: "${sheetName}"`);
@@ -158,29 +159,26 @@ export const bulkImportUtility = {
       // console.log(`📋 Sheet "${sheetName}" headers: ${headerRow.join(", ")}`);
       // console.log(`📊 Processing ${rows.length} data row(s) in sheet "${sheetName}"`);
 
-      const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
       const variationAspects = categoryVariationAspects[categoryId] || [];
       console.log(`🔧 Variation aspects for category "${categoryId}": ${variationAspects.join(", ") || "none"}`);
 
       const variationFields = new Set<string>(variationAspects);
 
       let sheetValidCount = 0;
-      let sheetInvalidCount = 0;
 
       for (const [index, row] of rows.entries()) {
         const globalRowIndex = validRows.length + invalidRows.length + 1;
-        // console.log(`\n🔄 Processing row      console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
+        // addLog(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
 
         const isRowEmpty = row.every(
           (cell: any) => cell === "" || cell == null || (typeof cell === "string" && cell.trim() === "")
         );
         if (isRowEmpty) {
-          // console.log(`⚠️ Skipping empty row ${globalRowIndex} (sheet row ${index + 2})`);
+          // addLog(`⚠️ Skipping empty row ${globalRowIndex} (sheet row ${index + 2})`);
           continue;
         }
 
         // console.log(`📥 Raw row data: ${JSON.stringify(row)}`);
-        const errors: string[] = [];
 
         const rowObj = await bulkImportUtility.transformRowData(
           row,
@@ -191,35 +189,19 @@ export const bulkImportUtility = {
         );
         console.log(`📤 Transformed row data: ${JSON.stringify(rowObj, null, 2)}`);
 
-        const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
-        if (!validationResult.valid) {
-          const errorMessages = validationResult.errors.map((error: any) => error.message || "Unknown error");
-          errors.push(...errorMessages);
-          console.log(`❌ Validation errors for row ${globalRowIndex}: ${errorMessages.join(", ")}`);
-          addLog(`❌ Validation errors for row ${globalRowIndex}: ${errorMessages.join(", ")}`);
-        } else {
-          console.log(`✅ Row ${globalRowIndex} passed validation`);
-        }
-
-        if (errors.length > 0) {
-          invalidRows.push({ row: globalRowIndex, errors });
-          sheetInvalidCount++;
-        } else {
-          validRows.push({ row: globalRowIndex, data: rowObj });
-          validIndexes.add(globalRowIndex);
-          sheetValidCount++;
-        }
+        // Skip validation - directly add as valid row
+        // console.log(`✅ Row ${globalRowIndex} added as valid (validation skipped)`);
+        validRows.push({ row: globalRowIndex, data: rowObj });
+        validIndexes.add(globalRowIndex);
+        sheetValidCount++;
       }
 
-      if (sheetValidCount > 0 || sheetInvalidCount > 0) {
-        // console.log(`📄 Sheet "${sheetName}" summary: ✅ ${sheetValidCount} valid, ❌ ${sheetInvalidCount} invalid`);
-        invalidRows.slice(-sheetInvalidCount).forEach((rowInfo) => {
-          // console.log(`    ❌ Row ${rowInfo.row} error(s): ${rowInfo.errors.join(", ")}`);
-        });
+      if (sheetValidCount > 0) {
+        // console.log(`📄 Sheet "${sheetName}" summary: ✅ ${sheetValidCount} valid rows processed`);
       }
     }
 
-    // console.log(`\n🧪 Final Validation Summary: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    // console.log(`\n🧪 Final Processing Summary: ✅ ${validRows.length} valid rows (validation skipped)`);
     return { validRows, invalidRows, validIndexes };
   },
 
@@ -334,7 +316,7 @@ export const bulkImportUtility = {
     rowObj.productCategoryName = categoryName.trim();
     rowObj.productCategory = categoryId.trim();
 
-    console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
+    // console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
     return rowObj;
   },
 };
