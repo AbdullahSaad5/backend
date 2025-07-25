@@ -5,7 +5,7 @@ import { Attendance } from "@/models/attendance.model";
 
 export const employeeService = {
   getEmployeeList: async () => {
-    const employees = await User.find({ isEmployee: true });
+    const employees = await User.find();
     return {
       success: true,
       message: "Employee list fetched successfully",
