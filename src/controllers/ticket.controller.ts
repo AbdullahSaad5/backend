@@ -19,6 +19,8 @@ export const tickerControler = {
         priority = "Medium",
         role,
         description,
+        isEscalated,
+        chatMessageId
       } = req.body;
 
       const newTicket = await ticketService.createTicket(
@@ -30,7 +32,9 @@ export const tickerControler = {
         status,
         priority,
         new Types.ObjectId(role),
-        description
+        description,
+        isEscalated,
+        chatMessageId
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -270,8 +274,8 @@ export const tickerControler = {
       });
     } catch (error: any) {
       res.status(
-        error.message.includes('not found') 
-          ? StatusCodes.NOT_FOUND 
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
           : StatusCodes.INTERNAL_SERVER_ERROR
       ).json({
         success: false,
@@ -325,8 +329,8 @@ export const tickerControler = {
       });
     } catch (error: any) {
       res.status(
-        error.message.includes('not found') 
-          ? StatusCodes.NOT_FOUND 
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
           : StatusCodes.INTERNAL_SERVER_ERROR
       ).json({
         success: false,

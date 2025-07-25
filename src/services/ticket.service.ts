@@ -10,9 +10,11 @@ export const ticketService = {
     createDate: Date,
     dueDate: Date,
     status: "Open" | "In Progress" | "Closed" | "Resolved",
-    priority: "Low" | "Medium" | "High"  | "Urgent",
+    priority: "Low" | "Medium" | "High" | "Urgent",
     role: Types.ObjectId,
-    description: string
+    description: string,
+    isEscalated?: boolean,
+    chatMessageId?: string
   ) => {
     const newTicket = new TicketModel({
       title,
@@ -24,6 +26,8 @@ export const ticketService = {
       priority,
       role,
       description,
+      isEscalated: isEscalated || false,
+      chatMessageId: chatMessageId || null,
     });
     return newTicket.save();
   },
@@ -132,7 +136,7 @@ export const ticketService = {
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
       ticketId,
-      { 
+      {
         status: 'Closed',
         resolution
       },
@@ -157,7 +161,7 @@ export const ticketService = {
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
       ticketId,
-      { 
+      {
         $unset: { resolution: 1 },
         status: 'In Progress'
       },
