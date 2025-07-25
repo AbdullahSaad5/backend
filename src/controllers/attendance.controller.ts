@@ -3,8 +3,8 @@ import { attendanceService } from "@/services/attendance.service";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
+import { Types } from "mongoose";
 export const attendanceController = {
-  // Employee self check-in
   checkIn: async (req: Request, res: Response) => {
     try {
       console.log("req.body : ", req.body);
@@ -12,22 +12,24 @@ export const attendanceController = {
       const token = req.headers.authorization?.split(" ")[1];
       const decoded = jwtVerify(token as string);
       const userId = decoded.id.toString();
-      // check if user has shift and work mode
+      const userObjectId = Types.ObjectId.isValid(userId)
+        ? new Types.ObjectId(userId)
+        : userId;
+
       const shift = await Shift.findOne({
-        where: { userId },
+        employees: { $in: [userObjectId] },
       });
       if (!shift) {
         return res.status(400).json({ message: "No shift found for user" });
       }
       const workMode = await Workmode.findOne({
-        where: { userId },
+        employees: { $in: [userObjectId] },
       });
       if (!workMode) {
         return res.status(400).json({ message: "No work mode found for user" });
       }
-
       if (!userId) return res.status(401).json({ message: "Unauthorized" });
-      const { shiftId, workModeId, checkIn } = req.body;
+      const { checkIn } = req.body;
       if (!checkIn) {
         return res.status(400).json({ message: "Check-in time is required" });
       }
@@ -35,8 +37,8 @@ export const attendanceController = {
       const checkInDate = new Date(checkIn);
       const attendance = await attendanceService.checkIn(
         userId,
-        shiftId,
-        workModeId,
+        shift._id as string,
+        workMode._id as string,
         checkInDate
       );
       res.status(200).json(attendance);
@@ -76,7 +78,6 @@ export const attendanceController = {
     }
   },
 
-  // Admin: mark attendance for any employee
   adminMark: async (req: Request, res: Response) => {
     try {
       const {
