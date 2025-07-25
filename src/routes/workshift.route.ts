@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { shiftController } from "@/controllers/workshift.controller";
+import { authGuard } from "@/guards";
+import { adminRoleCheck } from "@/middlewares/auth.middleware";
 // import { authenticate, authorize } from "../middlewares/auth.middleware"; // Assuming you have auth middleware
 export const workshift = (router: Router) => {
   // Create a new shift
@@ -16,4 +18,6 @@ export const workshift = (router: Router) => {
   router.delete("/:id", shiftController.deleteShift);
 
   router.get("/employee/:employeeId", shiftController.getShiftsByEmployee);
+
+  router.delete("/:shiftId/employees/:employeeId", shiftController.unassignEmployee);
 };
