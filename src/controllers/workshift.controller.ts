@@ -6,14 +6,11 @@ import { isValidObjectId } from "mongoose";
 export const shiftController = {
   createShift: async (req: Request, res: Response) => {
     try {
-      const { shiftName, shiftDescription, startTime, endTime, employees } =
-        req.body;
+      const { shiftName, shiftDescription, startTime, endTime, employees } = req.body;
 
       // Validate employee IDs if employees is provided
       if (employees) {
-        const invalidEmployees = employees.filter(
-          (id: string) => !isValidObjectId(id)
-        );
+        const invalidEmployees = employees.filter((id: string) => !isValidObjectId(id));
         if (invalidEmployees.length > 0) {
           return res.status(StatusCodes.BAD_REQUEST).json({
             success: false,
@@ -142,10 +139,7 @@ export const shiftController = {
         });
       }
 
-      const shift = await Shift.findById(id).populate(
-        "employees",
-        "firstName lastName email"
-      );
+      const shift = await Shift.findById(id).populate("employees", "firstName lastName email");
 
       if (!shift) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -272,6 +266,43 @@ export const shiftController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to fetch employee shifts",
+        error: error.message,
+      });
+    }
+  },
+  // Unassign an employee from a shift
+  unassignEmployee: async (req: Request, res: Response) => {
+    try {
+      const { shiftId, employeeId } = req.params;
+
+      if (!isValidObjectId(shiftId) || !isValidObjectId(employeeId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid shift ID or employee ID",
+        });
+      }
+
+      const shift = await Shift.findById(shiftId);
+      if (!shift) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Shift not found",
+        });
+      }
+
+      // Remove employee from shift
+      shift.employees = shift.employees.filter((empId: any) => empId.toString() !== employeeId);
+      await shift.save();
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Employee unassigned from shift successfully",
+        data: shift,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to unassign employee from shift",
         error: error.message,
       });
     }
