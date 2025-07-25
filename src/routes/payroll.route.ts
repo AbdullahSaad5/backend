@@ -1,36 +1,30 @@
 import { Router } from "express";
-import { PayrollController } from "../controllers/payroll.controller";
+import { payrollController } from "@/controllers/payroll.controller";
 import { adminRoleCheck } from "@/middlewares/auth.middleware";
 import { validatePayroll } from "@/validations/payroll.validation";
 
 export const payroll = (router: Router) => {
-  const controller = new PayrollController();
-
   router.post(
     "/",
     adminRoleCheck,
     validatePayroll,
-    controller.createPayroll.bind(controller)
+    payrollController.createPayroll
   );
 
-  router.patch(
-    "/:id",
-    adminRoleCheck,
-    controller.updatePayroll.bind(controller)
-  );
+  router.patch("/:id", adminRoleCheck, payrollController.updatePayroll);
 
   router.delete(
     "/payroll/:id",
     adminRoleCheck,
-    controller.deletePayroll.bind(controller)
+    payrollController.deletePayroll
   );
 
-  router.get("/:id", adminRoleCheck, controller.getPayroll.bind(controller));
-  router.get("/", adminRoleCheck, controller.getAllPayrolls.bind(controller));
+  router.get("/:id", adminRoleCheck, payrollController.getPayroll);
+  router.get("/", adminRoleCheck, payrollController.getAllPayrolls);
 
   router.get(
     "/:id/calculate",
     adminRoleCheck,
-    controller.calculateNetSalary.bind(controller)
+    payrollController.calculateNetSalary
   );
 };
