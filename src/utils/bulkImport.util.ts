@@ -202,7 +202,7 @@ export const bulkImportUtility = {
         const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
         if (!validationResult.valid) {
           errors.push(...validationResult.errors);
-          // console.log(`❌ Validation errors for row ${globalRowIndex}: ${errors.join(", ")}`);
+          console.log(`❌ Validation errors for row ${globalRowIndex}: ${errors.join(", ")}`);
         } else {
           console.log(`✅ Row ${globalRowIndex} passed validation`);
         }
