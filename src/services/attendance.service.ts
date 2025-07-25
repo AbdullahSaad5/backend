@@ -103,11 +103,15 @@ export const attendanceService = {
   getAttendance: async (
     employeeId: string,
     startDate?: Date,
-    endDate?: Date
+    endDate?: Date,
+    status?: string
   ) => {
     const query: any = { employeeId };
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
+    }
+    if (status) {
+      query.status = status.toLowerCase();
     }
     return Attendance.find(query).sort({ date: -1 });
   },
