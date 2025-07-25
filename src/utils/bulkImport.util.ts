@@ -42,7 +42,7 @@ export const bulkImportUtility = {
         const rows = XLSX.utils.sheet_to_json(sheet);
 
         if (rows.length === 0) {
-          addLog(`📄 Skipping empty sheet: "${sheetName}"`);
+          // addLog(`📄 Skipping empty sheet: "${sheetName}"`);
           continue;
         }
 
@@ -52,7 +52,7 @@ export const bulkImportUtility = {
 
         // Skip sheet if it has no valid rows and was marked invalid (e.g., invalid name or no matching category)
         if (validRows.length === 0 && invalidRows.length === 0) {
-          addLog(`📄 Skipping invalid sheet: "${sheetName}"`);
+          // addLog(`📄 Skipping invalid sheet: "${sheetName}"`);
           continue;
         }
 
@@ -112,10 +112,10 @@ export const bulkImportUtility = {
       CAMERA: ["color", "memory_storage_capacity"],
     };
 
-    console.log(`📚 Starting validation for workbook with ${sheetNames.length} sheet(s): ${sheetNames.join(", ")}`);
+    // console.log(`📚 Starting validation for workbook with ${sheetNames.length} sheet(s): ${sheetNames.join(", ")}`);
 
     for (const sheetName of sheetNames) {
-      console.log(`\n📄 Processing sheet: "${sheetName}"`);
+      // console.log(`\n📄 Processing sheet: "${sheetName}"`);
 
       // Match sheet name with format "Name (ID)"
       let match = sheetName.trim().match(/^(.+?)\s*\((.+?)\)\s*$/);
@@ -132,7 +132,7 @@ export const bulkImportUtility = {
       }
 
       if (!match) {
-        console.log(`❌ Invalid sheet name format: "${sheetName}". Use "Name (ID)"`);
+        // console.log(`❌ Invalid sheet name format: "${sheetName}". Use "Name (ID)"`);
         continue;
       }
 
@@ -174,9 +174,18 @@ export const bulkImportUtility = {
 
       for (const [index, row] of rows.entries()) {
         const globalRowIndex = validRows.length + invalidRows.length + 1;
-        console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
-        // console.log(`📥 Raw row data: ${JSON.stringify(row)}`);
+        // console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
 
+        // Skip empty rows
+        const isRowEmpty = row.every(
+          (cell: any) => cell === "" || cell == null || (typeof cell === "string" && cell.trim() === "")
+        );
+        if (isRowEmpty) {
+          // console.log(`⚠️ Skipping empty row ${globalRowIndex} (sheet row ${index + 2})`);
+          continue;
+        }
+
+        // console.log(`📥 Raw row data: ${JSON.stringify(row)}`);
         const errors: string[] = [];
 
         // Transform row data into the required format
@@ -187,7 +196,7 @@ export const bulkImportUtility = {
           categoryId,
           categoryName
         );
-        // console.log(`📤 Transformed row data: ${JSON.stringify(rowObj, null, 2)}`);
+        console.log(`📤 Transformed row data: ${JSON.stringify(rowObj, null, 2)}`);
 
         // Validate transformed data against schema
         const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
@@ -216,7 +225,7 @@ export const bulkImportUtility = {
       }
     }
 
-    console.log(`\n🧪 Final Validation Summary: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
+    // console.log(`\n🧪 Final Validation Summary: ✅ ${validRows.length} valid, ❌ ${invalidRows.length} invalid`);
     return { validRows, invalidRows, validIndexes };
   },
 
@@ -228,9 +237,9 @@ export const bulkImportUtility = {
     categoryId: string,
     categoryName: string
   ): Promise<Record<string, any>> => {
-    console.log(`🔄 Starting transformation for row data: ${JSON.stringify(row)}`);
-    console.log(`📋 Headers: ${headers.join(", ")}`);
-    console.log(`🔧 Variation fields: ${Array.from(variationFields).join(", ") || "none"}`);
+    // console.log(`🔄 Starting transformation for row data: ${JSON.stringify(row)}`);
+    // console.log(`📋 Headers: ${headers.join(", ")}`);
+    // console.log(`🔧 Variation fields: ${Array.from(variationFields).join(", ") || "none"}`);
 
     const rowObj: Record<string, any> = {};
 
@@ -487,11 +496,11 @@ export const bulkImportUtility = {
       if (shouldBeArray(cleanHeader)) {
         const valueObj = createValueObject(rawValue.toString().trim(), cleanHeader);
         rowObj[cleanHeader] = [valueObj];
-        console.log(`📋 Added array field "${cleanHeader}": ${JSON.stringify(rowObj[cleanHeader])}`);
+        // console.log(`📋 Added array field "${cleanHeader}": ${JSON.stringify(rowObj[cleanHeader])}`);
       } else {
         // Handle regular fields
         rowObj[cleanHeader] = rawValue?.toString().trim() ?? "";
-        console.log(`📋 Added regular field "${cleanHeader}" with value: "${rowObj[cleanHeader]}"`);
+        // console.log(`📋 Added regular field "${cleanHeader}" with value: "${rowObj[cleanHeader]}"`);
       }
     });
 
@@ -501,7 +510,7 @@ export const bulkImportUtility = {
         // Convert object to array format
         const obj = rowObj[key];
         rowObj[key] = [obj];
-        console.log(`🔄 Converted "${key}" to array format`);
+        // console.log(`🔄 Converted "${key}" to array format`);
       }
     });
 
@@ -513,7 +522,7 @@ export const bulkImportUtility = {
           const cleaned = cleanupEmptyObjects(rowObj[key]);
           if (cleaned == null || (Array.isArray(cleaned) && cleaned.length === 0)) {
             delete rowObj[key];
-            console.log(`🧹 Removed empty field "${key}" after cleanup`);
+            // console.log(`🧹 Removed empty field "${key}" after cleanup`);
           } else {
             rowObj[key] = cleaned;
           }
@@ -524,9 +533,10 @@ export const bulkImportUtility = {
     // Add category information
     rowObj.productCategoryName = categoryName.trim();
     rowObj.productCategory = categoryId.trim();
-    console.log(
-      `🏷️ Added category info - productCategoryName: "${rowObj.productCategoryName}", productCategory: "${rowObj.productCategory}"`
-    );
+    // console
+    // .log
+    // `🏷️ Added category info - productCategoryName: "${rowObj.productCategoryName}", productCategory: "${rowObj.productCategory}"`
+    // ();
 
     console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
     return rowObj;
