@@ -2,10 +2,10 @@ import { Types } from "mongoose";
 import { Payroll } from "../models/payroll.model";
 import { PayrollDocument, ContractType } from "../contracts/payroll.contract";
 
-export class PayrollService {
+export const payrollService = {
   async getPayrollByEmployeeId(employeeId: string) {
     return await Payroll.findOne({ userId: employeeId });
-  }
+  },
 
   async createPayroll(
     payrollData: Omit<PayrollDocument, "createdAt" | "updatedAt" | "_id">
@@ -19,7 +19,7 @@ export class PayrollService {
         `Failed to create payroll: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
+  },
 
   async updatePayroll(payrollId: string, updateData: Partial<PayrollDocument>) {
     try {
@@ -39,7 +39,7 @@ export class PayrollService {
         `Failed to update payroll: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
+  },
 
   async deletePayroll(payrollId: string) {
     try {
@@ -55,7 +55,7 @@ export class PayrollService {
         `Failed to delete payroll: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
+  },
 
   async getPayrollById(payrollId: string) {
     try {
@@ -73,7 +73,7 @@ export class PayrollService {
         `Failed to get payroll: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
+  },
 
   async getAllPayrolls(query: {
     category?: Types.ObjectId;
@@ -90,11 +90,11 @@ export class PayrollService {
         `Failed to get payrolls: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
+  },
 
   async calculateNetSalary(payrollId: string) {
     try {
-      const payroll = await this.getPayrollById(payrollId);
+      const payroll = await payrollService.getPayrollById(payrollId);
 
       let grossSalary =
         payroll.contractType === ContractType.MONTHLY
@@ -130,5 +130,5 @@ export class PayrollService {
         `Failed to calculate net salary: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
-  }
-}
+  },
+};

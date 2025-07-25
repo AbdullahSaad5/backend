@@ -78,7 +78,6 @@ export const attendanceController = {
     }
   },
 
-  // Admin: mark attendance for any employee
   adminMark: async (req: Request, res: Response) => {
     try {
       const {

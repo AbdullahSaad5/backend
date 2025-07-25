@@ -1,12 +1,46 @@
-import { ebayListingService, inventoryService } from "@/services";
+import { inventoryService } from "@/services";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import mongoose from "mongoose";
 import { transformInventoryData } from "@/utils/transformInventoryData.util";
 import { Inventory, Variation } from "@/models";
 import { redis } from "@/datasources";
+import ExcelJS from "exceljs";
+import fs from "fs";
+import path from "path";
+import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 import { processVariationsUtility } from "@/utils/processVariation.util";
+interface ParsedAttribute {
+  name: string;
+  type: string;
+  required: boolean;
+  variation?: boolean;
+  enums?: string[];
+  validations: {
+    title?: string;
+    description?: string;
+    editable?: boolean;
+    hidden?: boolean;
+    examples?: any[];
+    minLength?: number;
+    maxLength?: number;
+    minimum?: number;
+    maximum?: number;
+    enum?: string[];
+    enumNames?: string[];
+    selectors?: any[];
+    minItems?: number;
+    maxItems?: number;
+    minUniqueItems?: number;
+    maxUniqueItems?: number;
+  };
+}
 
+interface CategoryResult {
+  categoryId: string;
+  categoryName: string;
+  attributes: ParsedAttribute[];
+}
 export const inventoryController = {
   // Controller - inventoryController.js
 
@@ -270,8 +304,8 @@ export const inventoryController = {
   //       const kind = (template.kind || "UNKNOWN").toLowerCase();
 
   //       // const itemCategory = template.productInfo.productCategory?.name;
-  //       const itemCategory = template.productInfo?.productCategory?.name || 
-  //                    template.productInfo?.productCategory?.toString() || 
+  //       const itemCategory = template.productInfo?.productCategory?.name ||
+  //                    template.productInfo?.productCategory?.toString() ||
   //                    "UNKNOWN";
 
   //       // console.log("kindiiii : ", kind);
@@ -291,32 +325,32 @@ export const inventoryController = {
   //       prodInfo.operating_system?.[0]?.value
   //     ];
   //     break;
-    // case "all in one":
-    //   fields = [
-    //     prodInfo.type?.[0]?.value,
-    //     prodInfo.memory?.[0]?.value,
-    //     prodInfo.processor_description?.[0]?.value,
-    //     prodInfo.operating_system?.[0]?.value
-    //   ];
+  // case "all in one":
+  //   fields = [
+  //     prodInfo.type?.[0]?.value,
+  //     prodInfo.memory?.[0]?.value,
+  //     prodInfo.processor_description?.[0]?.value,
+  //     prodInfo.operating_system?.[0]?.value
+  //   ];
 
-    //       case "mini pc":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "computers":
-    //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
-    //         break;
-    //       case "projectors":
-    //         fields = [prodInfo.type, prodInfo.model];
-    //         break;
-    //       case "monitors":
-    //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
-    //         break;
-    //       case "gaming pc":
-    //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
-    //         break;
-    //       case "network equipments":
-    //         fields = [prodInfo.networkType, prodInfo.processorType];
-    //         break;
+  //       case "mini pc":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "computers":
+  //         fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
+  //         break;
+  //       case "projectors":
+  //         fields = [prodInfo.type, prodInfo.model];
+  //         break;
+  //       case "monitors":
+  //         fields = [prodInfo.screenSize, prodInfo.maxResolution];
+  //         break;
+  //       case "gaming pc":
+  //         fields = [prodInfo.processor, prodInfo.gpu, prodInfo.operatingSystem];
+  //         break;
+  //       case "network equipments":
+  //         fields = [prodInfo.networkType, prodInfo.processorType];
+  //         break;
   //         default:
   //           fields = ["UNKNOWN"];
   //       }
@@ -356,45 +390,45 @@ export const inventoryController = {
   //   }
   // },
   getAllTemplateInventoryNames: async (req: Request, res: Response) => {
-  try {
-    const templates = await inventoryService.getInventoryByCondition({
-      isTemplate: true,
-    });
-
-    if (!templates.length) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: "No templates found",
+    try {
+      const templates = await inventoryService.getInventoryByCondition({
+        isTemplate: true,
       });
-    }
 
-    const templateList = templates.map((template: any, index: number) => {
-      const inventoryId = template._id;
-      const templateAlias = template.alias;
-      const kind = (template.kind || "UNKNOWN").toLowerCase();
+      if (!templates.length) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "No templates found",
+        });
+      }
 
-      // Properly access the category name
-      const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
-      const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
+      const templateList = templates.map((template: any, index: number) => {
+        const inventoryId = template._id;
+        const templateAlias = template.alias;
+        const kind = (template.kind || "UNKNOWN").toLowerCase();
 
-      const prodInfo = template.prodTechInfo || {};
-      let fields: string[] = [];
+        // Properly access the category name
+        const itemCategory = template.productInfo?.productCategory?.name || "UNKNOWN";
+        const title = template.productInfo?.item_name?.[0]?.value || "Untitled";
 
-      // Use proper field access based on your actual data structure
-      switch (itemCategory.toLowerCase()) {
-        case "laptops":
-          fields = [
-            prodInfo.processor_description?.[0]?.value || prodInfo.processor,
-            prodInfo.model_name?.[0]?.value || prodInfo.model,
-          ];
-          break;
-              case "all in one":
-      fields = [
-        prodInfo.type?.[0]?.value,
-        prodInfo.memory?.[0]?.value,
-        prodInfo.processor_description?.[0]?.value,
-        prodInfo.operating_system?.[0]?.value
-      ];
+        const prodInfo = template.prodTechInfo || {};
+        let fields: string[] = [];
+
+        // Use proper field access based on your actual data structure
+        switch (itemCategory.toLowerCase()) {
+          case "laptops":
+            fields = [
+              prodInfo.processor_description?.[0]?.value || prodInfo.processor,
+              prodInfo.model_name?.[0]?.value || prodInfo.model,
+            ];
+            break;
+          case "all in one":
+            fields = [
+              prodInfo.type?.[0]?.value,
+              prodInfo.memory?.[0]?.value,
+              prodInfo.processor_description?.[0]?.value,
+              prodInfo.operating_system?.[0]?.value,
+            ];
 
           case "mini pc":
             fields = [prodInfo.type, prodInfo.memory, prodInfo.processor, prodInfo.operatingSystem];
@@ -414,39 +448,39 @@ export const inventoryController = {
           case "network equipments":
             fields = [prodInfo.networkType, prodInfo.processorType];
             break;
-        // Add other cases
-        default:
-          fields = ["UNKNOWN"];
-      }
+          // Add other cases
+          default:
+            fields = ["UNKNOWN"];
+        }
 
-      const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
-      const srno = (index + 1).toString().padStart(2, "0");
-      const templateName = 
-        ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
+        const fieldString = fields.filter(Boolean).join("-") || "UNKNOWN";
+        const srno = (index + 1).toString().padStart(2, "0");
+        const templateName =
+          ` ${kind === "part" ? "PART" : "PRODUCT"} || Title:${title} || Category:${itemCategory} || Fields: ${fieldString} || Sr.no: ${srno}`.toUpperCase();
 
-      return { templateName, inventoryId, templateAlias };
-    });
+        return { templateName, inventoryId, templateAlias };
+      });
 
-    // Sorting logic remains the same
-    templateList.sort((a, b) => {
-      const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
-      const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
-      return numB - numA;
-    });
+      // Sorting logic remains the same
+      templateList.sort((a, b) => {
+        const numA = Number(a.templateName.match(/\d+$/)?.[0] || 0);
+        const numB = Number(b.templateName.match(/\d+$/)?.[0] || 0);
+        return numB - numA;
+      });
 
-    return res.status(StatusCodes.OK).json({
-      success: true,
-      message: "Templates fetched successfully",
-      data: templateList,
-    });
-  } catch (error: any) {
-    console.error("Error fetching templates:", error);
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: error.message || "Error fetching templates",
-    });
-  }
-},
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Templates fetched successfully",
+        data: templateList,
+      });
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error fetching templates",
+      });
+    }
+  },
   //Get All Draft Inventory Names
   getAllDraftInventoryNames: async (req: Request, res: Response) => {
     try {
@@ -1011,9 +1045,6 @@ export const inventoryController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
-
-  //bulk import inventory as CSV
-
   updateVariations: async (req: Request, res: Response) => {
     try {
       const { id } = req.params; // Inventory ID
@@ -1056,91 +1087,460 @@ export const inventoryController = {
     }
   },
 
-//bulk delete
-bulkDeleteInventory: async (req: Request, res: Response) => {
-  try {
-    // First check if body exists and has inventoryIds
-    // if (!req.body || !req.body.inventoryIds) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Request body must contain inventoryIds array"
-    //   });
-    // }
+  //bulk delete
+  bulkDeleteInventory: async (req: Request, res: Response) => {
+    try {
+      // First check if body exists and has inventoryIds
+      // if (!req.body || !req.body.inventoryIds) {
+      //   return res.status(400).json({
+      //     success: false,
+      //     message: "Request body must contain inventoryIds array"
+      //   });
+      // }
 
-    const { inventoryIds= [], selectAllPages = false, filters = {} } = req.body;
+      const { inventoryIds = [], selectAllPages = false, filters = {} } = req.body;
 
-    if (selectAllPages) {
-          // Handle filter-based deletion
-          const query: any = {};
-          
-          if (filters.status) {
-            query.status = filters.status;
-          }
-          if (filters.isTemplate !== undefined) {
-            query.isTemplate = filters.isTemplate;
-          }
-          if (filters.isBlocked !== undefined) {
-            query.isBlocked = filters.isBlocked;
-          }
-    
-          const result = await Inventory.deleteMany(query);
-          return res.status(200).json({
-            success: true,
-            message: `Deleted ${result.deletedCount} listings`,
-            deletedCount: result.deletedCount
+      if (selectAllPages) {
+        // Handle filter-based deletion
+        const query: any = {};
+
+        if (filters.status) {
+          query.status = filters.status;
+        }
+        if (filters.isTemplate !== undefined) {
+          query.isTemplate = filters.isTemplate;
+        }
+        if (filters.isBlocked !== undefined) {
+          query.isBlocked = filters.isBlocked;
+        }
+
+        const result = await Inventory.deleteMany(query);
+        return res.status(200).json({
+          success: true,
+          message: `Deleted ${result.deletedCount} listings`,
+          deletedCount: result.deletedCount,
+        });
+      } else {
+        // Ensure inventoryIds is an array
+        if (!Array.isArray(inventoryIds)) {
+          return res.status(400).json({
+            success: false,
+            message: "inventoryIds must be an array",
           });
-        } else {
-    // Ensure inventoryIds is an array
-    if (!Array.isArray(inventoryIds)) {
-      return res.status(400).json({
+        }
+      }
+
+      // Check if array is empty
+      if (inventoryIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "No inventory IDs provided",
+        });
+      }
+
+      // Validate each ID
+      const invalidIds = inventoryIds.filter((id) => {
+        // Handle cases where id might be null/undefined
+        if (!id) return true;
+        // Check if valid ObjectId
+        return !mongoose.Types.ObjectId.isValid(id);
+      });
+
+      if (invalidIds.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid inventory IDs: ${invalidIds.join(", ")}`,
+        });
+      }
+
+      // Perform deletion
+      const result = await Inventory.deleteMany({
+        _id: { $in: inventoryIds },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Deleted ${result.deletedCount} items`,
+        deletedCount: result.deletedCount,
+      });
+    } catch (error: any) {
+      console.error("Error in bulk delete:", error);
+      return res.status(500).json({
         success: false,
-        message: "inventoryIds must be an array"
+        message: error.message || "Failed to perform bulk delete",
+        // Only include stack in development
+        ...(process.env.NODE_ENV === "development" && { stack: error.stack }),
       });
     }
+  },
+
+  generateXLSXTemplate: async (req: Request, res: Response) => {
+    try {
+      const workbook = new ExcelJS.Workbook();
+      const categoryId = "PERSONAL_COMPUTER";
+      const categoryName = "Personal Computer";
+
+      const schema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
+      const parsedAttributes = await bulkImportStandardTemplateGenerator.parseSchemaAttributes(schema);
+
+      if (!parsedAttributes || parsedAttributes.length === 0) {
+        throw new Error("No attributes found for category");
+      }
+
+      const worksheet = workbook.addWorksheet(createSafeSheetName(categoryName, categoryId));
+      const enumSheets = createEnumSheets(workbook, parsedAttributes, categoryId);
+      const headers = prepareHeaders(parsedAttributes);
+
+      styleHeaders(worksheet, headers);
+      addDataValidation(worksheet, headers, parsedAttributes, enumSheets);
+
+      worksheet.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
+      const buffer = await generateAndSaveFile(workbook, res);
+
+      res.send(buffer);
+      console.log(`✅ XLSX template with category sheets generated successfully!`);
+      console.log(`📁 File saved to: ${path.join(__dirname, "../../exports")}`);
+      console.log(`🎯 Category processed: ${categoryName}`);
+    } catch (error: any) {
+      console.error("❌ Error generating XLSX template:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error generating XLSX template",
+        error: error.message,
+      });
+    }
+  },
+};
+
+// Creates a safe sheet name with proper length handling
+function createSafeSheetName(categoryName: string, categoryId: string): string {
+  const idPart = ` (${categoryId})`;
+  let safeName = categoryName.replace(/[\\/?*[\]:]/g, "");
+  const maxNameLength = 31 - idPart.length;
+  if (safeName.length > maxNameLength) {
+    safeName = safeName.slice(0, maxNameLength);
   }
+  return `${safeName}${idPart}`;
+}
 
-    // Check if array is empty
-    if (inventoryIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No inventory IDs provided"
+function createEnumSheets(workbook: ExcelJS.Workbook, attributes: ParsedAttribute[], categoryId: string): any {
+  const enumSheets: any = {};
+  const createdSheetNames = new Set<string>();
+
+  console.log(`[createEnumSheets] Starting to process ${attributes.length} attributes`);
+
+  // Filter enum attributes first to avoid processing non-enum attributes
+  const enumAttributes = attributes.filter(
+    (attr) => attr.type === "enum" && attr.enums && Array.isArray(attr.enums) && attr.enums.length > 0
+  );
+
+  console.log(`[createEnumSheets] Found ${enumAttributes.length} enum attributes to process`);
+
+  enumAttributes.forEach((attr: any, index) => {
+    try {
+      // Skip if we already processed this attribute
+      if (enumSheets[attr.name]) {
+        console.log(`[createEnumSheets] Skipping duplicate attribute: ${attr.name}`);
+        return;
+      }
+
+      // Create a more efficient base sheet name
+      const sanitizedAttrName = attr.name.replace(/[^a-zA-Z0-9]/g, "_");
+      const maxBaseLength = 20; // Leave room for counter and category
+      const truncatedAttrName =
+        sanitizedAttrName.length > maxBaseLength ? sanitizedAttrName.substring(0, maxBaseLength) : sanitizedAttrName;
+
+      const baseSheetName = `List_${truncatedAttrName}`;
+      let enumSheetName = baseSheetName;
+      let counter = 1;
+
+      // Handle duplicate sheet names with a maximum limit to prevent infinite loops
+      const maxAttempts = 999; // Reasonable limit
+      while (createdSheetNames.has(enumSheetName) && counter <= maxAttempts) {
+        enumSheetName = `${baseSheetName}_${counter}`;
+        counter++;
+      }
+
+      // If we couldn't find a unique name, use a timestamp-based approach
+      if (counter > maxAttempts) {
+        const timestamp = Date.now().toString().slice(-6);
+        enumSheetName = `List_${timestamp}`;
+      }
+
+      // Final length check and truncation
+      if (enumSheetName.length > 31) {
+        enumSheetName = enumSheetName.substring(0, 31);
+        // Ensure it's still unique after truncation
+        let truncatedCounter = 1;
+        let originalTruncated = enumSheetName;
+        while (createdSheetNames.has(enumSheetName) && truncatedCounter <= 99) {
+          const suffix = `_${truncatedCounter}`;
+          enumSheetName = originalTruncated.substring(0, 31 - suffix.length) + suffix;
+          truncatedCounter++;
+        }
+      }
+
+      console.log(
+        `[createEnumSheets] Processing ${index + 1}/${enumAttributes.length}: ${attr.name} -> ${enumSheetName}`
+      );
+
+      // Create the worksheet
+      const enumSheet = workbook.addWorksheet(enumSheetName);
+      createdSheetNames.add(enumSheetName);
+
+      // Add enum values to the sheet with batch processing for better performance
+      const enumValues = attr.enums.slice(0, 1000); // Limit to prevent memory issues
+      enumValues.forEach((value: string, rowIndex: number) => {
+        try {
+          const cell = enumSheet.getCell(rowIndex + 1, 1);
+          cell.value = String(value); // Ensure it's a string
+        } catch (cellError) {
+          console.warn(
+            `[createEnumSheets] Error setting cell value for ${attr.name} at row ${rowIndex + 1}:`,
+            cellError
+          );
+        }
       });
+
+      // Store the enum sheet info
+      enumSheets[attr.name] = {
+        sheetName: enumSheetName,
+        range: `${enumSheetName}!$A$1:$A${enumValues.length}`,
+        count: enumValues.length,
+      };
+
+      // Hide the sheet
+      enumSheet.state = "hidden";
+
+      // Log progress every 10 sheets
+      if ((index + 1) % 10 === 0) {
+        console.log(`[createEnumSheets] Progress: ${index + 1}/${enumAttributes.length} sheets created`);
+      }
+    } catch (error) {
+      console.error(`[createEnumSheets] Error processing attribute ${attr.name}:`, error);
+      // Continue processing other attributes instead of failing completely
+    }
+  });
+
+  console.log(`[createEnumSheets] Successfully created ${Object.keys(enumSheets).length} enum sheets`);
+  return enumSheets;
+}
+
+// Prepares headers for the worksheet
+function prepareHeaders(attributes: ParsedAttribute[]): string[] {
+  const uniqueHeaders = new Set<string>();
+  const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
+
+  staticHeaders.forEach((header) => uniqueHeaders.add(header));
+
+  attributes.forEach((attr) => {
+    let title = attr.name || "Unknown";
+    if (attr.required) title += "*";
+    if (attr.variation) title += " (variation allowed)";
+    uniqueHeaders.add(title);
+  });
+
+  return Array.from(uniqueHeaders);
+}
+
+// Styles worksheet headers
+function styleHeaders(worksheet: ExcelJS.Worksheet, headers: string[]) {
+  const headerRow = worksheet.getRow(1);
+  headers.forEach((header, index) => {
+    const cell = headerRow.getCell(index + 1);
+    cell.value = header;
+    cell.font = { bold: true, color: { argb: "FFFFFF" } };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "4472C4" },
+    };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+    cell.border = {
+      top: { style: "thin" },
+      left: { style: "thin" },
+      bottom: { style: "thin" },
+      right: { style: "thin" },
+    };
+  });
+
+  headers.forEach((header, index) => {
+    const column = worksheet.getColumn(index + 1);
+    column.width = Math.max(header.length + 5, 15);
+  });
+}
+
+// Optimized data validation with proper row handling
+function addDataValidation(
+  worksheet: ExcelJS.Worksheet,
+  headers: string[],
+  attributes: ParsedAttribute[],
+  enumSheets: any
+) {
+  console.log(`[addDataValidation] Starting validation for ${attributes.length} attributes`);
+  console.log(`[addDataValidation] Available enum sheets:`, Object.keys(enumSheets));
+
+  const enumAttributes = attributes.filter((attr) => attr.type === "enum" && attr.enums && attr.enums.length > 0);
+  console.log(`[addDataValidation] Processing ${enumAttributes.length} enum attributes`);
+
+  enumAttributes.forEach((attr, index) => {
+    try {
+      // Find the corresponding enum sheet using attribute name
+      const enumSheetInfo = enumSheets[attr.name];
+      if (!enumSheetInfo) {
+        console.warn(`[addDataValidation] No enum sheet found for attribute ${attr.name}`);
+        return;
+      }
+
+      // Find the header that matches this attribute
+      const possibleHeaders = [
+        attr.name,
+        `${attr.name}*`,
+        `${attr.name} (variation allowed)`,
+        `${attr.name}* (variation allowed)`,
+      ];
+
+      let headerIndex = -1;
+      let matchedHeader = "";
+
+      for (const possibleHeader of possibleHeaders) {
+        headerIndex = headers.indexOf(possibleHeader);
+        if (headerIndex >= 0) {
+          matchedHeader = possibleHeader;
+          break;
+        }
+      }
+
+      if (headerIndex >= 0) {
+        const columnLetter = String.fromCharCode(65 + headerIndex);
+
+        console.log(`[addDataValidation] Applying validation for ${attr.name} in column ${columnLetter}`);
+
+        // Pre-create rows to avoid "A Cell needs a Row" error
+        const maxRows = 100; // Reduced to a more reasonable number
+        for (let rowNum = 2; rowNum <= maxRows; rowNum++) {
+          try {
+            // Ensure the row exists before accessing the cell
+            const row = worksheet.getRow(rowNum);
+            if (!row) {
+              console.warn(`[addDataValidation] Could not get row ${rowNum} for ${attr.name}`);
+              continue;
+            }
+
+            const cell = row.getCell(headerIndex + 1); // Use 1-based column index
+            if (!cell) {
+              console.warn(
+                `[addDataValidation] Could not get cell at row ${rowNum}, column ${headerIndex + 1} for ${attr.name}`
+              );
+              continue;
+            }
+
+            cell.dataValidation = {
+              type: "list",
+              allowBlank: !attr.required,
+              formulae: [enumSheetInfo.range],
+              showErrorMessage: true,
+              errorStyle: "error",
+              errorTitle: "Invalid Entry",
+              error: `Value must be selected from the dropdown list for ${attr.name}`,
+              showInputMessage: true,
+              promptTitle: `Select ${attr.name}`,
+              prompt: "Click the dropdown arrow to select a value",
+            };
+
+            cell.border = {
+              top: { style: "thin" },
+              left: { style: "thin" },
+              bottom: { style: "thin" },
+              right: { style: "thin" },
+            };
+          } catch (cellError: any) {
+            console.warn(
+              `[addDataValidation] Error setting validation for ${attr.name} at row ${rowNum}:`,
+              cellError.message
+            );
+            // Continue with next row instead of breaking
+            continue;
+          }
+        }
+
+        // Alternative approach using range-based validation (more efficient)
+        try {
+          const columnRange = `${columnLetter}2:${columnLetter}${maxRows}`;
+          console.log(`[addDataValidation] Setting range validation for ${attr.name} on range ${columnRange}`);
+
+          // Apply validation to the entire range at once
+          worksheet.getColumn(headerIndex + 1).eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+            if (rowNumber > 1 && rowNumber <= maxRows) {
+              // Skip header row
+              try {
+                cell.dataValidation = {
+                  type: "list",
+                  allowBlank: !attr.required,
+                  formulae: [enumSheetInfo.range],
+                  showErrorMessage: true,
+                  errorStyle: "error",
+                  errorTitle: "Invalid Entry",
+                  error: `Value must be selected from the dropdown list for ${attr.name}`,
+                  showInputMessage: true,
+                  promptTitle: `Select ${attr.name}`,
+                  prompt: "Click the dropdown arrow to select a value",
+                };
+
+                cell.border = {
+                  top: { style: "thin" },
+                  left: { style: "thin" },
+                  bottom: { style: "thin" },
+                  right: { style: "thin" },
+                };
+              } catch (eachCellError) {
+                // Silently continue - this is expected for some cells
+              }
+            }
+          });
+        } catch (rangeError: any) {
+          console.warn(`[addDataValidation] Range validation failed for ${attr.name}:`, rangeError.message);
+        }
+
+        // Log progress
+        if ((index + 1) % 5 === 0) {
+          console.log(`[addDataValidation] Progress: ${index + 1}/${enumAttributes.length} validations applied`);
+        }
+      } else {
+        console.warn(`[addDataValidation] Header not found for attribute ${attr.name}`);
+      }
+    } catch (error: any) {
+      console.error(`[addDataValidation] Error processing validation for ${attr.name}:`, error.message);
+    }
+  });
+}
+
+// Optimized file generation with better error handling
+async function generateAndSaveFile(workbook: ExcelJS.Workbook, res: Response): Promise<Buffer> {
+  try {
+    console.log("[generateAndSaveFile] Starting file generation");
+
+    const buffer: any = await workbook.xlsx.writeBuffer();
+    const exportsDir = path.join(__dirname, "../../exports");
+
+    if (!fs.existsSync(exportsDir)) {
+      fs.mkdirSync(exportsDir, { recursive: true });
     }
 
-    // Validate each ID
-    const invalidIds = inventoryIds.filter(id => {
-      // Handle cases where id might be null/undefined
-      if (!id) return true;
-      // Check if valid ObjectId
-      return !mongoose.Types.ObjectId.isValid(id);
-    });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const filename = `category-template-${timestamp}.xlsx`;
+    const filepath = path.join(exportsDir, filename);
 
-    if (invalidIds.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid inventory IDs: ${invalidIds.join(', ')}`
-      });
-    }
+    fs.writeFileSync(filepath, buffer);
+    console.log(`[generateAndSaveFile] File saved: ${filename}`);
 
-    // Perform deletion
-    const result = await Inventory.deleteMany({
-      _id: { $in: inventoryIds }
-    });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Length", buffer.length);
 
-    return res.status(200).json({
-      success: true,
-      message: `Deleted ${result.deletedCount} items`,
-      deletedCount: result.deletedCount
-    });
-
-  } catch (error: any) {
-    console.error("Error in bulk delete:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to perform bulk delete",
-      // Only include stack in development
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
+    return buffer;
+  } catch (error) {
+    console.error("[generateAndSaveFile] Error generating file:", error);
+    throw error;
   }
 }
-};

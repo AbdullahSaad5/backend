@@ -208,7 +208,6 @@ export const shiftController = {
     }
   },
 
-  // Delete shift
   deleteShift: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

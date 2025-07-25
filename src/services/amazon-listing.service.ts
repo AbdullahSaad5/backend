@@ -22,14 +22,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, token });
     } catch (error) {
       console.error("Error getting Amazon token:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to get application token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get application token",
+        details: error,
+      });
     }
   },
 
@@ -132,14 +130,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.error("Error in authorization callback:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to exchange code for access token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to exchange code for access token",
+        details: error,
+      });
     }
   },
 
@@ -149,14 +145,12 @@ export const amazonListingService = {
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       console.error("Error refreshing token:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to refresh Amazon access token",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to refresh Amazon access token",
+        details: error,
+      });
     }
   },
   // Function to check the status of your submitted listing
@@ -1177,6 +1171,7 @@ export const amazonListingService = {
         populatedListing.productInfo.productCategory.amazonCategoryId ||
         populatedListing.productInfo.productCategory.categoryId ||
         "NOTEBOOK_COMPUTER";
+      const listPrice = variation.retailPrice;
       console.log("variation.retailPrice", variation.retailPrice);
       const childSku = amazonListingService.generateChildSku(variation);
 
@@ -1192,6 +1187,7 @@ export const amazonListingService = {
           condition_type: condition_type || [{ value: "new_new" }],
           item_name: item_name || [],
           brand: brand || [],
+
           product_description: product_description || [],
           child_parent_sku_relationship: [
             { child_relationship_type: "variation", marketplace_id: "A1F83G8C2ARO7P", parent_sku: sku },
@@ -1229,6 +1225,7 @@ export const amazonListingService = {
           item_display_weight: item_display_weight || [],
           item_package_weight: item_package_weight || [],
           item_package_dimensions: item_package_dimensions || [],
+          list_price: [{ currency: "GBP", value_with_tax: listPrice, marketplace_id: "A1F83G8C2ARO7P" }],
           epr_product_packaging: epr_product_packaging || [],
           ...amazonListingService.prepareChildImageLocators(variation),
           ...amazonListingService.getChildCommonAttributes(populatedListing.prodTechInfo, variation),
@@ -1473,26 +1470,80 @@ export const amazonListingService = {
         throw new Error("Missing or invalid Amazon access token");
       }
 
+      // Debug logging
+      // console.log("🔍 Debug - marketplaceId:", marketplaceId);
+      // console.log("🔍 Debug - sellerId:", sellerId);
+      // console.log("🔍 Debug - redirectUri:", redirectUri);
+      // console.log("🔍 Debug - token present:", !!token);
+      // console.log("🔍 Debug - token first 20 chars:", token.substring(0, 20) + "...");
+
       const currentDate = new Date();
       const startDate = new Date(currentDate.getTime() - 90 * 24 * 60 * 60 * 1000); // 90 days ago
 
-      const response = await fetch(
-        `${process.env.AMAZON_API_ENDPOINT}/orders/v0/orders?CreatedAfter=${startDate.toISOString()}`,
-        { headers: { Authorization: `Bearer ${token}`, "x-amz-access-token": token } }
-      );
+      // Try different parameter formats - Amazon SP-API Orders might expect different names
+      const queryParams = new URLSearchParams();
 
-      const orders = await response.json();
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: orders });
+      // Use the exact Amazon SP-API parameter name: MarketplaceIds (capital M, I, plural)
+      queryParams.append('MarketplaceIds', marketplaceId);
+      queryParams.append('CreatedAfter', startDate.toISOString());
+
+      // Add sellerId if available
+      if (sellerId) {
+        queryParams.append('SellerId', sellerId);
+      }
+
+      const finalUrl = `${redirectUri}/orders/v0/orders?${queryParams.toString()}`;
+      
+
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "x-amz-access-token": token,
+        "Content-Type": "application/json"
+      };
+      console.log("🔍 Debug - Headers:", JSON.stringify(headers, null, 2));
+
+      const response = await fetch(finalUrl, {
+        method: 'GET',
+        headers
+      });
+
+      // Parse response as text, then try/catch JSON.parse (like other functions)
+      const rawResponse = await response.text();
+      let orders: any = {};
+      try {
+        orders = JSON.parse(rawResponse);
+      } catch (err) {
+        console.error("Error parsing Amazon Orders API response as JSON", err);
+        orders = { error: "Failed to parse Amazon Orders API response" };
+      }
+
+      // Log for debugging
+      // console.log("Amazon Orders API response:", rawResponse);
+      // console.log("🔍 Debug - Response status:", response.status);
+      // console.log("🔍 Debug - Response headers:", Object.fromEntries(response.headers.entries()));
+
+      if (response.ok) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: ReasonPhrases.OK,
+          data: orders
+        });
+      } else {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Failed to fetch Amazon orders",
+          error: orders.error || orders.message || "Amazon API error",
+          details: orders
+        });
+      }
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to fetch Amazon orders",
-          details: error,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to fetch Amazon orders",
+        details: error.message,
+      });
     }
   },
 
@@ -1598,14 +1649,12 @@ export const amazonListingService = {
         .json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: transformedCategories });
     } catch (error: any) {
       console.error("❌ Error getting Amazon categories:", error);
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-          error: "Failed to get Amazon categories",
-          details: error.message,
-        });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get Amazon categories",
+        details: error.message,
+      });
     }
   },
 

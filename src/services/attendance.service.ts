@@ -3,7 +3,6 @@ import { Attendance } from "@/models/attendance.model";
 import { Address, User } from "@/models";
 import { Types } from "mongoose";
 import { Shift } from "@/models/workshift.model";
-
 export const attendanceService = {
   // Employee self check-in
   checkIn: async (

@@ -12,8 +12,8 @@ export interface ITicket extends Document {
   assignedTo?: Types.ObjectId;  // Changed to reference User
   createDate: Date;
   dueDate: Date;
-  status: "Open" | "In Progress" | "Closed"| "Resolved";
-  priority: "Low" | "Medium" | "High"| "Urgent";
+  status: "Open" | "In Progress" | "Closed" | "Resolved";
+  priority: "Low" | "Medium" | "High" | "Urgent";
   role: Types.ObjectId;  // Changed from department to role (references UserCategory)
   description: string;
   resolution?: {
@@ -21,6 +21,8 @@ export interface ITicket extends Document {
     resolvedBy: Types.ObjectId;
     closedAt: Date;
   };
+  isEscalated?: boolean;
+  chatMessageId?: string;
 }
 
 export type TicketModel = Model<ITicket>;

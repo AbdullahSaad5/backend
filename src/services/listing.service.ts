@@ -432,6 +432,7 @@ export const listingService = {
         publishToEbay,
         publishToWebsite,
         status,
+        listingType,
         startDate,
         endDate,
         page = 1,
@@ -462,49 +463,22 @@ export const listingService = {
           ProductCategory.find({
             name: { $regex: searchQuery, $options: "i" },
           }).select("_id"),
-
-          // ProductSupplier.find({
-          //   $or: [
-          //     { firstName: { $regex: searchQuery, $options: "i" } },
-          //     { lastName: { $regex: searchQuery, $options: "i" } },
-          //   ],
-          // }).select("_id"),
         ]);
 
-        // Support full name searches like "Asad Khan"
-        // if (searchQuery.includes(" ")) {
-        //   const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
-        //   const fullNameMatches = await ProductSupplier.find({
-        //     $or: [
-        //       {
-        //         $and: [
-        //           { firstName: { $regex: firstNameQuery, $options: "i" } },
-        //           { lastName: { $regex: lastNameQuery, $options: "i" } },
-        //         ],
-        //       },
-        //     ],
-        //   }).select("_id");
-
-        //   productSuppliers.push(...fullNameMatches);
-        // }
-
         // Add ObjectId-based search conditions
-        query.$or.push(
-          {
-            "productInfo.productCategory": {
-              $in: productCategories.map((c) => c._id),
-            },
-          }
-          // {
-          //   "productInfo.productSupplier": {
-          //     $in: productSuppliers.map((s) => s._id),
-          //   },
-          // }
-        );
+        query.$or.push({
+          "productInfo.productCategory": {
+            $in: productCategories.map((c) => c._id),
+          },
+        });
       }
 
       if (status && ["draft", "published"].includes(status)) {
         query.status = status;
+      }
+
+      if (listingType && ["product", "part", "bundle"].includes(listingType)) {
+        query.listingType = listingType;
       }
 
       if (isBlocked !== undefined) {
