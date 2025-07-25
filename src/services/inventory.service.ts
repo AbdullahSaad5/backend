@@ -18,12 +18,6 @@ function pick(obj: any, keys: string[]) {
 interface ExportParams {
   inventoryIds: string[];
   selectAllPages: boolean;
-  // filters: {
-  //   category?: string;
-  //   search?: string;
-  //   // Add other filter properties as needed
-  //   [key: string]: any;
-  // };
 }
 
 interface ExportResult {
@@ -31,7 +25,27 @@ interface ExportResult {
   file: string;
   totalExported: number;
 }
-
+const categoryVariationAspects: { [key: string]: string[] } = {
+  PERSONAL_COMPUTER: [
+    "processor_description",
+    "hard_disk.size",
+    "display.size",
+    "memory_storage_capacity",
+    "computer_memory.size",
+  ],
+  LAPTOP: [
+    "processor_description",
+    "hard_disk.size",
+    "display.size",
+    "memory_storage_capacity",
+    "computer_memory.size",
+  ],
+  MONITOR: ["display.size", "display.resolution"],
+  MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
+  TABLET: ["memory_storage_capacity", "display.size", "color"],
+  HEADPHONES: ["color", "connection_type"],
+  CAMERA: ["color", "memory_storage_capacity"],
+};
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
@@ -709,9 +723,7 @@ export const inventoryService = {
     const { inventoryIds, selectAllPages } = params;
 
     // Generate cache key based on export parameters
-    const cacheKey = selectAllPages
-      ? generateCacheKeyForAllItems() // Fixed: removed filters reference
-      : generateCacheKey(inventoryIds);
+    const cacheKey = selectAllPages ? generateCacheKeyForAllItems() : generateCacheKey(inventoryIds);
 
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
@@ -726,16 +738,11 @@ export const inventoryService = {
     let items: any[];
 
     if (selectAllPages) {
-      // Export ALL items without any filters
       console.log("Exporting all items from database");
-
-      items = await Inventory.find({}) // Empty query = get all items
-        .populate("productInfo.productCategory", "name")
-        .lean();
+      items = await Inventory.find({}).populate("productInfo.productCategory", "name amazonCategoryId").lean();
     } else {
-      // Export specific items by IDs
       items = await Inventory.find({ _id: { $in: inventoryIds } })
-        .populate("productInfo.productCategory", "name")
+        .populate("productInfo.productCategory", "name amazonCategoryId")
         .lean();
     }
 
@@ -745,31 +752,216 @@ export const inventoryService = {
 
     console.log(`Found ${items.length} items to export`);
 
+    // Helper function to recursively flatten nested objects
+    const flattenObject = (obj: any, prefix: string = "", result: Record<string, any> = {}): Record<string, any> => {
+      if (Array.isArray(obj)) {
+        // Handle arrays - create columns for each array element's properties
+        obj.forEach((item, index) => {
+          if (typeof item === "object" && item !== null) {
+            // For each object in array, flatten its properties
+            Object.keys(item).forEach((key) => {
+              const columnName = prefix ? `${prefix}.${key}` : key;
+              if (typeof item[key] === "object" && item[key] !== null && !Array.isArray(item[key])) {
+                // Recursively flatten nested objects
+                flattenObject(item[key], columnName, result);
+              } else {
+                // Store the value directly
+                if (!result[columnName]) result[columnName] = [];
+                result[columnName][index] = item[key];
+              }
+            });
+          } else {
+            // Simple array values
+            const columnName = prefix || "value";
+            if (!result[columnName]) result[columnName] = [];
+            result[columnName][index] = item;
+          }
+        });
+      } else if (typeof obj === "object" && obj !== null) {
+        // Handle objects
+        Object.keys(obj).forEach((key) => {
+          const columnName = prefix ? `${prefix}.${key}` : key;
+          if (typeof obj[key] === "object" && obj[key] !== null) {
+            flattenObject(obj[key], columnName, result);
+          } else {
+            result[columnName] = obj[key];
+          }
+        });
+      } else {
+        // Handle primitive values
+        result[prefix] = obj;
+      }
+
+      return result;
+    };
+
+    // Helper function to get all possible headers from all items
+    const getAllHeaders = (items: any[]): Set<string> => {
+      const allHeaders = new Set<string>();
+
+      items.forEach((item) => {
+        // Add direct fields
+        const directFields = [
+          "isBlocked",
+          "kind",
+          "status",
+          "isVariation",
+          "isMultiBrand",
+          "isTemplate",
+          "isPart",
+          "stockThreshold",
+          "createdAt",
+          "updatedAt",
+          "__v",
+        ];
+        directFields.forEach((field) => {
+          if (item[field] !== undefined) {
+            allHeaders.add(field);
+          }
+        });
+
+        // Add stocks array (if it has items)
+        if (item.stocks && Array.isArray(item.stocks) && item.stocks.length > 0) {
+          const stocksFlattened = flattenObject(item.stocks, "stocks");
+          Object.keys(stocksFlattened).forEach((header) => allHeaders.add(header));
+        } else {
+          allHeaders.add("stocks"); // Add empty stocks column
+        }
+
+        // Add category info from populated productCategory
+        allHeaders.add("productCategoryName");
+        allHeaders.add("productCategoryId");
+        allHeaders.add("amazonCategoryId");
+
+        // Dynamically flatten productInfo to get all possible headers
+        if (item.productInfo) {
+          Object.keys(item.productInfo).forEach((productKey) => {
+            // Skip the populated productCategory as we handle it separately
+            if (productKey === "productCategory") return;
+
+            const productValue = item.productInfo[productKey];
+            const flattened = flattenObject(productValue, productKey);
+            Object.keys(flattened).forEach((header) => allHeaders.add(header));
+          });
+        }
+
+        // Dynamically flatten prodTechInfo to get all possible headers
+        if (item.prodTechInfo) {
+          Object.keys(item.prodTechInfo).forEach((techKey) => {
+            const techValue = item.prodTechInfo[techKey];
+            const flattened = flattenObject(techValue, techKey);
+            Object.keys(flattened).forEach((header) => allHeaders.add(header));
+          });
+        }
+      });
+
+      return allHeaders;
+    };
+
+    // Helper function to extract flattened data for a single item
+    const extractItemData = (item: any, allHeaders: Set<string>): Record<string, any> => {
+      const flatRow: Record<string, any> = {};
+
+      // Initialize all headers with empty values
+      allHeaders.forEach((header) => {
+        flatRow[header] = "";
+      });
+
+      // Add direct fields
+      const directFields = [
+        "isBlocked",
+        "kind",
+        "status",
+        "isVariation",
+        "isMultiBrand",
+        "isTemplate",
+        "isPart",
+        "stockThreshold",
+        "createdAt",
+        "updatedAt",
+        "__v",
+      ];
+      directFields.forEach((field) => {
+        if (item[field] !== undefined) {
+          flatRow[field] = item[field]?.toString() || "";
+        }
+      });
+
+      // Handle stocks array
+      if (item.stocks && Array.isArray(item.stocks) && item.stocks.length > 0) {
+        const stocksFlattened = flattenObject(item.stocks, "stocks");
+        Object.entries(stocksFlattened).forEach(([header, value]) => {
+          if (Array.isArray(value)) {
+            flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
+          } else {
+            flatRow[header] = value?.toString() || "";
+          }
+        });
+      }
+
+      // Add category info from populated productCategory
+      if (item.productInfo?.productCategory) {
+        flatRow.productCategoryName = item.productInfo.productCategory.name || "";
+        flatRow.productCategoryId = item.productInfo.productCategory._id || item.productInfo.productCategory.$oid || "";
+        flatRow.amazonCategoryId = item.productInfo.productCategory.amazonCategoryId || "";
+      }
+
+      // Process productInfo dynamically
+      if (item.productInfo) {
+        Object.keys(item.productInfo).forEach((productKey) => {
+          // Skip the productCategory as we handle it separately
+          if (productKey === "productCategory") return;
+
+          const productValue = item.productInfo[productKey];
+          const flattened = flattenObject(productValue, productKey);
+
+          // Map flattened data to the row
+          Object.entries(flattened).forEach(([header, value]) => {
+            if (Array.isArray(value)) {
+              // Join array values with commas or take first value
+              flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
+            } else {
+              flatRow[header] = value?.toString() || "";
+            }
+          });
+        });
+      }
+
+      // Process prodTechInfo dynamically
+      if (item.prodTechInfo) {
+        Object.keys(item.prodTechInfo).forEach((techKey) => {
+          const techValue = item.prodTechInfo[techKey];
+          const flattened = flattenObject(techValue, techKey);
+
+          // Map flattened data to the row
+          Object.entries(flattened).forEach(([header, value]) => {
+            if (Array.isArray(value)) {
+              // Join array values with commas or take first value
+              flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
+            } else {
+              flatRow[header] = value?.toString() || "";
+            }
+          });
+        });
+      }
+
+      return flatRow;
+    };
+
     const categoryMap: Record<string, any[]> = {};
 
-    for (const item of items) {
-      const ebayId = item.productInfo?.ebayCategoryId || "unknown";
-      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
+    // Get all possible headers across all items
+    const allHeaders = getAllHeaders(items);
 
+    for (const item of items) {
+      const ebayId =
+        item.productInfo?.productCategory?.amazonCategoryId || item.productInfo?.amazonCategoryId || "unknown";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
       const rawSheetKey = `${categoryName} (${ebayId})`;
       const sheetKey = sanitizeSheetName(rawSheetKey);
-      const flatRow: Record<string, any> = {
-        Title: item.productInfo?.title || "",
-        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
-        Brand: Array.isArray(item.productInfo?.brand)
-          ? item.productInfo.brand.join(", ")
-          : item.productInfo?.brand || "",
-        condition_type: item.productInfo?.condition_type || "",
-        "Allow Variations": item.isVariation ? "yes" : "no",
-        Images: Array.isArray(item.productInfo?.inventoryImages)
-          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
-          : "",
-      };
 
-      // Add dynamic attributes
-      for (const [key, value] of Object.entries(item.prodTechInfo || {})) {
-        flatRow[key] = Array.isArray(value) ? value.join(", ") : value;
-      }
+      // Extract flattened data for this item
+      const flatRow = extractItemData(item, allHeaders);
 
       if (!categoryMap[sheetKey]) categoryMap[sheetKey] = [];
       categoryMap[sheetKey].push(flatRow);
@@ -780,8 +972,21 @@ export const inventoryService = {
 
     for (const [sheetName, rows] of Object.entries(categoryMap)) {
       if (rows.length === 0) continue;
-      const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max length is 31 chars
+
+      // Get headers from the first row (all rows should have same headers now)
+      const headers = Object.keys(rows[0]).sort();
+
+      // Format rows for Excel output
+      const formattedRows = rows.map((row) => {
+        const formattedRow: Record<string, any> = {};
+        headers.forEach((header) => {
+          formattedRow[header] = row[header]?.toString() || "";
+        });
+        return formattedRow;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(formattedRows, { header: headers });
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
     }
 
     // Write workbook to binary string
@@ -806,8 +1011,8 @@ export const inventoryService = {
       totalExported: items.length,
     };
 
-    // Cache the result (including metadata)
-    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300); // Cache 5 min
+    // Cache the result
+    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300);
 
     return {
       fromCache: false,
@@ -815,7 +1020,6 @@ export const inventoryService = {
       totalExported: items.length,
     };
   },
-
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
@@ -1068,17 +1272,15 @@ export const inventoryService = {
 };
 
 function sanitizeSheetName(name: string): string {
-  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31); // Excel limits sheet names to 31 chars
+  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31);
 }
 
-// Helper function to generate cache key for "export all" operations
 function generateCacheKeyForAllItems(): string {
   const crypto = require("crypto");
-  const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return `export_all_items_${timestamp}`; // Daily cache for all items
+  const timestamp = new Date().toISOString().slice(0, 10);
+  return `export_all_items_${timestamp}`;
 }
 
-// Your existing generateCacheKey function for specific IDs
 function generateCacheKey(inventoryIds: string[]): string {
   const sortedIds = [...inventoryIds].sort();
   const crypto = require("crypto");
