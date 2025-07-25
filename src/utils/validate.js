@@ -16,7 +16,7 @@
  *                                           Supports simple names like 'hard_disk' or nested paths like 'hard_disk.size' or 'hard_disk[*].size'
  * @returns {{valid:boolean,errors:Array<{path:string,message:string,title?:string,severity?:string,code?:string,category?:string,schemaPath?:string}>}}
  */
-export function validate(schema, data, variationAspects = []) {
+function validate(schema, data, variationAspects = []) {
   const errors = [];
   validateSchema(schema, data, "root", schema, errors, "", variationAspects);
   return { valid: errors.length === 0, errors };
