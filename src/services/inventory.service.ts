@@ -535,7 +535,6 @@ export const inventoryService = {
   },
 
   //bulk import inventory
-
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
@@ -545,37 +544,16 @@ export const inventoryService = {
 
       addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
 
-      const categoryVariationAspects: { [key: string]: string[] } = {
-        PERSONAL_COMPUTER: [
-          "processor_description",
-          "hard_disk.size",
-          "display.size",
-          "memory_storage_capacity",
-          "computer_memory.size",
-        ],
-        LAPTOP: [
-          "processor_description",
-          "hard_disk.size",
-          "display.size",
-          "memory_storage_capacity",
-          "computer_memory.size",
-        ],
-        MONITOR: ["display.size", "display.resolution"],
-        MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
-        TABLET: ["memory_storage_capacity", "display.size", "color"],
-        HEADPHONES: ["color", "connection_type"],
-        CAMERA: ["color", "memory_storage_capacity"],
-      };
-
       const bulkOperations: any = (
         await Promise.all(
           validRows
             .filter(({ data }) => data && (data.title || data.item_name))
             .map(async ({ row, data }) => {
               addLog(`\n📦 Row ${row}: Starting processing`);
-              addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
+              // addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
 
               try {
+                // Extract category ID and name from payload
                 const categoryId = data.productCategory || data.ebayCategoryId;
                 const categoryName = data.productCategoryName;
 
@@ -583,45 +561,20 @@ export const inventoryService = {
 
                 const matchedCategory = await ProductCategory.findOne({
                   $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
-                }).select("_id name");
+                }).select("_id name amazonCategoryId");
 
                 if (!matchedCategory) {
                   addLog(`❌ Row ${row}: No matching product category found.`);
                   return null;
                 }
 
-                addLog(`✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id})`);
+                addLog(
+                  `✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id}, Amazon ID: ${matchedCategory.amazonCategoryId})`
+                );
 
-                let amazonSchema = null;
-                let variationAspects: string[] | any = [];
-
-                try {
-                  amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
-                  const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
-                  variationAspects = categoryVariationAspects[categoryKey] || [];
-                  addLog(
-                    `📘 Row ${row}: Amazon schema & variation aspects fetched. Aspects: ${variationAspects.join(", ")}`
-                  );
-                } catch (schemaError: any) {
-                  addLog(`⚠️ Row ${row}: Schema fetch failed - ${schemaError.message}`);
-                }
-
+                // Process the payload with the category information
                 const processedPayload = processSheetDataToPayload(data, row);
-                addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
-
-                if (amazonSchema && processedPayload) {
-                  const validationResult = validate(amazonSchema, processedPayload, variationAspects);
-                  if (!validationResult.valid) {
-                    addLog(`❌ Row ${row}: Validation failed. Errors:`);
-                    validationResult.errors.forEach((error: any) => {
-                      const fieldName = error.title || error.path.replace("root.", "");
-                      addLog(`   • ${fieldName}: ${error.message}`);
-                    });
-                    addLog(`⚠️ Row ${row}: Continuing with validation errors...`);
-                  } else {
-                    addLog(`✅ Row ${row}: Payload validated successfully.`);
-                  }
-                }
+                // addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
 
                 let title = extractNestedValue(data, ["title", "item_name"]);
                 if (!title) {
@@ -644,27 +597,16 @@ export const inventoryService = {
                   }
                 }
 
-                addLog(`🏷️ Row ${row}: Brands found: ${brandList.join(", ")}`);
+                addLog(`🏷️ Row ${row}: Brand found: ${brandList.join(", ")}`);
 
                 const isMultiBrand = brandList.length > 1;
-
-                const inventoryImages = (data.images || []).map((img: any) => {
-                  const url = img.value || img.url || img;
-                  return {
-                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    size: 0,
-                    url: url,
-                    type: "image/jpeg",
-                  };
-                });
-
-                addLog(`🖼️ Row ${row}: Image URLs: ${inventoryImages.map((img: any) => img.url).join(", ")}`);
 
                 let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
 
                 const productInfo: any = {
                   productCategory: matchedCategory._id,
-                  amazonCategoryId: categoryId,
+                  // Use the Amazon category ID from the matched category or fallback to extracted ID
+                  amazonCategoryId: matchedCategory.amazonCategoryId || categoryId,
                   item_name: [
                     {
                       _id: false,
@@ -681,8 +623,15 @@ export const inventoryService = {
                       marketplace_id: "A1F83G8C2ARO7P",
                     },
                   ],
-                  inventoryImages,
-                  condition_type: conditionType,
+                  condition_type: [
+                    {
+                      _id: false,
+                      value: conditionType,
+                      // Optionally include other fields like language_tag or marketplace_id if required by the schema
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
                   brand: [
                     {
                       _id: false,
@@ -706,10 +655,12 @@ export const inventoryService = {
                   "allow_variations",
                 ]);
 
-                addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
+                // addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
 
+                // Use the Amazon category ID for determining kind type
+                const usedCategoryId = matchedCategory.amazonCategoryId || categoryId;
                 const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
-                const kindType = productCategoryIds.has(categoryId?.toString()) ? "product" : "part";
+                const kindType = productCategoryIds.has(usedCategoryId?.toString()) ? "product" : "part";
                 const isPart = kindType === "part";
 
                 const allowVariations = extractNestedValue(data, ["allow_variations"]);
@@ -729,7 +680,9 @@ export const inventoryService = {
                   productInfo,
                 };
 
-                addLog(`✅ Row ${row}: Final Document Ready: ${JSON.stringify(docToInsert, null, 2)}`);
+                addLog(
+                  `✅ Row ${row}: Final Document Ready (Amazon Category ID: ${usedCategoryId}): ${JSON.stringify(docToInsert, null, 2)}`
+                );
 
                 return {
                   insertOne: {
@@ -750,7 +703,7 @@ export const inventoryService = {
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted.`);
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted (validation skipped).`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
       console.error("Full error:", error);
@@ -1138,18 +1091,31 @@ function generateCacheKey(inventoryIds: string[]): string {
 }
 
 function extractNestedValue(data: any, fieldNames: string[]): any {
-  for (const fieldName of fieldNames) {
-    if (data[fieldName]) {
-      if (Array.isArray(data[fieldName]) && data[fieldName].length > 0) {
-        return data[fieldName][0].value || data[fieldName][0];
-      } else if (typeof data[fieldName] === "string") {
-        return data[fieldName];
+  for (let fieldName of fieldNames) {
+    // Normalize field name for case-insensitive and special character matching
+    const normalizedFieldName = fieldName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    // Find matching key in data (case-insensitive, ignoring special characters)
+    const matchingKey = Object.keys(data).find(
+      (key) => key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedFieldName
+    );
+
+    if (matchingKey && data[matchingKey]) {
+      const value = data[matchingKey];
+      if (Array.isArray(value) && value.length > 0) {
+        return value[0].value || value[0];
+      } else if (typeof value === "string") {
+        return value;
+      } else {
+        return value.toString();
       }
     }
   }
+
+  // Log warning if no matching field is found
+  console.log(`⚠️ extractNestedValue: No matching field found for ${fieldNames.join(", ")} in data`);
   return null;
 }
-
 // Helper function to process sheet data into proper payload format
 function processSheetDataToPayload(data: any, row: number): any {
   const payload: any = {};
