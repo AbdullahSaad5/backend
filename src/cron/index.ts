@@ -1,9 +1,9 @@
-import { every10Second } from "./Every10Second";
-import { anotherCron } from "./AnotherCron";
 import { ebayMessageSync } from "./EbayMessageSync";
+import { autoCheckoutCron } from "./attendance";
+import { markAbsentCron } from "./attendance";
 
 export function initCron() {
-  every10Second();
-  anotherCron();
+  autoCheckoutCron();
+  markAbsentCron();
   ebayMessageSync();
 }
