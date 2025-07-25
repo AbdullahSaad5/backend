@@ -13,22 +13,28 @@ export const workmodeService = {
 
   async getAllWorkmodes() {
     return await Workmode.find()
-      .populate("employees", "firstName lastName email userType")
+      .populate({
+        path: "employees",
+        select: "firstName lastName email userType",
+        populate: { path: "userType", select: "role" },
+      })
       .sort({ createdAt: -1 });
   },
 
   async getWorkmodeById(id: string) {
-    return await Workmode.findById(id).populate(
-      "employees",
-      "firstName lastName email userType"
-    );
+    return await Workmode.findById(id).populate({
+      path: "employees",
+      select: "firstName lastName email userType",
+      populate: { path: "userType", select: "role" },
+    });
   },
 
   async updateWorkmode(id: string, data: Partial<IWorkmode>) {
-    return await Workmode.findByIdAndUpdate(id, data, { new: true }).populate(
-      "employees",
-      "firstName lastName email userType"
-    );
+    return await Workmode.findByIdAndUpdate(id, data, { new: true }).populate({
+      path: "employees",
+      select: "firstName lastName email userType",
+      populate: { path: "userType", select: "role" },
+    });
   },
 
   async patchWorkmode(id: string, employeeIds: string[]) {
@@ -38,7 +44,11 @@ export const workmodeService = {
       id,
       { $addToSet: { employees: { $each: employeeIds } } },
       { new: true }
-    ).populate("employees", "firstName lastName email userType");
+    ).populate({
+      path: "employees",
+      select: "firstName lastName email userType",
+      populate: { path: "userType", select: "role" },
+    });
   },
 
   async deleteWorkmode(id: string) {
@@ -47,9 +57,6 @@ export const workmodeService = {
 
   async removeUsersFromOtherWorkmodes(userIds: string[]) {
     // Remove these users from all other workmodes
-    await Workmode.updateMany(
-      { employees: { $in: userIds } },
-      { $pullAll: { employees: userIds } }
-    );
+    await Workmode.updateMany({ employees: { $in: userIds } }, { $pullAll: { employees: userIds } });
   },
 };

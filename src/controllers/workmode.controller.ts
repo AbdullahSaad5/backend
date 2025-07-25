@@ -7,14 +7,8 @@ import { Workmode } from "@/models/workmode.model";
 
 // Remove user from all workmodes and workshifts
 async function removeUserFromAllModesAndShifts(userId: string) {
-  await Workmode.updateMany(
-    { employees: userId },
-    { $pull: { employees: userId } }
-  );
-  await Shift.updateMany(
-    { employees: userId },
-    { $pull: { employees: userId } }
-  );
+  await Workmode.updateMany({ employees: userId }, { $pull: { employees: userId } });
+  await Shift.updateMany({ employees: userId }, { $pull: { employees: userId } });
 }
 
 export const workmodeController = {
@@ -43,9 +37,7 @@ export const workmodeController = {
         description,
         employees,
       });
-      const populated = await workmodeService.getWorkmodeById(
-        newWorkmode._id as string
-      );
+      const populated = await workmodeService.getWorkmodeById(newWorkmode._id as string);
       return res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Workmode created successfully",
@@ -145,10 +137,7 @@ export const workmodeController = {
           await removeUserFromAllModesAndShifts(userId);
         }
       }
-      if (
-        updateData.employees &&
-        updateData.employees.some((eid: string) => !isValidObjectId(eid))
-      ) {
+      if (updateData.employees && updateData.employees.some((eid: string) => !isValidObjectId(eid))) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Invalid employee IDs provided",
@@ -248,6 +237,41 @@ export const workmodeController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error deleting workmode",
+        error: error.message,
+      });
+    }
+  },
+  unassignEmployee: async (req: Request, res: Response) => {
+    try {
+      const { workmodeId, employeeId } = req.params;
+
+      if (!isValidObjectId(workmodeId) || !isValidObjectId(employeeId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid workmode or employee ID",
+        });
+      }
+
+      const workmode = await Workmode.findById(workmodeId);
+      if (!workmode) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Workmode not found",
+        });
+      }
+
+      workmode.employees = workmode.employees.filter((id) => id.toString() !== employeeId);
+      await workmode.save();
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Employee unassigned from workmode successfully",
+        data: workmode,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to unassign employee",
         error: error.message,
       });
     }

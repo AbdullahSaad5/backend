@@ -24,4 +24,6 @@ export const workmode = (router: Router) => {
 
   // Delete workmode
   router.delete("/:id", workmodeController.deleteWorkmode);
+
+  router.delete("/:workmodeId/employees/:employeeId", workmodeController.unassignEmployee);
 };
