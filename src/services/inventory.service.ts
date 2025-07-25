@@ -752,47 +752,110 @@ export const inventoryService = {
 
     console.log(`Found ${items.length} items to export`);
 
-    // Helper function to recursively flatten nested objects
-    const flattenObject = (obj: any, prefix: string = "", result: Record<string, any> = {}): Record<string, any> => {
-      if (Array.isArray(obj)) {
-        // Handle arrays - create columns for each array element's properties
-        obj.forEach((item, index) => {
+    // Helper function to recursively analyze structure and create headers with identification columns
+    const analyzeStructure = (obj: any, prefix: string = "", headers: Set<string>): void => {
+      if (Array.isArray(obj) && obj.length > 0) {
+        // Add identification column for the array attribute
+        headers.add(prefix);
+
+        // Process each object in the array
+        obj.forEach((item) => {
           if (typeof item === "object" && item !== null) {
-            // For each object in array, flatten its properties
             Object.keys(item).forEach((key) => {
-              const columnName = prefix ? `${prefix}.${key}` : key;
-              if (typeof item[key] === "object" && item[key] !== null && !Array.isArray(item[key])) {
-                // Recursively flatten nested objects
-                flattenObject(item[key], columnName, result);
+              const currentPath = prefix ? `${prefix}.${key}` : key;
+
+              if (Array.isArray(item[key]) && item[key].length > 0) {
+                // Sub-nested array - add identification column
+                headers.add(currentPath);
+
+                // Process sub-array items
+                item[key].forEach((subItem: any) => {
+                  if (typeof subItem === "object" && subItem !== null) {
+                    Object.keys(subItem).forEach((subKey) => {
+                      headers.add(`${currentPath}.${subKey}`);
+                    });
+                  }
+                });
+              } else if (typeof item[key] === "object" && item[key] !== null) {
+                // Nested object (not array)
+                Object.keys(item[key]).forEach((nestedKey) => {
+                  headers.add(`${currentPath}.${nestedKey}`);
+                });
               } else {
-                // Store the value directly
-                if (!result[columnName]) result[columnName] = [];
-                result[columnName][index] = item[key];
+                // Simple value
+                headers.add(currentPath);
               }
             });
-          } else {
-            // Simple array values
-            const columnName = prefix || "value";
-            if (!result[columnName]) result[columnName] = [];
-            result[columnName][index] = item;
           }
         });
-      } else if (typeof obj === "object" && obj !== null) {
-        // Handle objects
+      } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+        // Regular object - process its keys
         Object.keys(obj).forEach((key) => {
-          const columnName = prefix ? `${prefix}.${key}` : key;
+          const currentPath = prefix ? `${prefix}.${key}` : key;
           if (typeof obj[key] === "object" && obj[key] !== null) {
-            flattenObject(obj[key], columnName, result);
+            analyzeStructure(obj[key], currentPath, headers);
           } else {
-            result[columnName] = obj[key];
+            headers.add(currentPath);
           }
         });
       } else {
-        // Handle primitive values
+        // Primitive value
+        headers.add(prefix);
+      }
+    };
+
+    // Helper function to extract data according to the structure
+    const extractData = (obj: any, prefix: string = "", result: Record<string, any> = {}): void => {
+      if (Array.isArray(obj) && obj.length > 0) {
+        // Mark identification column as having data
+        result[prefix] = "NESTED_ARRAY";
+
+        // Process each object in the array
+        obj.forEach((item) => {
+          if (typeof item === "object" && item !== null) {
+            Object.keys(item).forEach((key) => {
+              const currentPath = prefix ? `${prefix}.${key}` : key;
+
+              if (Array.isArray(item[key]) && item[key].length > 0) {
+                // Sub-nested array - mark identification column
+                result[currentPath] = "NESTED_ARRAY";
+
+                // Process sub-array items
+                item[key].forEach((subItem: any, index: number) => {
+                  if (typeof subItem === "object" && subItem !== null) {
+                    Object.keys(subItem).forEach((subKey) => {
+                      const subPath = `${currentPath}.${subKey}`;
+                      if (!result[subPath]) result[subPath] = [];
+                      result[subPath][index] = subItem[subKey];
+                    });
+                  }
+                });
+              } else if (typeof item[key] === "object" && item[key] !== null) {
+                // Nested object (not array)
+                Object.keys(item[key]).forEach((nestedKey) => {
+                  result[`${currentPath}.${nestedKey}`] = item[key][nestedKey];
+                });
+              } else {
+                // Simple value
+                result[currentPath] = item[key];
+              }
+            });
+          }
+        });
+      } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+        // Regular object
+        Object.keys(obj).forEach((key) => {
+          const currentPath = prefix ? `${prefix}.${key}` : key;
+          if (typeof obj[key] === "object" && obj[key] !== null) {
+            extractData(obj[key], currentPath, result);
+          } else {
+            result[currentPath] = obj[key];
+          }
+        });
+      } else {
+        // Primitive value
         result[prefix] = obj;
       }
-
-      return result;
     };
 
     // Helper function to get all possible headers from all items
@@ -800,7 +863,7 @@ export const inventoryService = {
       const allHeaders = new Set<string>();
 
       items.forEach((item) => {
-        // Add direct fields
+        // Add direct fields (Type 1: Direct strings)
         const directFields = [
           "isBlocked",
           "kind",
@@ -820,12 +883,9 @@ export const inventoryService = {
           }
         });
 
-        // Add stocks array (if it has items)
-        if (item.stocks && Array.isArray(item.stocks) && item.stocks.length > 0) {
-          const stocksFlattened = flattenObject(item.stocks, "stocks");
-          Object.keys(stocksFlattened).forEach((header) => allHeaders.add(header));
-        } else {
-          allHeaders.add("stocks"); // Add empty stocks column
+        // Handle stocks array
+        if (item.stocks && Array.isArray(item.stocks)) {
+          analyzeStructure(item.stocks, "stocks", allHeaders);
         }
 
         // Add category info from populated productCategory
@@ -833,24 +893,37 @@ export const inventoryService = {
         allHeaders.add("productCategoryId");
         allHeaders.add("amazonCategoryId");
 
-        // Dynamically flatten productInfo to get all possible headers
+        // Process productInfo attributes (Type 2 & 3: Nested and Sub-nested)
         if (item.productInfo) {
           Object.keys(item.productInfo).forEach((productKey) => {
-            // Skip the populated productCategory as we handle it separately
-            if (productKey === "productCategory") return;
+            if (productKey === "productCategory") return; // Skip populated field
 
             const productValue = item.productInfo[productKey];
-            const flattened = flattenObject(productValue, productKey);
-            Object.keys(flattened).forEach((header) => allHeaders.add(header));
+            if (
+              typeof productValue === "string" ||
+              typeof productValue === "number" ||
+              typeof productValue === "boolean"
+            ) {
+              // Type 1: Direct value
+              allHeaders.add(productKey);
+            } else {
+              // Type 2 & 3: Nested structures
+              analyzeStructure(productValue, productKey, allHeaders);
+            }
           });
         }
 
-        // Dynamically flatten prodTechInfo to get all possible headers
+        // Process prodTechInfo attributes (Type 2 & 3: Nested and Sub-nested)
         if (item.prodTechInfo) {
           Object.keys(item.prodTechInfo).forEach((techKey) => {
             const techValue = item.prodTechInfo[techKey];
-            const flattened = flattenObject(techValue, techKey);
-            Object.keys(flattened).forEach((header) => allHeaders.add(header));
+            if (typeof techValue === "string" || typeof techValue === "number" || typeof techValue === "boolean") {
+              // Type 1: Direct value
+              allHeaders.add(techKey);
+            } else {
+              // Type 2 & 3: Nested structures
+              analyzeStructure(techValue, techKey, allHeaders);
+            }
           });
         }
       });
@@ -867,7 +940,7 @@ export const inventoryService = {
         flatRow[header] = "";
       });
 
-      // Add direct fields
+      // Add direct fields (Type 1)
       const directFields = [
         "isBlocked",
         "kind",
@@ -888,60 +961,78 @@ export const inventoryService = {
       });
 
       // Handle stocks array
-      if (item.stocks && Array.isArray(item.stocks) && item.stocks.length > 0) {
-        const stocksFlattened = flattenObject(item.stocks, "stocks");
-        Object.entries(stocksFlattened).forEach(([header, value]) => {
+      if (item.stocks && Array.isArray(item.stocks)) {
+        const stockData = {};
+        extractData(item.stocks, "stocks", stockData);
+        Object.entries(stockData).forEach(([key, value]) => {
           if (Array.isArray(value)) {
-            flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
+            flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+          } else if (value === "NESTED_ARRAY") {
+            flatRow[key] = ""; // Empty identification column
           } else {
-            flatRow[header] = value?.toString() || "";
+            flatRow[key] = value?.toString() || "";
           }
         });
       }
 
-      // Add category info from populated productCategory
+      // Add category info
       if (item.productInfo?.productCategory) {
         flatRow.productCategoryName = item.productInfo.productCategory.name || "";
         flatRow.productCategoryId = item.productInfo.productCategory._id || item.productInfo.productCategory.$oid || "";
         flatRow.amazonCategoryId = item.productInfo.productCategory.amazonCategoryId || "";
       }
 
-      // Process productInfo dynamically
+      // Process productInfo
       if (item.productInfo) {
         Object.keys(item.productInfo).forEach((productKey) => {
-          // Skip the productCategory as we handle it separately
           if (productKey === "productCategory") return;
 
           const productValue = item.productInfo[productKey];
-          const flattened = flattenObject(productValue, productKey);
-
-          // Map flattened data to the row
-          Object.entries(flattened).forEach(([header, value]) => {
-            if (Array.isArray(value)) {
-              // Join array values with commas or take first value
-              flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
-            } else {
-              flatRow[header] = value?.toString() || "";
-            }
-          });
+          if (
+            typeof productValue === "string" ||
+            typeof productValue === "number" ||
+            typeof productValue === "boolean"
+          ) {
+            // Type 1: Direct value
+            flatRow[productKey] = productValue.toString();
+          } else {
+            // Type 2 & 3: Nested structures
+            const extractedData = {};
+            extractData(productValue, productKey, extractedData);
+            Object.entries(extractedData).forEach(([key, value]) => {
+              if (Array.isArray(value)) {
+                flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+              } else if (value === "NESTED_ARRAY") {
+                flatRow[key] = ""; // Empty identification column
+              } else {
+                flatRow[key] = value?.toString() || "";
+              }
+            });
+          }
         });
       }
 
-      // Process prodTechInfo dynamically
+      // Process prodTechInfo
       if (item.prodTechInfo) {
         Object.keys(item.prodTechInfo).forEach((techKey) => {
           const techValue = item.prodTechInfo[techKey];
-          const flattened = flattenObject(techValue, techKey);
-
-          // Map flattened data to the row
-          Object.entries(flattened).forEach(([header, value]) => {
-            if (Array.isArray(value)) {
-              // Join array values with commas or take first value
-              flatRow[header] = value.filter((v) => v !== undefined && v !== null).join(", ");
-            } else {
-              flatRow[header] = value?.toString() || "";
-            }
-          });
+          if (typeof techValue === "string" || typeof techValue === "number" || typeof techValue === "boolean") {
+            // Type 1: Direct value
+            flatRow[techKey] = techValue.toString();
+          } else {
+            // Type 2 & 3: Nested structures
+            const extractedData = {};
+            extractData(techValue, techKey, extractedData);
+            Object.entries(extractedData).forEach(([key, value]) => {
+              if (Array.isArray(value)) {
+                flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+              } else if (value === "NESTED_ARRAY") {
+                flatRow[key] = ""; // Empty identification column
+              } else {
+                flatRow[key] = value?.toString() || "";
+              }
+            });
+          }
         });
       }
 
@@ -973,7 +1064,7 @@ export const inventoryService = {
     for (const [sheetName, rows] of Object.entries(categoryMap)) {
       if (rows.length === 0) continue;
 
-      // Get headers from the first row (all rows should have same headers now)
+      // Get headers from the first row and sort them
       const headers = Object.keys(rows[0]).sort();
 
       // Format rows for Excel output
