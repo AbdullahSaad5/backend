@@ -550,7 +550,6 @@ export const inventoryService = {
             .filter(({ data }) => data && (data.title || data.item_name))
             .map(async ({ row, data }) => {
               addLog(`\n📦 Row ${row}: Starting processing`);
-              // addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
 
               try {
                 // Extract category ID and name from payload
@@ -561,7 +560,7 @@ export const inventoryService = {
 
                 const matchedCategory = await ProductCategory.findOne({
                   $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
-                }).select("_id name amazonCategoryId");
+                }).select("_id name amazonCategoryId isPart");
 
                 if (!matchedCategory) {
                   addLog(`❌ Row ${row}: No matching product category found.`);
@@ -569,12 +568,11 @@ export const inventoryService = {
                 }
 
                 addLog(
-                  `✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id}, Amazon ID: ${matchedCategory.amazonCategoryId})`
+                  `✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id}, Amazon ID: ${matchedCategory.amazonCategoryId}, isPart: ${matchedCategory.isPart})`
                 );
 
                 // Process the payload with the category information
                 const processedPayload = processSheetDataToPayload(data, row);
-                // addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
 
                 let title = extractNestedValue(data, ["title", "item_name"]);
                 if (!title) {
@@ -605,7 +603,6 @@ export const inventoryService = {
 
                 const productInfo: any = {
                   productCategory: matchedCategory._id,
-                  // Use the Amazon category ID from the matched category or fallback to extracted ID
                   amazonCategoryId: matchedCategory.amazonCategoryId || categoryId,
                   item_name: [
                     {
@@ -627,7 +624,6 @@ export const inventoryService = {
                     {
                       _id: false,
                       value: conditionType,
-                      // Optionally include other fields like language_tag or marketplace_id if required by the schema
                       language_tag: "en_GB",
                       marketplace_id: "A1F83G8C2ARO7P",
                     },
@@ -655,13 +651,13 @@ export const inventoryService = {
                   "allow_variations",
                 ]);
 
-                // addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
+                // Determine kindType and isPart based on matchedCategory.isPart
+                const isPart = matchedCategory.isPart || false;
+                const kindType = isPart ? "part" : "product";
 
-                // Use the Amazon category ID for determining kind type
-                const usedCategoryId = matchedCategory.amazonCategoryId || categoryId;
-                const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
-                const kindType = productCategoryIds.has(usedCategoryId?.toString()) ? "product" : "part";
-                const isPart = kindType === "part";
+                addLog(
+                  `🔍 Row ${row}: Determined kindType: ${kindType}, isPart: ${isPart} (using category isPart: ${matchedCategory.isPart})`
+                );
 
                 const allowVariations = extractNestedValue(data, ["allow_variations"]);
                 const isVariation = allowVariations?.toString().toLowerCase() === "yes";
@@ -681,7 +677,7 @@ export const inventoryService = {
                 };
 
                 addLog(
-                  `✅ Row ${row}: Final Document Ready (Amazon Category ID: ${usedCategoryId}): ${JSON.stringify(docToInsert, null, 2)}`
+                  `✅ Row ${row}: Final Document Ready (Amazon Category ID: ${matchedCategory.amazonCategoryId || categoryId}): ${JSON.stringify(docToInsert, null, 2)}`
                 );
 
                 return {
@@ -709,7 +705,6 @@ export const inventoryService = {
       console.error("Full error:", error);
     }
   },
-
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
 
