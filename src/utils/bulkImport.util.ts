@@ -117,10 +117,8 @@ export const bulkImportUtility = {
     for (const sheetName of sheetNames) {
       // console.log(`\n📄 Processing sheet: "${sheetName}"`);
 
-      // Match sheet name with format "Name (ID)"
       let match = sheetName.trim().match(/^(.+?)\s*\((.+?)\)\s*$/);
 
-      // Optional auto-correct fallback
       if (!match && sheetName.includes("(")) {
         const parts = sheetName.split("(");
         if (parts.length === 2 && parts[1].includes(")")) {
@@ -139,7 +137,6 @@ export const bulkImportUtility = {
       const [_, categoryName, categoryId] = match;
       // console.log(`🔍 Extracted categoryName: "${categoryName}", categoryId: "${categoryId}"`);
 
-      // Validate categoryId against database
       const matchedCategory = await ProductCategory.findOne({
         amazonCategoryId: categoryId.trim(),
       });
@@ -161,12 +158,10 @@ export const bulkImportUtility = {
       // console.log(`📋 Sheet "${sheetName}" headers: ${headerRow.join(", ")}`);
       // console.log(`📊 Processing ${rows.length} data row(s) in sheet "${sheetName}"`);
 
-      // Get Amazon schema for the category
       const amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
       const variationAspects = categoryVariationAspects[categoryId] || [];
       console.log(`🔧 Variation aspects for category "${categoryId}": ${variationAspects.join(", ") || "none"}`);
 
-      // Create variation fields set from variation aspects
       const variationFields = new Set<string>(variationAspects);
 
       let sheetValidCount = 0;
@@ -174,9 +169,8 @@ export const bulkImportUtility = {
 
       for (const [index, row] of rows.entries()) {
         const globalRowIndex = validRows.length + invalidRows.length + 1;
-        // console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
+        // console.log(`\n🔄 Processing row      console.log(`\n🔄 Processing row ${globalRowIndex} (sheet row ${index + 2})`);
 
-        // Skip empty rows
         const isRowEmpty = row.every(
           (cell: any) => cell === "" || cell == null || (typeof cell === "string" && cell.trim() === "")
         );
@@ -188,7 +182,6 @@ export const bulkImportUtility = {
         // console.log(`📥 Raw row data: ${JSON.stringify(row)}`);
         const errors: string[] = [];
 
-        // Transform row data into the required format
         const rowObj = await bulkImportUtility.transformRowData(
           row,
           headerRow,
@@ -198,11 +191,12 @@ export const bulkImportUtility = {
         );
         console.log(`📤 Transformed row data: ${JSON.stringify(rowObj, null, 2)}`);
 
-        // Validate transformed data against schema
         const validationResult: any = await validate(amazonSchema, rowObj, variationAspects);
         if (!validationResult.valid) {
-          errors.push(...validationResult.errors);
-          console.log(`❌ Validation errors for row ${globalRowIndex}: ${errors.join(", ")}`);
+          const errorMessages = validationResult.errors.map((error: any) => error.message || "Unknown error");
+          errors.push(...errorMessages);
+          console.log(`❌ Validation errors for row ${globalRowIndex}: ${errorMessages.join(", ")}`);
+          addLog(`❌ Validation errors for row ${globalRowIndex}: ${errorMessages.join(", ")}`);
         } else {
           console.log(`✅ Row ${globalRowIndex} passed validation`);
         }
