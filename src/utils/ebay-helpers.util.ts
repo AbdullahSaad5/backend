@@ -1,8 +1,6 @@
 import EbayAuthToken from "ebay-oauth-nodejs-client";
 import fs from "fs";
 import dotenv from "dotenv";
-import path from "path";
-import { ref } from "@firebase/storage";
 
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
@@ -65,9 +63,10 @@ export const getStoredEbayAccessToken = async () => {
     let credentialsText;
     try {
       if (useClient === "true") {
-        console.log("🔑 [CLIENT] Reading client token file");
+        console.log("🔑 [EBAY CLIENT] Reading client token file");
         credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
       } else {
+        console.log(" [EBAY SANDBOX] Reading sandbox token file");
         credentialsText = fs.readFileSync(
           type === "production" ? "ebay_tokens.json" : "ebay_tokens_sandbox.json",
           "utf-8"

@@ -66,12 +66,39 @@ const seedData = async () => {
       "ADD_FULFILLMENT_POLICIES",
       "VIEW_RETURN_POLICIES",
       "ADD_RETURN_POLICIES",
+      "ADD_SUBSCRIPTIONS",
+      "VIEW_SUBSCRIPTIONS",
+      "ADD_FAQ_CATEGORY",
+      "VIEW_FAQ_CATEGORY",
+      "ADD_FAQS",
+      "VIEW_FAQS",
 
       "COMPLAINTS_MANAGEMENET",
       "VIEW_COMPLAINTS_CATEGORY",
       "ADD_COMPLAINTS_CATEGORY",
       "VIEW_COMPLAINTS",
       "ADD_COMPLAINTS",
+
+      "LEADS_MANAGEMENT",
+      "ADD_LEADS_CATEGORIES",
+      "VIEW_LEADS_CATEGORIES",
+      "ADD_LEADS",
+      "VIEW_LEADS",
+
+      "MANAGE_ACCOUNTING",
+      "ADD_EXPENSE_CATEGORY",
+      "VIEW_EXPENSE_CATEGORY",
+      "ADD_EXPENSE",
+      "VIEW_EXPENSE",
+      "VIEW_REVENUE",
+      "ADD_REVENUE",
+      "VIEW_INVENTORY_PURCHASES",
+
+      "MANAGE_GUIDES",
+      "VIEW_GUIDES_CATEGORY",
+      "ADD_GUIDE_CATEGORY",
+      "VIEW_GUIDES",
+      "ADD_GUIDES",
 
       "SETTINGS",
     ],
@@ -110,9 +137,21 @@ const seedData = async () => {
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
 
-      // "MANAGE_BUNDLES",
-      // "ADD_BUNDLES",
-      // "VIEW_BUNDLES",
+      "COMPLAINTS_MANAGEMENET",
+      "VIEW_COMPLAINTS_CATEGORY",
+      "ADD_COMPLAINTS_CATEGORY",
+      "VIEW_COMPLAINTS",
+      "ADD_COMPLAINTS",
+
+      // "LEADS_MANAGEMENT",
+      // "ADD_LEADS_CATEGORIES",
+      // "VIEW_LEADS_CATEGORIES",
+      // "ADD_LEADS",
+      // "VIEW_LEADS",
+
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
 
       // "GAMERS_COMMUNITY",
       // "VIEW_BLOGS_CATEGORY",
@@ -131,7 +170,7 @@ const seedData = async () => {
 
       // "MANAGE_TICKETING",
 
-      // "MANAGE_DOCUMENTS",
+      "MANAGE_DOCUMENTS",
 
       // "MANAGE_POLICIES",
       // "VIEW_CUSTOM_POLICIES",
@@ -231,9 +270,9 @@ const seedData = async () => {
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
 
-      // "MANAGE_BUNDLES",
-      // "ADD_BUNDLES",
-      // "VIEW_BUNDLES",
+      "MANAGE_BUNDLES",
+      "ADD_BUNDLES",
+      "VIEW_BUNDLES",
 
       // "GAMERS_COMMUNITY",
       // "VIEW_BLOGS_CATEGORY",
@@ -252,7 +291,7 @@ const seedData = async () => {
 
       // "MANAGE_TICKETING",
 
-      // "MANAGE_DOCUMENTS",
+      "MANAGE_DOCUMENTS",
 
       // "MANAGE_POLICIES",
       // "VIEW_CUSTOM_POLICIES",

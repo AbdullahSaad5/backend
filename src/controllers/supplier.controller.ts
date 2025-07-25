@@ -55,14 +55,14 @@ export const supplierController = {
       try {
         const emailContent = `
         <p>Dear ${supplier.firstName || "supplier"},</p>
-        <p>Your account has been created by the Bav-IT admin. Below are your login credentials:</p>
+        <p>Your account has been created by the Build-My-Rig admin. Below are your login credentials:</p>
         <p><strong>Email:</strong> ${supplier.email}</p>
         <p><strong>Password:</strong> ${password}</p>
       `;
 
         await sendEmail({
           to: supplier.email,
-          subject: "Your Bav-IT Supplier Account Has Been Created",
+          subject: "Your Build-My-Rig Supplier Account Has Been Created",
           html: emailContent,
         });
       } catch (emailError) {
@@ -226,7 +226,7 @@ export const supplierController = {
 
       const emailContent = `
       <p>Dear ${userName},</p>
-      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Bav-IT admin.</p>
+      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Build-My-Rig admin.</p>
       <p>If you have any questions, please contact support.</p>
     `;
 
@@ -234,7 +234,7 @@ export const supplierController = {
       if (userEmailAddress) {
         await sendEmail({
           to: userEmailAddress,
-          subject: `Your Bav-IT Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
+          subject: `Your Build-My-Rig Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
           html: emailContent,
         });
       }

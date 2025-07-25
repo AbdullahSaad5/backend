@@ -36,6 +36,7 @@ const StockSchema = new Schema<IStockModel>(
           },
         },
         costPricePerUnit: { type: Number, required: true, min: 0 },
+        retailPricePerUnit: { type: Number, required: true, min: 0 },
         purchasePricePerUnit: { type: Number, required: true, min: 0 },
         totalUnits: { type: Number, required: true, min: 0 },
         usableUnits: { type: Number, required: true, min: 0 },
@@ -58,6 +59,13 @@ const StockSchema = new Schema<IStockModel>(
       min: 0,
     },
     costPricePerUnit: {
+      type: Number,
+      required: function () {
+        return !(this as IStockModel).isVariation;
+      },
+      min: 0,
+    },
+    retailPricePerUnit: {
       type: Number,
       required: function () {
         return !(this as IStockModel).isVariation;
@@ -90,6 +98,8 @@ const StockSchema = new Schema<IStockModel>(
     },
     purchaseDate: { type: Date, default: Date.now },
     markAsStock: { type: Boolean },
+    images: [mediaSchema],
+    videos: [mediaSchema],
   },
   { timestamps: true }
 );

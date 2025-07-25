@@ -1,11 +1,12 @@
-import { Inventory, ProductCategory, Stock, User } from "@/models";
-import { Parser } from "json2csv";
+import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
 import mongoose from "mongoose";
-import crypto from "crypto";
+import { validate } from "@/utils/validate";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 import fs from "fs";
+
 import * as XLSX from "xlsx";
+import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 // Utility function to pick allowed fields
 function pick(obj: any, keys: string[]) {
   return keys.reduce((acc: { [key: string]: any }, key) => {
@@ -46,25 +47,22 @@ export const inventoryService = {
 
       // ✅ Extract `isPart` from stepData (NOT from productInfo)
       const isPart = stepData.isPart === true || stepData.isPart === "true"; // Ensure it's a boolean
-      const isMultiBrand =
-        stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const isMultiBrand = stepData.isMultiBrand === true || stepData.isMultiBrand === "true"; // Ensure it's a boolean
+      const status = stepData.status || "draft"; // Default to 'draft' if not provided
       const {
         kind,
-        productCategory,
-        title,
-        description,
+        item_name,
+        product_description,
         brand,
+        productCategory,
         inventoryImages,
-        inventoryCondition,
+        condition_type,
         ebayCategoryId,
+        amazonCategoryId,
       } = stepData.productInfo;
 
-      if (
-        !kind ||
-        !Inventory.discriminators ||
-        !Inventory.discriminators[kind]
-      ) {
-        throw new Error("Invalid or missing 'kind' (inventory type)");
+      if (!kind || !Inventory.discriminators || !Inventory.discriminators[kind]) {
+        throw new Error(`Invalid or missing discriminator for kind: ${kind}`);
       }
 
       let categoryId;
@@ -72,11 +70,7 @@ export const inventoryService = {
       // Handle productCategory based on isPart
       if (isPart) {
         // For parts, accept eBay category ID (string or number)
-        if (
-          productCategory === undefined ||
-          productCategory === null ||
-          productCategory === ""
-        ) {
+        if (productCategory === undefined || productCategory === null || productCategory === "") {
           throw new Error("Invalid or missing 'productCategory' for part");
         }
         categoryId = productCategory.toString(); // Convert to string
@@ -93,18 +87,21 @@ export const inventoryService = {
 
       // ✅ Ensure inventoryImages is correctly mapped inside productInfo
       const productInfo = {
+        kind,
         productCategory: categoryId,
         // productSupplier: supplierId,
-        title: title || "",
-        description: description || "",
-        brand: brand || "",
-        inventoryCondition: inventoryCondition || "",
+
+        item_name: item_name || [],
+        product_description: product_description || [],
+        brand: brand || [],
+        amazonCategoryId: amazonCategoryId || "",
+        condition_type: condition_type || "",
         ebayCategoryId: ebayCategoryId || "",
         inventoryImages: Array.isArray(inventoryImages) ? inventoryImages : [],
       };
 
       const draftInventoryData: any = {
-        status: "draft",
+        status,
         isBlocked: false,
         kind,
         isPart, // ✅ Now correctly storing `isPart`
@@ -121,10 +118,7 @@ export const inventoryService = {
       console.log("draftInventoryData before cleaning:", draftInventoryData);
 
       Object.keys(draftInventoryData).forEach((key) => {
-        if (
-          typeof draftInventoryData[key] === "object" &&
-          draftInventoryData[key]
-        ) {
+        if (typeof draftInventoryData[key] === "object" && draftInventoryData[key]) {
           Object.keys(draftInventoryData[key]).forEach((subKey) => {
             if (draftInventoryData[key][subKey] === undefined) {
               delete draftInventoryData[key][subKey];
@@ -133,14 +127,9 @@ export const inventoryService = {
         }
       });
 
-      console.log(
-        "Final draftInventoryData before saving:",
-        draftInventoryData
-      );
+      console.log("Final draftInventoryData before saving:", draftInventoryData);
 
-      const draftInventory = new Inventory.discriminators[kind](
-        draftInventoryData
-      );
+      const draftInventory = new Inventory.discriminators[kind](draftInventoryData);
       await draftInventory.save({ validateBeforeSave: false });
 
       return draftInventory;
@@ -167,16 +156,11 @@ export const inventoryService = {
         throw new Error("Draft inventory not found");
       }
 
-      console.log(
-        "Existing inventory before update:",
-        JSON.stringify(draftInventory, null, 2)
-      );
+      console.log("Existing inventory before update:", JSON.stringify(draftInventory, null, 2));
 
       // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
-        draftInventory.isTemplate = stepData.isTemplate || false;
-        draftInventory.alias = stepData.alias || "";
       }
 
       // if (draftInventory.isPart) {
@@ -235,10 +219,7 @@ export const inventoryService = {
         }
       });
 
-      console.log(
-        "Final inventory object before save:",
-        JSON.stringify(draftInventory, null, 2)
-      );
+      console.log("Final inventory object before save:", JSON.stringify(draftInventory, null, 2));
 
       // Save updated inventory
       await draftInventory.save({ validateBeforeSave: false });
@@ -277,9 +258,7 @@ export const inventoryService = {
 
   getFullInventoryById: async (id: string) => {
     try {
-      const inventory = await Inventory.findById(id).populate(
-        "productInfo.productCategory"
-      );
+      const inventory = await Inventory.findById(id).populate("productInfo.productCategory");
       // .populate("productInfo.productSupplier");
       // .lean();
 
@@ -304,21 +283,33 @@ export const inventoryService = {
   },
 
   //getting all template inventory name and their id
+  // getInventoryByCondition: async (condition: Record<string, any>) => {
+  //   try {
+  //     return await Inventory.find(condition)
+  //       .populate("productInfo.productCategory.name")
+  //       // .populate("productInfo.productSupplier")
+  //       .select("_id kind prodTechInfo brand model alias srno productCategory productInfo") // ✅ Explicitly include prodTechInfo
+  //       .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
+  //   } catch (error) {
+  //     console.error("Error fetching inventory by condition:", error);
+  //     throw new Error("Failed to fetch inventory by condition");
+  //   }
+  // },
+
   getInventoryByCondition: async (condition: Record<string, any>) => {
     try {
       return await Inventory.find(condition)
-        .populate("productInfo.productCategory")
-        // .populate("productInfo.productSupplier")
-        .select(
-          "_id kind prodTechInfo brand model alias srno productCategory productInfo"
-        ) // ✅ Explicitly include prodTechInfo
-        .lean(); // ✅ Converts Mongoose document to plain object (avoids type issues)
+        .populate({
+          path: "productInfo.productCategory",
+          select: "name ebayCategoryId amazonCategoryId", // Add other fields you need
+        })
+        .select("_id kind prodTechInfo brand model alias srno productInfo")
+        .lean();
     } catch (error) {
       console.error("Error fetching inventory by condition:", error);
       throw new Error("Failed to fetch inventory by condition");
     }
   },
-
   getInventoryById: async (id: string) => {
     try {
       const inventory = await Inventory.findById(id)
@@ -337,11 +328,7 @@ export const inventoryService = {
   updateInventory: async (id: string, data: any) => {
     try {
       const updateQuery = { [`platformDetails.`]: data };
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        updateQuery,
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, updateQuery, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -360,11 +347,7 @@ export const inventoryService = {
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        { isBlocked },
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isBlocked }, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -375,11 +358,7 @@ export const inventoryService = {
 
   toggleIsTemplate: async (id: string, isTemplate: boolean) => {
     try {
-      const updatedInventory = await Inventory.findByIdAndUpdate(
-        id,
-        { isTemplate },
-        { new: true }
-      );
+      const updatedInventory = await Inventory.findByIdAndUpdate(id, { isTemplate }, { new: true });
       if (!updatedInventory) throw new Error("Inventory not found");
       return updatedInventory;
     } catch (error) {
@@ -449,8 +428,8 @@ export const inventoryService = {
       // 🔎 Search logic
       if (searchQuery) {
         const searchConditions: any[] = [
-          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
-          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.item_name.value": { $regex: searchQuery, $options: "i" } },
+          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
@@ -480,14 +459,9 @@ export const inventoryService = {
       }
 
       // 🟢 Category filter (from query param)
-      if (
-        filters.productCategory &&
-        mongoose.Types.ObjectId.isValid(filters.productCategory)
-      ) {
+      if (filters.productCategory && mongoose.Types.ObjectId.isValid(filters.productCategory)) {
         andConditions.push({
-          "productInfo.productCategory": new mongoose.Types.ObjectId(
-            filters.productCategory
-          ),
+          "productInfo.productCategory": new mongoose.Types.ObjectId(filters.productCategory),
         });
       }
 
@@ -522,10 +496,8 @@ export const inventoryService = {
       // Date filter
       if (startDate || endDate) {
         const dateFilter: any = {};
-        if (startDate && !isNaN(Date.parse(startDate)))
-          dateFilter.$gte = new Date(startDate);
-        if (endDate && !isNaN(Date.parse(endDate)))
-          dateFilter.$lte = new Date(endDate);
+        if (startDate && !isNaN(Date.parse(startDate))) dateFilter.$gte = new Date(startDate);
+        if (endDate && !isNaN(Date.parse(endDate))) dateFilter.$lte = new Date(endDate);
         if (Object.keys(dateFilter).length > 0) {
           andConditions.push({ createdAt: dateFilter });
         }
@@ -562,176 +534,231 @@ export const inventoryService = {
     }
   },
 
-  //bulk import inventory as CSV
-  bulkImportInventory: async (
-    validRows: { row: number; data: any }[]
-  ): Promise<void> => {
+  //bulk import inventory
+
+  bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
         addLog("❌ No valid Inventory to import.");
         return;
       }
 
-      addLog("🔹 Valid Rows Received for Bulk Import:");
-      validRows.forEach(({ row, data }, i) => {
-        try {
-          addLog(`Row [${i}] => #${row}`);
-          if (!data || typeof data !== "object") {
-            console.log(
-              `⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`
-            );
-          } else {
-            console.log(`Data: ${JSON.stringify(data)}`);
-          }
-        } catch (err) {
-          console.log(`❌ Error while printing row ${row}:`, err);
-        }
-      });
+      addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
+
+      const categoryVariationAspects: { [key: string]: string[] } = {
+        PERSONAL_COMPUTER: [
+          "processor_description",
+          "hard_disk.size",
+          "display.size",
+          "memory_storage_capacity",
+          "computer_memory.size",
+        ],
+        LAPTOP: [
+          "processor_description",
+          "hard_disk.size",
+          "display.size",
+          "memory_storage_capacity",
+          "computer_memory.size",
+        ],
+        MONITOR: ["display.size", "display.resolution"],
+        MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
+        TABLET: ["memory_storage_capacity", "display.size", "color"],
+        HEADPHONES: ["color", "connection_type"],
+        CAMERA: ["color", "memory_storage_capacity"],
+      };
+
       const bulkOperations: any = (
         await Promise.all(
           validRows
-            .map(({ row, data }) => {
-              const normalizedData: any = {};
-              for (const key in data) {
-                normalizedData[key.toLowerCase()] = data[key];
-              }
-              return { row, data: normalizedData };
-            })
-            .filter(({ data }) => data && data.title)
-            .map(async ({ row, data: normalizedData }) => {
-              const matchedCategory = await ProductCategory.findOne({
-                $or: [
-                  { ebayCategoryId: normalizedData.ebaycategoryid },
-                  // { ebayCategoryId: normalizedData.ebaycategoryid },
-                ],
-              }).select("_id");
+            .filter(({ data }) => data && (data.title || data.item_name))
+            .map(async ({ row, data }) => {
+              addLog(`\n📦 Row ${row}: Starting processing`);
+              addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
 
-              if (!matchedCategory) {
-                addLog(
-                  `❌ No matching product category for eBay ID: ${normalizedData.ebaycategoryid}`
-                );
-                return null;
-              }
+              try {
+                const categoryId = data.productCategory || data.ebayCategoryId;
+                const categoryName = data.productCategoryName;
 
-              // Normalize brand
-              let brandList = normalizedData.brand;
-              if (typeof brandList === "string") {
-                brandList = brandList
-                  .split(",")
-                  .map((b: string) => b.trim())
-                  .filter(Boolean);
-              } else if (!Array.isArray(brandList)) {
-                brandList = [brandList];
-              }
+                addLog(`🔎 Row ${row}: Looking for Category with ID: ${categoryId} or Name: ${categoryName}`);
 
-              const isMultiBrand = brandList.length > 1;
+                const matchedCategory = await ProductCategory.findOne({
+                  $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
+                }).select("_id name");
 
-              const productInfo: any = {
-                productCategory: matchedCategory._id,
-                ebayCategoryId: normalizedData.ebaycategoryid,
-                title: normalizedData.title,
-                description: normalizedData.description,
-                inventoryImages: (normalizedData.images || []).map(
-                  (url: string) => ({
+                if (!matchedCategory) {
+                  addLog(`❌ Row ${row}: No matching product category found.`);
+                  return null;
+                }
+
+                addLog(`✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id})`);
+
+                let amazonSchema = null;
+                let variationAspects: string[] | any = [];
+
+                try {
+                  amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
+                  const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
+                  variationAspects = categoryVariationAspects[categoryKey] || [];
+                  addLog(
+                    `📘 Row ${row}: Amazon schema & variation aspects fetched. Aspects: ${variationAspects.join(", ")}`
+                  );
+                } catch (schemaError: any) {
+                  addLog(`⚠️ Row ${row}: Schema fetch failed - ${schemaError.message}`);
+                }
+
+                const processedPayload = processSheetDataToPayload(data, row);
+                addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
+
+                if (amazonSchema && processedPayload) {
+                  const validationResult = validate(amazonSchema, processedPayload, variationAspects);
+                  if (!validationResult.valid) {
+                    addLog(`❌ Row ${row}: Validation failed. Errors:`);
+                    validationResult.errors.forEach((error: any) => {
+                      const fieldName = error.title || error.path.replace("root.", "");
+                      addLog(`   • ${fieldName}: ${error.message}`);
+                    });
+                    addLog(`⚠️ Row ${row}: Continuing with validation errors...`);
+                  } else {
+                    addLog(`✅ Row ${row}: Payload validated successfully.`);
+                  }
+                }
+
+                let title = extractNestedValue(data, ["title", "item_name"]);
+                if (!title) {
+                  addLog(`❌ Row ${row}: Missing title/item_name`);
+                  return null;
+                }
+
+                let description = extractNestedValue(data, ["description"]);
+
+                let brandList: string[] = [];
+                const brandValue = extractNestedValue(data, ["brand"]);
+                if (brandValue) {
+                  if (typeof brandValue === "string") {
+                    brandList = brandValue
+                      .split(",")
+                      .map((b) => b.trim())
+                      .filter(Boolean);
+                  } else {
+                    brandList = [brandValue.toString()];
+                  }
+                }
+
+                addLog(`🏷️ Row ${row}: Brands found: ${brandList.join(", ")}`);
+
+                const isMultiBrand = brandList.length > 1;
+
+                const inventoryImages = (data.images || []).map((img: any) => {
+                  const url = img.value || img.url || img;
+                  return {
                     id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     size: 0,
-                    url,
+                    url: url,
                     type: "image/jpeg",
-                  })
-                ),
-                inventoryCondition: normalizedData.inventoryCondition || "new",
-                brand: brandList,
-              };
+                  };
+                });
 
-              const prodTechInfo: Record<string, any> = {};
-              const knownFields = new Set([
-                "title",
-                "description",
-                "brand",
-                "images",
-                "videos",
-                "inventoryCondition",
-                "productSupplier",
-                "productSupplierKey",
-                "productCategoryName",
-                "ebayCategoryId",
-              ]);
+                addLog(`🖼️ Row ${row}: Image URLs: ${inventoryImages.map((img: any) => img.url).join(", ")}`);
 
-              for (const key in normalizedData) {
-                if (!knownFields.has(key)) {
-                  prodTechInfo[key] = normalizedData[key];
-                }
+                let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
+
+                const productInfo: any = {
+                  productCategory: matchedCategory._id,
+                  amazonCategoryId: categoryId,
+                  item_name: [
+                    {
+                      _id: false,
+                      value: title,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  product_description: [
+                    {
+                      _id: false,
+                      value: description,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  inventoryImages,
+                  condition_type: conditionType,
+                  brand: [
+                    {
+                      _id: false,
+                      value: brandList[0] || "",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                };
+
+                const prodTechInfo = processNestedAttributes(data, [
+                  "title",
+                  "item_name",
+                  "product_description",
+                  "brand",
+                  "condition_type",
+                  "productCategory",
+                  "productCategoryName",
+                  "ebayCategoryId",
+                  "images",
+                  "videos",
+                  "allow_variations",
+                ]);
+
+                addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
+
+                const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+                const kindType = productCategoryIds.has(categoryId?.toString()) ? "product" : "part";
+                const isPart = kindType === "part";
+
+                const allowVariations = extractNestedValue(data, ["allow_variations"]);
+                const isVariation = allowVariations?.toString().toLowerCase() === "yes";
+
+                const docToInsert = {
+                  isBlocked: false,
+                  kind: kindType,
+                  status: "draft",
+                  isVariation,
+                  isMultiBrand,
+                  isTemplate: false,
+                  isPart,
+                  stocks: [],
+                  stockThreshold: 10,
+                  prodTechInfo,
+                  productInfo,
+                };
+
+                addLog(`✅ Row ${row}: Final Document Ready: ${JSON.stringify(docToInsert, null, 2)}`);
+
+                return {
+                  insertOne: {
+                    document: docToInsert,
+                  },
+                };
+              } catch (error: any) {
+                addLog(`❌ Row ${row}: Error during processing - ${error.message}`);
+                return null;
               }
-
-              // Set kind based on eBay ID
-              const productCategoryIds = new Set([
-                "177",
-                "179",
-                "80053",
-                "25321",
-                "44995",
-              ]);
-              const kindType = productCategoryIds.has(
-                normalizedData.ebaycategoryid?.toString()
-              )
-                ? "product"
-                : "part";
-
-              // Set isPart based on kind
-              const isPart = kindType === "part";
-
-              // Set isVariation based on prodTechInfo["allow variations"]
-              const allowVar = prodTechInfo["allow variations"];
-              const isVariation =
-                typeof allowVar === "string" &&
-                allowVar.trim().toLowerCase() === "yes";
-              delete prodTechInfo["allow variations"]; // optional cleanup
-
-              const docToInsert = {
-                isBlocked: false,
-                kind: kindType,
-                status: "draft",
-                isVariation,
-                isMultiBrand,
-                isTemplate: false,
-                isPart,
-                stocks: [],
-                stockThreshold: 10,
-                prodTechInfo,
-                productInfo,
-              };
-
-              console.log(
-                `📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`
-              );
-
-              return {
-                insertOne: {
-                  document: docToInsert,
-                },
-              };
             })
         )
       ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
-        addLog("✅ No new Inventory to insert.");
+        addLog("⚠️ No valid documents to insert after processing.");
         return;
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(
-        `✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`
-      );
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
+      console.error("Full error:", error);
     }
   },
 
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
-
-
 
     // Generate cache key based on export parameters
     const cacheKey = selectAllPages
@@ -774,24 +801,20 @@ export const inventoryService = {
 
     for (const item of items) {
       const ebayId = item.productInfo?.ebayCategoryId || "unknown";
-      const categoryName =
-        item.productInfo?.productCategory?.name || "Uncategorized";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
 
       const rawSheetKey = `${categoryName} (${ebayId})`;
       const sheetKey = sanitizeSheetName(rawSheetKey);
       const flatRow: Record<string, any> = {
         Title: item.productInfo?.title || "",
-        Description:
-          item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
+        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
         Brand: Array.isArray(item.productInfo?.brand)
           ? item.productInfo.brand.join(", ")
           : item.productInfo?.brand || "",
-        InventoryCondition: item.productInfo?.inventoryCondition || "",
+        condition_type: item.productInfo?.condition_type || "",
         "Allow Variations": item.isVariation ? "yes" : "no",
         Images: Array.isArray(item.productInfo?.inventoryImages)
-          ? item.productInfo.inventoryImages
-              .map((img: any) => img.url)
-              .join(", ")
+          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
           : "",
       };
 
@@ -845,11 +868,7 @@ export const inventoryService = {
     };
   },
 
-  bulkUpdateInventoryTaxAndDiscount: async (
-    inventoryIds: string[],
-    discountValue: number,
-    vat: number
-  ) => {
+  bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
       if (typeof discountValue !== "number" || typeof vat !== "number") {
@@ -868,9 +887,7 @@ export const inventoryService = {
       );
 
       if (result.modifiedCount === 0) {
-        throw new Error(
-          "No inventory were updated. Please verify inventory IDs and data."
-        );
+        throw new Error("No inventory were updated. Please verify inventory IDs and data.");
       }
 
       return result;
@@ -879,10 +896,7 @@ export const inventoryService = {
     }
   },
 
-  upsertInventoryPartsService: async (
-    inventoryId: string,
-    selectedVariations: any
-  ) => {
+  upsertInventoryPartsService: async (inventoryId: string, selectedVariations: any) => {
     return await Inventory.findByIdAndUpdate(
       inventoryId,
       { $set: { selectedVariations } }, // If exists, update. If not, create.
@@ -895,31 +909,122 @@ export const inventoryService = {
     return await Inventory.findById(inventoryId).select("selectedVariations");
   },
 
-  // Function to generate all possible combinations of multi-select attributes
-  generateCombinations: async (attributes: Record<string, any>) => {
-    const keys = Object.keys(attributes);
-    const values = Object.values(attributes);
+  // Enhanced generateCombinations function in inventoryService
+  generateCombinations: async (processedAttributes: any) => {
+    console.log("Generating combinations from processed attributes:", processedAttributes);
 
-    const cartesianProduct = (arrays: any[][]) => {
-      return arrays.reduce(
-        (acc, curr, index) =>
-          acc.flatMap((a) => curr.map((b) => ({ ...a, [keys[index]]: b }))),
-        [{}]
-      );
-    };
+    const attributeKeys = Object.keys(processedAttributes);
+    console.log("Attribute keys:", attributeKeys);
 
-    return cartesianProduct(values);
+    if (attributeKeys.length === 0) {
+      console.log("No attribute keys found, returning empty array");
+      return [];
+    }
+
+    const attributeValues = attributeKeys.map((key) => processedAttributes[key]);
+    console.log(
+      "Attribute values lengths:",
+      attributeValues.map((arr) => arr.length)
+    );
+
+    // Check if any attribute has no values
+    const hasEmptyAttribute = attributeValues.some((arr) => arr.length === 0);
+    if (hasEmptyAttribute) {
+      console.log("Found empty attribute, cannot generate combinations");
+      return [];
+    }
+
+    const combinations: any[] = [];
+
+    function generateCombinationsRecursive(current: any, actualAttributes: any, index: number) {
+      if (index === attributeKeys.length) {
+        // Create the final combination with display values and actual_attributes
+        const combination = {
+          ...current,
+          actual_attributes: { ...actualAttributes },
+        };
+        combinations.push(combination);
+        return;
+      }
+
+      const currentAttribute = attributeKeys[index];
+      const currentValues = attributeValues[index];
+
+      for (const valueObj of currentValues) {
+        const newCurrent = {
+          ...current,
+          [currentAttribute]: valueObj.displayValue, // For display/filtering (displaySize, displayResolution)
+        };
+
+        // Handle special case for display attributes that need to be merged
+        let newActualAttributes;
+        if (currentAttribute === "displaySize" || currentAttribute === "displayResolution") {
+          newActualAttributes = {
+            ...actualAttributes,
+            display: mergeDisplayAttributes(
+              actualAttributes.display,
+              valueObj.originalStructure,
+              valueObj.attributeType
+            ),
+          };
+        } else {
+          // Map back to original attribute name for other attributes
+          const actualAttributeName = getActualAttributeName(currentAttribute);
+          newActualAttributes = {
+            ...actualAttributes,
+            [actualAttributeName]: valueObj.originalStructure, // Original DB structure
+          };
+        }
+
+        generateCombinationsRecursive(newCurrent, newActualAttributes, index + 1);
+      }
+    }
+
+    // Helper function to merge display attributes
+    function mergeDisplayAttributes(existingDisplay: any, newDisplayStructure: any, attributeType: string) {
+      if (!existingDisplay) {
+        return newDisplayStructure;
+      }
+
+      // Deep clone the existing display to avoid mutations
+      const merged = JSON.parse(JSON.stringify(existingDisplay));
+
+      // Merge the specific attribute from newDisplayStructure
+      newDisplayStructure.forEach((newItem: any, index: number) => {
+        if (merged[index]) {
+          if (attributeType === "size" && newItem.size) {
+            merged[index].size = newItem.size;
+          } else if (attributeType === "resolution_maximum" && newItem.resolution_maximum) {
+            merged[index].resolution_maximum = newItem.resolution_maximum;
+          } else if (attributeType === "technology" && newItem.technology) {
+            merged[index].technology = newItem.technology;
+          }
+        } else {
+          merged[index] = newItem;
+        }
+      });
+
+      return merged;
+    }
+
+    // Helper function to map variation keys back to actual DB attribute names
+    function getActualAttributeName(variationKey: string): string {
+      const keyMapping: { [key: string]: string } = {
+        // Add mappings for other attributes that might need renaming
+        // Most attributes will use their original names
+      };
+
+      return keyMapping[variationKey] || variationKey;
+    }
+
+    generateCombinationsRecursive({}, {}, 0);
+
+    console.log(`Generated ${combinations.length} combinations`);
+    return combinations;
   },
-
   getAllOptions: async () => {
     try {
-      const skipProductInfoFields = [
-        "title",
-        "description",
-        "productCategory",
-        "ebayCategoryId",
-        "inventoryImages",
-      ];
+      const skipProductInfoFields = ["title", "description", "productCategory", "ebayCategoryId", "inventoryImages"];
 
       const kinds = await Inventory.distinct("kind");
       const seenFields = new Set<string>();
@@ -951,12 +1056,8 @@ export const inventoryService = {
             values
               .filter((v) => v !== "" && v !== null && v !== undefined)
               .forEach((val) => {
-                const key =
-                  typeof val === "string"
-                    ? val.trim().toLowerCase()
-                    : String(val).toLowerCase();
-                if (!map.has(key))
-                  map.set(key, typeof val === "string" ? val.trim() : val);
+                const key = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                if (!map.has(key)) map.set(key, typeof val === "string" ? val.trim() : val);
               });
 
             return {
@@ -987,12 +1088,8 @@ export const inventoryService = {
               values
                 .filter((v) => v !== "" && v !== null && v !== undefined)
                 .forEach((val) => {
-                  const k =
-                    typeof val === "string"
-                      ? val.trim().toLowerCase()
-                      : String(val).toLowerCase();
-                  if (!map.has(k))
-                    map.set(k, typeof val === "string" ? val.trim() : val);
+                  const k = typeof val === "string" ? val.trim().toLowerCase() : String(val).toLowerCase();
+                  if (!map.has(k)) map.set(k, typeof val === "string" ? val.trim() : val);
                 });
 
               return {
@@ -1038,4 +1135,88 @@ function generateCacheKey(inventoryIds: string[]): string {
   const sortedIds = [...inventoryIds].sort();
   const crypto = require("crypto");
   return `export_ids_${crypto.createHash("md5").update(sortedIds.join(",")).digest("hex")}`;
+}
+
+function extractNestedValue(data: any, fieldNames: string[]): any {
+  for (const fieldName of fieldNames) {
+    if (data[fieldName]) {
+      if (Array.isArray(data[fieldName]) && data[fieldName].length > 0) {
+        return data[fieldName][0].value || data[fieldName][0];
+      } else if (typeof data[fieldName] === "string") {
+        return data[fieldName];
+      }
+    }
+  }
+  return null;
+}
+
+// Helper function to process sheet data into proper payload format
+function processSheetDataToPayload(data: any, row: number): any {
+  const payload: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (key.includes(".")) {
+      // Handle nested properties like "brand.value", "hard_disk.size"
+      const parts = key.split(".");
+      let current = payload;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const finalKey = parts[parts.length - 1];
+      current[finalKey] = data[key];
+    } else {
+      // Handle direct properties
+      const value = data[key];
+      if (value !== undefined && value !== null && value !== "") {
+        // Convert to proper format expected by Amazon schema
+        if (typeof value === "string" || typeof value === "number") {
+          payload[key] = [
+            {
+              value: value.toString(),
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ];
+        } else {
+          payload[key] = value;
+        }
+      }
+    }
+  });
+
+  return payload;
+}
+
+// Helper function to process nested attributes for prodTechInfo
+function processNestedAttributes(data: any, excludeFields: string[]): any {
+  const processed: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (excludeFields.includes(key)) {
+      return; // Skip excluded fields
+    }
+
+    const value = data[key];
+    if (value !== undefined && value !== null && value !== "") {
+      if (Array.isArray(value)) {
+        processed[key] = value;
+      } else if (typeof value === "object") {
+        processed[key] = [value];
+      } else {
+        processed[key] = [
+          {
+            value: value.toString(),
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ];
+      }
+    }
+  });
+
+  return processed;
 }

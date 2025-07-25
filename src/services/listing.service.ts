@@ -1,10 +1,12 @@
-import { Listing, ProductCategory, User } from "@/models";
+import { Inventory, Listing, ProductCategory } from "@/models";
 import Papa from "papaparse";
 import mongoose from "mongoose";
 import fs from "fs";
 // import { newToken } from "./ebay-listing.service";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 import { parseStringPromise } from "xml2js";
+
+import { convertToEbayFormat } from "@/utils/convertToEbayFormat.util";
 export const listingService = {
   // Create a new draft listing
   createDraftListingService: async (stepData: any) => {
@@ -13,32 +15,62 @@ export const listingService = {
         throw new Error("Invalid or missing 'stepData'");
       }
 
-      console.log("step Data in listing : ", stepData);
+      console.log("step Data in listing: ", stepData);
 
       if (!stepData.productInfo || typeof stepData.productInfo !== "object") {
         throw new Error("Invalid or missing 'productInfo' in stepData");
       }
 
-      const { kind, title, sku, description, brand, productCategory } = stepData.productInfo;
+      // Destructure the necessary fields from productInfo and stepData
+      const { kind, item_name, product_description, condition_type, brand, amazonCategoryId, productCategory, sku } =
+        stepData.productInfo;
       const { inventoryId, bundleId } = stepData;
 
-      if (!kind || !Listing.discriminators || !Listing.discriminators[kind]) {
-        throw new Error("Invalid or missing 'kind' (listing type)");
+      // dont make it required as these fields would be empty while creating delink testing
+      // if (!kind || !productCategory || typeof productCategory !== "string" || !productCategory.trim()) {
+      //   throw new Error("Invalid or missing 'productCategory'");
+      // }
+
+      // dont make it required as these fields would be empty while creating delink testing
+      // Check for required fields for the new schema (item_name, brand, etc.)
+      // if (!item_name || !Array.isArray(item_name) || item_name.length === 0) {
+      //   throw new Error("Invalid or missing 'item_name' in productInfo");
+      // }
+
+      let prodTechInfoFromInventory = {};
+
+      if (inventoryId) {
+        // Retrieve inventory data based on inventoryId
+        const inventory: any = await Inventory.findById(inventoryId); // Assuming you're using a database like MongoDB
+        if (!inventory) {
+          throw new Error(`Inventory with ID ${inventoryId} not found`);
+        }
+
+        // Get prodTechInfo from inventory (without any modification yet)
+        prodTechInfoFromInventory = inventory.prodTechInfo;
+
+        // If publishToEbay is true, flatten the prodTechInfo
+        if (stepData.publishToEbay) {
+          prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
+          // console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
+        }
       }
 
       const productInfo = {
         kind,
-        title: title || "",
+        item_name: item_name || [],
+        product_description: product_description || [],
+        condition_type: condition_type || "new_new",
+        brand: brand || [],
+        amazonCategoryId: amazonCategoryId || "",
+        productCategory: productCategory,
         sku: sku || "",
-        description: description || "",
-        brand: brand || "",
-        productCategory: productCategory || "",
       };
 
       const draftListingData: any = {
         status: "draft",
         isBlocked: false,
-        kind,
+        kind, // This should come from the front-end or other logic
         inventoryId,
         bundleId,
         listingType: stepData.listingType,
@@ -51,20 +83,20 @@ export const listingService = {
         productInfo,
         prodPricing: stepData.prodPricing || {},
         prodMedia: stepData.prodMedia || {},
-        prodTechInfo: stepData.prodTechInfo || {},
+        prodTechInfo: prodTechInfoFromInventory ? prodTechInfoFromInventory : {}, // Either the original or flattened version
         prodDelivery: stepData.prodDelivery || {},
         prodSeo: stepData.prodSeo || {},
       };
 
-      console.log("listing has variatio  check : ", stepData.listingWithStock);
-      console.log("draftListingData here there : ", draftListingData);
+      // console.log("listing has variations check: ", stepData.listingWithStock);
+      // console.log("draftListingData here there: ", draftListingData);
 
       // ✅ Remove fields if they are null or undefined
       if (draftListingData.prodTechInfo?.ean == null) {
         delete draftListingData.prodTechInfo.ean;
       }
 
-      // Remove undefined values
+      // Remove undefined values from all nested objects
       Object.keys(draftListingData).forEach((key) => {
         if (typeof draftListingData[key] === "object" && draftListingData[key]) {
           Object.keys(draftListingData[key]).forEach((subKey) => {
@@ -75,8 +107,12 @@ export const listingService = {
         }
       });
 
-      console.log("draftListingData before save : ", draftListingData);
+      console.log("draftListingData before save: ", draftListingData);
 
+      // Create and save the draft listing
+      if (!Listing.discriminators || !Listing.discriminators[kind]) {
+        throw new Error(`Invalid or missing discriminator for kind: ${kind}`);
+      }
       const draftListing = new Listing.discriminators[kind](draftListingData);
       await draftListing.save({ validateBeforeSave: false });
 
@@ -160,9 +196,14 @@ export const listingService = {
             draftListing.prodPricing = stepData.prodPricing;
           } else if (section === "prodTechInfo") {
             console.log("prodTechInfo if work");
-            // Overwrite prodPricing entirely if selectedStockId is updated
-            // draftListing.prodPricing = "jdfnnjlsn";
+            // Overwrite prodTechInfo entirely
+
             draftListing.prodTechInfo = stepData.prodTechInfo;
+          } else if (section === "prodDelivery") {
+            console.log("prodTechInfo if work");
+            // Overwrite prodDelivery entirely
+            // draftListing.prodPricing = "jdfnnjlsn";
+            draftListing.prodDelivery = stepData.prodDelivery;
           } else {
             // Otherwise merge as usual
             draftListing[section] = {
@@ -178,6 +219,8 @@ export const listingService = {
       const topLevelFields = [
         "ebayItemId",
         "ebaySandboxUrl",
+        "amazonSubmissionId",
+        "amazonSku",
         "listingType",
         "listingWithStock",
         "inventoryId",
@@ -389,6 +432,7 @@ export const listingService = {
         publishToEbay,
         publishToWebsite,
         status,
+        listingType,
         startDate,
         endDate,
         page = 1,
@@ -404,8 +448,13 @@ export const listingService = {
       if (searchQuery) {
         // Base search fields
         query.$or = [
-          { "productInfo.title": { $regex: searchQuery, $options: "i" } },
-          { "productInfo.brand": { $regex: searchQuery, $options: "i" } },
+          {
+            "productInfo.item_name.value": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
           { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
         ];
 
@@ -414,49 +463,22 @@ export const listingService = {
           ProductCategory.find({
             name: { $regex: searchQuery, $options: "i" },
           }).select("_id"),
-
-          // ProductSupplier.find({
-          //   $or: [
-          //     { firstName: { $regex: searchQuery, $options: "i" } },
-          //     { lastName: { $regex: searchQuery, $options: "i" } },
-          //   ],
-          // }).select("_id"),
         ]);
 
-        // Support full name searches like "Asad Khan"
-        // if (searchQuery.includes(" ")) {
-        //   const [firstNameQuery, lastNameQuery] = searchQuery.split(" ");
-        //   const fullNameMatches = await ProductSupplier.find({
-        //     $or: [
-        //       {
-        //         $and: [
-        //           { firstName: { $regex: firstNameQuery, $options: "i" } },
-        //           { lastName: { $regex: lastNameQuery, $options: "i" } },
-        //         ],
-        //       },
-        //     ],
-        //   }).select("_id");
-
-        //   productSuppliers.push(...fullNameMatches);
-        // }
-
         // Add ObjectId-based search conditions
-        query.$or.push(
-          {
-            "productInfo.productCategory": {
-              $in: productCategories.map((c) => c._id),
-            },
-          }
-          // {
-          //   "productInfo.productSupplier": {
-          //     $in: productSuppliers.map((s) => s._id),
-          //   },
-          // }
-        );
+        query.$or.push({
+          "productInfo.productCategory": {
+            $in: productCategories.map((c) => c._id),
+          },
+        });
       }
 
       if (status && ["draft", "published"].includes(status)) {
         query.status = status;
+      }
+
+      if (listingType && ["product", "part", "bundle"].includes(listingType)) {
+        query.listingType = listingType;
       }
 
       if (isBlocked !== undefined) {

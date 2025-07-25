@@ -8,10 +8,15 @@ import sendEmail from "@/utils/nodeMailer";
 
 export const userController = {
   createUser: async (req: Request, res: Response) => {
-    try {
-      const { email, address } = req.body;
+    console.log("req.body : ", req.body);
 
-      const userExists = await userService.findExistingEmail(email);
+    try {
+      const { email, address, longitude, latitude } = req.body;
+      console.log("longitude : ", longitude);
+      console.log("latitude : ", latitude);
+
+      const userExists: IUser | null =
+        await userService.findExistingEmail(email);
       if (userExists) {
         return res
           .status(StatusCodes.CONFLICT)
@@ -48,8 +53,23 @@ export const userController = {
       }
 
       // Handle address update/addition if provided
+      if (longitude && latitude) {
+        req.body.address = [
+          {
+            longitude,
+            latitude,
+          },
+        ];
+      }
       if (address && Array.isArray(address)) {
-        for (const addr of address) {
+        // Merge longitude/latitude into each address if present at root
+        const addressesToSave = address.map((addr) => ({
+          ...addr,
+          longitude: addr.longitude ?? longitude,
+          latitude: addr.latitude ?? latitude,
+        }));
+
+        for (const addr of addressesToSave) {
           const createdAddress = await userService.createAddress(
             addr,
             newUser._id as string
@@ -59,20 +79,19 @@ export const userController = {
           }
         }
       }
-
       // Send email to the new user
       try {
         const password = req.body.password; // Assuming the password is passed in the request body
         const emailContent = `
         <p>Dear ${newUser.firstName || "User"},</p>
-        <p>Your account has been created by the Bav-IT admin. Below are your login credentials:</p>
+        <p>Your account has been created by Build-My-Rig admin. Below are your login credentials:</p>
         <p><strong>Email:</strong> ${newUser.email}</p>
         <p><strong>Password:</strong> ${password}</p>
       `;
 
         await sendEmail({
           to: newUser.email,
-          subject: "Your Bav-IT Account Has Been Created",
+          subject: "Your Build-My-Rig Account Has Been Created",
           html: emailContent,
         });
       } catch (emailError) {
@@ -264,7 +283,7 @@ export const userController = {
 
       const emailContent = `
       <p>Dear ${userName},</p>
-      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Bav-IT admin.</p>
+      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Build-My-Rig admin.</p>
       <p>If you have any questions, please contact support.</p>
     `;
 
@@ -272,7 +291,7 @@ export const userController = {
       if (userEmailAddress) {
         await sendEmail({
           to: userEmailAddress,
-          subject: `Your Bav-IT Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
+          subject: `Your Build-My-Rig Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
           html: emailContent,
         });
       }
@@ -377,3 +396,5 @@ export const userController = {
     }
   },
 };
+
+// new route to get Employee List

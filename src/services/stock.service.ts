@@ -13,6 +13,7 @@ export const stockService = {
       totalUnits,
       usableUnits,
       costPricePerUnit,
+      retailPricePerUnit,
       purchasePricePerUnit,
       receivedDate,
       receivedBy,
@@ -20,6 +21,8 @@ export const stockService = {
       stockInvoice,
       markAsStock,
       priceBreakdown,
+      images,
+      videos,
     } = data;
 
     // Validate inventory existence
@@ -45,12 +48,13 @@ export const stockService = {
           !variation.variationId ||
           !mongoose.Types.ObjectId.isValid(variation.variationId) ||
           variation.costPricePerUnit === undefined ||
+          variation.retailPricePerUnit === undefined ||
           variation.purchasePricePerUnit === undefined ||
           variation.totalUnits === undefined ||
           variation.usableUnits === undefined
         ) {
           throw new Error(
-            "Each variation must have a valid variationId, costPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits."
+            "Each variation must have a valid variationId, costPricePerUnit, retailPricePerUnit, purchasePricePerUnit, totalUnits, and usableUnits."
           );
         }
       }
@@ -59,6 +63,7 @@ export const stockService = {
       const selectedVariations = variations.map((variation: any) => ({
         variationId: variation.variationId,
         costPricePerUnit: variation.costPricePerUnit,
+        retailPricePerUnit: variation.retailPricePerUnit,
         purchasePricePerUnit: variation.purchasePricePerUnit,
         totalUnits: variation.totalUnits,
         usableUnits: variation.usableUnits,
@@ -75,6 +80,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();
@@ -85,10 +92,11 @@ export const stockService = {
         totalUnits === undefined ||
         usableUnits === undefined ||
         costPricePerUnit === undefined ||
+        retailPricePerUnit === undefined ||
         purchasePricePerUnit === undefined
       ) {
         throw new Error(
-          "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, and purchasePricePerUnit are required."
+          "For non-variation inventory, totalUnits, usableUnits, costPricePerUnit, retailPricePerUnit, and purchasePricePerUnit are required."
         );
       }
 
@@ -99,6 +107,7 @@ export const stockService = {
         totalUnits,
         usableUnits,
         costPricePerUnit,
+        retailPricePerUnit,
         purchasePricePerUnit,
         receivedDate,
         receivedBy,
@@ -106,6 +115,8 @@ export const stockService = {
         purchaseDate,
         markAsStock,
         priceBreakdown,
+        images,
+        videos,
       });
 
       await stock.save();
@@ -177,7 +188,10 @@ export const stockService = {
   },
   //get stock by stockId
   async getStockById(stockId: string) {
-    return await Stock.findById(stockId).populate("selectedVariations.variationId").populate("receivedBy").populate("productSupplier");
+    return await Stock.findById(stockId)
+      .populate("selectedVariations.variationId")
+      .populate("receivedBy")
+      .populate("productSupplier");
   },
   // 📌 Get Existing Stock Records
   async getExistingStocks(stockIds: string[]) {
@@ -188,16 +202,16 @@ export const stockService = {
   async bulkUpdateStockCost(
     stockIds: string[],
     costPricePerUnit: number,
-    purchasePricePerUnit: number,
-    retailPricePerUnit: number
+    retailPricePerUnit: number,
+    purchasePricePerUnit: number
   ) {
     return await Stock.updateMany(
       { _id: { $in: stockIds } },
       {
         $set: {
           costPricePerUnit,
-          purchasePricePerUnit,
           retailPricePerUnit,
+          purchasePricePerUnit,
         },
       }
     );
@@ -249,6 +263,7 @@ export const stockService = {
               in: {
                 variationId: "$$variation.variationId",
                 costPricePerUnit: "$$variation.costPricePerUnit",
+                retailPricePerUnit: "$$variation.retailPricePerUnit",
                 purchasePricePerUnit: "$$variation.purchasePricePerUnit",
                 totalUnits: "$$variation.totalUnits",
                 usableUnits: "$$variation.usableUnits",
@@ -410,6 +425,7 @@ export const stockService = {
               in: {
                 variationId: "$$variation.variationId",
                 costPricePerUnit: "$$variation.costPricePerUnit",
+                retailPricePerUnit: "$$variation.retailPricePerUnit",
                 purchasePricePerUnit: "$$variation.purchasePricePerUnit",
                 totalUnits: "$$variation.totalUnits",
                 usableUnits: "$$variation.usableUnits",

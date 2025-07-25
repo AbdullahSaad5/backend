@@ -1,4 +1,5 @@
 import { ebay } from "@/routes/ebay.route";
+import { createHash } from "crypto";
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
@@ -414,7 +415,7 @@ export const ebayListingService = {
       // console.log("variationXml", variationXml);
       const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
-
+      const title = ebayData.productInfo?.item_name?.[0]?.value;
       const retailPrice =
         ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice || 10.0;
       const listingQuantity =
@@ -423,7 +424,7 @@ export const ebayListingService = {
         "10";
 
       // console.log("listingQuantity", listingQuantity);
-      const listingDescriptionData = generateListingDescription(ebayData);
+      // const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
@@ -446,10 +447,10 @@ export const ebayListingService = {
         <ErrorLanguage>en_US</ErrorLanguage>
         <WarningLevel>High</WarningLevel>
         <Item>
-          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
 
-           <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${escapeXml(ebayData.productInfo.product_description)}</Description>
           <PrimaryCategory>
               <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -518,7 +519,7 @@ export const ebayListingService = {
       const itemId = jsonObj?.AddFixedPriceItemResponse?.ItemID;
 
       if (itemId) {
-        const rawTitle = ebayData.productInfo?.title || "item";
+        const rawTitle = ebayData.productInfo?.item_name?.[0]?.value || "item";
         const safeTitle = rawTitle.replace(/\//g, " ").split(" ").join("-");
         const sandboxUrl =
           type === "production"
@@ -583,7 +584,7 @@ export const ebayListingService = {
       }
 
       // console.log("variationXml", variationXml);
-
+      const title = ebayData.productInfo?.item_name?.[0]?.value;
       const categoryId = ebayData.productInfo.productCategory.ebayCategoryId;
       console.log("categoryId is", categoryId);
 
@@ -596,7 +597,7 @@ export const ebayListingService = {
 
       // console.log("retailPrice", retailPrice);
 
-      const listingDescriptionData = generateListingDescription(ebayData);
+      // const listingDescriptionData = generateListingDescription(ebayData);
       // console.log("LishtingDescription", listingDescriptionData);
 
       if (!ebayData) {
@@ -620,11 +621,11 @@ export const ebayListingService = {
         <WarningLevel>High</WarningLevel>
         <Item>
         <ItemID>${ebayData.ebayItemId}</ItemID>
-          <Title>${escapeXml(ebayData.productInfo?.title ?? "A TEST product")}</Title>
+          <Title>${escapeXml(title ?? "A TEST product")}</Title>
           ${!ebayData.listingHasVariations ? `<SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>` : ""}
           <SKU>${ebayData.productInfo?.sku || 1234344343}</SKU>
 
-           <Description>${escapeXml(listingDescriptionData)}</Description>
+           <Description>${escapeXml(ebayData.productInfo.product_description)}</Description>
           <PrimaryCategory>
             <CategoryID>${categoryId}</CategoryID>
           </PrimaryCategory>
@@ -811,11 +812,180 @@ export const ebayListingService = {
       throw new Error("Error fetching orders");
     }
   },
+
+  // This endpoint handles both challenge validation (GET) and account deletion notifications (POST)
+  accountDeletion: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const method = req.method;
+
+      // Handle GET request for challenge validation
+      if (method === "GET") {
+        return await ebayListingService.handleEbayChallengeValidation(req, res);
+      }
+
+      // Handle POST request for account deletion notification
+      if (method === "POST") {
+        return await ebayListingService.handleEbayAccountDeletion(req, res);
+      }
+
+      // Method not allowed
+      return res.status(405).json({ message: "Method not allowed" });
+    } catch (error: any) {
+      console.error("❌ Error in eBay endpoint:", error);
+      return res.status(200).json({
+        message: "Error processed",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  },
+
+  // Handle eBay challenge validation (GET request)
+  handleEbayChallengeValidation: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("🔍 Received eBay challenge validation request");
+
+      // Get challenge code from query parameter
+      const { challenge_code } = req.query;
+
+      if (!challenge_code || typeof challenge_code !== "string") {
+        console.error("❌ Missing or invalid challenge_code");
+        return res.status(400).json({ error: "Missing challenge_code parameter" });
+      }
+
+      // Your verification token (must be 32-80 characters, alphanumeric, underscore, hyphen only)
+      const VERIFICATION_TOKEN =
+        process.env.EBAY_VERIFICATION_TOKEN || "8b5cc2202ec0a6533c90230368c3c704b21885c0c83fd72208c44d940338f0ac";
+
+      // Your endpoint URL (the same URL you provided to eBay)
+      const ENDPOINT_URL =
+        process.env.EBAY_ENDPOINT_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/ebay/account-deletion";
+
+      // Create hash: challengeCode + verificationToken + endpoint
+      const hash = createHash("sha256");
+      hash.update(challenge_code);
+      hash.update(VERIFICATION_TOKEN);
+      hash.update(ENDPOINT_URL);
+      const challengeResponse = hash.digest("hex");
+
+      console.log("✅ Challenge validation successful");
+      console.log("📝 Challenge code:", challenge_code);
+      console.log("📝 Response hash:", challengeResponse);
+
+      // Return response in required JSON format
+      return res.status(200).json({
+        challengeResponse: challengeResponse,
+      });
+    } catch (error: any) {
+      console.error("❌ Error in challenge validation:", error);
+      return res.status(500).json({
+        error: "Challenge validation failed",
+        details: error.message,
+      });
+    }
+  },
+
+  // Handle eBay account deletion notification (POST request)
+  handleEbayAccountDeletion: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("📧 Received eBay account deletion notification");
+
+      // Get notification data from eBay
+      const notificationData = req.body;
+
+      // Verify the request is from eBay using verification token
+      const VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN;
+
+      if (notificationData.verificationToken !== VERIFICATION_TOKEN) {
+        console.error("❌ Invalid verification token");
+        // Still return 200 to avoid notification failures
+        return res.status(200).json({ message: "Invalid token" });
+      }
+
+      // Extract user information from eBay notification
+      const { userId, marketplace, timestamp, notificationType } = notificationData;
+
+      console.log("🔍 Processing deletion for:", {
+        userId,
+        marketplace,
+        notificationType,
+        timestamp,
+      });
+
+      // Validate required fields
+      // if (!userId) {
+      //   console.error("❌ Missing userId in notification");
+      //   return res.status(200).json({ message: "Missing userId" });
+      // }
+
+      // Delete user data from your database
+      await ebayListingService.deleteEbayUserData(userId);
+
+      // Log successful deletion
+      console.log("✅ Successfully processed account deletion for user:", userId);
+
+      // eBay requires HTTP 200 response within 3 seconds
+      return res.status(200).json({
+        message: "Account deletion processed successfully",
+        userId: userId,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("❌ Error processing eBay account deletion:", error);
+
+      // IMPORTANT: Still return 200 to prevent eBay from marking endpoint as failed
+      // eBay will stop sending notifications after 1000 consecutive failures
+      return res.status(200).json({
+        message: "Error processed",
+        error: "Internal processing error",
+        timestamp: new Date().toISOString(),
+      });
+    }
+  },
+
+  // Helper function to delete eBay user data
+  deleteEbayUserData: async (userId: string): Promise<void> => {
+    try {
+      // Delete user data from your database
+      // Replace this with your actual database deletion logic
+
+      // Example database operations:
+      // await User.deleteOne({ ebayUserId: userId });
+      // await UserTokens.deleteMany({ ebayUserId: userId });
+      // await UserPreferences.deleteOne({ ebayUserId: userId });
+      // await ApiLogs.deleteMany({ userId: userId });
+
+      console.log(`🗑️ Deleted all data for eBay user: ${userId}`);
+
+      // Optional: Log the deletion for audit purposes
+      await ebayListingService.logAccountDeletion(userId);
+    } catch (error) {
+      console.error("❌ Error deleting user data:", error);
+      throw error;
+    }
+  },
+
+  // Helper function to log account deletions for audit
+  logAccountDeletion: async (userId: string): Promise<void> => {
+    try {
+      // Log the deletion event (without storing personal data)
+      // await AuditLog.create({
+      //   event: 'ACCOUNT_DELETION',
+      //   userId: userId, // You might want to hash this
+      //   timestamp: new Date(),
+      //   source: 'EBAY_NOTIFICATION'
+      // });
+
+      console.log(`📝 Logged account deletion for user: ${userId}`);
+    } catch (error) {
+      console.error("❌ Error logging account deletion:", error);
+      // Don't throw error here as it's not critical
+    }
+  },
 };
 const generateListingDescription = (ebayData: any) => {
   const defaultData = {
-    title: ebayData?.productInfo?.title ?? "A TEST product",
-    description: ebayData?.productInfo?.description ?? "No description available.",
+    title: ebayData.productInfo?.item_name?.[0]?.value ?? "A TEST product",
+    description: ebayData?.productInfo?.description?.[0].value ?? "No description available.",
     imageUrls: ebayData?.prodMedia?.images?.map((img: any) => img.url) ?? [],
     retailPrice:
       (ebayData?.prodPricing?.retailPrice || ebayData?.prodPricing?.selectedVariations?.[0]?.retailPrice) ?? 10.0,
@@ -907,17 +1077,20 @@ function generateItemSpecifics(
       const lowerKey = key.toLowerCase();
       const formattedKey = key.charAt(0).toUpperCase() + key.slice(1);
 
+      // Remove underscores and replace with spaces
+      const humanReadableKey = formattedKey.replace(/_/g, " ");
+
       const isVariationAttr = variationAttributeNames.has(lowerKey);
       const isForced = sectionForceInclude.includes(lowerKey);
       const isExcluded = sectionExclude.includes(lowerKey);
 
       if (isVariationAttr && !isForced) {
-        console.log(`⛔ Skipped (in variation): ${formattedKey}`);
+        console.log(`⛔ Skipped (in variation): ${humanReadableKey}`);
         continue;
       }
 
       if (isExcluded) {
-        console.log(`⛔ Excluded: ${formattedKey}`);
+        console.log(`⛔ Excluded: ${humanReadableKey}`);
         continue;
       }
 
@@ -932,7 +1105,7 @@ function generateItemSpecifics(
 
         itemSpecifics.push(`
           <NameValueList>
-            <Name>${formattedKey}</Name>
+            <Name>${humanReadableKey}</Name>
             <Value>${finalValue}</Value>
           </NameValueList>
         `);
@@ -942,7 +1115,6 @@ function generateItemSpecifics(
 
   return itemSpecifics.join("");
 }
-
 function escapeXml(unsafe: any): string {
   if (unsafe == null) return "";
   return String(unsafe)
@@ -954,6 +1126,7 @@ function escapeXml(unsafe: any): string {
 }
 async function generateVariationsXml(ebayData: any): Promise<string> {
   const variations = ebayData?.prodPricing?.selectedVariations || [];
+  // console.log("Variations for XML:", JSON.stringify(variations, null, 2));
   const previousSkusSet: Set<string> = new Set(
     (ebayData?.prodPricing?.currentEbayVariationsSKU || []).map((s: string) => s.trim().toLowerCase())
   );
@@ -995,13 +1168,13 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
   const variationNodes = variations.reduce((acc: string[], variation: any, index: number) => {
     const attrObj = variation?.variationId?.attributes || {};
 
-    Object.keys(attrObj).forEach((key) => {
-      if (!usedKeys.has(key) && usedKeys.size < 5) usedKeys.add(key);
-    });
-
+    // Skip the actual_attributes key
     const filteredAttrObj = Object.entries(attrObj).reduce(
       (acc2, [key, value]: any) => {
-        if (usedKeys.has(key)) acc2[key] = value;
+        if (key !== "actual_attributes") {
+          if (!usedKeys.has(key) && usedKeys.size < 5) usedKeys.add(key);
+          if (usedKeys.has(key)) acc2[key] = value;
+        }
         return acc2;
       },
       {} as Record<string, string>
@@ -1027,14 +1200,14 @@ async function generateVariationsXml(ebayData: any): Promise<string> {
     newSkusSet.add(uniqueSku);
 
     acc.push(`
-      <Variation>
-        <SKU>${escapeXml(uniqueSku)}</SKU>
-        <StartPrice>${variation.retailPrice}</StartPrice>
-        <Quantity>${variation.listingQuantity}</Quantity>
-        <VariationSpecifics>
-          ${nameValueXml}
-        </VariationSpecifics>
-      </Variation>`);
+    <Variation>
+      <SKU>${escapeXml(uniqueSku)}</SKU>
+      <StartPrice>${variation.retailPrice}</StartPrice>
+      <Quantity>${variation.listingQuantity}</Quantity>
+      <VariationSpecifics>
+        ${nameValueXml}
+      </VariationSpecifics>
+    </Variation>`);
 
     return acc;
   }, []);

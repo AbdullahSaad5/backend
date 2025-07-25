@@ -39,19 +39,25 @@ const sellingPartnerEndpoint = AMAZON_ENDPOINTS[env].sellingPartner;
 
 `${sellingPartnerEndpoint}/some/api/path`;
 
-const getClientCredentials = () => {
+export const getAmazonCredentials = () => {
   if (process.env.AMAZON_TOKEN_ENV === "sandbox") {
     return {
       clientId: process.env.AMAZON_CLIENT_ID_SANDBOX!,
       clientSecret: process.env.AMAZON_CLIENT_SECRET_SANDBOX!,
-      redirectUri: process.env.AMAZON_REDIRECT_URI_SANDBOX!,
+      redirectUri: "https://sandbox.sellingpartnerapi-eu.amazon.com",
+      marketplaceId: "A1F83G8C2ARO7P",
+      sellerId: "A21DY98JS1BBQC",
+      useClient: false,
     };
   }
   // default to production
   return {
     clientId: process.env.SELLING_PARTNER_APP_CLIENT_ID_PROD!,
     clientSecret: process.env.SELLING_PARTNER_APP_CLIENT_SECRET_PROD!,
-    redirectUri: process.env.SELLING_PARTNER_APP_REDIRECT_URI_PROD!,
+    redirectUri: "https://sellingpartnerapi-eu.amazon.com",
+    marketplaceId: "A1F83G8C2ARO7P",
+    sellerId: "ALTKAQGINRXND",
+    useClient: true,
   };
 };
 
@@ -65,25 +71,21 @@ const SCOPES = [
   "sellingpartnerapi::reports",
   "sellingpartnerapi::finances",
 ];
-
+const { useClient } = getAmazonCredentials();
+//TODO: fix i to correectly refresh the token after every five minutes, not on each requeust
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
     const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-    // USE_CLIENT environment variable controls which token file to read
-    const useClient =
-      process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false"
-        ? process.env.USE_CLIENT === "true"
-        : true;
-
     const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
-    let credentialsText;
 
+    let credentialsText;
     try {
       if (useClient) {
-        console.log("🔑 [CLIENT] Reading client token file");
+        console.log("🔑 [AMZ CLIENT] Reading client token file");
         credentialsText = fs.readFileSync("amazon_tokens_client.json", "utf-8");
       } else {
+        console.log("🔑 [AMZ SANDBOX] Reading sandbox token file");
         credentialsText = fs.readFileSync(tokenFile, "utf-8");
       }
     } catch (readError) {
@@ -99,7 +101,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       return null;
     }
 
-    const { access_token, generated_at, expires_in } = credentials;
+    const { access_token, generated_at, expires_in, refresh_token } = credentials;
 
     if (!access_token || !generated_at || !expires_in) {
       console.error("❌ Invalid or missing Amazon token fields.");
@@ -113,9 +115,23 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 
     if (timeRemaining <= bufferTime) {
       console.warn("⚠️ Amazon access token is expired or about to expire. Refreshing...");
+
+      // Refresh token
       const newToken = await refreshAmazonAccessToken(env);
       if (newToken?.access_token) {
-        console.log("✅ Amazon token refreshed.");
+        // Update token file with new values
+        credentials.access_token = newToken.access_token;
+        credentials.generated_at = Date.now(); // Set the new generated_at
+        credentials.refresh_token = newToken.refresh_token; // Update refresh token if available
+
+        try {
+          // Save the updated token back to the file
+          fs.writeFileSync(tokenFile, JSON.stringify(credentials, null, 2), "utf-8");
+          console.log("✅ Amazon token refreshed and saved.");
+        } catch (writeError) {
+          console.error("❌ Error saving the refreshed token:", writeError);
+        }
+
         return newToken.access_token;
       } else {
         console.error("❌ Failed to refresh Amazon token.");
@@ -132,7 +148,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 };
 
 export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") => {
-  const { clientId, clientSecret } = getClientCredentials();
+  const { clientId, clientSecret } = getAmazonCredentials();
 
   const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
   const credentialsText = fs.readFileSync(tokenFile, "utf-8");
@@ -255,10 +271,10 @@ export const initializeAmazonCredentials = async (code: string, type: AmazonEnvi
     // params.append("client_secret", process.env.AMAZON_CLIENT_SECRET!);
     // params.append("redirect_uri", process.env.AMAZON_REDIRECT_URI!);
 
-    const { clientId, clientSecret } = getClientCredentials();
+    const { clientId, clientSecret } = getAmazonCredentials();
     params.append("client_id", clientId);
     params.append("client_secret", clientSecret);
-    // For redirectUri, add it to getClientCredentials() or read similarly
+
     params.append("redirect_uri", process.env.AMAZON_REDIRECT_URI!);
 
     const response = await axios.post(AMAZON_ENDPOINTS[type].auth, params.toString(), {

@@ -1,6 +1,7 @@
 node_modules
 public
 .env*
+.env.dev
 !.env.template
 *.log
 .DS_Store
@@ -10,7 +11,19 @@ dist
 uploads
 .codegpt
 
-fireabase-admin
+
+
+
+
+amazon_tokens_client.json
+amazon_tokens_sandbox.json
+ebay_tokens_client.json
+ebay_tokens_sandbox.json
+ebay_tokens.json
+
+
+
+firebase-admin
 data
 diagram.excalidraw
 

@@ -12,6 +12,12 @@ export const gamerComunity = (router: Router) => {
   router.get("/", gamercomunityController.getAllgamercomunity);
 
   router.patch(
+    "/block/:id",
+    // blogCategoryValidation.editCategory,
+    gamercomunityController.editgamercomunity
+  );
+
+  router.patch(
     "/:id",
     // blogCategoryValidation.editCategory,
     gamercomunityController.editgamercomunity

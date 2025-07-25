@@ -3,89 +3,225 @@ import { IComplaint } from "@/contracts/complaint.contract";
 import { Types } from "mongoose";
 
 export const complaintService = {
-  async createComplaint(complaintData: Omit<IComplaint, keyof Document>): Promise<IComplaint> {
-    const complaint = new ComplaintModel(complaintData);
-    return complaint.save();
+  createComplaint: (complaintData: Omit<IComplaint, keyof Document>) => {
+    const newComplaint = new ComplaintModel(complaintData);
+    return newComplaint.save();
   },
 
-  async getComplaintById(id: string): Promise<IComplaint | null> {
-    return ComplaintModel.findById(id)
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
-      .populate("resolution.resolvedBy", "name email");
-  },
-
-  async getAllComplaints(filters: {
-    status?: "Open" | "In Progress" | "Closed";
-    priority?: "Low" | "Medium" | "High";
-    createdBy?: string;
-    assignedTo?: string;
-    category?: string;
-    fromDate?: Date;
-    toDate?: Date;
-  } = {}): Promise<IComplaint[]> {
-    const query: any = {};
-    
-    if (filters.status) query.status = filters.status;
-    if (filters.priority) query.priority = filters.priority;
-    if (filters.createdBy) query.createdBy = new Types.ObjectId(filters.createdBy);
-    if (filters.assignedTo) query.assignedTo = new Types.ObjectId(filters.assignedTo);
-    if (filters.category) query.category = filters.category;
-    if (filters.fromDate || filters.toDate) {
-      query.createDate = {};
-      if (filters.fromDate) query.createDate.$gte = filters.fromDate;
-      if (filters.toDate) query.createDate.$lte = filters.toDate;
+  editComplaint: (
+    id: string,
+    data: {
+      category?: string;
+      title?: string;
+      details?: string;
+      attachedFiles?: string;
     }
-
-    return ComplaintModel.find(query)
-      .sort({ priority: -1, dueDate: 1 })
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email");
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(id, data, {
+      new: true,
+      runValidators: true,
+    });
   },
 
-  async updateComplaint(
-    id: string,
-    updateData: Partial<IComplaint>
-  ): Promise<IComplaint | null> {
-    return ComplaintModel.findByIdAndUpdate(id, updateData, { new: true, runValidators: true })
-      .populate("createdBy", "name email")
-      .populate("assignedTo", "name email")
-      .populate("resolution.resolvedBy", "name email");
+  deleteComplaint: (id: string) => {
+    const complaint = ComplaintModel.findByIdAndDelete(id);
+    if (!complaint) {
+      throw new Error("Complaint not found");
+    }
+    return complaint;
   },
 
-  async deleteComplaint(id: string): Promise<IComplaint | null> {
-    return ComplaintModel.findByIdAndDelete(id);
+  // getAllComplaints: () => {
+  //   return ComplaintModel.find();
+  // },
+ // In complaint.service.ts
+getAllComplaints: async () => {
+  return ComplaintModel.find()
+    .populate({
+      path: 'category',
+      select: 'title description image' // Fields you want from Category
+    })
+    .populate({
+      path: 'assignedTo',
+      select: 'firstName lastName email' // Fields from User
+    })
+    .populate({
+      path: 'userId',
+      select: 'firstName lastName email' // Fields from User
+    })
+    .populate({
+      path: 'resolution.resolvedBy',
+      select: 'firstName lastName email'
+    })
+    .populate({
+      path: 'notes.notedBy',
+      select: 'firstName lastName email'
+    });
+},
+  getComplaintById: (id: string) => {
+    return ComplaintModel.findById(id);
   },
 
-  async addFilesToComplaint(
-    id: string,
-    files: string[]
-  ): Promise<IComplaint | null> {
+  changeStatus: (id: string, status: string) => {
+    const updatedTicket = ComplaintModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+    if (!updatedTicket) {
+      throw new Error("Ticket not found");
+    }
+    return updatedTicket;
+  },
+  changePriority: (id: string, priority: string) => {
+    const updatedTicket = ComplaintModel.findByIdAndUpdate(
+      id,
+      { priority },
+      { new: true }
+    );
+    if (!updatedTicket) {
+      throw new Error("Ticket not found");
+    }
+    return updatedTicket;
+  },
+
+  addFilesToComplaint: (id: string, files: string[]) => {
     return ComplaintModel.findByIdAndUpdate(
       id,
       { $addToSet: { attachedFiles: { $each: files } } },
       { new: true, runValidators: true }
-    );
+    ).exec();
   },
 
-  async resolveComplaint(
+  resolveComplaint: (
     id: string,
     resolutionData: {
+      image?: string[];
       description: string;
       resolvedBy: Types.ObjectId;
     }
-  ): Promise<IComplaint | null> {
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $set: { status: "Closed" },
+        $push: {
+          resolution: {
+            description: resolutionData.description,
+            resolvedBy: resolutionData.resolvedBy,
+            resolvedAt: new Date(),
+            ...(resolutionData.image && { image: resolutionData.image })
+          }
+        }
+      },
+      { 
+        new: true,
+        runValidators: true 
+      }
+    )
+    .populate("assignedTo", "name email")
+    .populate("resolution.resolvedBy", "name email")
+    .populate("userId", "name email");
+  },
+  noteComplaint: (
+    id: string,
+    resolutionData: {
+      image:string,
+      description: string;
+      notedBy: Types.ObjectId;
+    }
+  ) => {
     return ComplaintModel.findByIdAndUpdate(
       id,
       {
         status: "Closed",
         resolution: {
+          image:resolutionData.image,
           description: resolutionData.description,
-          resolvedBy: resolutionData.resolvedBy,
-          resolvedAt: new Date()
-        }
+          resolvedBy: resolutionData.notedBy,
+          
+        },
       },
       { new: true, runValidators: true }
     ).populate("resolution.resolvedBy", "name email");
-  }
+  },
+
+
+
+  
+  addNoteToComplaint: (
+    id: string,
+    noteData: {
+      image?: string[];
+      description: string;
+      notedBy: Types.ObjectId;
+    }
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $push: {
+          notes: {
+            ...noteData,
+            notedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    ).populate("notes.notedBy", "name email");
+  },
+
+  deleteNoteFromComplaint: (id: string, noteId: string) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: {
+          notes: { _id: noteId },
+        },
+      },
+      { new: true }
+    );
+  },
+
+  addResolutionToComplaint: (
+    id: string,
+    resolutionData: {
+      image?: string[];
+      description: string;
+      resolvedBy: Types.ObjectId;
+    }
+  ) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $set: { status: "Closed" },
+        $push: {
+          resolution: {
+            ...resolutionData,
+            resolvedAt: new Date(),
+          },
+        },
+      },
+      { new: true, runValidators: true }
+    )
+      .populate("assignedTo", "name email")
+      .populate("resolution.resolvedBy", "name email")
+      .populate("userId", "name email");
+  },
+
+  deleteResolutionFromComplaint: (id: string, resolutionId: string) => {
+    return ComplaintModel.findByIdAndUpdate(
+      id,
+      {
+        $pull: {
+          resolution: { _id: resolutionId },
+        },
+        $set: { status: "In Progress" }, // Reset status if resolution is deleted
+      },
+      { new: true }
+    );
+  },
+
+
+
 };

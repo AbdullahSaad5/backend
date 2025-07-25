@@ -2,51 +2,44 @@ import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { complaintService } from "../services/complaint.service";
 import { IComplaint } from "@/contracts/complaint.contract";
+import { jwtVerify } from "@/utils/jwt.util";
+import { authService } from "@/services";
+import { Types } from "mongoose";
 
 export const complaintController = {
   createComplaint: async (req: any, res: Response) => {
     try {
-      const {
-        category,
-        title,
-        details,
-        notes,
-        assignedTo,
-        dueDate,
-        priority
-      } = req.body;
+      const token = req.headers["authorization"]?.split(" ")[1];
 
-      // Basic validation
-      if (!category || !title || !details || !dueDate) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Missing required fields",
-          errors: {
-            ...(!category && { category: "Category is required" }),
-            ...(!title && { title: "Title is required" }),
-            ...(!details && { details: "Details are required" }),
-            ...(!dueDate && { dueDate: "Due date is required" })
-          }
-        });
+      if (!token) {
+        return res.status(401).json({ message: "No token provided" });
       }
 
-      const newComplaint = await complaintService.createComplaint({
-        ...req.body,
-        createdBy: req.user._id, // Assuming user is attached to request by auth middleware
-        status: "Open",
-        attachedFiles: req.files?.map((file: any) => file.path) || [] // Assuming file upload middleware
-      });
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
+
+      if (!user) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ success: false, message: " User not found." });
+      }
+
+const complaintdata = {...req.body, userId};
+;
+      const newComplaint =
+        await complaintService.createComplaint(complaintdata);
 
       res.status(StatusCodes.CREATED).json({
         success: true,
         message: "Complaint created successfully",
-        data: newComplaint
+        data: newComplaint,
       });
     } catch (error) {
       console.error("Error creating complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to create complaint"
+        message: "Failed to create complaint",
       });
     }
   },
@@ -59,93 +52,80 @@ export const complaintController = {
       if (!complaint) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Complaint not found"
+          message: "Complaint not found",
         });
       }
 
       res.status(StatusCodes.OK).json({
         success: true,
-        data: complaint
+        data: complaint,
       });
     } catch (error) {
       console.error("Error fetching complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to fetch complaint"
+        message: "Failed to fetch complaint",
       });
     }
   },
 
-  getAllComplaints: async (req: any, res: Response) => {
-    try {
-      const {
-        status,
-        priority,
-        category,
-        assignedTo,
-        fromDate,
-        toDate
-      } = req.query;
 
-      // Only allow admins/managers to filter by assignedTo
-      const canFilterByAssignment = req.user.role === "admin" || req.user.role === "manager";
 
-      const complaints = await complaintService.getAllComplaints({
-        ...(status && { status: status as IComplaint["status"] }),
-        ...(priority && { priority: priority as IComplaint["priority"] }),
-        ...(category && { category: category as string }),
-        ...(canFilterByAssignment && assignedTo && { assignedTo: assignedTo as string }),
-        ...(!canFilterByAssignment && { $or: [
-          { createdBy: req.user._id },
-          { assignedTo: req.user._id }
-        ]}),
-        ...(fromDate && { fromDate: new Date(fromDate as string) }),
-        ...(toDate && { toDate: new Date(toDate as string) })
-      });
+  // getAllComplaints: async (req: Request, res: Response) => {
+  //   try {
+  //     const categories = await complaintService.getAllComplaints();
+  //     console.log(categories);
+  //     res.status(StatusCodes.OK).json({ success: true, data: categories });
+  //   } catch (error) {
+  //     console.error("View Categories Error:", error);
+  //     res
+  //       .status(StatusCodes.INTERNAL_SERVER_ERROR)
+  //       .json({ success: false, message: "Error getting all Blog categories" });
+  //   }
+  // },
 
-      res.status(StatusCodes.OK).json({
-        success: true,
-        count: complaints.length,
-        data: complaints
-      });
-    } catch (error) {
-      console.error("Error fetching complaints:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to fetch complaints"
-      });
-    }
-  },
-
+  getAllComplaints: async (req: Request, res: Response) => {
+  try {
+    const complaints = await complaintService.getAllComplaints();
+    res.status(StatusCodes.OK).json({ 
+      success: true, 
+      data: complaints 
+    });
+  } catch (error) {
+    console.error("Error fetching complaints:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Failed to fetch complaints"
+    });
+  }
+},
   updateComplaint: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updateData = req.body;
 
       // Prevent certain fields from being updated directly
-      delete updateData.status;
-      delete updateData.resolution;
-      delete updateData.createdBy;
-
-      const updatedComplaint = await complaintService.updateComplaint(id, updateData);
+      const updatedComplaint = await complaintService.editComplaint(
+        id,
+        req.body
+      );
 
       if (!updatedComplaint) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Complaint not found"
+          message: "Complaint not found",
         });
       }
 
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Complaint updated successfully",
-        data: updatedComplaint
+        data: updatedComplaint,
       });
     } catch (error) {
       console.error("Error updating complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to update complaint"
+        message: "Failed to update complaint",
       });
     }
   },
@@ -158,55 +138,101 @@ export const complaintController = {
       if (!deletedComplaint) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Complaint not found"
+          message: "Complaint not found",
         });
       }
 
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Complaint deleted successfully",
-        data: deletedComplaint
+        data: deletedComplaint,
       });
     } catch (error) {
       console.error("Error deleting complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to delete complaint"
+        message: "Failed to delete complaint",
       });
     }
   },
-
-  addFiles: async (req: any, res: Response) => {
+  addFiles: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const files = req.files?.map((file: any) => file.path) || [];
+      const { newFileLinks } = req.body; // Array of new Firebase URLs
+  
+      const updatedComplaint = await complaintService.addFilesToComplaint(
+        id,
+        newFileLinks
+      );
+  
+      res.status(200).json({
+        success: true,
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to add files" });
+    }
+  },
 
-      if (files.length === 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "No files were uploaded"
-        });
-      }
+  toggleticketstatus: async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status } = req.body;
 
-      const updatedComplaint = await complaintService.addFilesToComplaint(id, files);
+    const allowedStatuses = ["Open", "In Progress", "Closed","Resolved"];
 
-      if (!updatedComplaint) {
-        return res.status(StatusCodes.NOT_FOUND).json({
-          success: false,
-          message: "Complaint not found"
-        });
-      }
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message:
+          "Status is required and must be one of: Open, In Progress, Closed,Resolved",
+        allowedStatuses,
+      });
+    }
+
+    try {
+      const result = await complaintService.changeStatus(id, status);
 
       res.status(StatusCodes.OK).json({
         success: true,
-        message: "Files added to complaint successfully",
-        data: updatedComplaint
+        message: "Status changed successfully",
+        data: result,
       });
     } catch (error) {
-      console.error("Error adding files to complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to add files to complaint"
+        message: "Something went wrong",
+        error: Error,
+      });
+    }
+  },
+  toggleprioritystatus: async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { priority } = req.body;
+
+    const allowedpriority = ["Low", "Medium", "High", "Urgent"];
+
+    if (!priority || !allowedpriority.includes(priority)) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message:
+          "Status is required and must be one of: Open, In Progress, Closed, Urgent",
+        allowedpriority,
+      });
+    }
+
+    try {
+      const result = await complaintService.changePriority(id, priority);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Status changed successfully",
+        data: result,
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Something went wrong",
+        error: Error,
       });
     }
   },
@@ -214,38 +240,203 @@ export const complaintController = {
   resolveComplaint: async (req: any, res: Response) => {
     try {
       const { id } = req.params;
-      const { description } = req.body;
+      const { resolvedBy, description, image } = req.body;
+  
+      // Validate required fields
+      if (!description ) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Resolution description  is required",
+        });
+      }
+  
+      if (!resolvedBy) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "ResolvedBy user ID is required",
+        });
+      }
+  
+      // Validate description array length
+      
+  
+      const resolutionData = {
+        description,
+        resolvedBy: new Types.ObjectId(resolvedBy),
+        resolvedAt: new Date(),
+        ...(image && { image }) // Only include image if provided
+      };
+  
+      const resolvedComplaint = await complaintService.resolveComplaint(id, resolutionData);
+  
+      if (!resolvedComplaint) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Complaint not found",
+        });
+      }
+  
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Complaint resolved successfully",
+        data: resolvedComplaint,
+      });
+    } catch (error) {
+      console.error("Error resolving complaint:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to resolve complaint",
+        error: Error,
+      });
+    }
+  },
+  noteComplaint: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const {notedBy, description, image } = req.body;
 
       if (!description) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Resolution description is required"
+          message: "Resolution description is required",
         });
       }
 
-      const resolvedComplaint = await complaintService.resolveComplaint(id, {
+      const resolvedComplaint = await complaintService.noteComplaint(id, {
+        image,
         description,
-        resolvedBy: req.user._id
+        notedBy,
       });
 
       if (!resolvedComplaint) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Complaint not found"
+          message: "Complaint not found",
         });
       }
 
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Complaint resolved successfully",
-        data: resolvedComplaint
+        data: resolvedComplaint,
       });
     } catch (error) {
       console.error("Error resolving complaint:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Failed to resolve complaint"
+        message: "Failed to resolve complaint",
       });
     }
-  }
+  },
+
+  
+  addNote: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { notedBy, description, image } = req.body;
+
+      if (!description) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Note description is required",
+        });
+      }
+
+      const updatedComplaint = await complaintService.addNoteToComplaint(id, {
+        image,
+        description,
+        notedBy: new Types.ObjectId(notedBy),
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note added successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error adding note:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to add note",
+      });
+    }
+  },
+
+  deleteNote: async (req: Request, res: Response) => {
+    try {
+      const { id, noteId } = req.params;
+      const updatedComplaint = await complaintService.deleteNoteFromComplaint(
+        id,
+        noteId
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note deleted successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete note",
+      });
+    }
+  },
+
+  addResolution: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { resolvedBy, description, image } = req.body;
+
+      if (!description) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Resolution description is required",
+        });
+      }
+
+      const updatedComplaint = await complaintService.addResolutionToComplaint(
+        id,
+        {
+          image,
+          description,
+          resolvedBy: new Types.ObjectId(resolvedBy),
+        }
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution added successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error adding resolution:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to add resolution",
+      });
+    }
+  },
+
+  deleteResolution: async (req: Request, res: Response) => {
+    try {
+      const { id, resolutionId } = req.params;
+      const updatedComplaint =
+        await complaintService.deleteResolutionFromComplaint(id, resolutionId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution deleted successfully",
+        data: updatedComplaint,
+      });
+    } catch (error) {
+      console.error("Error deleting resolution:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete resolution",
+      });
+    }
+  },
+  
 };

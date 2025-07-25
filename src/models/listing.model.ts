@@ -1,6 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
 import { IListing } from "@/contracts/listing.contract";
-import { boolean } from "zod";
 
 export const mediaSchema = {
   id: { type: String },
@@ -15,17 +14,65 @@ export const mediaSchema = {
 const options = { timestamps: true, discriminatorKey: "kind" };
 
 const prodInfoSchema = {
-  title: { type: String, required: true, maxlength: 80 },
-  sku: { type: String, required: true },
+  sku: { type: String },
 
   productCategory: { type: Schema.Types.ObjectId, ref: "ProductCategory" },
-  description: { type: String },
-  brand: { type: [String], required: true },
+
   displayUnits: { type: Number, required: true },
+
+  item_name: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_GB" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
+  condition_type: [
+    {
+      _id: false,
+      value: {
+        type: String,
+        enum: [
+          "collectible_acceptable",
+          "collectible_good",
+          "collectible_like_new",
+          "collectible_very_good",
+          "new_new",
+          "new_oem",
+          "new_open_box",
+          "refurbished_refurbished",
+          "used_acceptable",
+          "used_good",
+          "used_like_new",
+          "used_very_good",
+        ],
+        default: "new_new",
+      },
+
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+  product_description: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      language_tag: { type: String, default: "en_GB" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+  brand: [
+    {
+      _id: false,
+      value: { type: String, required: true },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P", required: true },
+    },
+  ],
 };
 
 const prodMediaSchema = {
-  images: { type: [mediaSchema], _id: false },
+  images: { type: [mediaSchema], _id: false, maxlength: 9 },
+  offerImages: { type: [mediaSchema], _id: false, maxlength: 6 },
   videos: { type: [mediaSchema], _id: false },
 };
 
@@ -50,7 +97,7 @@ const prodPricingSchema = {
     new Schema(
       {
         retailPrice: { type: Number, required: true, default: 0 },
-        images: { type: [mediaSchema], _id: false },
+        images: { type: [mediaSchema], _id: false, maxlength: 9 },
         listingQuantity: { type: Number, required: true, default: 0 },
         discountValue: { type: Number },
 
@@ -59,8 +106,47 @@ const prodPricingSchema = {
       { _id: true, strict: false } // 👈 this line allows undefined fields (dynamic attributes)
     ),
   ],
-  
+
   currentEbayVariationsSKU: { type: [String] },
+  currentAmazonVariationsSKU: { type: [String] },
+  amazonVariationStatus: {
+    parentCreated: { type: Boolean, default: false },
+    lastUpdated: { type: Date, default: Date.now },
+    totalAttempted: { type: Number, default: 0 },
+    successful: [
+      {
+        childSku: String,
+        variationIndex: Number,
+        variationId: String,
+        status: String,
+        retailPrice: String,
+        listingQuantity: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    failed: [
+      {
+        childSku: String,
+        variationIndex: Number,
+        variationId: String,
+        error: String,
+        status: String,
+        amazonResponse: Object,
+        failedAt: { type: Date, default: Date.now },
+      },
+    ],
+  },
+  variationHistory: [
+    {
+      childSku: String,
+      variationId: String,
+      action: { type: String, enum: ["created", "updated", "deleted"] },
+      timestamp: { type: Date, default: Date.now },
+      retailPrice: String,
+      listingQuantity: String,
+      details: Object,
+    },
+  ],
   selectedVariations: [
     {
       _id: false,
@@ -72,13 +158,15 @@ const prodPricingSchema = {
         },
       },
       retailPrice: { type: Number, required: true, default: 0 },
-      images: { type: [mediaSchema], _id: false },
+      images: { type: [mediaSchema], _id: false, maxlength: 9 },
+      offerImages: { type: [mediaSchema], _id: false, maxlength: 6 },
       listingQuantity: { type: Number, required: true, default: 0 },
       variationName: { type: String },
       discountValue: { type: Number },
       enableEbayListing: { type: Boolean, default: false },
     },
   ],
+  variationTheme: { type: String },
   retailPrice: {
     type: Number,
     required: function () {
@@ -104,12 +192,56 @@ const prodPricingSchema = {
 const prodDeliverySchema = {
   // prod delivery details
   postagePolicy: { type: String },
-  packageWeightKg: { type: String },
-  packageWeightG: { type: String },
-  packageDimensionLength: { type: String },
-  packageDimensionWidth: { type: String },
-  packageDimensionHeight: { type: String },
   irregularPackage: { type: Boolean },
+
+  item_package_dimensions: [
+    {
+      _id: false,
+      length: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
+      width: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
+      height: { value: { type: Number }, unit: { type: String, default: "centimeters" } },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+
+  item_package_weight: [
+    {
+      _id: false,
+      value: { type: Number },
+      unit: { type: String, default: "grams" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+  item_display_weight: [
+    {
+      _id: false,
+      value: { type: Number, required: true },
+      unit: { type: String, default: "grams" },
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
+  epr_product_packaging: [
+    {
+      _id: false,
+      main_material: {
+        type: String,
+        enum: ["ceramic", "glass", "metal", "paper", "plastic", "textile", "wood"],
+      },
+      granular_materials: [
+        {
+          _id: false,
+          granular_material: { type: String },
+          weight: {
+            _id: false,
+            value: { type: Number },
+            unit: { type: String, default: "grams" },
+          },
+          recycled_content_percentage: { type: Number, min: 0, max: 100 },
+        },
+      ],
+      marketplace_id: { type: String, default: "A1F83G8C2ARO7P" },
+    },
+  ],
 };
 
 const prodSeoSchema = {
@@ -140,15 +272,6 @@ export const productsTechnicalSchema = {
   required: false,
 };
 
-// Define variation schema
-const selectedVariationsSchema = new Schema({
-  cpu: [{ type: String }], // Multiple CPU options
-  ram: [{ type: String }], // Multiple RAM options
-  storage: [{ type: String }], // Multiple storage options
-  graphics: [{ type: String }],
-  attributes: { type: Map, of: [Schema.Types.Mixed], default: {} },
-});
-
 // Main Listing Schema
 const listingSchema = new Schema(
   {
@@ -160,6 +283,8 @@ const listingSchema = new Schema(
     listingWithStock: { type: Boolean, default: true },
     ebayItemId: { type: String },
     ebaySandboxUrl: { type: String },
+    amazonSubmissionId: { type: String },
+    amazonSku: { type: String },
     offerId: { type: String },
     isBlocked: { type: Boolean, default: false },
     publishToEbay: { type: Boolean, default: false },
@@ -170,7 +295,6 @@ const listingSchema = new Schema(
     alias: { type: String },
     stocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stock" }],
     stockThreshold: { type: Number, default: 10 },
-    selectedVariations: selectedVariationsSchema,
   },
   options
 );

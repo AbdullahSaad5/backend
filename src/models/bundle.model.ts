@@ -19,6 +19,7 @@ const bundleSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+      unique: true,
     },
 
     // Promotional images with alt text
@@ -99,7 +100,7 @@ const bundleSchema = new Schema(
     // Bundle expiration date
     validity: {
       type: Date,
-      required: true,
+      // required: true,
     },
   },
   { timestamps: true }

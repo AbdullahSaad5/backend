@@ -6,6 +6,7 @@ interface IStock extends Document {
   selectedVariations?: {
     variationId: mongoose.Types.ObjectId;
     costPricePerUnit: number;
+    retailPricePerUnit: number;
     purchasePricePerUnit: number;
     totalUnits: number;
     usableUnits: number;
@@ -19,12 +20,16 @@ interface IStock extends Document {
   totalUnits?: number;
   usableUnits?: number;
   costPricePerUnit?: number;
+  retailPricePerUnit?: number;
   purchasePricePerUnit?: number;
 
   receivedDate: Date;
   receivedBy: mongoose.Types.ObjectId; // ✅ Fixed type
   purchaseDate: Date;
   markAsStock: Boolean;
+
+  images?: (typeof mediaSchema)[];
+  videos?: (typeof mediaSchema)[];
 
   batchNumber: number;
 }

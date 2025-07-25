@@ -1,6 +1,5 @@
 import { Router } from "express";
 
-// Routes
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { multer as files } from "./multer.route";
 import { user } from "./user.route";
@@ -16,7 +15,7 @@ import { inventory } from "./inventory.route";
 import { bundle } from "./bundle.route";
 import { permissions } from "./permissions.route";
 import { me } from "./me.route";
-import { document } from "./documents.route"
+import { document } from "./documents.route";
 import { blog } from "./blog.route";
 import { orderRoutes } from "./order.route";
 import { cartRoutes } from "./cart.route";
@@ -35,16 +34,38 @@ import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
 import { ebay } from "./ebay.route";
+import { ebayChat } from "./ebay-chat.route";
+import { ebayChatSandbox } from "./ebay-chat-sandbox.route";
 import { amazon } from "./amazon.route";
+import { amazonChat } from "./amazon-chat.route";
 import { complaintcategory } from "./complaintcategory.route";
 import { expense } from "./expense.route";
+import { workshift } from "./workshift.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
+import { revenue } from "./revenue.routes";
+import { guidescategory } from "./guidescategory.route";
+import { guide } from "./guide.route";
+import { faqcategory } from "./faqcategory.route";
+import { faq } from "./faq.route";
+import { gtin } from "./gtin.route";
+import { newsletter } from "./newsletter.route";
+import { employee } from "./employee.route";
+import { workmode } from "./workmode.route";
+import { attendance } from "./attendance.route";
+import { leaveRequest } from "./leave-request.route";
+import { payroll } from "./payroll.route";
+import { processedpayroll } from "./processedpayroll.route";
+import { leadscategory } from "./leadscategory.route";
+import { lead } from "./lead.route";
+import { task } from "./task.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+
+// Register processedPayroll route
 
 // Define all routes
 const routes: {
@@ -59,9 +80,10 @@ const routes: {
   variations,
   complaint,
   blog,
-  expense, 
+  expense,
   document,
   expensecategory,
+  workshift,
   supplier,
   complaintcategory,
   supplierCategory,
@@ -69,8 +91,12 @@ const routes: {
   listing,
   inventory,
   ebay,
+  ebayChat,
+  ebayChatSandbox,
   ticket,
+  gtin,
   amazon,
+  amazonChat,
   productCategory,
   gamerComunity,
   blogCategory,
@@ -86,8 +112,22 @@ const routes: {
   discount,
   taxes,
   faqsPolicy,
+  revenue,
+  guidescategory,
+  guide,
+  faqcategory,
+  faq,
+  newsletter,
+  leadscategory,
+  lead,
   chat,
-  // discriminator,
+  employee,
+  workmode,
+  attendance,
+  leaveRequest,
+  payroll,
+  processedpayroll,
+  task,
 };
 
 // Loop through all routes and pass the router to each route

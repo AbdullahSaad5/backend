@@ -4,6 +4,8 @@ import { Router } from "express";
 import { handleBulkImport, handleBulkExport } from "@/controllers/inventory.controller.helper"; // Adjust import path as needed
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 import { bulkImportUtility } from "@/utils/bulkImport.util";
+import { inventoryService } from "@/services";
+import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 
 export const inventory = (router: Router) => {
   // TODO: inventoryValidation.addInventory
@@ -41,13 +43,15 @@ export const inventory = (router: Router) => {
 
   // Fetch all Draft inventory  names
   router.get("/drafts", inventoryController.getAllDraftInventoryNames);
+  router.get("/generate-xlsx-template", inventoryController.generateXLSXTemplate);
 
   // Update a draft inventory by ID (subsequent steps)
 
   router.get("/", inventoryController.getAllInventory);
-  //
 
   router.get("/template/:id", inventoryValidation.validateId, inventoryController.getInventoryTemplateById);
+
+  router.delete("/bulk-delete", inventoryController.bulkDeleteInventory);
 
   router.delete("/:id", inventoryValidation.validateId, inventoryController.deleteInventory);
 
@@ -66,8 +70,10 @@ export const inventory = (router: Router) => {
 
   router.patch("/:id/update-variations", inventoryController.storeSelectedVariations);
 
-  // router.get("/fetch-all-categories", bulkImportUtility.fetchAspectsForAllCategories); only usable route to get all gategories from ebay and to create bulk import template
+  router.get("/fetch-all-categories", bulkImportStandardTemplateGenerator.fetchAttributesForAllCategories); // only usable route to get all gategories from ebay and to create bulk import template
+
   router.get("/:id", inventoryValidation.validateId, inventoryController.getInventoryById);
+
   // Get selected variations for a inventory
   router.get("/:id/selected-parts", inventoryController.getSelectedInventoryParts);
 };

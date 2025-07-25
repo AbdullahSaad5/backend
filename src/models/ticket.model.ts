@@ -1,5 +1,5 @@
 import { ITicket } from "@/contracts/ticket.contract";
-import { model, Schema } from "mongoose";
+import { model, Schema, Types } from "mongoose";
 
 const TicketSchema = new Schema<ITicket>(
   {
@@ -13,9 +13,14 @@ const TicketSchema = new Schema<ITicket>(
       required: true,
       trim: true,
     },
+    role: {
+      type: Schema.Types.ObjectId,
+      ref: "UserCategory",
+      required: true,
+    },
     assignedTo: {
-      type: String,
-      trim: true,
+      type: Schema.Types.ObjectId,
+      ref: "User",
     },
     createDate: {
       type: Date,
@@ -27,19 +32,15 @@ const TicketSchema = new Schema<ITicket>(
     },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Closed"],
+      enum: ["Open", "In Progress", "Closed","Resolved"],
       default: "Open",
     },
     priority: {
       type: String,
-      enum: ["Low", "Medium", "High"],
+      enum: ["Low", "Medium", "High", "Urgent"],
       default: "Medium",
     },
-    department: {
-      type: String,
-      enum: ["SUPPORT", "SALES", "INVENTORY"],
-      required: true,
-    },
+    
     description: {
       type: String,
       required: true,
@@ -64,13 +65,11 @@ const TicketSchema = new Schema<ITicket>(
       closedAt: {
         type: Date
       }
-      
     },
-    
   },
   {
-    timestamps: true, // optional but recommended
+    timestamps: true,
   }
 );
-// Export the model
+
 export const TicketModel = model<ITicket>("Ticket", TicketSchema);

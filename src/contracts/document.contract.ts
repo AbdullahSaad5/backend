@@ -7,19 +7,22 @@ export interface IDocumentFile {
     size: number;
 }
 
-export interface IUserRef {
-    _id: Types.ObjectId;
-    firstName: string;
-    lastName: string;
+export interface IVisibleToUser {
+    label: string;
+    value: Types.ObjectId;
+    role: string;
 }
 
 export interface IDocument extends Document {
     docCategory: string;
     docTitle: string;
     docTags: string[];
-    expiryDate: Date; 
+    version: string;
+    expiryDate?: Date | null;
     document: IDocumentFile[];
-    userId: Types.ObjectId | IUserRef; // Can be ObjectId (unpopulated) or user data (populated)
+    author: string;
+    visibleTo: IVisibleToUser[];
+    userId: Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }

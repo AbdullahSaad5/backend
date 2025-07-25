@@ -70,6 +70,18 @@ export const permissionsController = {
             "ADD_GAMERS_COMMUNITY",
           ],
         },
+         accountingManagement: {
+          parent: "MANAGE_ACCOUNTING",
+          children: [
+            "ADD_EXPENSE_CATEGORY",
+            "VIEW_EXPENSE_CATEGORY",
+            "ADD_EXPENSE",
+            "VIEW_EXPENSE",
+            "VIEW_REVENUE",
+            "ADD_REVENUE",
+            "VIEW_INVENTORY_PURCHASES",
+          ],
+        },
         hrManagement: {
           parent: "HR_MANAGEMENET",
           children: [
@@ -89,13 +101,25 @@ export const permissionsController = {
             "ADD_COMPLAINTS",
           ],
         },
-        ticketing: {
-          parent: "MANAGE_TICKETING",
+        guideManagement: {
+          parent: "MANAGE_GUIDES",
+          children: [
+            "VIEW_GUIDES_CATEGORY",
+            "ADD_GUIDE_CATEGORY",
+            "VIEW_GUIDES",
+            "ADD_GUIDES",
+          ],
         },
-        documents: {
-          parent: "MANAGE_DOCUMENTS",
+        leadsManagement: {
+          parent: "LEADS_MANAGEMENT",
+          children: [
+            "ADD_LEADS_CATEGORIES",
+            "VIEW_LEADS_CATEGORIES",
+            "ADD_LEADS",
+            "VIEW_LEADS",
+          ],
         },
-        policies: {
+         policies: {
           parent: "MANAGE_POLICIES",
           children: [
             "VIEW_CUSTOM_POLICIES",
@@ -106,10 +130,21 @@ export const permissionsController = {
             "ADD_FULFILLMENT_POLICIES",
             "VIEW_RETURN_POLICIES",
             "ADD_RETURN_POLICIES",
-            // "VIEW_SUBSCRIPTIONS",
-            // "VIEW_FAQS",
+            "ADD_SUBSCRIPTIONS",
+            "VIEW_SUBSCRIPTIONS",
+            "ADD_FAQ_CATEGORY",
+            "VIEW_FAQ_CATEGORY",
+            "ADD_FAQS",
+            "VIEW_FAQS",
           ],
         },
+        ticketing: {
+          parent: "MANAGE_TICKETING",
+        },
+        documents: {
+          parent: "MANAGE_DOCUMENTS",
+        },
+       
         setting: {
           parent: "SETTINGS",
         },

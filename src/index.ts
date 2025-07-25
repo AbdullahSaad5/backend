@@ -8,6 +8,7 @@ import { router } from "./routes/index.route";
 import { socketManager } from "./datasources/socket.datasource";
 import seedData from "./utils/seeder.util";
 import { requestLogger } from "./middlewares/requestLogger.middleware";
+import { initCron } from "./cron";
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -54,13 +55,16 @@ app.get("/", (req, res) => {
 });
 app.use("/api", router);
 
+initCron();
 const port = process.env.PORT || 5000;
-
 const httpServer = app.listen(port, () => {
   console.log(`Server is running on port: ${port}`);
 });
 
 // Add socket.io to the server
+
+// Option 1: Using initialize()
+// socketManager.initialize(httpServer);
 // socket.run(httpServer);
 socketManager.run(httpServer);
 
