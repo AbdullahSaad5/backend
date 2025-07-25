@@ -1,11 +1,12 @@
 import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
-import { Parser } from "json2csv";
 import mongoose from "mongoose";
-import crypto from "crypto";
+import { validate } from "@/utils/validate";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
 import fs from "fs";
+
 import * as XLSX from "xlsx";
+import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 // Utility function to pick allowed fields
 function pick(obj: any, keys: string[]) {
   return keys.reduce((acc: { [key: string]: any }, key) => {
@@ -160,8 +161,6 @@ export const inventoryService = {
       // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
-        draftInventory.isTemplate = stepData.isTemplate || false;
-        draftInventory.alias = stepData.alias || "";
       }
 
       // if (draftInventory.isPart) {
@@ -536,6 +535,7 @@ export const inventoryService = {
   },
 
   //bulk import inventory
+
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
@@ -543,140 +543,217 @@ export const inventoryService = {
         return;
       }
 
-      addLog("🔹 Valid Rows Received for Bulk Import:");
-      validRows.forEach(({ row, data }, i) => {
-        try {
-          addLog(`Row [${i}] => #${row}`);
-          if (!data || typeof data !== "object") {
-            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
-          } else {
-            console.log(`Data: ${JSON.stringify(data)}`);
-          }
-        } catch (err) {
-          console.log(`❌ Error while printing row ${row}:`, err);
-        }
-      });
+      addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
+
+      const categoryVariationAspects: { [key: string]: string[] } = {
+        PERSONAL_COMPUTER: [
+          "processor_description",
+          "hard_disk.size",
+          "display.size",
+          "memory_storage_capacity",
+          "computer_memory.size",
+        ],
+        LAPTOP: [
+          "processor_description",
+          "hard_disk.size",
+          "display.size",
+          "memory_storage_capacity",
+          "computer_memory.size",
+        ],
+        MONITOR: ["display.size", "display.resolution"],
+        MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
+        TABLET: ["memory_storage_capacity", "display.size", "color"],
+        HEADPHONES: ["color", "connection_type"],
+        CAMERA: ["color", "memory_storage_capacity"],
+      };
+
       const bulkOperations: any = (
         await Promise.all(
           validRows
-            .map(({ row, data }) => {
-              const normalizedData: any = {};
-              for (const key in data) {
-                normalizedData[key.toLowerCase()] = data[key];
-              }
-              return { row, data: normalizedData };
-            })
-            .filter(({ data }) => data && data.title)
-            .map(async ({ row, data: normalizedData }) => {
-              const matchedCategory = await ProductCategory.findOne({
-                $or: [{ amazonCategoryId: normalizedData.amazoncategoryid }],
-              }).select("_id");
+            .filter(({ data }) => data && (data.title || data.item_name))
+            .map(async ({ row, data }) => {
+              addLog(`\n📦 Row ${row}: Starting processing`);
+              addLog(`🔍 Raw Data: ${JSON.stringify(data, null, 2)}`);
 
-              if (!matchedCategory) {
-                addLog(`❌ No matching product category for Amazon ID: ${normalizedData.amazoncategoryid}`);
+              try {
+                const categoryId = data.productCategory || data.ebayCategoryId;
+                const categoryName = data.productCategoryName;
+
+                addLog(`🔎 Row ${row}: Looking for Category with ID: ${categoryId} or Name: ${categoryName}`);
+
+                const matchedCategory = await ProductCategory.findOne({
+                  $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
+                }).select("_id name");
+
+                if (!matchedCategory) {
+                  addLog(`❌ Row ${row}: No matching product category found.`);
+                  return null;
+                }
+
+                addLog(`✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id})`);
+
+                let amazonSchema = null;
+                let variationAspects: string[] | any = [];
+
+                try {
+                  amazonSchema = await bulkImportStandardTemplateGenerator.getAmazonActualSchema(categoryId);
+                  const categoryKey = matchedCategory.name?.toUpperCase() || categoryName?.toUpperCase();
+                  variationAspects = categoryVariationAspects[categoryKey] || [];
+                  addLog(
+                    `📘 Row ${row}: Amazon schema & variation aspects fetched. Aspects: ${variationAspects.join(", ")}`
+                  );
+                } catch (schemaError: any) {
+                  addLog(`⚠️ Row ${row}: Schema fetch failed - ${schemaError.message}`);
+                }
+
+                const processedPayload = processSheetDataToPayload(data, row);
+                addLog(`🧾 Row ${row}: Processed Payload: ${JSON.stringify(processedPayload, null, 2)}`);
+
+                if (amazonSchema && processedPayload) {
+                  const validationResult = validate(amazonSchema, processedPayload, variationAspects);
+                  if (!validationResult.valid) {
+                    addLog(`❌ Row ${row}: Validation failed. Errors:`);
+                    validationResult.errors.forEach((error: any) => {
+                      const fieldName = error.title || error.path.replace("root.", "");
+                      addLog(`   • ${fieldName}: ${error.message}`);
+                    });
+                    addLog(`⚠️ Row ${row}: Continuing with validation errors...`);
+                  } else {
+                    addLog(`✅ Row ${row}: Payload validated successfully.`);
+                  }
+                }
+
+                let title = extractNestedValue(data, ["title", "item_name"]);
+                if (!title) {
+                  addLog(`❌ Row ${row}: Missing title/item_name`);
+                  return null;
+                }
+
+                let description = extractNestedValue(data, ["description"]);
+
+                let brandList: string[] = [];
+                const brandValue = extractNestedValue(data, ["brand"]);
+                if (brandValue) {
+                  if (typeof brandValue === "string") {
+                    brandList = brandValue
+                      .split(",")
+                      .map((b) => b.trim())
+                      .filter(Boolean);
+                  } else {
+                    brandList = [brandValue.toString()];
+                  }
+                }
+
+                addLog(`🏷️ Row ${row}: Brands found: ${brandList.join(", ")}`);
+
+                const isMultiBrand = brandList.length > 1;
+
+                const inventoryImages = (data.images || []).map((img: any) => {
+                  const url = img.value || img.url || img;
+                  return {
+                    id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    size: 0,
+                    url: url,
+                    type: "image/jpeg",
+                  };
+                });
+
+                addLog(`🖼️ Row ${row}: Image URLs: ${inventoryImages.map((img: any) => img.url).join(", ")}`);
+
+                let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
+
+                const productInfo: any = {
+                  productCategory: matchedCategory._id,
+                  amazonCategoryId: categoryId,
+                  item_name: [
+                    {
+                      _id: false,
+                      value: title,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  product_description: [
+                    {
+                      _id: false,
+                      value: description,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  inventoryImages,
+                  condition_type: conditionType,
+                  brand: [
+                    {
+                      _id: false,
+                      value: brandList[0] || "",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                };
+
+                const prodTechInfo = processNestedAttributes(data, [
+                  "title",
+                  "item_name",
+                  "product_description",
+                  "brand",
+                  "condition_type",
+                  "productCategory",
+                  "productCategoryName",
+                  "ebayCategoryId",
+                  "images",
+                  "videos",
+                  "allow_variations",
+                ]);
+
+                addLog(`📦 Row ${row}: Technical Info: ${JSON.stringify(prodTechInfo, null, 2)}`);
+
+                const productCategoryIds = new Set(["177", "179", "80053", "25321", "44995"]);
+                const kindType = productCategoryIds.has(categoryId?.toString()) ? "product" : "part";
+                const isPart = kindType === "part";
+
+                const allowVariations = extractNestedValue(data, ["allow_variations"]);
+                const isVariation = allowVariations?.toString().toLowerCase() === "yes";
+
+                const docToInsert = {
+                  isBlocked: false,
+                  kind: kindType,
+                  status: "draft",
+                  isVariation,
+                  isMultiBrand,
+                  isTemplate: false,
+                  isPart,
+                  stocks: [],
+                  stockThreshold: 10,
+                  prodTechInfo,
+                  productInfo,
+                };
+
+                addLog(`✅ Row ${row}: Final Document Ready: ${JSON.stringify(docToInsert, null, 2)}`);
+
+                return {
+                  insertOne: {
+                    document: docToInsert,
+                  },
+                };
+              } catch (error: any) {
+                addLog(`❌ Row ${row}: Error during processing - ${error.message}`);
                 return null;
               }
-
-              // Normalize brand
-              let brandList = normalizedData.brand;
-              if (typeof brandList === "string") {
-                brandList = brandList
-                  .split(",")
-                  .map((b: string) => b.trim())
-                  .filter(Boolean);
-              } else if (!Array.isArray(brandList)) {
-                brandList = [brandList];
-              }
-
-              const isMultiBrand = brandList.length > 1;
-
-              const productInfo: any = {
-                productCategory: matchedCategory._id,
-                amazonCategoryId: normalizedData.amazoncategoryid,
-                title: normalizedData.title,
-                description: normalizedData.description,
-                inventoryImages: (normalizedData.images || []).map((url: string) => ({
-                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  size: 0,
-                  url,
-                  type: "image/jpeg",
-                })),
-                condition_type: normalizedData.condition_type || "new_new",
-                brand: brandList,
-              };
-
-              const prodTechInfo: Record<string, any> = {};
-              const knownFields = new Set([
-                "title",
-                "description",
-                "brand",
-                "images",
-                "videos",
-                "condition_type",
-                "productSupplier",
-                "productSupplierKey",
-                "productCategoryName",
-                "amazonCategoryId",
-              ]);
-
-              for (const key in normalizedData) {
-                if (!knownFields.has(key)) {
-                  prodTechInfo[key] = normalizedData[key];
-                }
-              }
-
-              // Set kind based on Amazon ID
-              const productCategoryIds = new Set([
-                "PERSONAL_COMPUTER",
-                "NETWORKING_DEVICE",
-                "NOTEBOOK_COMPUTER",
-                "MONITOR",
-                "VIDEO_PROJECTOR",
-              ]);
-              const kindType = productCategoryIds.has(normalizedData.amazoncategoryid?.toString()) ? "product" : "part";
-
-              // Set isPart based on kind
-              const isPart = kindType === "part";
-
-              // Set isVariation based on prodTechInfo["allow variations"]
-              const allowVar = prodTechInfo["allow variations"];
-              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
-              delete prodTechInfo["allow variations"]; // optional cleanup
-
-              const docToInsert = {
-                isBlocked: false,
-                kind: kindType,
-                status: "draft",
-                isVariation,
-                isMultiBrand,
-                isTemplate: false,
-                isPart,
-                stocks: [],
-                stockThreshold: 10,
-                prodTechInfo,
-                productInfo,
-              };
-
-              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
-
-              return {
-                insertOne: {
-                  document: docToInsert,
-                },
-              };
             })
         )
       ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
-        addLog("✅ No new Inventory to insert.");
+        addLog("⚠️ No valid documents to insert after processing.");
         return;
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted.`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
+      console.error("Full error:", error);
     }
   },
 
@@ -1058,4 +1135,88 @@ function generateCacheKey(inventoryIds: string[]): string {
   const sortedIds = [...inventoryIds].sort();
   const crypto = require("crypto");
   return `export_ids_${crypto.createHash("md5").update(sortedIds.join(",")).digest("hex")}`;
+}
+
+function extractNestedValue(data: any, fieldNames: string[]): any {
+  for (const fieldName of fieldNames) {
+    if (data[fieldName]) {
+      if (Array.isArray(data[fieldName]) && data[fieldName].length > 0) {
+        return data[fieldName][0].value || data[fieldName][0];
+      } else if (typeof data[fieldName] === "string") {
+        return data[fieldName];
+      }
+    }
+  }
+  return null;
+}
+
+// Helper function to process sheet data into proper payload format
+function processSheetDataToPayload(data: any, row: number): any {
+  const payload: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (key.includes(".")) {
+      // Handle nested properties like "brand.value", "hard_disk.size"
+      const parts = key.split(".");
+      let current = payload;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const finalKey = parts[parts.length - 1];
+      current[finalKey] = data[key];
+    } else {
+      // Handle direct properties
+      const value = data[key];
+      if (value !== undefined && value !== null && value !== "") {
+        // Convert to proper format expected by Amazon schema
+        if (typeof value === "string" || typeof value === "number") {
+          payload[key] = [
+            {
+              value: value.toString(),
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ];
+        } else {
+          payload[key] = value;
+        }
+      }
+    }
+  });
+
+  return payload;
+}
+
+// Helper function to process nested attributes for prodTechInfo
+function processNestedAttributes(data: any, excludeFields: string[]): any {
+  const processed: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (excludeFields.includes(key)) {
+      return; // Skip excluded fields
+    }
+
+    const value = data[key];
+    if (value !== undefined && value !== null && value !== "") {
+      if (Array.isArray(value)) {
+        processed[key] = value;
+      } else if (typeof value === "object") {
+        processed[key] = [value];
+      } else {
+        processed[key] = [
+          {
+            value: value.toString(),
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ];
+      }
+    }
+  });
+
+  return processed;
 }

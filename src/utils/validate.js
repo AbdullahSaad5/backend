@@ -10,13 +10,13 @@
 
 /**
  * Validate `data` against `schema`.
- * @param {Object} schema – JSON schema to validate against.
+ * @param {Object|any} schema – JSON schema to validate against.
  * @param {*}      data   – Arbitrary user payload.
  * @param {Array<string>} variationAspects – Optional array of aspect names or paths that should be treated as having variations:true.
  *                                           Supports simple names like 'hard_disk' or nested paths like 'hard_disk.size' or 'hard_disk[*].size'
  * @returns {{valid:boolean,errors:Array<{path:string,message:string,title?:string,severity?:string,code?:string,category?:string,schemaPath?:string}>}}
  */
-function validate(schema, data, variationAspects = []) {
+export function validate(schema, data, variationAspects = []) {
   const errors = [];
   validateSchema(schema, data, "root", schema, errors, "", variationAspects);
   return { valid: errors.length === 0, errors };
@@ -76,10 +76,10 @@ function validateSchema(schema, data, path, rootSchema, errors, schemaPath = "",
   const inferredType = schema.properties
     ? "object"
     : schema.items || schema.contains
-    ? "array"
-    : schema.required
-    ? "object"
-    : undefined;
+      ? "array"
+      : schema.required
+        ? "object"
+        : undefined;
 
   const expectedType = explicitType || inferredType;
 
@@ -605,14 +605,12 @@ function handleCustomVocabulary(schema, path) {
 // Exports (CommonJS & ES Module friendly)
 // -------------------------------------------------------------------------
 
-
 /**
  * Load and parse a JSON schema from disk synchronously (Node.js only).
  * @param {string} filePath – Absolute or relative path to *.json schema.
  * @returns {Object} Parsed schema object.
  * @throws  {Error}  If reading or parsing fails.
  */
-
 
 /**
  * Convenience helper that reads the schema file from disk then validates data.
@@ -622,7 +620,6 @@ function handleCustomVocabulary(schema, path) {
  *                                           Supports simple names like 'hard_disk' or nested paths like 'hard_disk.size' or 'hard_disk[*].size'
  * @returns {{valid:boolean,errors:Array<{path:string,message:string}>}}
  */
-
 
 // Utility to get JSON type label (string,array,object,number,integer,boolean,null)
 function getJsonType(value) {
@@ -671,7 +668,7 @@ function createError(path, message, options = {}) {
 }
 
 if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
-  module.exports = { validate, };
+  module.exports = { validate };
   // Preserve named export for ESM via package.json "type": "module" or transpiler
   module.exports.default = module.exports;
 } else {
