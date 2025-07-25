@@ -950,9 +950,11 @@ export const inventoryService = {
         "isTemplate",
         "isPart",
         "stockThreshold",
-        "createdAt",
-        "updatedAt",
-        "__v",
+        "ebayCategoryId",
+        "amazonCategoryId",
+        // "createdAt",
+        // "updatedAt",
+        // "__v",
       ];
       directFields.forEach((field) => {
         if (item[field] !== undefined) {
