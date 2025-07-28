@@ -280,17 +280,27 @@ export const bulkImportUtility = {
           }
         }
 
-        // Set the final value as simple string (leaf level)
+        // Set the final value with proper type conversion (leaf level)
         const finalKey = parts[parts.length - 1];
-        current[finalKey] = trimmedValue;
+        // Check if value is boolean
+        if (trimmedValue.toLowerCase() === "true" || trimmedValue.toLowerCase() === "false") {
+          current[finalKey] = trimmedValue.toLowerCase() === "true";
+        } else {
+          current[finalKey] = trimmedValue;
+        }
 
         return;
       }
 
       // Handle simple fields - wrap in array with object structure
+      const processedValue =
+        trimmedValue.toLowerCase() === "true" || trimmedValue.toLowerCase() === "false"
+          ? trimmedValue.toLowerCase() === "true"
+          : trimmedValue;
+
       rowObj[cleanHeader] = [
         {
-          value: trimmedValue,
+          value: processedValue,
           marketplace_id: "A1F83G8C2ARO7P",
         },
       ];
