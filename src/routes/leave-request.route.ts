@@ -1,9 +1,14 @@
 import { Router } from "express";
 import { leaveRequestController } from "@/controllers";
 import { adminRoleCheck } from "@/middlewares/auth.middleware";
+import { authGuard } from "@/guards";
 
 export const leaveRequest = (router: Router) => {
-  router.post("/", leaveRequestController.createLeaveRequest);
+  router.post(
+    "/",
+    authGuard.isAuth as any,
+    leaveRequestController.createLeaveRequest as any
+  );
   router.patch(
     "/:id",
     adminRoleCheck,
