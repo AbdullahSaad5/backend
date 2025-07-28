@@ -1,7 +1,6 @@
 import * as XLSX from "xlsx";
 import { ProductCategory } from "@/models";
 import dotenv from "dotenv";
-import { inventoryController } from "@/controllers";
 import { getStoredAmazonAccessToken } from "./amazon-helpers.util";
 
 dotenv.config({
@@ -233,10 +232,111 @@ export const bulkImportStandardTemplateGenerator = {
       });
 
       const headers = Array.from(uniqueHeaders);
-      const data = [headers]; // first row is header
+
+      // Identify parent attribute columns (those that have child attributes with dots)
+      const parentAttributeIndexes: number[] = [];
+      const parentAttributes = new Set<string>();
+
+      // First, find all parent attributes by looking for child attributes with dots
+      headers.forEach((header) => {
+        if (header.includes(".")) {
+          const parentName = header.split(".")[0]; // Get everything before the first dot
+          parentAttributes.add(parentName);
+        }
+      });
+
+      // Now find the indexes of parent attribute columns
+      headers.forEach((header, index) => {
+        // Remove any asterisks or variation indicators for comparison
+        const cleanHeader = header
+          .replace(/\*/g, "")
+          .replace(/ \(variation allowed\)/g, "")
+          .trim();
+
+        if (parentAttributes.has(cleanHeader)) {
+          parentAttributeIndexes.push(index);
+        }
+      });
+
+      // Modify headers for parent attributes to make them visually distinct
+      const modifiedHeaders = headers.map((header, index) => {
+        if (parentAttributeIndexes.includes(index)) {
+          return `🚫 ${header} (PARENT - DO NOT FILL)`;
+        }
+        return header;
+      });
+
+      const data = [modifiedHeaders]; // first row is header
+
+      // Add a few empty rows to demonstrate
+      for (let i = 0; i < 5; i++) {
+        const row = new Array(headers.length).fill("");
+        data.push(row);
+      }
 
       const worksheet = XLSX.utils.aoa_to_sheet(data);
 
+      // Set column widths
+      const colWidths = headers.map((header, index) => {
+        if (parentAttributeIndexes.includes(index)) {
+          return { wch: Math.max(25, header.length + 10) }; // Wider for parent columns
+        }
+        return { wch: Math.max(15, header.length + 2) };
+      });
+      worksheet["!cols"] = colWidths;
+
+      // Add data validation to prevent input in parent columns
+      if (parentAttributeIndexes.length > 0) {
+        const dataValidations: any = [];
+
+        parentAttributeIndexes.forEach((colIndex) => {
+          const colLetter = XLSX.utils.encode_col(colIndex);
+
+          // Create validation rule that prevents any input
+          dataValidations.push({
+            sqref: `${colLetter}2:${colLetter}1000`, // Apply to rows 2-1000
+            type: "list",
+            formula1: '""', // Empty list - no valid values
+            showErrorMessage: true,
+            errorTitle: "Parent Attribute",
+            error: "This is a parent attribute column. Please use the child columns (with dots) instead.",
+            showInputMessage: true,
+            promptTitle: "Parent Attribute",
+            prompt: "This column is for parent attributes only - use child columns instead",
+          });
+        });
+
+        worksheet["!dataValidation"] = dataValidations;
+      }
+
+      // Add comments to parent attribute headers
+      parentAttributeIndexes.forEach((colIndex) => {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: colIndex });
+        if (!worksheet[cellRef]) {
+          worksheet[cellRef] = { t: "s", v: modifiedHeaders[colIndex] };
+        }
+
+        // Add comment
+        if (!worksheet[cellRef].c) {
+          worksheet[cellRef].c = [];
+        }
+        worksheet[cellRef].c.push({
+          a: "System",
+          t: `This is a parent attribute column.\n\nDO NOT enter values here.\n\nUse the child columns instead:\n${headers
+            .filter((h) =>
+              h.startsWith(
+                headers[colIndex]
+                  .replace(/\*/g, "")
+                  .replace(/ \(variation allowed\)/g, "")
+                  .trim() + "."
+              )
+            )
+            .join("\n")}`,
+        });
+      });
+
+      //create  a screen shot to t
+      // Create sheet name
       const idPart = ` (${categoryId})`;
       let safeName = categoryName.replace(/[\\/?*[\]:]/g, ""); // clean illegal chars
 
@@ -247,6 +347,27 @@ export const bulkImportStandardTemplateGenerator = {
 
       const sheetName = `${safeName}${idPart}`;
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+      // Log information about parent attribute columns
+      if (parentAttributeIndexes.length > 0) {
+        const parentColumns = parentAttributeIndexes.map((index) => headers[index]);
+        console.log(
+          `🚫 Found ${parentAttributeIndexes.length} parent attribute columns in ${sheetName}:`,
+          parentColumns
+        );
+
+        // Also log their child columns
+        parentColumns.forEach((parentCol) => {
+          const cleanParent = parentCol
+            .replace(/\*/g, "")
+            .replace(/ \(variation allowed\)/g, "")
+            .trim();
+          const childColumns = headers.filter((h) => h.startsWith(cleanParent + "."));
+          if (childColumns.length > 0) {
+            console.log(`   └─ Children of "${cleanParent}":`, childColumns);
+          }
+        });
+      }
     });
 
     XLSX.writeFile(workbook, filePath);
