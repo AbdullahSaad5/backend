@@ -5,11 +5,11 @@ import { IAccessToken, IJwtUser } from "@/contracts/jwt.contract";
 
 export const jwtSign = (id: Types.ObjectId): IAccessToken => {
   const accessToken = jwt.sign({ id }, process.env.JWT_SECRET || "", {
-    expiresIn: process.env.JWT_EXPIRATION || "1h",
+    expiresIn: process.env.JWT_EXPIRATION || "1m",
   });
 
   const refreshToken = jwt.sign({ id }, process.env.JWT_SECRET || "", {
-    expiresIn: process.env.JWT_REFRESH_EXPIRATION || "7d",
+    expiresIn: process.env.JWT_REFRESH_EXPIRATION || "1m",
   });
 
   return { accessToken, refreshToken };
