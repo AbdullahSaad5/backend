@@ -6,7 +6,6 @@ import { jwtSign, jwtVerify } from "@/utils/jwt.util";
 import crypto from "crypto";
 import sendEmail from "@/utils/nodeMailer";
 import { OAuth2Client } from "google-auth-library";
-import { userCategory } from "@/routes/user-category.route";
 import mongoose from "mongoose";
 
 // Initialize Google OAuth client

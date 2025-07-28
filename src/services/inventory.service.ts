@@ -1,19 +1,10 @@
 import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
 import mongoose from "mongoose";
-import { validate } from "@/utils/validate";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
-import fs from "fs";
 
 import * as XLSX from "xlsx";
-import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
 // Utility function to pick allowed fields
-function pick(obj: any, keys: string[]) {
-  return keys.reduce((acc: { [key: string]: any }, key) => {
-    if (obj[key] !== undefined) acc[key] = obj[key];
-    return acc;
-  }, {});
-}
 
 interface ExportParams {
   inventoryIds: string[];
