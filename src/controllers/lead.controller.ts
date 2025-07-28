@@ -119,7 +119,8 @@ export const LeadController = {
 
             // Convert ObjectId fields if provided
             if (updateData.assignedTo) {
-                updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
+                // updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
+                updateData.assignedTo = updateData.assignedTo.map((id: string) => new Types.ObjectId(id));
             }
             if (updateData.leadCategory) {
                 updateData.leadCategory = new Types.ObjectId(updateData.leadCategory);

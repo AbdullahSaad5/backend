@@ -40,10 +40,10 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
         enum: ["new", "Contacted", "Converted", "Lost"],
         default: "new",
     },
-    assignedTo: {
+    assignedTo: [{
         type: Schema.Types.ObjectId,
         ref: "User",
-    },
+    }],
     leadCategory: {
         type: Schema.Types.ObjectId,
         ref: "LeadsCategory",
