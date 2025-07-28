@@ -11,7 +11,7 @@ export interface IComplaint extends Document {
     notedBy?: Types.ObjectId,
     notedAt?: Date;
   }];
-  assignedTo?: string;
+  assignedTo?: string[];
   createDate?: Date;
   dueDate?: Date;
   status?: "Open" | "In Progress" | "Closed" | "Resolved";
