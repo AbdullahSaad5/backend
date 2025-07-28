@@ -873,9 +873,6 @@ export const inventoryService = {
           "isTemplate",
           "isPart",
           "stockThreshold",
-          "createdAt",
-          "updatedAt",
-          "__v",
         ];
         directFields.forEach((field) => {
           if (item[field] !== undefined) {
@@ -1043,7 +1040,7 @@ export const inventoryService = {
 
     const categoryMap: Record<string, any[]> = {};
 
-    // Get all possible headers across all items
+    // Get all possible headers across all items (in order)
     const allHeaders = getAllHeaders(items);
 
     for (const item of items) {
@@ -1066,8 +1063,8 @@ export const inventoryService = {
     for (const [sheetName, rows] of Object.entries(categoryMap)) {
       if (rows.length === 0) continue;
 
-      // Get headers from the first row and sort them
-      const headers = Object.keys(rows[0]).sort();
+      // Get headers maintaining database order (no sorting)
+      const headers = Object.keys(rows[0]);
 
       // Format rows for Excel output
       const formattedRows = rows.map((row) => {
