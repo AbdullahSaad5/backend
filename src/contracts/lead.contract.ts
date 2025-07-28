@@ -8,7 +8,7 @@ export interface ILead extends Document {
     purpose?: string;
     description?: string;
     status: "new" | "Contacted" | "Converted" | "Lost";
-    assignedTo?: Types.ObjectId;
+    assignedTo?: Types.ObjectId[];
     leadCategory: Types.ObjectId;
     createdAt?: Date;
     updatedAt?: Date;
