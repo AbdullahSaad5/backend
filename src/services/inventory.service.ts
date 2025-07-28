@@ -538,8 +538,6 @@ export const inventoryService = {
       throw new Error("Error during search and filter");
     }
   },
-
-  //bulk import inventory
   bulkImportInventory: async (validRows: { row: number; data: any }[]): Promise<void> => {
     try {
       if (validRows.length === 0) {
@@ -606,26 +604,64 @@ export const inventoryService = {
 
                 let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
 
+                // Process all attributes from sheet first
+                const allProcessedData = processNestedAttributes(data, [
+                  "productCategory",
+                  "productCategoryName",
+                  "ebayCategoryId",
+                  "allow_variations",
+                ]);
+
+                // Extract attributes that should go in productInfo (already in correct format)
+                const productInfoAttributes = [
+                  "item_name",
+                  "product_description",
+                  "condition_type",
+                  "brand",
+                  "manufacturer",
+                  "model",
+                  "color",
+                  "size",
+                  "weight",
+                  "material",
+                  "features",
+                  "specifications",
+                ];
+
+                // Build productInfo by extracting from processed data
+                const extractedProductInfo: any = {};
+                productInfoAttributes.forEach((attr) => {
+                  if (allProcessedData[attr]) {
+                    extractedProductInfo[attr] = allProcessedData[attr];
+                  }
+                });
+
+                // Build productInfo with all extracted attributes plus core fields
                 const productInfo: any = {
                   productCategory: matchedCategory._id,
                   amazonCategoryId: matchedCategory.amazonCategoryId || categoryId,
-                  item_name: [
-                    {
-                      _id: false,
-                      value: title,
-                      language_tag: "en_GB",
-                      marketplace_id: "A1F83G8C2ARO7P",
-                    },
-                  ],
-                  product_description: [
-                    {
-                      _id: false,
-                      value: description,
-                      language_tag: "en_GB",
-                      marketplace_id: "A1F83G8C2ARO7P",
-                    },
-                  ],
-                  condition_type: [
+                  // Use extracted data from sheet if available, otherwise fallback to manual values
+                  ...extractedProductInfo,
+                  // Ensure core fields are present with fallbacks
+                  item_name: extractedProductInfo.item_name ||
+                    extractedProductInfo.title || [
+                      {
+                        _id: false,
+                        value: title,
+                        language_tag: "en_GB",
+                        marketplace_id: "A1F83G8C2ARO7P",
+                      },
+                    ],
+                  product_description: extractedProductInfo.product_description ||
+                    extractedProductInfo.description || [
+                      {
+                        _id: false,
+                        value: description,
+                        language_tag: "en_GB",
+                        marketplace_id: "A1F83G8C2ARO7P",
+                      },
+                    ],
+                  condition_type: extractedProductInfo.condition_type || [
                     {
                       _id: false,
                       value: conditionType,
@@ -633,7 +669,7 @@ export const inventoryService = {
                       marketplace_id: "A1F83G8C2ARO7P",
                     },
                   ],
-                  brand: [
+                  brand: extractedProductInfo.brand || [
                     {
                       _id: false,
                       value: brandList[0] || "",
@@ -642,19 +678,11 @@ export const inventoryService = {
                   ],
                 };
 
-                const prodTechInfo = processNestedAttributes(data, [
-                  "title",
-                  "item_name",
-                  "product_description",
-                  "brand",
-                  "condition_type",
-                  "productCategory",
-                  "productCategoryName",
-                  "ebayCategoryId",
-                  "images",
-                  "videos",
-                  "allow_variations",
-                ]);
+                // Remove productInfo attributes from prodTechInfo to avoid duplication
+                const prodTechInfo = { ...allProcessedData };
+                productInfoAttributes.forEach((attr) => {
+                  delete prodTechInfo[attr];
+                });
 
                 // Determine kindType and isPart based on matchedCategory.isPart
                 const isPart = matchedCategory.isPart || false;
@@ -710,6 +738,7 @@ export const inventoryService = {
       console.error("Full error:", error);
     }
   },
+
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
 
