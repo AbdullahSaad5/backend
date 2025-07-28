@@ -1,16 +1,33 @@
 import { User } from "@/models";
+import { Payroll } from "@/models/payroll.model";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { Attendance } from "@/models/attendance.model";
 
 export const employeeService = {
-  getEmployeeList: async () => {
-    const employees = await User.find();
-    return {
-      success: true,
-      message: "Employee list fetched successfully",
-      data: employees,
-    };
+  getEmployeeList: async (unassignedPayroll?: boolean) => {
+    try {
+      let employees;
+      if (unassignedPayroll) {
+        // Find all userIds that have a payroll
+        const payrollUserIds = await Payroll.distinct("userId");
+        // Find users whose _id is NOT in payrollUserIds
+        employees = await User.find({ _id: { $nin: payrollUserIds } });
+      } else {
+        employees = await User.find();
+      }
+      return {
+        success: true,
+        message: "Employee list fetched successfully",
+        data: employees,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: "Failed to fetch employee list",
+        error: error.message || "Unknown error",
+      };
+    }
   },
   getMyInfo: async (id: string) => {
     return employeeService.getEmployeeProfileDetails(id);
