@@ -1,7 +1,6 @@
 import * as XLSX from "xlsx";
 import { ProductCategory } from "@/models";
 import dotenv from "dotenv";
-import { inventoryController } from "@/controllers";
 import { getStoredAmazonAccessToken } from "./amazon-helpers.util";
 
 dotenv.config({
