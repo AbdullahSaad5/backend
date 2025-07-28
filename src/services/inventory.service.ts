@@ -752,39 +752,11 @@ export const inventoryService = {
 
     console.log(`Found ${items.length} items to export`);
 
-    // Define the desired field order based on your database schema
-    const getFieldOrder = (): string[] => {
-      return [
-        // Direct fields first (in your preferred order)
-        "isBlocked",
-        "kind",
-        "status",
-        "isVariation",
-        "isMultiBrand",
-        "isTemplate",
-        "isPart",
-        "stockThreshold",
-        "ebayCategoryId",
-        "amazonCategoryId",
-
-        // Category fields
-        "productCategoryName",
-        "productCategoryId",
-        "amazonCategoryId",
-
-        // Stocks array fields (these will be dynamically added)
-        // productInfo fields (these will be dynamically added)
-        // prodTechInfo fields (these will be dynamically added)
-      ];
-    };
-
     // Helper function to recursively analyze structure and create headers with identification columns
-    const analyzeStructure = (obj: any, prefix: string = "", headers: string[]): void => {
+    const analyzeStructure = (obj: any, prefix: string = "", headers: Set<string>): void => {
       if (Array.isArray(obj) && obj.length > 0) {
         // Add identification column for the array attribute
-        if (!headers.includes(prefix)) {
-          headers.push(prefix);
-        }
+        headers.add(prefix);
 
         // Process each object in the array
         obj.forEach((item) => {
@@ -794,34 +766,24 @@ export const inventoryService = {
 
               if (Array.isArray(item[key]) && item[key].length > 0) {
                 // Sub-nested array - add identification column
-                if (!headers.includes(currentPath)) {
-                  headers.push(currentPath);
-                }
+                headers.add(currentPath);
 
                 // Process sub-array items
                 item[key].forEach((subItem: any) => {
                   if (typeof subItem === "object" && subItem !== null) {
                     Object.keys(subItem).forEach((subKey) => {
-                      const subPath = `${currentPath}.${subKey}`;
-                      if (!headers.includes(subPath)) {
-                        headers.push(subPath);
-                      }
+                      headers.add(`${currentPath}.${subKey}`);
                     });
                   }
                 });
               } else if (typeof item[key] === "object" && item[key] !== null) {
                 // Nested object (not array)
                 Object.keys(item[key]).forEach((nestedKey) => {
-                  const nestedPath = `${currentPath}.${nestedKey}`;
-                  if (!headers.includes(nestedPath)) {
-                    headers.push(nestedPath);
-                  }
+                  headers.add(`${currentPath}.${nestedKey}`);
                 });
               } else {
                 // Simple value
-                if (!headers.includes(currentPath)) {
-                  headers.push(currentPath);
-                }
+                headers.add(currentPath);
               }
             });
           }
@@ -833,16 +795,12 @@ export const inventoryService = {
           if (typeof obj[key] === "object" && obj[key] !== null) {
             analyzeStructure(obj[key], currentPath, headers);
           } else {
-            if (!headers.includes(currentPath)) {
-              headers.push(currentPath);
-            }
+            headers.add(currentPath);
           }
         });
       } else {
         // Primitive value
-        if (!headers.includes(prefix)) {
-          headers.push(prefix);
-        }
+        headers.add(prefix);
       }
     };
 
@@ -900,30 +858,37 @@ export const inventoryService = {
       }
     };
 
-    // Helper function to get all possible headers from all items in order
-    const getAllHeaders = (items: any[]): string[] => {
-      const baseOrder = getFieldOrder();
-      const allHeaders: string[] = [];
-
-      // Add base fields that exist
-      baseOrder.forEach((field) => {
-        const hasField = items.some((item) => {
-          if (field === "productCategoryName" || field === "productCategoryId" || field === "amazonCategoryId") {
-            return item.productInfo?.productCategory;
-          }
-          return item[field] !== undefined;
-        });
-
-        if (hasField && !allHeaders.includes(field)) {
-          allHeaders.push(field);
-        }
-      });
+    // Helper function to get all possible headers from all items
+    const getAllHeaders = (items: any[]): Set<string> => {
+      const allHeaders = new Set<string>();
 
       items.forEach((item) => {
+        // Add direct fields (Type 1: Direct strings)
+        const directFields = [
+          "isBlocked",
+          "kind",
+          "status",
+          "isVariation",
+          "isMultiBrand",
+          "isTemplate",
+          "isPart",
+          "stockThreshold",
+        ];
+        directFields.forEach((field) => {
+          if (item[field] !== undefined) {
+            allHeaders.add(field);
+          }
+        });
+
         // Handle stocks array
         if (item.stocks && Array.isArray(item.stocks)) {
           analyzeStructure(item.stocks, "stocks", allHeaders);
         }
+
+        // Add category info from populated productCategory
+        allHeaders.add("productCategoryName");
+        allHeaders.add("productCategoryId");
+        allHeaders.add("amazonCategoryId");
 
         // Process productInfo attributes (Type 2 & 3: Nested and Sub-nested)
         if (item.productInfo) {
@@ -937,9 +902,7 @@ export const inventoryService = {
               typeof productValue === "boolean"
             ) {
               // Type 1: Direct value
-              if (!allHeaders.includes(productKey)) {
-                allHeaders.push(productKey);
-              }
+              allHeaders.add(productKey);
             } else {
               // Type 2 & 3: Nested structures
               analyzeStructure(productValue, productKey, allHeaders);
@@ -953,9 +916,7 @@ export const inventoryService = {
             const techValue = item.prodTechInfo[techKey];
             if (typeof techValue === "string" || typeof techValue === "number" || typeof techValue === "boolean") {
               // Type 1: Direct value
-              if (!allHeaders.includes(techKey)) {
-                allHeaders.push(techKey);
-              }
+              allHeaders.add(techKey);
             } else {
               // Type 2 & 3: Nested structures
               analyzeStructure(techValue, techKey, allHeaders);
@@ -968,7 +929,7 @@ export const inventoryService = {
     };
 
     // Helper function to extract flattened data for a single item
-    const extractItemData = (item: any, allHeaders: string[]): Record<string, any> => {
+    const extractItemData = (item: any, allHeaders: Set<string>): Record<string, any> => {
       const flatRow: Record<string, any> = {};
 
       // Initialize all headers with empty values
@@ -1102,8 +1063,8 @@ export const inventoryService = {
     for (const [sheetName, rows] of Object.entries(categoryMap)) {
       if (rows.length === 0) continue;
 
-      // Use the ordered headers instead of sorting
-      const headers = allHeaders.filter((header) => rows[0].hasOwnProperty(header));
+      // Get headers maintaining database order (no sorting)
+      const headers = Object.keys(rows[0]);
 
       // Format rows for Excel output
       const formattedRows = rows.map((row) => {
