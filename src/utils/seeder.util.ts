@@ -1,5 +1,6 @@
 import { User, UserCategory } from "@/models";
 import mongoose from "mongoose";
+import { createHash } from "./hash.util";
 
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
@@ -206,10 +207,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every(
-        (permission, index) =>
-          permission === superAdminCategoryData.permissions[index]
-      )
+      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
@@ -226,10 +224,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every(
-        (permission, index) =>
-          permission === adminCategoryData.permissions[index]
-      )
+      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
@@ -323,10 +318,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every(
-        (permission, index) =>
-          permission === supplierCategoryData.permissions[index]
-      )
+      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
@@ -335,14 +327,16 @@ const seedData = async () => {
       console.log("Supplier User Category already exists and matches.");
     }
   }
-
+  const actualPassword = "BuildMyRig@2025"; // Hardcoded password for seeding
+  // Hash the password using createHash
+  const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
   const superAdminData = {
     _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
     firstName: "SUPER",
     lastName: "ADMIN",
     email: "superadmin@gmail.com",
-    password: "$2b$10$3BgdiUfdTySwQ6AEYTJemO/kzENfDUXU6h2oDG.zEFR7HaapCA9gu", // Already hashed
+    password: hashedPassword, // Already hashed
     phoneNumber: "443452452344",
     dob: "2024-12-16",
     signUpThrough: "Web",
@@ -356,22 +350,22 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
 
   // 3. Seed admin User
+
   const adminData = {
     _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
     firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
-    password: "$2b$10$3BgdiUfdTySwQ6AEYTJemO/kzENfDUXU6h2oDG.zEFR7HaapCA9gu", // Already hashed
+    password: hashedPassword, // Dynamically hashed password
     phoneNumber: "443452452344",
     dob: "2024-12-16",
     signUpThrough: "Web",
     isEmailVerified: true,
-    userType: adminUserCategory._id, // Associate with the user category ( Admin Role)
+    userType: adminUserCategory._id, // Associate with the user category (Admin Role)
     additionalAccessRights: [],
     restrictedAccessRights: [],
     isBlocked: false,
@@ -380,8 +374,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   let superAdmin = await User.findOne({ email: superAdminData.email });
 
