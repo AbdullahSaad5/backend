@@ -162,14 +162,14 @@ const seedData = async () => {
       // "VIEW_GAMERS_COMMUNITY",
       // "ADD_GAMERS_COMMUNITY",
 
-      // "HR_MANAGEMENET",
-      // "VIEW_EMPLOYEES",
-      // "ADD_EMPLOYEES",
-      // "VIEW_WORK_SHIFT",
-      // "ADD_WORK_SHIFT",
-      // "VIEW_ATTENDANCE",
+      "HR_MANAGEMENET",
+      "VIEW_EMPLOYEES",
+      "ADD_EMPLOYEES",
+      "VIEW_WORK_SHIFT",
+      "ADD_WORK_SHIFT",
+      "VIEW_ATTENDANCE",
 
-      // "MANAGE_TICKETING",
+      "MANAGE_TICKETING",
 
       "MANAGE_DOCUMENTS",
 
@@ -245,25 +245,25 @@ const seedData = async () => {
       "MANAGE_USERS",
       // "ADD_USERS_CATEGORY",
       // "VIEW_USERS_CATEGORY",
-      "ADD_USERS",
+      // "ADD_USERS",
       "VIEW_USERS",
 
       "MANAGE_SUPPLIERS",
-      "ADD_SUPPLIERS_CATEGORY",
-      "VIEW_SUPPLIERS_CATEGORY",
-      "ADD_SUPPLIERS",
+      // "ADD_SUPPLIERS_CATEGORY",
+      // "VIEW_SUPPLIERS_CATEGORY",
+      // "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
 
-      "MANAGE_INVENTORY",
+      // "MANAGE_INVENTORY",
       // "ADD_INVENTORY_CATEGORY",
       // "VIEW_INVENTORY_CATEGORY",
-      "ADD_INVENTORY",
+      // "ADD_INVENTORY",
       "VIEW_INVENTORY",
-      "ADD_STOCK",
+      // "ADD_STOCK",
       "VIEW_STOCK",
       "VIEW_LISTING",
-      "ADD_LISTING",
-      "MANAGE_DISCOUNTS",
+      // "ADD_LISTING",
+      // "MANAGE_DISCOUNTS",
 
       "MANAGE_BUNDLES",
       "ADD_BUNDLES",
@@ -286,7 +286,7 @@ const seedData = async () => {
 
       // "MANAGE_TICKETING",
 
-      "MANAGE_DOCUMENTS",
+      // "MANAGE_DOCUMENTS",
 
       // "MANAGE_POLICIES",
       // "VIEW_CUSTOM_POLICIES",
