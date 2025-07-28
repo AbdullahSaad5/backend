@@ -1,28 +1,14 @@
 import { Inventory, ProductCategory, Stock, User } from "@/models"; //getInventoryByCondition
-import { Parser } from "json2csv";
 import mongoose from "mongoose";
-import crypto from "crypto";
 import { addLog } from "@/utils/bulkImportLogs.util";
 import { getCache, setCacheWithTTL } from "@/datasources/redis.datasource";
-import fs from "fs";
+
 import * as XLSX from "xlsx";
 // Utility function to pick allowed fields
-function pick(obj: any, keys: string[]) {
-  return keys.reduce((acc: { [key: string]: any }, key) => {
-    if (obj[key] !== undefined) acc[key] = obj[key];
-    return acc;
-  }, {});
-}
 
 interface ExportParams {
   inventoryIds: string[];
   selectAllPages: boolean;
-  // filters: {
-  //   category?: string;
-  //   search?: string;
-  //   // Add other filter properties as needed
-  //   [key: string]: any;
-  // };
 }
 
 interface ExportResult {
@@ -30,7 +16,27 @@ interface ExportResult {
   file: string;
   totalExported: number;
 }
-
+const categoryVariationAspects: { [key: string]: string[] } = {
+  PERSONAL_COMPUTER: [
+    "processor_description",
+    "hard_disk.size",
+    "display.size",
+    "memory_storage_capacity",
+    "computer_memory.size",
+  ],
+  LAPTOP: [
+    "processor_description",
+    "hard_disk.size",
+    "display.size",
+    "memory_storage_capacity",
+    "computer_memory.size",
+  ],
+  MONITOR: ["display.size", "display.resolution"],
+  MOBILE_PHONE: ["memory_storage_capacity", "display.size", "color"],
+  TABLET: ["memory_storage_capacity", "display.size", "color"],
+  HEADPHONES: ["color", "connection_type"],
+  CAMERA: ["color", "memory_storage_capacity"],
+};
 export const inventoryService = {
   // Create a new draft inventory
   createDraftInventoryService: async (stepData: any) => {
@@ -160,8 +166,6 @@ export const inventoryService = {
       // Update Status & Template Check
       if (stepData.status !== undefined) {
         draftInventory.status = stepData.status;
-        draftInventory.isTemplate = stepData.isTemplate || false;
-        draftInventory.alias = stepData.alias || "";
       }
 
       // if (draftInventory.isPart) {
@@ -543,150 +547,174 @@ export const inventoryService = {
         return;
       }
 
-      addLog("🔹 Valid Rows Received for Bulk Import:");
-      validRows.forEach(({ row, data }, i) => {
-        try {
-          addLog(`Row [${i}] => #${row}`);
-          if (!data || typeof data !== "object") {
-            console.log(`⚠️ Skipping row ${row}: Invalid data format. Data: ${JSON.stringify(data)}`);
-          } else {
-            console.log(`Data: ${JSON.stringify(data)}`);
-          }
-        } catch (err) {
-          console.log(`❌ Error while printing row ${row}:`, err);
-        }
-      });
+      addLog(`🔹 Starting Bulk Import. Total Valid Rows: ${validRows.length}`);
+
       const bulkOperations: any = (
         await Promise.all(
           validRows
-            .map(({ row, data }) => {
-              const normalizedData: any = {};
-              for (const key in data) {
-                normalizedData[key.toLowerCase()] = data[key];
-              }
-              return { row, data: normalizedData };
-            })
-            .filter(({ data }) => data && data.title)
-            .map(async ({ row, data: normalizedData }) => {
-              const matchedCategory = await ProductCategory.findOne({
-                $or: [{ amazonCategoryId: normalizedData.amazoncategoryid }],
-              }).select("_id");
+            .filter(({ data }) => data && (data.title || data.item_name))
+            .map(async ({ row, data }) => {
+              addLog(`\n📦 Row ${row}: Starting processing`);
 
-              if (!matchedCategory) {
-                addLog(`❌ No matching product category for Amazon ID: ${normalizedData.amazoncategoryid}`);
+              try {
+                // Extract category ID and name from payload
+                const categoryId = data.productCategory || data.ebayCategoryId;
+                const categoryName = data.productCategoryName;
+
+                addLog(`🔎 Row ${row}: Looking for Category with ID: ${categoryId} or Name: ${categoryName}`);
+
+                const matchedCategory = await ProductCategory.findOne({
+                  $or: [{ amazonCategoryId: categoryId }, { name: categoryName }],
+                }).select("_id name amazonCategoryId isPart");
+
+                if (!matchedCategory) {
+                  addLog(`❌ Row ${row}: No matching product category found.`);
+                  return null;
+                }
+
+                addLog(
+                  `✅ Row ${row}: Matched Category - ${matchedCategory.name} (ID: ${matchedCategory._id}, Amazon ID: ${matchedCategory.amazonCategoryId}, isPart: ${matchedCategory.isPart})`
+                );
+
+                // Process the payload with the category information
+                const processedPayload = processSheetDataToPayload(data, row);
+
+                let title = extractNestedValue(data, ["title", "item_name"]);
+                if (!title) {
+                  addLog(`❌ Row ${row}: Missing title/item_name`);
+                  return null;
+                }
+
+                let description = extractNestedValue(data, ["description"]);
+
+                let brandList: string[] = [];
+                const brandValue = extractNestedValue(data, ["brand"]);
+                if (brandValue) {
+                  if (typeof brandValue === "string") {
+                    brandList = brandValue
+                      .split(",")
+                      .map((b) => b.trim())
+                      .filter(Boolean);
+                  } else {
+                    brandList = [brandValue.toString()];
+                  }
+                }
+
+                addLog(`🏷️ Row ${row}: Brand found: ${brandList.join(", ")}`);
+
+                const isMultiBrand = brandList.length > 1;
+
+                let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
+
+                const productInfo: any = {
+                  productCategory: matchedCategory._id,
+                  amazonCategoryId: matchedCategory.amazonCategoryId || categoryId,
+                  item_name: [
+                    {
+                      _id: false,
+                      value: title,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  product_description: [
+                    {
+                      _id: false,
+                      value: description,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  condition_type: [
+                    {
+                      _id: false,
+                      value: conditionType,
+                      language_tag: "en_GB",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                  brand: [
+                    {
+                      _id: false,
+                      value: brandList[0] || "",
+                      marketplace_id: "A1F83G8C2ARO7P",
+                    },
+                  ],
+                };
+
+                const prodTechInfo = processNestedAttributes(data, [
+                  "title",
+                  "item_name",
+                  "product_description",
+                  "brand",
+                  "condition_type",
+                  "productCategory",
+                  "productCategoryName",
+                  "ebayCategoryId",
+                  "images",
+                  "videos",
+                  "allow_variations",
+                ]);
+
+                // Determine kindType and isPart based on matchedCategory.isPart
+                const isPart = matchedCategory.isPart || false;
+                const kindType = isPart ? "part" : "product";
+
+                addLog(
+                  `🔍 Row ${row}: Determined kindType: ${kindType}, isPart: ${isPart} (using category isPart: ${matchedCategory.isPart})`
+                );
+
+                const allowVariations = extractNestedValue(data, ["allow_variations"]);
+                const isVariation = allowVariations?.toString().toLowerCase() === "yes";
+
+                const docToInsert = {
+                  isBlocked: false,
+                  kind: kindType,
+                  status: "draft",
+                  isVariation,
+                  isMultiBrand,
+                  isTemplate: false,
+                  isPart,
+                  stocks: [],
+                  stockThreshold: 10,
+                  prodTechInfo,
+                  productInfo,
+                };
+
+                addLog(
+                  `✅ Row ${row}: Final Document Ready (Amazon Category ID: ${matchedCategory.amazonCategoryId || categoryId}): ${JSON.stringify(docToInsert, null, 2)}`
+                );
+
+                return {
+                  insertOne: {
+                    document: docToInsert,
+                  },
+                };
+              } catch (error: any) {
+                addLog(`❌ Row ${row}: Error during processing - ${error.message}`);
                 return null;
               }
-
-              // Normalize brand
-              let brandList = normalizedData.brand;
-              if (typeof brandList === "string") {
-                brandList = brandList
-                  .split(",")
-                  .map((b: string) => b.trim())
-                  .filter(Boolean);
-              } else if (!Array.isArray(brandList)) {
-                brandList = [brandList];
-              }
-
-              const isMultiBrand = brandList.length > 1;
-
-              const productInfo: any = {
-                productCategory: matchedCategory._id,
-                amazonCategoryId: normalizedData.amazoncategoryid,
-                title: normalizedData.title,
-                description: normalizedData.description,
-                inventoryImages: (normalizedData.images || []).map((url: string) => ({
-                  id: `media-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  size: 0,
-                  url,
-                  type: "image/jpeg",
-                })),
-                condition_type: normalizedData.condition_type || "new_new",
-                brand: brandList,
-              };
-
-              const prodTechInfo: Record<string, any> = {};
-              const knownFields = new Set([
-                "title",
-                "description",
-                "brand",
-                "images",
-                "videos",
-                "condition_type",
-                "productSupplier",
-                "productSupplierKey",
-                "productCategoryName",
-                "amazonCategoryId",
-              ]);
-
-              for (const key in normalizedData) {
-                if (!knownFields.has(key)) {
-                  prodTechInfo[key] = normalizedData[key];
-                }
-              }
-
-              // Set kind based on Amazon ID
-              const productCategoryIds = new Set([
-                "PERSONAL_COMPUTER",
-                "NETWORKING_DEVICE",
-                "NOTEBOOK_COMPUTER",
-                "MONITOR",
-                "VIDEO_PROJECTOR",
-              ]);
-              const kindType = productCategoryIds.has(normalizedData.amazoncategoryid?.toString()) ? "product" : "part";
-
-              // Set isPart based on kind
-              const isPart = kindType === "part";
-
-              // Set isVariation based on prodTechInfo["allow variations"]
-              const allowVar = prodTechInfo["allow variations"];
-              const isVariation = typeof allowVar === "string" && allowVar.trim().toLowerCase() === "yes";
-              delete prodTechInfo["allow variations"]; // optional cleanup
-
-              const docToInsert = {
-                isBlocked: false,
-                kind: kindType,
-                status: "draft",
-                isVariation,
-                isMultiBrand,
-                isTemplate: false,
-                isPart,
-                stocks: [],
-                stockThreshold: 10,
-                prodTechInfo,
-                productInfo,
-              };
-
-              console.log(`📝 Prepared Document for DB Insert (row ${row}): ${JSON.stringify(docToInsert)}`);
-
-              return {
-                insertOne: {
-                  document: docToInsert,
-                },
-              };
             })
         )
       ).filter(Boolean);
 
       if (bulkOperations.length === 0) {
-        addLog("✅ No new Inventory to insert.");
+        addLog("⚠️ No valid documents to insert after processing.");
         return;
       }
 
       await Inventory.bulkWrite(bulkOperations);
-      addLog(`✅ Bulk import completed. Successfully added ${bulkOperations.length} new Inventory.`);
+      addLog(`✅ Bulk import completed. ${bulkOperations.length} inventory items inserted (validation skipped).`);
     } catch (error: any) {
       addLog(`❌ Bulk import failed: ${error.message}`);
+      console.error("Full error:", error);
     }
   },
-
   exportInventory: async (params: ExportParams): Promise<ExportResult> => {
     const { inventoryIds, selectAllPages } = params;
 
     // Generate cache key based on export parameters
-    const cacheKey = selectAllPages
-      ? generateCacheKeyForAllItems() // Fixed: removed filters reference
-      : generateCacheKey(inventoryIds);
+    const cacheKey = selectAllPages ? generateCacheKeyForAllItems() : generateCacheKey(inventoryIds);
 
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
@@ -701,16 +729,11 @@ export const inventoryService = {
     let items: any[];
 
     if (selectAllPages) {
-      // Export ALL items without any filters
       console.log("Exporting all items from database");
-
-      items = await Inventory.find({}) // Empty query = get all items
-        .populate("productInfo.productCategory", "name")
-        .lean();
+      items = await Inventory.find({}).populate("productInfo.productCategory", "name amazonCategoryId").lean();
     } else {
-      // Export specific items by IDs
       items = await Inventory.find({ _id: { $in: inventoryIds } })
-        .populate("productInfo.productCategory", "name")
+        .populate("productInfo.productCategory", "name amazonCategoryId")
         .lean();
     }
 
@@ -720,31 +743,303 @@ export const inventoryService = {
 
     console.log(`Found ${items.length} items to export`);
 
+    // Helper function to recursively analyze structure and create headers with identification columns
+    const analyzeStructure = (obj: any, prefix: string = "", headers: Set<string>): void => {
+      if (Array.isArray(obj) && obj.length > 0) {
+        // Add identification column for the array attribute
+        headers.add(prefix);
+
+        // Process each object in the array
+        obj.forEach((item) => {
+          if (typeof item === "object" && item !== null) {
+            Object.keys(item).forEach((key) => {
+              const currentPath = prefix ? `${prefix}.${key}` : key;
+
+              if (Array.isArray(item[key]) && item[key].length > 0) {
+                // Sub-nested array - add identification column
+                headers.add(currentPath);
+
+                // Process sub-array items
+                item[key].forEach((subItem: any) => {
+                  if (typeof subItem === "object" && subItem !== null) {
+                    Object.keys(subItem).forEach((subKey) => {
+                      headers.add(`${currentPath}.${subKey}`);
+                    });
+                  }
+                });
+              } else if (typeof item[key] === "object" && item[key] !== null) {
+                // Nested object (not array)
+                Object.keys(item[key]).forEach((nestedKey) => {
+                  headers.add(`${currentPath}.${nestedKey}`);
+                });
+              } else {
+                // Simple value
+                headers.add(currentPath);
+              }
+            });
+          }
+        });
+      } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+        // Regular object - process its keys
+        Object.keys(obj).forEach((key) => {
+          const currentPath = prefix ? `${prefix}.${key}` : key;
+          if (typeof obj[key] === "object" && obj[key] !== null) {
+            analyzeStructure(obj[key], currentPath, headers);
+          } else {
+            headers.add(currentPath);
+          }
+        });
+      } else {
+        // Primitive value
+        headers.add(prefix);
+      }
+    };
+
+    // Helper function to extract data according to the structure
+    const extractData = (obj: any, prefix: string = "", result: Record<string, any> = {}): void => {
+      if (Array.isArray(obj) && obj.length > 0) {
+        // Mark identification column as having data
+        result[prefix] = "NESTED_ARRAY";
+
+        // Process each object in the array
+        obj.forEach((item) => {
+          if (typeof item === "object" && item !== null) {
+            Object.keys(item).forEach((key) => {
+              const currentPath = prefix ? `${prefix}.${key}` : key;
+
+              if (Array.isArray(item[key]) && item[key].length > 0) {
+                // Sub-nested array - mark identification column
+                result[currentPath] = "NESTED_ARRAY";
+
+                // Process sub-array items
+                item[key].forEach((subItem: any, index: number) => {
+                  if (typeof subItem === "object" && subItem !== null) {
+                    Object.keys(subItem).forEach((subKey) => {
+                      const subPath = `${currentPath}.${subKey}`;
+                      if (!result[subPath]) result[subPath] = [];
+                      result[subPath][index] = subItem[subKey];
+                    });
+                  }
+                });
+              } else if (typeof item[key] === "object" && item[key] !== null) {
+                // Nested object (not array)
+                Object.keys(item[key]).forEach((nestedKey) => {
+                  result[`${currentPath}.${nestedKey}`] = item[key][nestedKey];
+                });
+              } else {
+                // Simple value
+                result[currentPath] = item[key];
+              }
+            });
+          }
+        });
+      } else if (typeof obj === "object" && obj !== null && !Array.isArray(obj)) {
+        // Regular object
+        Object.keys(obj).forEach((key) => {
+          const currentPath = prefix ? `${prefix}.${key}` : key;
+          if (typeof obj[key] === "object" && obj[key] !== null) {
+            extractData(obj[key], currentPath, result);
+          } else {
+            result[currentPath] = obj[key];
+          }
+        });
+      } else {
+        // Primitive value
+        result[prefix] = obj;
+      }
+    };
+
+    // Helper function to get all possible headers from all items
+    const getAllHeaders = (items: any[]): Set<string> => {
+      const allHeaders = new Set<string>();
+
+      items.forEach((item) => {
+        // Add direct fields (Type 1: Direct strings)
+        const directFields = [
+          "isBlocked",
+          "kind",
+          "status",
+          "isVariation",
+          "isMultiBrand",
+          "isTemplate",
+          "isPart",
+          "stockThreshold",
+        ];
+        directFields.forEach((field) => {
+          if (item[field] !== undefined) {
+            allHeaders.add(field);
+          }
+        });
+
+        // Handle stocks array
+        if (item.stocks && Array.isArray(item.stocks)) {
+          analyzeStructure(item.stocks, "stocks", allHeaders);
+        }
+
+        // Add category info from populated productCategory
+        allHeaders.add("productCategoryName");
+        allHeaders.add("productCategoryId");
+        allHeaders.add("amazonCategoryId");
+
+        // Process productInfo attributes (Type 2 & 3: Nested and Sub-nested)
+        if (item.productInfo) {
+          Object.keys(item.productInfo).forEach((productKey) => {
+            if (productKey === "productCategory") return; // Skip populated field
+
+            const productValue = item.productInfo[productKey];
+            if (
+              typeof productValue === "string" ||
+              typeof productValue === "number" ||
+              typeof productValue === "boolean"
+            ) {
+              // Type 1: Direct value
+              allHeaders.add(productKey);
+            } else {
+              // Type 2 & 3: Nested structures
+              analyzeStructure(productValue, productKey, allHeaders);
+            }
+          });
+        }
+
+        // Process prodTechInfo attributes (Type 2 & 3: Nested and Sub-nested)
+        if (item.prodTechInfo) {
+          Object.keys(item.prodTechInfo).forEach((techKey) => {
+            const techValue = item.prodTechInfo[techKey];
+            if (typeof techValue === "string" || typeof techValue === "number" || typeof techValue === "boolean") {
+              // Type 1: Direct value
+              allHeaders.add(techKey);
+            } else {
+              // Type 2 & 3: Nested structures
+              analyzeStructure(techValue, techKey, allHeaders);
+            }
+          });
+        }
+      });
+
+      return allHeaders;
+    };
+
+    // Helper function to extract flattened data for a single item
+    const extractItemData = (item: any, allHeaders: Set<string>): Record<string, any> => {
+      const flatRow: Record<string, any> = {};
+
+      // Initialize all headers with empty values
+      allHeaders.forEach((header) => {
+        flatRow[header] = "";
+      });
+
+      // Add direct fields (Type 1)
+      const directFields = [
+        "isBlocked",
+        "kind",
+        "status",
+        "isVariation",
+        "isMultiBrand",
+        "isTemplate",
+        "isPart",
+        // "createdAt",
+        // "updatedAt",
+        // "__v",
+      ];
+      directFields.forEach((field) => {
+        if (item[field] !== undefined) {
+          flatRow[field] = item[field]?.toString() || "";
+        }
+      });
+
+      // Handle stocks array
+      if (item.stocks && Array.isArray(item.stocks)) {
+        const stockData = {};
+        extractData(item.stocks, "stocks", stockData);
+        Object.entries(stockData).forEach(([key, value]) => {
+          if (Array.isArray(value)) {
+            flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+          } else if (value === "NESTED_ARRAY") {
+            flatRow[key] = ""; // Empty identification column
+          } else {
+            flatRow[key] = value?.toString() || "";
+          }
+        });
+      }
+
+      // Add category info
+      if (item.productInfo?.productCategory) {
+        flatRow.productCategoryName = item.productInfo.productCategory.name || "";
+        flatRow.productCategoryId = item.productInfo.productCategory._id || item.productInfo.productCategory.$oid || "";
+        flatRow.amazonCategoryId = item.productInfo.productCategory.amazonCategoryId || "";
+      }
+
+      // Process productInfo
+      if (item.productInfo) {
+        Object.keys(item.productInfo).forEach((productKey) => {
+          if (productKey === "productCategory") return;
+
+          const productValue = item.productInfo[productKey];
+          if (
+            typeof productValue === "string" ||
+            typeof productValue === "number" ||
+            typeof productValue === "boolean"
+          ) {
+            // Type 1: Direct value
+            flatRow[productKey] = productValue.toString();
+          } else {
+            // Type 2 & 3: Nested structures
+            const extractedData = {};
+            extractData(productValue, productKey, extractedData);
+            Object.entries(extractedData).forEach(([key, value]) => {
+              if (Array.isArray(value)) {
+                flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+              } else if (value === "NESTED_ARRAY") {
+                flatRow[key] = ""; // Empty identification column
+              } else {
+                flatRow[key] = value?.toString() || "";
+              }
+            });
+          }
+        });
+      }
+
+      // Process prodTechInfo
+      if (item.prodTechInfo) {
+        Object.keys(item.prodTechInfo).forEach((techKey) => {
+          const techValue = item.prodTechInfo[techKey];
+          if (typeof techValue === "string" || typeof techValue === "number" || typeof techValue === "boolean") {
+            // Type 1: Direct value
+            flatRow[techKey] = techValue.toString();
+          } else {
+            // Type 2 & 3: Nested structures
+            const extractedData = {};
+            extractData(techValue, techKey, extractedData);
+            Object.entries(extractedData).forEach(([key, value]) => {
+              if (Array.isArray(value)) {
+                flatRow[key] = value.filter((v) => v !== undefined && v !== null).join(", ");
+              } else if (value === "NESTED_ARRAY") {
+                flatRow[key] = ""; // Empty identification column
+              } else {
+                flatRow[key] = value?.toString() || "";
+              }
+            });
+          }
+        });
+      }
+
+      return flatRow;
+    };
+
     const categoryMap: Record<string, any[]> = {};
 
-    for (const item of items) {
-      const ebayId = item.productInfo?.ebayCategoryId || "unknown";
-      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
+    // Get all possible headers across all items (in order)
+    const allHeaders = getAllHeaders(items);
 
+    for (const item of items) {
+      const ebayId =
+        item.productInfo?.productCategory?.amazonCategoryId || item.productInfo?.amazonCategoryId || "unknown";
+      const categoryName = item.productInfo?.productCategory?.name || "Uncategorized";
       const rawSheetKey = `${categoryName} (${ebayId})`;
       const sheetKey = sanitizeSheetName(rawSheetKey);
-      const flatRow: Record<string, any> = {
-        Title: item.productInfo?.title || "",
-        Description: item.productInfo?.description?.replace(/<[^>]*>?/gm, "") || "",
-        Brand: Array.isArray(item.productInfo?.brand)
-          ? item.productInfo.brand.join(", ")
-          : item.productInfo?.brand || "",
-        condition_type: item.productInfo?.condition_type || "",
-        "Allow Variations": item.isVariation ? "yes" : "no",
-        Images: Array.isArray(item.productInfo?.inventoryImages)
-          ? item.productInfo.inventoryImages.map((img: any) => img.url).join(", ")
-          : "",
-      };
 
-      // Add dynamic attributes
-      for (const [key, value] of Object.entries(item.prodTechInfo || {})) {
-        flatRow[key] = Array.isArray(value) ? value.join(", ") : value;
-      }
+      // Extract flattened data for this item
+      const flatRow = extractItemData(item, allHeaders);
 
       if (!categoryMap[sheetKey]) categoryMap[sheetKey] = [];
       categoryMap[sheetKey].push(flatRow);
@@ -755,8 +1050,21 @@ export const inventoryService = {
 
     for (const [sheetName, rows] of Object.entries(categoryMap)) {
       if (rows.length === 0) continue;
-      const ws = XLSX.utils.json_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max length is 31 chars
+
+      // Get headers maintaining database order (no sorting)
+      const headers = Object.keys(rows[0]);
+
+      // Format rows for Excel output
+      const formattedRows = rows.map((row) => {
+        const formattedRow: Record<string, any> = {};
+        headers.forEach((header) => {
+          formattedRow[header] = row[header]?.toString() || "";
+        });
+        return formattedRow;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(formattedRows, { header: headers });
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
     }
 
     // Write workbook to binary string
@@ -781,8 +1089,8 @@ export const inventoryService = {
       totalExported: items.length,
     };
 
-    // Cache the result (including metadata)
-    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300); // Cache 5 min
+    // Cache the result
+    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300);
 
     return {
       fromCache: false,
@@ -790,7 +1098,6 @@ export const inventoryService = {
       totalExported: items.length,
     };
   },
-
   bulkUpdateInventoryTaxAndDiscount: async (inventoryIds: string[], discountValue: number, vat: number) => {
     try {
       // Check if the discountValue and vat are numbers and valid
@@ -1043,19 +1350,114 @@ export const inventoryService = {
 };
 
 function sanitizeSheetName(name: string): string {
-  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31); // Excel limits sheet names to 31 chars
+  return name.replace(/[:\\\/\?\*\[\]]/g, "").substring(0, 31);
 }
 
-// Helper function to generate cache key for "export all" operations
 function generateCacheKeyForAllItems(): string {
   const crypto = require("crypto");
-  const timestamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return `export_all_items_${timestamp}`; // Daily cache for all items
+  const timestamp = new Date().toISOString().slice(0, 10);
+  return `export_all_items_${timestamp}`;
 }
 
-// Your existing generateCacheKey function for specific IDs
 function generateCacheKey(inventoryIds: string[]): string {
   const sortedIds = [...inventoryIds].sort();
   const crypto = require("crypto");
   return `export_ids_${crypto.createHash("md5").update(sortedIds.join(",")).digest("hex")}`;
+}
+
+function extractNestedValue(data: any, fieldNames: string[]): any {
+  for (let fieldName of fieldNames) {
+    // Normalize field name for case-insensitive and special character matching
+    const normalizedFieldName = fieldName.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    // Find matching key in data (case-insensitive, ignoring special characters)
+    const matchingKey = Object.keys(data).find(
+      (key) => key.toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedFieldName
+    );
+
+    if (matchingKey && data[matchingKey]) {
+      const value = data[matchingKey];
+      if (Array.isArray(value) && value.length > 0) {
+        return value[0].value || value[0];
+      } else if (typeof value === "string") {
+        return value;
+      } else {
+        return value.toString();
+      }
+    }
+  }
+
+  // Log warning if no matching field is found
+  console.log(`⚠️ extractNestedValue: No matching field found for ${fieldNames.join(", ")} in data`);
+  return null;
+}
+// Helper function to process sheet data into proper payload format
+function processSheetDataToPayload(data: any, row: number): any {
+  const payload: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (key.includes(".")) {
+      // Handle nested properties like "brand.value", "hard_disk.size"
+      const parts = key.split(".");
+      let current = payload;
+
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i];
+        if (!current[part]) {
+          current[part] = {};
+        }
+        current = current[part];
+      }
+
+      const finalKey = parts[parts.length - 1];
+      current[finalKey] = data[key];
+    } else {
+      // Handle direct properties
+      const value = data[key];
+      if (value !== undefined && value !== null && value !== "") {
+        // Convert to proper format expected by Amazon schema
+        if (typeof value === "string" || typeof value === "number") {
+          payload[key] = [
+            {
+              value: value.toString(),
+              marketplace_id: "A1F83G8C2ARO7P",
+            },
+          ];
+        } else {
+          payload[key] = value;
+        }
+      }
+    }
+  });
+
+  return payload;
+}
+
+// Helper function to process nested attributes for prodTechInfo
+function processNestedAttributes(data: any, excludeFields: string[]): any {
+  const processed: any = {};
+
+  Object.keys(data).forEach((key) => {
+    if (excludeFields.includes(key)) {
+      return; // Skip excluded fields
+    }
+
+    const value = data[key];
+    if (value !== undefined && value !== null && value !== "") {
+      if (Array.isArray(value)) {
+        processed[key] = value;
+      } else if (typeof value === "object") {
+        processed[key] = [value];
+      } else {
+        processed[key] = [
+          {
+            value: value.toString(),
+            marketplace_id: "A1F83G8C2ARO7P",
+          },
+        ];
+      }
+    }
+  });
+
+  return processed;
 }

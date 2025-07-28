@@ -14,7 +14,6 @@ export const attendance = (router: Router) => {
   // Admin routes
   router.post(
     "/admin/mark",
-    authMiddleware,
     adminRoleCheck,
     attendanceController.adminMark
   );

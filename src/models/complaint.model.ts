@@ -66,11 +66,10 @@ const complaintSchema = new Schema<IComplaint>({
       },
     },
   ],
-
-  assignedTo: {
+  assignedTo: [{
     type: Schema.Types.ObjectId,
     ref: "User",
-  },
+  }],
   createDate: {
     type: Date,
     default: Date.now,

@@ -1,22 +1,13 @@
 import { Request, Response } from "express";
-import { PayrollService } from "../services/payroll.service";
+import { payrollService } from "../services/payroll.service";
 import { Types } from "mongoose";
 
-export class PayrollController {
-  private payrollService: PayrollService;
-
-  constructor() {
-    this.payrollService = new PayrollService();
-  }
-
-  async createPayroll(req: Request, res: Response) {
+export const payrollController = {
+  createPayroll: async (req: Request, res: Response) => {
     try {
-      const alreadyExistsPayroll =
-        await this.payrollService.getPayrollByEmployeeId(
-          req.body.userId.toString()
-        );
-      console.log("payroll : ", alreadyExistsPayroll);
-      console.log("req.body : ", req.body);
+      const alreadyExistsPayroll = await payrollService.getPayrollByEmployeeId(
+        req.body.userId.toString()
+      );
       if (alreadyExistsPayroll) {
         return res.status(400).json({
           success: false,
@@ -24,7 +15,7 @@ export class PayrollController {
         });
       }
 
-      const payroll = await this.payrollService.createPayroll(req.body);
+      const payroll = await payrollService.createPayroll(req.body);
       res.status(201).json({
         success: true,
         data: payroll,
@@ -36,11 +27,11 @@ export class PayrollController {
           error instanceof Error ? error.message : "Failed to create payroll",
       });
     }
-  }
+  },
 
-  async updatePayroll(req: Request, res: Response) {
+  updatePayroll: async (req: Request, res: Response) => {
     try {
-      const payroll = await this.payrollService.updatePayroll(
+      const payroll = await payrollService.updatePayroll(
         req.params.id,
         req.body
       );
@@ -55,11 +46,11 @@ export class PayrollController {
           error instanceof Error ? error.message : "Failed to update payroll",
       });
     }
-  }
+  },
 
-  async deletePayroll(req: Request, res: Response) {
+  deletePayroll: async (req: Request, res: Response) => {
     try {
-      await this.payrollService.deletePayroll(req.params.id);
+      await payrollService.deletePayroll(req.params.id);
       res.json({
         success: true,
         message: "Payroll deleted successfully",
@@ -71,11 +62,11 @@ export class PayrollController {
           error instanceof Error ? error.message : "Failed to delete payroll",
       });
     }
-  }
+  },
 
-  async getPayroll(req: Request, res: Response) {
+  getPayroll: async (req: Request, res: Response) => {
     try {
-      const payroll = await this.payrollService.getPayrollById(req.params.id);
+      const payroll = await payrollService.getPayrollById(req.params.id);
       res.json({
         success: true,
         data: payroll,
@@ -86,9 +77,9 @@ export class PayrollController {
         error: error instanceof Error ? error.message : "Failed to get payroll",
       });
     }
-  }
+  },
 
-  async getAllPayrolls(req: Request, res: Response) {
+  getAllPayrolls: async (req: Request, res: Response) => {
     try {
       const query: any = {};
 
@@ -104,7 +95,7 @@ export class PayrollController {
         query.contractType = req.query.contractType;
       }
 
-      const payrolls = await this.payrollService.getAllPayrolls(query);
+      const payrolls = await payrollService.getAllPayrolls(query);
       res.json({
         success: true,
         data: payrolls,
@@ -116,13 +107,11 @@ export class PayrollController {
           error instanceof Error ? error.message : "Failed to get payrolls",
       });
     }
-  }
+  },
 
-  async calculateNetSalary(req: Request, res: Response) {
+  calculateNetSalary: async (req: Request, res: Response) => {
     try {
-      const salary = await this.payrollService.calculateNetSalary(
-        req.params.id
-      );
+      const salary = await payrollService.calculateNetSalary(req.params.id);
       res.json({
         success: true,
         data: salary,
@@ -136,5 +125,5 @@ export class PayrollController {
             : "Failed to calculate net salary",
       });
     }
-  }
-}
+  },
+};
