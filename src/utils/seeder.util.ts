@@ -327,7 +327,7 @@ const seedData = async () => {
       console.log("Supplier User Category already exists and matches.");
     }
   }
-  const actualPassword = "BuildMyRig@2025"; // Hardcoded password for seeding
+  const actualPassword = "BuildMyRig@123!"; // Hardcoded password for seeding
   // Hash the password using createHash
   const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
