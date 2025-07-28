@@ -621,13 +621,7 @@ export const inventoryService = {
                   "product_description",
                   "condition_type",
                   "brand",
-                  "manufacturer",
-                  "model",
-                  "color",
-                  "size",
-                  "weight",
-                  "material",
-                  "features",
+                  "amazonCategoryId",
                   // Add any attributes you want in productInfo
                 ];
 
