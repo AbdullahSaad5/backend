@@ -604,15 +604,18 @@ export const inventoryService = {
 
                 let conditionType = extractNestedValue(data, ["condition_type"]) || "new_new";
 
-                // Process all attributes from sheet first
-                const allProcessedData = processNestedAttributes(data, [
+                // ========== CONFIGURATION BLOCK ==========
+                // Attributes to completely exclude from database (will not be stored anywhere)
+                const excludeFromDB = [
                   "productCategory",
                   "productCategoryName",
                   "ebayCategoryId",
                   "allow_variations",
-                ]);
 
-                // Extract attributes that should go in productInfo (already in correct format)
+                  // Add any attributes you want to completely exclude from DB
+                ];
+
+                // Attributes that should go in productInfo section
                 const productInfoAttributes = [
                   "item_name",
                   "product_description",
@@ -625,8 +628,11 @@ export const inventoryService = {
                   "weight",
                   "material",
                   "features",
-                  "specifications",
+                  // Add any attributes you want in productInfo
                 ];
+
+                // Process all attributes from sheet first
+                const allProcessedData = processNestedAttributes(data, excludeFromDB);
 
                 // Build productInfo by extracting from processed data
                 const extractedProductInfo: any = {};
@@ -683,6 +689,8 @@ export const inventoryService = {
                 productInfoAttributes.forEach((attr) => {
                   delete prodTechInfo[attr];
                 });
+
+                // Force include specific attributes in prodTechInfo if they exist in original data
 
                 // Determine kindType and isPart based on matchedCategory.isPart
                 const isPart = matchedCategory.isPart || false;
