@@ -34,6 +34,7 @@ import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
 import { ebay } from "./ebay.route";
+import { multer } from "./multer.route";
 import { ebayChat } from "./ebay-chat.route";
 import { ebayChatSandbox } from "./ebay-chat-sandbox.route";
 import { amazon } from "./amazon.route";
@@ -80,6 +81,7 @@ const routes: {
   variations,
   complaint,
   blog,
+  multer,
   expense,
   document,
   expensecategory,
