@@ -4,6 +4,7 @@ import { authMiddleware } from "@/middlewares";
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
 import {
   uploadSingleFile,
+  uploadSingleFileGlobal,
   uploadMultipleFiles,
   uploadChatFile,
   uploadProfilePicture,
@@ -13,6 +14,9 @@ import { Router } from "express";
 export const multer = (router: Router) => {
   // Legacy route for backward compatibility
   router.post("/upload", authGuard.isAuth, uploadMiddleware, multerController.upload);
+
+  // Global file upload (accepts all file types)
+  router.post("/upload/global", authGuard.isAuth, uploadSingleFileGlobal("file"), multerController.uploadSingle);
 
   // Single file upload
   router.post("/upload/single", authGuard.isAuth, uploadSingleFile(), multerController.uploadSingle);

@@ -3,8 +3,14 @@ import multer from "multer";
 import { StatusCodes } from "http-status-codes";
 import { digitalOceanSpacesStorage } from "@/config/digitalOceanSpaces";
 
-// Enhanced file filter for multiple file types
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+// Global file filter that accepts all file types
+const globalFileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Accept all file types - no restrictions
+  cb(null, true);
+};
+
+// Enhanced file filter for specific file types (kept for backward compatibility)
+const restrictedFileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedTypes = [
     // Excel files
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -40,18 +46,61 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   }
 };
 
-// Create multer upload instance with DigitalOcean Spaces
+// Create multer upload instance with DigitalOcean Spaces (accepts all file types)
 const upload = multer({
+  storage: digitalOceanSpacesStorage,
+  limits: {
+    fileSize: 1024 * 1024 * 100, // 100MB limit (increased for larger files)
+    files: 10, // Maximum 10 files
+  },
+  fileFilter: globalFileFilter, // Use global filter to accept all file types
+});
+
+// Create restricted upload instance for backward compatibility
+const restrictedUpload = multer({
   storage: digitalOceanSpacesStorage,
   limits: {
     fileSize: 1024 * 1024 * 50, // 50MB limit
     files: 10, // Maximum 10 files
   },
-  fileFilter: fileFilter,
+  fileFilter: restrictedFileFilter,
 });
 
-// Error handler for multer errors
-const handleMulterError = (err: any, res: Response) => {
+// Error handler for global uploads (multer errors)
+const handleGlobalMulterError = (err: any, res: Response) => {
+  if (err instanceof multer.MulterError) {
+    switch (err.code) {
+      case "LIMIT_FILE_SIZE":
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          error: "File size is too large. Max limit is 100MB",
+        });
+      case "LIMIT_FILE_COUNT":
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          error: "Too many files. Max limit is 10 files",
+        });
+      case "LIMIT_UNEXPECTED_FILE":
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          error: "Unexpected field name",
+        });
+      default:
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          error: err.message,
+        });
+    }
+  } else if (err) {
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      status: StatusCodes.BAD_REQUEST,
+      error: err.message,
+    });
+  }
+};
+
+// Error handler for restricted uploads (multer errors)
+const handleRestrictedMulterError = (err: any, res: Response) => {
   if (err instanceof multer.MulterError) {
     switch (err.code) {
       case "LIMIT_FILE_SIZE":
@@ -83,12 +132,24 @@ const handleMulterError = (err: any, res: Response) => {
   }
 };
 
-// Single file upload middleware
-export const uploadSingleFile = (fieldName: string = "file") => {
+// Global single file upload middleware (accepts all file types)
+export const uploadSingleFileGlobal = (fieldName: string = "file") => {
   return (req: any | Request, res: any | Response, next: NextFunction) => {
     upload.single(fieldName)(req, res, (err) => {
       if (err) {
-        return handleMulterError(err, res);
+        return handleGlobalMulterError(err, res);
+      }
+      next();
+    });
+  };
+};
+
+// Restricted single file upload middleware (only allowed file types)
+export const uploadSingleFile = (fieldName: string = "file") => {
+  return (req: any | Request, res: any | Response, next: NextFunction) => {
+    restrictedUpload.single(fieldName)(req, res, (err) => {
+      if (err) {
+        return handleRestrictedMulterError(err, res);
       }
       next();
     });
@@ -100,7 +161,7 @@ export const uploadMultipleFiles = (fieldName: string = "files", maxCount: numbe
   return (req: any | Request, res: any | Response, next: NextFunction) => {
     upload.array(fieldName, maxCount)(req, res, (err) => {
       if (err) {
-        return handleMulterError(err, res);
+        return handleGlobalMulterError(err, res);
       }
       next();
     });
@@ -112,7 +173,7 @@ export const uploadFields = (fields: { name: string; maxCount?: number }[]) => {
   return (req: any | Request, res: any | Response, next: NextFunction) => {
     upload.fields(fields)(req, res, (err) => {
       if (err) {
-        return handleMulterError(err, res);
+        return handleGlobalMulterError(err, res);
       }
       next();
     });
@@ -123,7 +184,7 @@ export const uploadFields = (fields: { name: string; maxCount?: number }[]) => {
 export const uploadChatFile = (req: any | Request, res: any | Response, next: NextFunction) => {
   upload.single("chatFile")(req, res, (err) => {
     if (err) {
-      return handleMulterError(err, res);
+      return handleGlobalMulterError(err, res);
     }
     next();
   });
@@ -150,7 +211,7 @@ export const uploadProfilePicture = (req: any | Request, res: any | Response, ne
 
   imageUpload.single("profilePicture")(req, res, (err) => {
     if (err) {
-      return handleMulterError(err, res);
+      return handleRestrictedMulterError(err, res);
     }
     next();
   });
