@@ -1,11 +1,11 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document } from "mongoose";
 
 // SMS Message Schema
 export interface ISMSMessage extends Document {
   to: string;
   from: string;
   message: string;
-  status: 'sent' | 'delivered' | 'failed';
+  status: "sent" | "delivered" | "failed";
   createdAt: Date;
 }
 
@@ -13,11 +13,11 @@ const smsMessageSchema = new Schema({
   to: { type: String, required: true },
   from: { type: String, required: true },
   message: { type: String, required: true },
-  status: { type: String, enum: ['sent', 'delivered', 'failed'], default: 'sent' },
+  status: { type: String, enum: ["sent", "delivered", "failed"], default: "sent" },
   createdAt: { type: Date, default: Date.now },
 });
 
-export const SMSMessage = model<ISMSMessage>('SMSMessage', smsMessageSchema);
+export const SMSMessage = model<ISMSMessage>("SMSMessage", smsMessageSchema);
 
 // Email Message Schema
 export interface IEmailMessage extends Document {
@@ -25,7 +25,7 @@ export interface IEmailMessage extends Document {
   from: string;
   subject: string;
   body: string;
-  status: 'sent' | 'delivered' | 'failed';
+  status: "sent" | "delivered" | "failed";
   createdAt: Date;
 }
 
@@ -34,11 +34,11 @@ const emailMessageSchema = new Schema({
   from: { type: String, required: true },
   subject: { type: String, required: true },
   body: { type: String, required: true },
-  status: { type: String, enum: ['sent', 'delivered', 'failed'], default: 'sent' },
+  status: { type: String, enum: ["sent", "delivered", "failed"], default: "sent" },
   createdAt: { type: Date, default: Date.now },
 });
 
-export const EmailMessage = model<IEmailMessage>('EmailMessage', emailMessageSchema);
+export const EmailMessage = model<IEmailMessage>("EmailMessage", emailMessageSchema);
 
 // Marketing Campaign Schema
 export interface IMarketingCampaign extends Document {
@@ -47,7 +47,7 @@ export interface IMarketingCampaign extends Document {
   message: string;
   recipients: string[];
   sentAt: Date;
-  status: 'draft' | 'scheduled' | 'sent';
+  status: "draft" | "scheduled" | "sent";
 }
 
 const marketingCampaignSchema = new Schema({
@@ -56,10 +56,10 @@ const marketingCampaignSchema = new Schema({
   message: { type: String, required: true },
   recipients: [{ type: String }],
   sentAt: { type: Date },
-  status: { type: String, enum: ['draft', 'scheduled', 'sent'], default: 'draft' },
+  status: { type: String, enum: ["draft", "scheduled", "sent"], default: "draft" },
 });
 
-export const MarketingCampaign = model<IMarketingCampaign>('MarketingCampaign', marketingCampaignSchema);
+export const MarketingCampaign = model<IMarketingCampaign>("MarketingCampaign", marketingCampaignSchema);
 
 // Newsletter Subscriber Schema
 export interface INewsletterSubscriber extends Document {
@@ -72,4 +72,4 @@ const newsletterSubscriberSchema = new Schema({
   subscribedAt: { type: Date, default: Date.now },
 });
 
-export const NewsletterSubscriber = model<INewsletterSubscriber>('NewsletterSubscriber', newsletterSubscriberSchema);
+export const NewsletterSubscriber = model<INewsletterSubscriber>("NewsletterSubscriber", newsletterSubscriberSchema);
