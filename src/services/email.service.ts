@@ -25,42 +25,39 @@ export interface EmailResponse {
   response?: string;
 }
 
-export class EmailService {
-  private transporter: nodemailer.Transporter;
-  private isConfigured: boolean = false;
+let transporter: nodemailer.Transporter | undefined;
+let isConfigured = false;
 
-  constructor() {
-    this.initializeTransporter();
-  }
+const initializeTransporter = () => {
+  try {
+    isConfigured = validateSesConfig();
 
-  private initializeTransporter() {
-    try {
-      // Validate SES configuration
-      this.isConfigured = validateSesConfig();
-
-      if (!this.isConfigured) {
-        console.warn("AWS SES not properly configured. Email service will not work.");
-        return;
-      }
-
-      // Create Nodemailer transporter using AWS SES
-      this.transporter = nodemailer.createTransporter({
-        SES: { ses, aws: require("aws-sdk") },
-        sendingRate: emailConfig.maxSendRate, // emails per second
-      });
-
-      console.log("✅ Email service initialized with AWS SES");
-    } catch (error) {
-      console.error("❌ Failed to initialize email service:", error);
-      this.isConfigured = false;
+    if (!isConfigured) {
+      console.warn("AWS SES not properly configured. Email service will not work.");
+      return;
     }
-  }
 
-  async sendEmail(message: EmailMessage): Promise<EmailResponse> {
-    if (!this.isConfigured || !this.transporter) {
+    transporter = nodemailer.createTransport({
+      SES: { ses, aws: require("aws-sdk") },
+      sendingRate: emailConfig.maxSendRate,
+    });
+
+    console.log("✅ Email service initialized with AWS SES");
+  } catch (error) {
+    console.error("❌ Failed to initialize email service:", error);
+    isConfigured = false;
+  }
+};
+
+// Initialize on startup
+initializeTransporter();
+
+export const emailService = {
+  sendEmail: async (message: EmailMessage): Promise<EmailResponse> => {
+    if (!isConfigured || !transporter) {
       return {
         messageId: "",
-        status: "failed",
+        status: "failed" as const,
         error: "Email service not configured properly",
       };
     }
@@ -78,44 +75,39 @@ export class EmailService {
         attachments: message.attachments,
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
+      const result = await transporter.sendMail(mailOptions);
 
       return {
         messageId: result.messageId,
-        status: "sent",
+        status: "sent" as const,
         response: result.response,
       };
     } catch (error: any) {
       console.error("Email sending failed:", error);
       return {
         messageId: "",
-        status: "failed",
+        status: "failed" as const,
         error: error.message,
       };
     }
-  }
+  },
 
-  async getEmailStatus(messageId: string): Promise<EmailResponse> {
-    // AWS SES doesn't provide direct status checking through Nodemailer
-    // You would need to implement SNS notifications or CloudWatch metrics
-    // For now, we'll return a basic response
+  getEmailStatus: async (messageId: string): Promise<EmailResponse> => {
     console.log("Getting Email status for:", messageId);
 
     return {
       messageId,
-      status: "sent", // In practice, you'd check actual status
+      status: "sent" as const,
     };
-  }
+  },
 
-  async receiveEmail(): Promise<any[]> {
-    // AWS SES receiving would be handled through SNS/SQS or WorkMail
-    // This would typically be implemented as webhook endpoints
+  receiveEmail: async (): Promise<any[]> => {
     console.log("Email receiving should be handled via SNS/SQS webhooks");
     return [];
-  }
+  },
 
-  async sendBulkEmails(messages: EmailMessage[]): Promise<EmailResponse[]> {
-    if (!this.isConfigured || !this.transporter) {
+  sendBulkEmails: async (messages: EmailMessage[]): Promise<EmailResponse[]> => {
+    if (!isConfigured || !transporter) {
       return messages.map(() => ({
         messageId: "",
         status: "failed" as const,
@@ -125,42 +117,34 @@ export class EmailService {
 
     const results: EmailResponse[] = [];
 
-    // Send emails with rate limiting to respect SES limits
     for (let i = 0; i < messages.length; i++) {
-      const result = await this.sendEmail(messages[i]);
+      const result = await emailService.sendEmail(messages[i]);
       results.push(result);
 
-      // Add delay to respect rate limits (if not last email)
       if (i < messages.length - 1) {
-        await this.delay(1000 / emailConfig.maxSendRate);
+        await new Promise((resolve) => setTimeout(resolve, 1000 / emailConfig.maxSendRate));
       }
     }
 
     return results;
-  }
+  },
 
-  async verifyConnection(): Promise<boolean> {
-    if (!this.isConfigured || !this.transporter) {
+  verifyConnection: async (): Promise<boolean> => {
+    if (!isConfigured || !transporter) {
       return false;
     }
 
     try {
-      await this.transporter.verify();
+      await transporter.verify();
       console.log("✅ Email service connection verified");
       return true;
     } catch (error) {
       console.error("❌ Email service connection failed:", error);
       return false;
     }
-  }
+  },
 
-  // Helper method to add delay
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  // Method to get sending statistics
-  async getSendingStatistics() {
+  getSendingStatistics: async () => {
     try {
       const stats = await ses.getSendStatistics().promise();
       return stats.SendDataPoints;
@@ -168,10 +152,9 @@ export class EmailService {
       console.error("Failed to get sending statistics:", error);
       return null;
     }
-  }
+  },
 
-  // Method to get send quota
-  async getSendQuota() {
+  getSendQuota: async () => {
     try {
       const quota = await ses.getSendQuota().promise();
       return {
@@ -183,7 +166,5 @@ export class EmailService {
       console.error("Failed to get send quota:", error);
       return null;
     }
-  }
-}
-
-export const emailService = new EmailService();
+  },
+};
