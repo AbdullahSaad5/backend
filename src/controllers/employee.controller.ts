@@ -5,7 +5,11 @@ import { jwtVerify } from "@/utils/jwt.util";
 export const employeeController = {
   getEmployeeList: async (req: Request, res: Response) => {
     try {
-      const result = await employeeService.getEmployeeList();
+      const unassignedPayroll = req.query.unassignedPayroll === "true";
+      const result = await employeeService.getEmployeeList(unassignedPayroll);
+      if (!result.success) {
+        return res.status(500).json(result);
+      }
       res.status(200).json(result);
     } catch (error: any) {
       res.status(500).json({

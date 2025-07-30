@@ -4,14 +4,11 @@ import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { jwtVerify } from "@/utils/jwt.util";
 import { Types } from "mongoose";
+import { IContextRequest, IUserRequest } from "@/contracts/request.contract";
 export const attendanceController = {
-  checkIn: async (req: Request, res: Response) => {
+  checkIn: async (req: IContextRequest<IUserRequest>, res: Response) => {
     try {
-      console.log("req.body : ", req.body);
-      console.log("req.headers : ", req.headers);
-      const token = req.headers.authorization?.split(" ")[1];
-      const decoded = jwtVerify(token as string);
-      const userId = decoded.id.toString();
+      const userId = req.context?.user?.id;
       const userObjectId = Types.ObjectId.isValid(userId)
         ? new Types.ObjectId(userId)
         : userId;
@@ -48,12 +45,12 @@ export const attendanceController = {
   },
 
   // Employee self check-out
-  checkOut: async (req: Request, res: Response) => {
+  checkOut: async (req: IContextRequest<IUserRequest>, res: Response) => {
     try {
       const user = req.context?.user;
       if (!user || !user.id)
         return res.status(401).json({ message: "Unauthorized" });
-      const attendance = await attendanceService.checkOut(user.id);
+      const attendance = await attendanceService.checkOut(user.id as string);
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -189,11 +186,9 @@ export const attendanceController = {
   },
 
   // Admin: get geo location
-  getGeoLocation: async (req: Request, res: Response) => {
+  getGeoLocation: async (req: IContextRequest<IUserRequest>, res: Response) => {
     try {
-      const token = req.headers.authorization?.split(" ")[1];
-      const decoded = jwtVerify(token as string);
-      const userId = decoded.id.toString();
+      const userId = req.context?.user?.id;
       const { latitude, longitude } = req.body;
       if (!userId || !latitude || !longitude)
         return res.status(400).json({ message: "Missing required fields" });
