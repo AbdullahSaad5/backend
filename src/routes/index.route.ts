@@ -60,6 +60,7 @@ import { processedpayroll } from "./processedpayroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 import { task } from "./task.route";
+import { marketing } from "./marketing.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -130,6 +131,7 @@ const routes: {
   payroll,
   processedpayroll,
   task,
+  marketing,
 };
 
 // Loop through all routes and pass the router to each route
