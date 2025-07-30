@@ -2,7 +2,6 @@
 import { IRevenue, IRevenueModel } from "@/contracts/revenue.contract";
 import { Schema, model } from "mongoose";
 
-
 const RevenueSchema = new Schema<IRevenue, IRevenueModel>({
   description: {
     type: String,
@@ -21,10 +20,20 @@ const RevenueSchema = new Schema<IRevenue, IRevenueModel>({
     trim: true,
     maxlength: [100, "Source cannot exceed 100 characters"],
   },
+  receiveType: {
+    type: String,
+    required: [true, "Receive Type is required"],
+    trim: true,
+    maxlength: [100, "Receive Type exceed 100 characters"],
+  },
   date: {
     type: Date,
     required: [true, "Date is required"],
     default: Date.now,
+  },
+  image: {
+    type: String,
+    default: "",
   },
   isBlocked: {
     type: Boolean,

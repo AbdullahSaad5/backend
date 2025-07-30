@@ -3,6 +3,12 @@ import { IExpense, IExpenseModel } from "@/contracts/expense.contract";
 import { boolean } from "zod";
 
 const expenseSchema = new Schema<IExpense, IExpenseModel>({
+  title: {
+    type: String,
+    required: [true, "title is required"],
+    trim: true,
+    maxlength: [100, "Title cannot exceed 100 characters"],
+  },
   description: {
     type: String,
     required: [true, "Description is required"],

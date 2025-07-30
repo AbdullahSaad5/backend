@@ -11,12 +11,12 @@ export const RevenueController = {
    */
   createRevenue: async (req: Request, res: Response) => {
     try {
-      const { description, amount, source, date } = req.body;
+      const { description, amount, source, receiveType, date, image } = req.body;
       
-      if (!description || amount === undefined || !source) {
+      if (!description || amount === undefined || !source || !receiveType || !image) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Description, amount, and source are required fields"
+          message: "Description, Amount, Source, Receive Type and Revenue Receipt are required fields"
         });
       }
 
@@ -31,7 +31,9 @@ export const RevenueController = {
         description,
         amount,
         source,
-        date ? new Date(date) : new Date()
+        receiveType,
+        date ? new Date(date) : new Date(),
+        image,
       );
 
       res.status(StatusCodes.CREATED).json({ 
@@ -56,7 +58,7 @@ export const RevenueController = {
   updateRevenue: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { description, amount, source, date, isBlocked } = req.body;
+      const { description, amount, source, receiveType, date, image, isBlocked } = req.body;
 
       if (!id) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -69,7 +71,9 @@ export const RevenueController = {
         description?: string;
         amount?: number;
         source?: string;
+        receiveType?: string;
         date?: Date;
+        image?: string;
         isBlocked?: boolean;
       } = {};
 
@@ -84,7 +88,9 @@ export const RevenueController = {
         updateData.amount = amount;
       }
       if (source) updateData.source = source;
+      if (receiveType) updateData.receiveType = receiveType;
       if (date) updateData.date = new Date(date);
+      if (image) updateData.image = image
       if (typeof isBlocked !== 'undefined') updateData.isBlocked = isBlocked;
 
       const updatedRevenue = await RevenueService.editRevenue(id, updateData);
