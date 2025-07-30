@@ -1,3 +1,4 @@
+
 // TODO: Implement SMS service provider integration (e.g., Twilio, Nexmo)
 // For now, this is a mock implementation
 
@@ -13,35 +14,33 @@ export interface SMSResponse {
   error?: string;
 }
 
-export class SMSService {
-  async sendSMS(message: SMSMessage): Promise<SMSResponse> {
+export const smsService = {
+  sendSMS: async (message: SMSMessage): Promise<SMSResponse> => {
     // TODO: Replace with actual SMS provider integration
     console.log('Sending SMS:', message);
     
     // Mock response
     return {
       messageId: `sms_${Date.now()}`,
-      status: 'sent'
+      status: 'sent' as const,
     };
-  }
+  },
 
-  async getSMSStatus(messageId: string): Promise<SMSResponse> {
+  getSMSStatus: async (messageId: string): Promise<SMSResponse> => {
     // TODO: Replace with actual SMS provider status check
     console.log('Getting SMS status for:', messageId);
     
     // Mock response
     return {
       messageId,
-      status: 'delivered'
+      status: 'delivered' as const,
     };
-  }
+  },
 
-  async receiveSMS(): Promise<any[]> {
+  receiveSMS: async (): Promise<any[]> => {
     // TODO: Implement webhook handler for incoming SMS
     console.log('Receiving SMS messages');
     return [];
-  }
-}
-
-export const smsService = new SMSService();
+  },
+};
 
