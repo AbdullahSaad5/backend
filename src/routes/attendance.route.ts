@@ -5,18 +5,17 @@ import { authGuard } from "@/guards/auth.guard";
 
 export const attendance = (router: Router) => {
   // Employee self-service routes
-  router.post("/check-in", attendanceController.checkIn);
-  router.post("/check-out", attendanceController.checkOut);
+  router.post("/check-in", authGuard.isAuth, attendanceController.checkIn);
+  router.post("/check-out", authGuard.isAuth, attendanceController.checkOut);
   router.get("/me", attendanceController.getOwnAttendance);
-  // geo location attendance check in
-  router.post("/geo-location", attendanceController.getGeoLocation);
+  router.post(
+    "/geo-location",
+    authGuard.isAuth,
+    attendanceController.getGeoLocation
+  );
 
   // Admin routes
-  router.post(
-    "/admin/mark",
-    adminRoleCheck,
-    attendanceController.adminMark
-  );
+  router.post("/admin/mark", adminRoleCheck, attendanceController.adminMark);
 
   router.patch(
     "/admin/:attendanceId",

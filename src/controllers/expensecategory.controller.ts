@@ -10,7 +10,7 @@ export const ExpenseCategoryController = {
    */
   createExpenseCategory: async (req: Request, res: Response) => {
     try {
-      const { title, description, image } = req.body;
+      const { title, description, image, isSystemGenerated } = req.body;
       
       if (!title || !description) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -23,6 +23,7 @@ export const ExpenseCategoryController = {
         title,
         description,
         image,
+        isSystemGenerated
       );
 
       res.status(StatusCodes.CREATED).json({ 
@@ -55,7 +56,7 @@ export const ExpenseCategoryController = {
   updateExpenseCategory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { title, description, image, isBlocked } = req.body;
+      const { title, description, image, isSystemGenerated,  isBlocked } = req.body;
 
       if (!id) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -68,12 +69,14 @@ export const ExpenseCategoryController = {
         title?: string;
         description?: string;
         image?: string;
+        isSystemGenerated?: boolean;
         isBlocked?: boolean;
       } = {};
 
       if (title) updateData.title = title;
       if (description) updateData.description = description;
       if (image) updateData.image = image;
+      if (typeof isSystemGenerated !== 'undefined') updateData.isSystemGenerated = isSystemGenerated;
       if (typeof isBlocked !== 'undefined') updateData.isBlocked = isBlocked;
 
       const updatedCategory = await ExpenseCategoryService.editExpensecategory(id, updateData);
