@@ -216,7 +216,7 @@ export const bulkImportStandardTemplateGenerator = {
       const uniqueHeaders = new Set<string>();
 
       // Add static required fields first
-      const staticHeaders = ["Allow Variations*", "Title*", "Description*", "inventoryCondition*", "Brand*"];
+      const staticHeaders = ["Allow Variations"];
       staticHeaders.forEach((header) => uniqueHeaders.add(header));
 
       // Add dynamic headers with required & variation flags
