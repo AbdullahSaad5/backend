@@ -30,3 +30,4 @@ export { workmodeController } from "./workmode.controller";
 export { attendanceController } from "./attendance.controller";
 export { leaveRequestController } from "./leave-request.controller";
 export { taskController } from "./task.controller";
+export { marketingController } from "./marketing.controller";
