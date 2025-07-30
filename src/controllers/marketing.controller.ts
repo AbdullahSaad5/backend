@@ -1,14 +1,12 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import { MarketingService } from "../modules/marketing/marketing.service";
+import marketingService from "@/services/marketing.service";
 import {
   sendSmsSchema,
   sendEmailSchema,
   createCampaignSchema,
   subscribeNewsletterSchema,
-} from "../contracts/marketing.contract";
-
-const marketingService = new MarketingService();
+} from "@/contracts/marketing.contract";
 
 export const marketingController = {
   // UC-17.1: Send/Reply to SMS from System
@@ -49,12 +47,17 @@ export const marketingController = {
   // UC-17.4: Send/Reply to Email from System
   sendEmail: async (req: Request, res: Response) => {
     try {
-      const { to, subject, body } = sendEmailSchema.parse(req.body);
-      const email = await marketingService.sendEmail(to, subject, body);
+      const { to, subject, body, html, from, replyTo, cc, bcc }: any = sendEmailSchema.parse(req.body);
+      const emailResult = await marketingService.sendEmail(to, subject, body, html, from);
+
       res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
         message: "Email sent successfully",
-        data: email,
+        data: {
+          email: emailResult.email,
+          messageId: emailResult.messageId,
+          error: emailResult.error,
+        },
       });
     } catch (error: any) {
       res.status(StatusCodes.BAD_REQUEST).json({
@@ -138,6 +141,39 @@ export const marketingController = {
       res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
         data: subscribers,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  },
+
+  // Test email service connection
+  testEmailConnection: async (req: Request, res: Response) => {
+    try {
+      const isConnected = await marketingService.testEmailConnection();
+      res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: isConnected ? "Email service connected successfully" : "Email service connection failed",
+        connected: isConnected,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        error: error.message,
+      });
+    }
+  },
+
+  // Get email service statistics
+  getEmailStats: async (req: Request, res: Response) => {
+    try {
+      const stats = await marketingService.getEmailStats();
+      res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        data: stats,
       });
     } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
