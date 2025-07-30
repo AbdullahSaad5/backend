@@ -213,10 +213,6 @@ export const bulkImportUtility = {
     categoryId: string,
     categoryName: string
   ): Promise<Record<string, any>> => {
-    // console.log(`🔄 Starting transformation for row data: ${JSON.stringify(row)}`);
-    // console.log(`📋 Headers: ${headers.join(", ")}`);
-    // console.log(`🔧 Variation fields: ${Array.from(variationFields).join(", ") || "none"}`);
-
     const rowObj: Record<string, any> = {};
 
     // Process each header-value pair
@@ -225,11 +221,8 @@ export const bulkImportUtility = {
       const rawValue = row[idx] ?? "";
       const trimmedValue = rawValue.toString().trim();
 
-      // console.log(`🔍 Processing "${cleanHeader}" = "${trimmedValue}"`);
-
       // Skip empty values
       if (!trimmedValue) {
-        // console.log(`⚠️ Skipping empty value for "${cleanHeader}"`);
         return;
       }
 
@@ -246,7 +239,6 @@ export const bulkImportUtility = {
       // Handle template fields (ending with *)
       if (cleanHeader.endsWith("*")) {
         rowObj[cleanHeader] = trimmedValue;
-        // console.log(`📋 Template field "${cleanHeader}": "${trimmedValue}"`);
         return;
       }
 
@@ -262,31 +254,56 @@ export const bulkImportUtility = {
 
         // Navigate to the nested property and set the value
         let current = rowObj[rootField][0];
+
+        // Build nested structure - all intermediate levels become arrays
         for (let i = 1; i < parts.length - 1; i++) {
           const part = parts[i];
+
+          // Check if this is the second-to-last part (parent of leaf values)
+          const isParentOfLeaf = i === parts.length - 2;
+
           if (!current[part]) {
-            current[part] = {};
+            if (isParentOfLeaf) {
+              // Parent of leaf values should be an array containing objects
+              current[part] = [{}];
+            } else {
+              // Intermediate levels are objects
+              current[part] = {};
+            }
           }
-          current = current[part];
+
+          // Move to next level
+          if (isParentOfLeaf) {
+            current = current[part][0]; // Move into the array's first object
+          } else {
+            current = current[part]; // Move into the object
+          }
         }
 
-        // Set the final value as simple string
+        // Set the final value with proper type conversion (leaf level)
         const finalKey = parts[parts.length - 1];
-        current[finalKey] = trimmedValue;
+        // Check if value is boolean
+        if (trimmedValue.toLowerCase() === "true" || trimmedValue.toLowerCase() === "false") {
+          current[finalKey] = trimmedValue.toLowerCase() === "true";
+        } else {
+          current[finalKey] = trimmedValue;
+        }
 
-        // console.log(`🔗 Nested field "${cleanHeader}": "${trimmedValue}"`);
         return;
       }
 
       // Handle simple fields - wrap in array with object structure
+      const processedValue =
+        trimmedValue.toLowerCase() === "true" || trimmedValue.toLowerCase() === "false"
+          ? trimmedValue.toLowerCase() === "true"
+          : trimmedValue;
+
       rowObj[cleanHeader] = [
         {
-          value: trimmedValue,
+          value: processedValue,
           marketplace_id: "A1F83G8C2ARO7P",
         },
       ];
-
-      // console.log(`📋 Simple field "${cleanHeader}": ${JSON.stringify(rowObj[cleanHeader])}`);
     });
 
     // Clean up empty objects in arrays
@@ -307,7 +324,6 @@ export const bulkImportUtility = {
         // Remove field if array is empty after cleanup
         if (rowObj[key].length === 0) {
           delete rowObj[key];
-          // console.log(`🧹 Removed empty field "${key}"`);
         }
       }
     });
@@ -316,7 +332,6 @@ export const bulkImportUtility = {
     rowObj.productCategoryName = categoryName.trim();
     rowObj.productCategory = categoryId.trim();
 
-    // console.log(`✅ Transformation complete. Final row object: ${JSON.stringify(rowObj, null, 2)}`);
     return rowObj;
   },
 };

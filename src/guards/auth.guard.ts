@@ -4,11 +4,7 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { IContextRequest, IUserRequest } from "@/contracts/request.contract";
 
 export const authGuard = {
-  isAuth: (
-    { context: { user } }: IContextRequest<IUserRequest>,
-    res: Response,
-    next: NextFunction
-  ) => {
+  isAuth: ({ context: { user } }: any | IContextRequest<IUserRequest>, res: Response, next: NextFunction) => {
     // console.log("User in Guard:", user);play
 
     if (user) {

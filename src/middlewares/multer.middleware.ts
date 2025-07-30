@@ -1,44 +1,52 @@
-import { Request as ExpressRequest, Response, NextFunction } from "express";
+import { Request, NextFunction } from "express";
 import multer, { FileFilterCallback } from "multer";
-import path from "path";
-import fs from "fs";
 import { StatusCodes } from "http-status-codes";
-import XLSX from "xlsx";
+import { digitalOceanSpacesStorage } from "@/config/digitalOceanSpaces";
 
-// Check if "uploads" directory exists, else create it
-const uploadsDir = path.join(__dirname, "../uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-// File filter for XLSX files
+// Enhanced file filter for multiple file types
 const fileFilter = (req: any, file: Express.Multer.File, cb: FileFilterCallback) => {
   const allowedTypes = [
+    // Excel files
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/vnd.ms-excel",
+    // Images
+    "image/jpeg",
+    "image/jpg", 
+    "image/png",
+    "image/gif",
+    "image/webp",
+    // Videos
+    "video/mp4",
+    "video/avi",
+    "video/mov",
+    "video/wmv",
+    "video/flv",
+    "video/mkv",
+    "video/webm",
+    // Documents
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/csv"
   ];
+  
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only XLSX files are allowed"));
+    cb(new Error(`File type ${file.mimetype} is not allowed`));
   }
 };
 
-// Create multer upload instance
+// Create multer upload instance with DigitalOcean Spaces
 const upload = multer({
-  storage: storage,
-  limits: { fileSize: 1024 * 1024 * 5 }, // 5MB limit
+  storage: digitalOceanSpacesStorage,
+  limits: { 
+    fileSize: 1024 * 1024 * 50, // 50MB limit (increased for videos)
+    files: 10 // Maximum 10 files
+  },
   fileFilter: fileFilter,
 });
 

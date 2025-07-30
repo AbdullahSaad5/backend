@@ -34,6 +34,7 @@ import { fulfillmentPolicy } from "./fulfillment-policy.route";
 import { returnPolicy } from "./return-policy.route";
 import { chat } from "./chat.route";
 import { ebay } from "./ebay.route";
+import { multer } from "./multer.route";
 import { ebayChat } from "./ebay-chat.route";
 import { ebayChatSandbox } from "./ebay-chat-sandbox.route";
 import { amazon } from "./amazon.route";
@@ -59,6 +60,7 @@ import { processedpayroll } from "./processedpayroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 import { task } from "./task.route";
+import { marketing } from "./marketing.route";
 
 // Create a new router to handle all routes
 const router: Router = Router();
@@ -80,6 +82,7 @@ const routes: {
   variations,
   complaint,
   blog,
+  multer,
   expense,
   document,
   expensecategory,
@@ -128,6 +131,7 @@ const routes: {
   payroll,
   processedpayroll,
   task,
+  marketing,
 };
 
 // Loop through all routes and pass the router to each route
