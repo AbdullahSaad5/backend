@@ -5,27 +5,31 @@ import { authGuard } from "@/guards";
 export const marketing = (router: Router) => {
   // SMS Routes
   // UC-17.1: Send/Reply to SMS from System
-  router.post("/marketing/sms/send", authGuard.isAuth, marketingController.sendSms);
+  router.post("/sms/send", authGuard.isAuth, marketingController.sendSms);
 
   // UC-17.3: Maintain SMS History
-  router.get("/marketing/sms/history/:userId", authGuard.isAuth, marketingController.getSmsHistory);
+  router.get("/sms/history/:userId", authGuard.isAuth, marketingController.getSmsHistory);
 
   // Email Routes
   // UC-17.4: Send/Reply to Email from System
-  router.post("/marketing/email/send", authGuard.isAuth, marketingController.sendEmail);
+  router.post("/email/send", authGuard.isAuth, marketingController.sendEmail);
 
   // UC-17.6: Maintain Email Thread History
-  router.get("/marketing/email/history/:userId", authGuard.isAuth, marketingController.getEmailHistory);
+  router.get("/email/history/:userId", authGuard.isAuth, marketingController.getEmailHistory);
 
   // Marketing Campaign Routes
   // UC-17.7: Automated Email/SMS Marketing
-  router.post("/marketing/campaigns", authGuard.isAuth, marketingController.createCampaign);
-  router.get("/marketing/campaigns", authGuard.isAuth, marketingController.getCampaigns);
+  router.post("/campaigns", authGuard.isAuth, marketingController.createCampaign);
+  router.get("/campaigns", authGuard.isAuth, marketingController.getCampaigns);
 
   // Newsletter Routes
   // UC-17.10: Newsletter Management
-  router.post("/marketing/newsletter/subscribe", marketingController.subscribeToNewsletter);
-  router.get("/marketing/newsletter/subscribers", authGuard.isAuth, marketingController.getSubscribers);
+  router.post("/newsletter/subscribe", marketingController.subscribeToNewsletter);
+  router.get("/newsletter/subscribers", authGuard.isAuth, marketingController.getSubscribers);
+
+  // Testing and Stats Routes
+  router.get("/email/test-connection", authGuard.isAuth, marketingController.testEmailConnection);
+  router.get("/email/stats", authGuard.isAuth, marketingController.getEmailStats);
 
   // TODO: Implement additional routes for the following use cases:
   // UC-17.2: Receive SMS within System (webhook)
