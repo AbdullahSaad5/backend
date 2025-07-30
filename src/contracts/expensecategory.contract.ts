@@ -5,6 +5,7 @@ export interface IExpenseCategory extends Document {
     description: string, 
     image?: string,
     isBlocked: boolean,
+    isSystemGenerated: boolean,
 }
 
 export type IExpenseCategoryModel = Model<IExpenseCategory>

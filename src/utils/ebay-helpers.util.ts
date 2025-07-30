@@ -68,7 +68,7 @@ export const getStoredEbayAccessToken = async () => {
       } else {
         console.log(" [EBAY SANDBOX] Reading sandbox token file");
         credentialsText = fs.readFileSync(
-          type === "production" ? "ebay_tokens.json" : "ebay_tokens_sandbox.json",
+          type === "production" ? "ebay_tokens_client.json" : "ebay_tokens_sandbox.json",
           "utf-8"
         );
       }
@@ -152,7 +152,7 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
   } else {
     if (type === "production") {
       console.log("🔵 [PRODUCTION] Reading production token file");
-      credentialsText = fs.readFileSync("ebay_tokens.json", "utf-8");
+      credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
     } else {
       console.log("🟣 [SANDBOX] Reading sandbox token file");
       credentialsText = fs.readFileSync("ebay_tokens_sandbox.json", "utf-8");
@@ -228,7 +228,7 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
     if (type === "production") {
       console.log("🔵 [PRODUCTION] Writing production token to file");
       fs.writeFileSync(
-        "ebay_tokens.json",
+        "ebay_tokens_client.json",
         JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
       );
     } else {
@@ -270,7 +270,10 @@ export const exchangeCodeForAccessToken = async (
       );
     } else {
       console.log("🔵 [PRODUCTION] Writing production token to file");
-      fs.writeFileSync("ebay_tokens.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
+      fs.writeFileSync(
+        "ebay_tokens_client.json",
+        JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
+      );
     }
     return parsedToken;
   } else {

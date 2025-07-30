@@ -5,14 +5,15 @@ import { expenseService } from "@/services/expense.service";
 export const expenseController = {
   createExpense: async (req: Request, res: Response) => {
     try {
-      const { description, amount, category, date, image } = req.body;
+      const {title, description, amount, category, date, image } = req.body;
 
       // Validation
-      if (!description || !amount || !category) {
+      if (!title || !description || !amount || !category) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Missing required fields",
           errors: {
+            ...(!title && { title: "Title is required" }),
             ...(!description && { description: "Description is required" }),
             ...(!amount && { amount: "Amount is required" }),
             ...(!category && { category: "Category is required" }),
@@ -28,6 +29,7 @@ export const expenseController = {
       }
 
       const newExpense = await expenseService.createExpense({
+        title,
         description,
         amount,
         category,
