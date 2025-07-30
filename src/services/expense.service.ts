@@ -6,6 +6,7 @@ export const expenseService = {
    * Create a new expense record
    */
   createExpense: async (data: {
+    title: string;
     description: string;
     amount: number;
     category: string;

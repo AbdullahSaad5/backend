@@ -62,14 +62,10 @@ import { lead } from "./lead.route";
 import { task } from "./task.route";
 import { marketing } from "./marketing.route";
 
-// Create a new router to handle all routes
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
 
-// Register processedPayroll route
-
-// Define all routes
 const routes: {
   [key: string]: (router: Router) => void;
 } = {

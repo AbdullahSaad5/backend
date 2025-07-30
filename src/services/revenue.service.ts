@@ -5,8 +5,8 @@ import { FilterQuery } from "mongoose";
 
 
 export const RevenueService = {
-  createRevenue: (description: string, amount: number, source: string, date: Date) => {
-    const newRevenue = new RevenueModel({ description, amount, source, date });
+  createRevenue: (description: string, amount: number, source: string, receiveType: string, date: Date, image: string) => {
+    const newRevenue = new RevenueModel({ description, amount, source, receiveType, date, image });
     return newRevenue.save();
   },
 
@@ -14,7 +14,9 @@ export const RevenueService = {
     description?: string; 
     amount?: number; 
     source?: string; 
+    receiveType?: string; 
     date?: Date;
+    image?: string;
     isBlocked?: boolean;
   }) => {
     return RevenueModel.findByIdAndUpdate(id, data, { new: true });
@@ -36,13 +38,16 @@ export const RevenueService = {
     return RevenueModel.findById(id);
   },
 
-  getRevenuesByDateRange: (startDate: Date, endDate: Date, source?: string) => {
+  getRevenuesByDateRange: (startDate: Date, endDate: Date, source?: string, receiveType?: string) => {
     const filter: FilterQuery<IRevenue> = {
       date: { $gte: startDate, $lte: endDate }
     };
     
     if (source) {
       filter.source = source;
+    }
+    if (receiveType) {
+      filter.receiveType = receiveType;
     }
     
     return RevenueModel.find(filter).sort({ date: -1 });

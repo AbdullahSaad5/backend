@@ -1,6 +1,7 @@
 import { Document, Model, Types } from "mongoose";
 
 export interface IExpense extends Document {
+  title: string;
   description: string;
   amount: number;
   category: {
