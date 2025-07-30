@@ -1,12 +1,12 @@
 import { IExpenseModel } from "@/models/expensecategory.model";
 
 export const ExpenseCategoryService = {
-  createExpensecategory: (title: String, description: string, image: string) => {
-    const newExpensecategory = new IExpenseModel({ title, description, image });
+  createExpensecategory: (title: String, description: string, image: string, isSystemGenerated: boolean) => {
+    const newExpensecategory = new IExpenseModel({ title, description, image, isSystemGenerated });
     return newExpensecategory.save();
   },
 
-  editExpensecategory: (id: string, data: { title?: string; description?: string; image?: string }) => {
+  editExpensecategory: (id: string, data: { title?: string; description?: string; image?: string, isSystemGenerated?: boolean }) => {
     return IExpenseModel.findByIdAndUpdate(id, data, { new: true });
   },
   deleteExpensecategory: (id: string) => {

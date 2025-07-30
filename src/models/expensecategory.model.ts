@@ -25,6 +25,10 @@ const IExpensecat = new Schema<IExpenseCategory, IExpenseCategoryModel>({
     type: Boolean,
     default: false,
   },
+  isSystemGenerated: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 
