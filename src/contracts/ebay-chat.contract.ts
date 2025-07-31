@@ -67,10 +67,12 @@ export interface IEbayChatService {
     markAsRead: (messageId: string) => Promise<IEbayChat | null>;
     markConversationAsRead: (ebayItemId: string, buyerUsername: string) => Promise<void>;
 
-    // eBay API integration
+    // eBay REST API integration
     syncEbayMessages: (sellerUsername: string) => Promise<void>;
     sendEbayMessage: (messageData: Partial<IEbayMessage>) => Promise<boolean>;
-    getEbayMessagesFromAPI: (sellerUsername: string, days?: number) => Promise<any[]>;
+    getEbayMessagesFromAPI: (conversationId: string) => Promise<any[]>;
+    getEbayConversationsFromAPI: () => Promise<any[]>;
+    getOrCreateConversation: (ebayItemId: string, buyerUsername: string) => Promise<string>;
 
     // Conversation management
     getConversation: (ebayItemId: string, buyerUsername: string) => Promise<IEbayConversation | null>;

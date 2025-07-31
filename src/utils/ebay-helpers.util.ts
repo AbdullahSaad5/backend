@@ -25,6 +25,7 @@ const scopes = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.messaging",
   // "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
   // "https://api.ebay.com/oauth/api_scope/sell.marketing",
   // "https://api.ebay.com/oauth/api_scope/sell.analytics.readonly",
