@@ -23,5 +23,5 @@ export {
   updateTaskPrioritySchema,
   updateTaskAssigneesSchema,
 } from "./task.validation";
-export { heroSliderValidation } from "./hero-slider.validation";
+export { heroSliderValidation, heroSliderStatusValidation } from "./hero-slider.validation";
 export { featuredCategoryValidation } from "./featured-category.validation";
