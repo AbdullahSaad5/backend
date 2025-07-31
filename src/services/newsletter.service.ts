@@ -1,4 +1,3 @@
-
 import { NewsletterModel } from "@/models/newsletter.model";
 
 export const NewsletterService = {
@@ -7,10 +6,13 @@ export const NewsletterService = {
     return newSubscription.save();
   },
 
-  updateSubscription: (id: string, data: { 
-    email?: string; 
-    isBlocked?: boolean 
-  }) => {
+  updateSubscription: (
+    id: string,
+    data: {
+      email?: string;
+      isBlocked?: boolean;
+    }
+  ) => {
     return NewsletterModel.findByIdAndUpdate(id, data, { new: true });
   },
 
@@ -31,7 +33,4 @@ export const NewsletterService = {
   getSubscriptionByEmail: (email: string) => {
     return NewsletterModel.findOne({ email });
   },
-
-  
-  
 };
