@@ -187,10 +187,10 @@ export const EbayChatSandboxService: IEbayChatService = {
         }
     },
 
-    getEbayMessagesFromAPI: async (sellerUsername: string, days: number = 30): Promise<any[]> => {
-        console.log('=== SANDBOX: GENERATING MOCK EBAY MESSAGES ===');
+    getEbayMessagesFromAPI: async (conversationId: string): Promise<any[]> => {
+        console.log('=== SANDBOX: GENERATING MOCK EBAY MESSAGES FOR CONVERSATION ===', conversationId);
 
-        const mockMessages = await EbayChatSandboxService.generateMockMessages!(sellerUsername);
+        const mockMessages = await EbayChatSandboxService.generateMockMessages!('sandbox_user');
         return mockMessages.map((msg: any) => ({
             messageId: msg.ebayMessageId,
             itemId: msg.ebayItemId,
@@ -200,6 +200,38 @@ export const EbayChatSandboxService: IEbayChatService = {
             itemTitle: msg.metadata?.listingTitle,
             itemUrl: msg.metadata?.listingUrl
         }));
+    },
+
+    getEbayConversationsFromAPI: async (): Promise<any[]> => {
+        console.log('=== SANDBOX: GENERATING MOCK EBAY CONVERSATIONS ===');
+
+        const mockConversations = [];
+        for (let i = 0; i < 5; i++) {
+            const listing = MOCK_LISTINGS[i % MOCK_LISTINGS.length];
+            const buyer = MOCK_BUYERS[i % MOCK_BUYERS.length];
+            
+            mockConversations.push({
+                conversationId: `conv_${listing.itemId}_${buyer.username}`,
+                orderId: listing.itemId,
+                recipientId: buyer.username,
+                lastMessage: MOCK_MESSAGES[i % MOCK_MESSAGES.length],
+                lastMessageAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random time in last 7 days
+                unreadCount: Math.floor(Math.random() * 5),
+                itemTitle: listing.title
+            });
+        }
+
+        return mockConversations;
+    },
+
+    getOrCreateConversation: async (ebayItemId: string, buyerUsername: string): Promise<string> => {
+        console.log('=== SANDBOX: GETTING OR CREATING CONVERSATION ===', { ebayItemId, buyerUsername });
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Return a mock conversation ID
+        return `conv_${ebayItemId}_${buyerUsername}`;
     },
 
     // Conversation management
