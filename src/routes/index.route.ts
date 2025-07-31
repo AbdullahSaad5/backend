@@ -60,6 +60,8 @@ import { processedpayroll } from "./processedpayroll.route";
 import { leadscategory } from "./leadscategory.route";
 import { lead } from "./lead.route";
 import { task } from "./task.route";
+import { heroSlider } from "./hero-slider.routes";
+import { featuredCategory } from "./featured-category.routes";
 import { marketing } from "./marketing.route";
 
 const router: Router = Router();
@@ -127,6 +129,8 @@ const routes: {
   payroll,
   processedpayroll,
   task,
+  heroSlider,
+  featuredCategory,
   marketing,
 };
 

@@ -1,3 +1,5 @@
+import { featuredCategory } from "./../routes/featured-category.routes";
+import { heroSliderService } from "./hero-slider.service";
 export { userService } from "./user.service";
 export { userCategoryService } from "./user-category.service";
 export { authService } from "./user-auth.service";
@@ -28,3 +30,5 @@ export { ebayReturnPolicyService } from "./ebay-return-policy.service";
 export { EbayChatService } from "./ebay-chat.service";
 export { amazonListingService } from "./amazon-listing.service";
 export { taskService } from "./task.service";
+export { heroSliderService } from "./hero-slider.service";
+export { featuredCategoryService } from "./featured-category.service";

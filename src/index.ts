@@ -3,7 +3,7 @@ import express, { Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import { mongoose } from "./datasources";
-import { authMiddleware, corsMiddleware } from "./middlewares";
+import { authMiddleware, corsMiddleware, apiRateLimiter } from "./middlewares";
 import { router } from "./routes/index.route";
 import { socketManager } from "./datasources/socket.datasource";
 import seedData from "./utils/seeder.util";
@@ -40,6 +40,7 @@ app.use(requestLogger); // Use the request logger middleware
 // Use morgan for logging requests
 // const accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" });
 app.use(
+  apiRateLimiter, // Apply API rate limiting globally
   express.json({ limit: "10mb" }),
   express.urlencoded({ limit: "10mb", extended: true }),
   morgan("dev"),
