@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { EbayChatController } from "@/controllers/ebay-chat.controller";
 import { authGuard } from "@/guards/auth.guard";
+import { EbayChatService } from "@/services/ebay-chat.service";
 
 export const ebayChat = (router: Router) => {
     // Test endpoint (no auth required)
@@ -10,6 +11,29 @@ export const ebayChat = (router: Router) => {
             message: "eBay chat API is working!",
             timestamp: new Date().toISOString()
         });
+    });
+
+    // Test REST API endpoints (no auth required for testing)
+    router.get("/test-rest-api", async (req, res) => {
+        try {
+            const conversations = await EbayChatService.getEbayConversationsFromAPI();
+            res.json({
+                success: true,
+                message: "eBay REST API test successful",
+                data: {
+                    conversationsCount: conversations.length,
+                    conversations: conversations.slice(0, 3) // Return first 3 for testing
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                message: "eBay REST API test failed",
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
     });
 
     // Send a message to a buyer
@@ -34,6 +58,4 @@ export const ebayChat = (router: Router) => {
     // Search messages
     router.get("/search", authGuard.isAuth as any, EbayChatController.searchMessages);
     router.get("/search/:sellerUsername", authGuard.isAuth as any, EbayChatController.searchMessages);
-
-
 }; 

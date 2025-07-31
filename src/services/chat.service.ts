@@ -422,6 +422,26 @@ export const ChatService = {
   addReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
     console.log(`Attempting to add reaction:`, { messageId, userId, emoji }); // Debug log
 
+    // First, check if the message exists and get current reactions
+    const existingMessage = await ChatModel.findById(messageId);
+    if (!existingMessage) {
+      console.log('Message not found:', messageId);
+      return null;
+    }
+
+    console.log('Current reactions before update:', existingMessage.reactions);
+
+    // First, remove any existing reactions from this user on this message
+    const removeResult = await ChatModel.findByIdAndUpdate(
+      messageId,
+      {
+        $pull: { reactions: { userId } }
+      }
+    );
+
+    console.log('Remove result:', removeResult);
+
+    // Then add the new reaction
     const result = await ChatModel.findByIdAndUpdate(
       messageId,
       {
@@ -436,7 +456,8 @@ export const ChatService = {
       { new: true }
     );
 
-    console.log('Update result:', result); // Debug log
+    console.log('Final update result:', result); // Debug log
+    console.log('Final reactions:', result?.reactions);
     return result;
   },
   removeReaction: async (messageId: string, userId: string, emoji: string): Promise<IChat | null> => {
