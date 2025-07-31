@@ -155,8 +155,8 @@ export const userController = {
     try {
       const userId = req.params.id;
       const updateData = req.body;
-      const { address } = updateData;
-      //   console.log("address : " , address)
+      const { addresses } = updateData;
+        console.log("addresssdfsdf : " , addresses)
 
       if (updateData.email) {
         const email = updateData.email;
@@ -200,29 +200,47 @@ export const userController = {
       // }
 
       // Handle address updates if provided
-      if (address && Array.isArray(address)) {
+      if (addresses && Array.isArray(addresses)) {
         try {
-          for (const addr of address) {
+          for (const addr of addresses) {
             // Validate address data
-            if (!addr.country || !addr.city || !addr.address || !addr.postalCode) {
+            if (!addr.country || !addr.city || !addr.address || !addr.postalCode || 
+                typeof addr.latitude !== 'number' || typeof addr.longitude !== 'number') {
               return res.status(StatusCodes.BAD_REQUEST).json({ 
-                message: "Invalid address data. Country, city, address, and postal code are required." 
+                message: "Invalid address data. Country, city, address, postal code, latitude, and longitude are required." 
               });
             }
 
             if (addr._id) {
-              // Update existing address
-              const updatedAddress = await userService.findAddressandUpdate(
-                addr._id,
-                {
-                  ...addr,
-                  isActive: true // Ensure address remains active
+              // Validate ObjectId format
+              const mongoose = require('mongoose');
+              if (!mongoose.Types.ObjectId.isValid(addr._id)) {
+                console.log(`Invalid ObjectId detected: ${addr._id}, treating as new address`);
+                // Treat invalid ObjectId as new address by removing the _id
+                const { _id, ...addressWithoutId } = addr;
+                const createdAddress = await userService.createAddress(
+                  addressWithoutId,
+                  userId
+                );
+                if (!createdAddress) {
+                  return res
+                    .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                    .json({ message: "Error creating address" });
                 }
-              );
-              if (!updatedAddress) {
-                return res
-                  .status(StatusCodes.NOT_FOUND)
-                  .json({ message: "Address not found" });
+              } else {
+                // Update existing address with valid ObjectId
+                const updatedAddress = await userService.findAddressandUpdate(
+                  addr._id,
+                  {
+                    ...addr,
+                    isActive: true // Ensure address remains active
+                  }
+                );
+                if (!updatedAddress) {
+                  return res
+                    .status(StatusCodes.NOT_FOUND)
+                    .json({ message: "Address not found" });
+                }
               }
             } else {
               // Create new address if _id is not present
