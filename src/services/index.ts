@@ -32,3 +32,4 @@ export { amazonListingService } from "./amazon-listing.service";
 export { taskService } from "./task.service";
 export { heroSliderService } from "./hero-slider.service";
 export { featuredCategoryService } from "./featured-category.service";
+export { emailService } from "./email.service";

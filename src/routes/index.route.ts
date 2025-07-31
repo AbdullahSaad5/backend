@@ -63,10 +63,12 @@ import { task } from "./task.route";
 import { heroSlider } from "./hero-slider.routes";
 import { featuredCategory } from "./featured-category.routes";
 import { marketing } from "./marketing.route";
+import { mailbox } from "./mailbox.route";
 
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+router.use("/mailbox", mailbox);
 
 const routes: {
   [key: string]: (router: Router) => void;
