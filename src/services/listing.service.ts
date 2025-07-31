@@ -433,6 +433,7 @@ export const listingService = {
         publishToWebsite,
         status,
         listingType,
+        productCategory,
         startDate,
         endDate,
         page = 1,
@@ -503,6 +504,28 @@ export const listingService = {
 
       if (isTemplate !== undefined) {
         query.isTemplate = isTemplate;
+      }
+
+      // Filter by ProductCategory if provided
+      if (productCategory) {
+        // Validate if it's a valid MongoDB ObjectId
+        if (mongoose.isValidObjectId(productCategory)) {
+          query["productInfo.productCategory"] = new mongoose.Types.ObjectId(productCategory);
+        } else {
+          // If it's not a valid ObjectId, search by category name
+          const categoryIds = await ProductCategory.find({
+            name: { $regex: productCategory, $options: "i" },
+          }).select("_id");
+          
+          if (categoryIds.length > 0) {
+            query["productInfo.productCategory"] = {
+              $in: categoryIds.map((c) => c._id),
+            };
+          } else {
+            // If no matching categories found, return empty result
+            query["productInfo.productCategory"] = null;
+          }
+        }
       }
 
       if (startDate || endDate) {
