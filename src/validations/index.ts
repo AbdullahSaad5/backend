@@ -1,3 +1,5 @@
+import { featuredCategoryValidation } from "@/validations/featured-category.validation";
+import { featuredCategory } from "./../routes/featured-category.routes";
 import { heroSliderValidation } from "@/validations/hero-slider.validation";
 export { userValidation } from "./user.validation";
 export { userCategoryValidation } from "./user-category.validation";
@@ -22,3 +24,4 @@ export {
   updateTaskAssigneesSchema,
 } from "./task.validation";
 export { heroSliderValidation } from "./hero-slider.validation";
+export { featuredCategoryValidation } from "./featured-category.validation";
