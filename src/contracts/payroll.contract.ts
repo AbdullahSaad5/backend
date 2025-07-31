@@ -5,6 +5,11 @@ export enum ContractType {
   MONTHLY = "monthly",
 }
 
+export enum PayrollType {
+  ACTUAL = "ACTUAL",
+  GOVERNMENT = "GOVERNMENT",
+}
+
 interface DeductionAllowance {
   name: string;
   value: number;
@@ -14,6 +19,7 @@ interface DeductionAllowance {
 export interface PayrollDocument extends Document {
   category: Types.ObjectId;
   userId: Types.ObjectId;
+  payrollType: PayrollType;
   contractType: ContractType;
   baseSalary?: number;
   hourlyRate?: number;

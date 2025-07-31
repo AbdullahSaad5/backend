@@ -1,5 +1,9 @@
 import { model, Schema } from "mongoose";
-import { PayrollDocument, ContractType } from "../contracts/payroll.contract";
+import {
+  PayrollDocument,
+  ContractType,
+  PayrollType,
+} from "../contracts/payroll.contract";
 
 const deductionAllowanceSchema = new Schema(
   {
@@ -20,6 +24,12 @@ const payrollSchema = new Schema(
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
+      required: true,
+    },
+    payrollType: {
+      type: String,
+      enum: Object.values(PayrollType),
+      default: PayrollType.ACTUAL,
       required: true,
     },
     contractType: {
@@ -53,6 +63,9 @@ const payrollSchema = new Schema(
     versionKey: false,
   }
 );
+
+// Add compound index to ensure one payroll per type per user
+payrollSchema.index({ userId: 1, payrollType: 1 }, { unique: true });
 
 // Validation for either baseSalary or hourlyRate
 payrollSchema.pre("validate", function (this: PayrollDocument, next: Function) {
