@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { ContractType } from "../contracts/payroll.contract";
+import { ContractType, PayrollType } from "@/contracts/payroll.contract";
 
 export const validatePayroll = (
   req: Request,
@@ -9,6 +9,7 @@ export const validatePayroll = (
   const {
     category,
     userId,
+    payrollType,
     contractType,
     baseSalary,
     hourlyRate,
@@ -29,6 +30,14 @@ export const validatePayroll = (
     return res.status(400).json({
       success: false,
       error: "Invalid contract type",
+    });
+  }
+
+  // Valid payroll type (optional, defaults to ACTUAL)
+  if (payrollType && !Object.values(PayrollType).includes(payrollType)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid payroll type",
     });
   }
 

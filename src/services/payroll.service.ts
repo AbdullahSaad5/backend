@@ -1,10 +1,17 @@
 import { Types } from "mongoose";
 import { Payroll } from "../models/payroll.model";
-import { PayrollDocument, ContractType } from "../contracts/payroll.contract";
+import {
+  PayrollDocument,
+  ContractType,
+  PayrollType,
+} from "../contracts/payroll.contract";
 
 export const payrollService = {
-  async getPayrollByEmployeeId(employeeId: string) {
-    return await Payroll.findOne({ userId: employeeId });
+  async getPayrollByEmployeeId(
+    employeeId: string,
+    payrollType: PayrollType = PayrollType.ACTUAL
+  ) {
+    return await Payroll.findOne({ userId: employeeId, payrollType });
   },
 
   async createPayroll(
@@ -79,6 +86,7 @@ export const payrollService = {
     category?: Types.ObjectId;
     userId?: Types.ObjectId;
     contractType?: ContractType;
+    payrollType?: PayrollType;
   }) {
     try {
       return await Payroll.find(query)

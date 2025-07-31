@@ -27,4 +27,16 @@ export const payroll = (router: Router) => {
     adminRoleCheck,
     payrollController.calculateNetSalary
   );
+
+  router.get(
+    "/user/:userId/merged",
+    adminRoleCheck,
+    payrollController.getMergedPayrollByUserId
+  );
+
+  router.patch(
+    "/user/:userId/merged",
+    adminRoleCheck,
+    payrollController.updateMergedPayroll
+  );
 };
