@@ -102,6 +102,7 @@ const seedData = async () => {
       "ADD_GUIDES",
 
       "SETTINGS",
+      "MANAGE_CONTENT",
     ],
     isBlocked: false,
     createdAt: new Date(),

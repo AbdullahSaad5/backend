@@ -1,3 +1,4 @@
+import { heroSliderController } from "@/controllers/hero-slider.controller";
 export { multerController } from "./multer.controller";
 export { userController } from "./user.controller";
 export { userCategoryController } from "./user-category.controller";
@@ -30,4 +31,5 @@ export { workmodeController } from "./workmode.controller";
 export { attendanceController } from "./attendance.controller";
 export { leaveRequestController } from "./leave-request.controller";
 export { taskController } from "./task.controller";
+export { heroSliderController } from "./hero-slider.controller";
 export { marketingController } from "./marketing.controller";

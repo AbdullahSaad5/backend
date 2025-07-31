@@ -1,3 +1,4 @@
+import { heroSliderValidation } from "@/validations/hero-slider.validation";
 export { userValidation } from "./user.validation";
 export { userCategoryValidation } from "./user-category.validation";
 export { authValidation } from "./user-auth.validation";
@@ -13,4 +14,11 @@ export { cartValidation } from "./cart.validation";
 export { variationValidation } from "./variation.validation";
 export { faqsValidation } from "./faqs.validation";
 export { createLeadValidation, updateLeadValidation, updateLeadStatusValidation } from "./lead.validation";
-export { createTaskSchema, updateTaskSchema, updateTaskStatusSchema, updateTaskPrioritySchema, updateTaskAssigneesSchema } from "./task.validation";
+export {
+  createTaskSchema,
+  updateTaskSchema,
+  updateTaskStatusSchema,
+  updateTaskPrioritySchema,
+  updateTaskAssigneesSchema,
+} from "./task.validation";
+export { heroSliderValidation } from "./hero-slider.validation";
