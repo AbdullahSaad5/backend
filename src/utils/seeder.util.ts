@@ -55,7 +55,8 @@ const seedData = async () => {
       "VIEW_ATTENDANCE",
 
       "MANAGE_TICKETING",
-
+      "ADD_TICKET",
+      "VIEW_TICKET",
       "MANAGE_DOCUMENTS",
 
       "MANAGE_POLICIES",
@@ -171,6 +172,8 @@ const seedData = async () => {
       "VIEW_ATTENDANCE",
 
       "MANAGE_TICKETING",
+      "ADD_TICKET",
+      "VIEW_TICKET",
 
       "MANAGE_DOCUMENTS",
 

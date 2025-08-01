@@ -11,21 +11,11 @@ export const permissionsController = {
         },
         userManagement: {
           parent: "MANAGE_USERS",
-          children: [
-            "ADD_USERS_CATEGORY",
-            "VIEW_USERS_CATEGORY",
-            "ADD_USERS",
-            "VIEW_USERS",
-          ],
+          children: ["ADD_USERS_CATEGORY", "VIEW_USERS_CATEGORY", "ADD_USERS", "VIEW_USERS"],
         },
         supplierManagement: {
           parent: "MANAGE_SUPPLIERS",
-          children: [
-            "ADD_SUPPLIERS_CATEGORY",
-            "VIEW_SUPPLIERS_CATEGORY",
-            "ADD_SUPPLIERS",
-            "VIEW_SUPPLIERS",
-          ],
+          children: ["ADD_SUPPLIERS_CATEGORY", "VIEW_SUPPLIERS_CATEGORY", "ADD_SUPPLIERS", "VIEW_SUPPLIERS"],
         },
         inventoryManagement: {
           parent: "MANAGE_INVENTORY",
@@ -70,7 +60,7 @@ export const permissionsController = {
             "ADD_GAMERS_COMMUNITY",
           ],
         },
-         accountingManagement: {
+        accountingManagement: {
           parent: "MANAGE_ACCOUNTING",
           children: [
             "ADD_EXPENSE_CATEGORY",
@@ -84,42 +74,21 @@ export const permissionsController = {
         },
         hrManagement: {
           parent: "HR_MANAGEMENET",
-          children: [
-            "VIEW_EMPLOYEES",
-            "ADD_EMPLOYEES",
-            "VIEW_WORK_SHIFT",
-            "ADD_WORK_SHIFT",
-            "VIEW_ATTENDANCE",
-          ],
+          children: ["VIEW_EMPLOYEES", "ADD_EMPLOYEES", "VIEW_WORK_SHIFT", "ADD_WORK_SHIFT", "VIEW_ATTENDANCE"],
         },
         complaintsManagement: {
           parent: "COMPLAINTS_MANAGEMENET",
-          children: [
-            "VIEW_COMPLAINTS_CATEGORY",
-            "ADD_COMPLAINTS_CATEGORY",
-            "VIEW_COMPLAINTS",
-            "ADD_COMPLAINTS",
-          ],
+          children: ["VIEW_COMPLAINTS_CATEGORY", "ADD_COMPLAINTS_CATEGORY", "VIEW_COMPLAINTS", "ADD_COMPLAINTS"],
         },
         guideManagement: {
           parent: "MANAGE_GUIDES",
-          children: [
-            "VIEW_GUIDES_CATEGORY",
-            "ADD_GUIDE_CATEGORY",
-            "VIEW_GUIDES",
-            "ADD_GUIDES",
-          ],
+          children: ["VIEW_GUIDES_CATEGORY", "ADD_GUIDE_CATEGORY", "VIEW_GUIDES", "ADD_GUIDES"],
         },
         leadsManagement: {
           parent: "LEADS_MANAGEMENT",
-          children: [
-            "ADD_LEADS_CATEGORIES",
-            "VIEW_LEADS_CATEGORIES",
-            "ADD_LEADS",
-            "VIEW_LEADS",
-          ],
+          children: ["ADD_LEADS_CATEGORIES", "VIEW_LEADS_CATEGORIES", "ADD_LEADS", "VIEW_LEADS"],
         },
-         policies: {
+        policies: {
           parent: "MANAGE_POLICIES",
           children: [
             "VIEW_CUSTOM_POLICIES",
@@ -140,11 +109,12 @@ export const permissionsController = {
         },
         ticketing: {
           parent: "MANAGE_TICKETING",
+          children: ["ADD_TICKET", "VIEW_TICKET"],
         },
         documents: {
           parent: "MANAGE_DOCUMENTS",
         },
-       
+
         setting: {
           parent: "SETTINGS",
         },
