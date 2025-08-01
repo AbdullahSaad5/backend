@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Address, User, UserCategory } from "@/models";
-import { IUser } from "@/contracts/user.contract";
+import { IUser, ProfileCompletionPayload } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { userService } from "@/services";
 import sendEmail from "@/utils/nodeMailer";
@@ -15,7 +15,7 @@ export const userController = {
       // console.log("longitude : ", longitude);
       // console.log("latitude : ", latitude);
 
-      const userExists: IUser | null =
+      const userExists =
         await userService.findExistingEmail(email);
       if (userExists) {
         return res
@@ -467,6 +467,8 @@ export const userController = {
         limit: parseInt(limit as string, 10), // Convert limit to number
       };
 
+      console.log("filtersfilters : " , filters)
+
       // Call the service to search and filter the users
       const users = await userService.searchAndFilterUsers(filters);
 
@@ -600,6 +602,85 @@ export const userController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
         message: "Error adding address" 
       });
+    }
+  },
+
+  // Profile Completion Methods
+  updateProfileCompletion: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const profileData = req.body as ProfileCompletionPayload;
+
+      // Debug logging for document data
+      console.log("Profile data received:", {
+        isForeignUser: profileData.isForeignUser,
+        passportDocument: profileData.passportDocument,
+        visaDocument: profileData.visaDocument
+      });
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      }
+
+      // Update profile completion
+      const updatedUser = await userService.updateProfileCompletion(userId, profileData);
+      
+      if (!updatedUser) {
+        return res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error updating profile completion" });
+      }
+
+      // Check if this is a complete profile submission or step-by-step update
+      const isCompleteSubmission = profileData.jobTitle && profileData.employmentStartDate && profileData.niNumber;
+      
+      res.status(StatusCodes.OK).json({
+        message: isCompleteSubmission 
+          ? "Profile completion updated successfully" 
+          : "Profile data saved successfully",
+        data: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error updating profile completion:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error updating profile completion" });
+    }
+  },
+
+  getProfileCompletionStatus: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      }
+
+      const profileStatus = await userService.getProfileCompletionStatus(userId);
+      
+      if (!profileStatus) {
+        return res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error fetching profile completion status" });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "Profile completion status retrieved successfully",
+        data: profileStatus,
+      });
+    } catch (error) {
+      console.error("Error getting profile completion status:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error getting profile completion status" });
     }
   },
 };

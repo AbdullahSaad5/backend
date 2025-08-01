@@ -6,14 +6,16 @@ import { IUser, IUserMethods, UserModel } from "@/contracts/user.contract";
 
 const validateEmail = (email: string) => REGEX.EMAIL.test(email);
 
+// NI Number validation function
+const validateNINumber = (niNumber: string) => {
+  const niRegex = /^[A-Z]{2}\d{6}[A-Z]$/;
+  return niRegex.test(niNumber);
+};
+
 export const fileSchema = {
-  originalname: { type: String },
-  encoding: { type: String },
-  mimetype: { type: String },
-  size: { type: Number },
   url: { type: String },
   type: { type: String },
-  filename: { type: String },
+  name: { type: String },
 };
 
 const schema = new Schema<IUser, UserModel, IUserMethods>(
@@ -31,7 +33,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     },
     password: { type: String, select: false },
     phoneNumber: { type: String },
-    dob: { type: String },
     signUpThrough: {
       type: String,
       enum: ENUMS.SIGNUP_THROUGH,
@@ -46,7 +47,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     supplierCategory: {
       type: Schema.Types.ObjectId,
       ref: "SupplierCategory",
-      required: false,
     },
     additionalAccessRights: { type: [String], default: [] },
     restrictedAccessRights: { type: [String], default: [] },
@@ -56,7 +56,64 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     isBlocked: { type: Boolean, default: false },
 
     // supplierKey added but not required by default
-    supplierKey: { type: String, required: false },
+    supplierKey: { type: String },
+
+    // Profile Completion Fields
+    // Personal Information
+    gender: { 
+      type: String, 
+      enum: ["Male", "Female", "Other"]
+    },
+    emergencyPhoneNumber: { type: String },
+    dob: { type: Date },
+    
+    // Geofencing Configuration
+    geofencingRadius: { 
+      type: Number, 
+      min: 100, 
+      max: 1000, 
+      default: 500
+    },
+    geofencingAttendanceEnabled: { 
+      type: Boolean, 
+      default: false
+    },
+    
+    // Foreign User Information
+    isForeignUser: { 
+      type: Boolean, 
+      default: false
+    },
+    countryOfIssue: { type: String },
+    passportNumber: { type: String },
+    passportExpiryDate: { type: Date },
+    passportDocument: { type: fileSchema, _id: false },
+    visaNumber: { type: String },
+    visaExpiryDate: { type: Date },
+    visaDocument: { type: fileSchema, _id: false },
+    
+    // Employment Information
+    jobTitle: { type: String },
+    employmentStartDate: { type: Date },
+    niNumber: { 
+      type: String, 
+      validate: {
+        validator: validateNINumber,
+        message: "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)"
+      }
+    },
+    
+    // Profile Completion Status
+    profileCompleted: { 
+      type: Boolean, 
+      default: false
+    },
+    profileCompletionPercentage: { 
+      type: Number, 
+      min: 0, 
+      max: 100, 
+      default: 0
+    },
   },
   { timestamps: true }
 );
