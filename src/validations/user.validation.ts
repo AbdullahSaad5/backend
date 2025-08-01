@@ -226,6 +226,25 @@ export const userValidation = {
         }
       }
       
+      // Validate foreign user fields if isForeignUser is true
+      if (data.isForeignUser === true) {
+        if (!data.countryOfIssue || data.countryOfIssue.trim() === '') {
+          throw new Error("Country of issue is required for foreign employees");
+        }
+        if (!data.passportNumber || data.passportNumber.trim() === '') {
+          throw new Error("Passport number is required for foreign employees");
+        }
+        if (!data.passportExpiryDate) {
+          throw new Error("Passport expiry date is required for foreign employees");
+        }
+        if (!data.visaNumber || data.visaNumber.trim() === '') {
+          throw new Error("Visa number is required for foreign employees");
+        }
+        if (!data.visaExpiryDate) {
+          throw new Error("Visa expiry date is required for foreign employees");
+        }
+      }
+      
       return true;
     });
 
