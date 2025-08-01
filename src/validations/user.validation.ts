@@ -6,6 +6,7 @@ import {
   IUser,
   UserCreatePayload,
   UserUpdatePayload,
+  ProfileCompletionPayload,
 } from "@/contracts/user.contract";
 import { Types } from "mongoose";
 import { IBodyRequest } from "@/contracts/request.contract";
@@ -146,6 +147,88 @@ export const userValidation = {
         return res.status(StatusCodes.BAD_REQUEST).json({
           message: ReasonPhrases.BAD_REQUEST,
           status: StatusCodes.BAD_REQUEST,
+        });
+      }
+    }
+  },
+
+  // Profile completion validation
+  profileCompletion: async (
+    req: IBodyRequest<ProfileCompletionPayload>,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const fileSchema = z.object({
+      originalname: z.string(),
+      encoding: z.string(),
+      mimetype: z.string(),
+      size: z.number(),
+      url: z.string(),
+      type: z.string(),
+      filename: z.string(),
+    });
+
+    const schema: ZodSchema = z.object({
+      // Personal Information
+      gender: z.enum(["Male", "Female", "Other"]).optional(),
+      emergencyPhoneNumber: z.string().trim().optional(),
+      profileImage: z.string().optional(),
+      dob: z.string().optional(),
+      
+      // Geofencing Configuration
+      geofencingRadius: z.number().min(100).max(1000).optional(),
+      geofencingAttendanceEnabled: z.boolean().optional(),
+      
+      // Employment Information
+      jobTitle: z.string().trim().min(1, "Job title is required"),
+      employmentStartDate: z.string().min(1, "Employment start date is required"),
+      niNumber: z.string().trim().min(1, "NI number is required")
+        .regex(/^[A-Z]{2}\d{6}[A-Z]$/, "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)"),
+      
+      // Foreign User Information
+      isForeignUser: z.boolean().optional(),
+      countryOfIssue: z.string().trim().optional(),
+      passportNumber: z.string().trim().optional(),
+      passportExpiryDate: z.string().optional(),
+      passportDocument: fileSchema.optional(),
+      visaNumber: z.string().trim().optional(),
+      visaExpiryDate: z.string().optional(),
+      visaDocument: fileSchema.optional(),
+    }).refine((data) => {
+      // If isForeignUser is true, validate required foreign user fields
+      if (data.isForeignUser) {
+        if (!data.countryOfIssue) {
+          throw new Error("Country of issue is required for foreign users");
+        }
+        if (!data.passportNumber || !data.passportExpiryDate) {
+          throw new Error("Passport number and expiry date are required for foreign users");
+        }
+        if (!data.visaNumber || !data.visaExpiryDate) {
+          throw new Error("Visa number and expiry date are required for foreign users");
+        }
+      }
+      return true;
+    });
+
+    try {
+      const validatedData = schema.parse(req.body);
+      Object.assign(req.body, validatedData);
+      next();
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        const { message, issues } = getZodErrors(error);
+
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: ReasonPhrases.BAD_REQUEST,
+          status: StatusCodes.BAD_REQUEST,
+          issueMessage: message,
+          issues: issues,
+        });
+      } else {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: ReasonPhrases.BAD_REQUEST,
+          status: StatusCodes.BAD_REQUEST,
+          issueMessage: error.message,
         });
       }
     }

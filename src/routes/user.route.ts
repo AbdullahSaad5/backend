@@ -2,6 +2,33 @@ import { Router } from "express";
 import { userController } from "@/controllers";
 import { userValidation } from "@/validations";
 import { authGuard } from "@/guards";
+import multer from "multer";
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/profile-documents/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Allow only images and PDFs
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images and PDF files are allowed'));
+    }
+  }
+});
 
 export const user = (router: Router) => {
   // route for create new user
@@ -39,4 +66,13 @@ export const user = (router: Router) => {
   router.patch("/block/:id", userController.toggleBlock);
 
   router.patch("/permissions/:id", userController.updatePermissions);
+
+  // Profile Completion Routes
+  router.get("/:id/profile-status", userValidation.validateId, userController.getProfileCompletionStatus);
+  router.patch("/:id/profile-completion", userValidation.validateId, userValidation.profileCompletion, userController.updateProfileCompletion);
+  router.post("/:id/upload-document/:documentType", 
+    userValidation.validateId, 
+    upload.single('document'), 
+    userController.uploadProfileDocument
+  );
 };

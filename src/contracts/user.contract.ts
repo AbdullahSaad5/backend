@@ -35,6 +35,35 @@ export interface IUser extends Document {
   isBlocked: boolean;
   additionalDocuments: [IFile];
   // isSupplier: boolean;
+
+  // Profile Completion Fields
+  // Personal Information
+  gender?: "Male" | "Female" | "Other";
+  emergencyPhoneNumber?: string;
+  dob?: Date;
+  
+  // Geofencing Configuration
+  geofencingRadius?: number;
+  geofencingAttendanceEnabled?: boolean;
+  
+  // Foreign User Information
+  isForeignUser?: boolean;
+  countryOfIssue?: string;
+  passportNumber?: string;
+  passportExpiryDate?: Date;
+  passportDocument?: IFile;
+  visaNumber?: string;
+  visaExpiryDate?: Date;
+  visaDocument?: IFile;
+  
+  // Employment Information
+  jobTitle?: string;
+  employmentStartDate?: Date;
+  niNumber?: string;
+  
+  // Profile Completion Status
+  profileCompleted?: boolean;
+  profileCompletionPercentage?: number;
 }
 
 export type UserCreatePayload = Pick<
@@ -51,6 +80,33 @@ export type UserCreatePayload = Pick<
 > & { address: Partial<IUserAddress> };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
+
+export type ProfileCompletionPayload = {
+  // Personal Information
+  gender?: "Male" | "Female" | "Other";
+  emergencyPhoneNumber?: string;
+  profileImage?: string;
+  dob?: string;
+  
+  // Geofencing Configuration
+  geofencingRadius?: number;
+  geofencingAttendanceEnabled?: boolean;
+  
+  // Foreign User Information
+  isForeignUser?: boolean;
+  countryOfIssue?: string;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  passportDocument?: IFile;
+  visaNumber?: string;
+  visaExpiryDate?: string;
+  visaDocument?: IFile;
+  
+  // Employment Information
+  jobTitle?: string;
+  employmentStartDate?: string;
+  niNumber?: string;
+};
 
 export interface IUserMethods {
   comparePassword: (password: string) => boolean;

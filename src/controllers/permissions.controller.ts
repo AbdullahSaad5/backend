@@ -140,6 +140,10 @@ export const permissionsController = {
         },
         ticketing: {
           parent: "MANAGE_TICKETING",
+          children: [
+            "ADD_TICKET",
+            "VIEW_TICKET",
+          ]
         },
         documents: {
           parent: "MANAGE_DOCUMENTS",

@@ -602,6 +602,157 @@ export const userController = {
       });
     }
   },
+
+  // Profile Completion Methods
+  updateProfileCompletion: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const profileData = req.body;
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      }
+
+      // Validate required fields based on foreign user status
+      if (profileData.isForeignUser) {
+        if (!profileData.countryOfIssue) {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .json({ message: "Country of issue is required for foreign users" });
+        }
+        
+        if (!profileData.passportNumber || !profileData.passportExpiryDate) {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .json({ message: "Passport number and expiry date are required for foreign users" });
+        }
+        
+        if (!profileData.visaNumber || !profileData.visaExpiryDate) {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .json({ message: "Visa number and expiry date are required for foreign users" });
+        }
+      }
+
+      // Update profile completion
+      const updatedUser = await userService.updateProfileCompletion(userId, profileData);
+      
+      if (!updatedUser) {
+        return res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error updating profile completion" });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "Profile completion updated successfully",
+        data: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error updating profile completion:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error updating profile completion" });
+    }
+  },
+
+  getProfileCompletionStatus: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      }
+
+      const profileStatus = await userService.getProfileCompletionStatus(userId);
+      
+      if (!profileStatus) {
+        return res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error fetching profile completion status" });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "Profile completion status retrieved successfully",
+        data: profileStatus,
+      });
+    } catch (error) {
+      console.error("Error getting profile completion status:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error getting profile completion status" });
+    }
+  },
+
+  uploadProfileDocument: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const { documentType } = req.params; // 'passport' or 'visa'
+      const file = req.file;
+
+      if (!file) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "No file uploaded" });
+      }
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "User not found" });
+      }
+
+      // Validate document type
+      if (!['passport', 'visa'].includes(documentType)) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .json({ message: "Invalid document type. Must be 'passport' or 'visa'" });
+      }
+
+      // Prepare file data
+      const fileData = {
+        originalname: file.originalname,
+        encoding: file.encoding,
+        mimetype: file.mimetype,
+        size: file.size,
+        url: file.path, // Adjust based on your file upload setup
+        type: documentType,
+        filename: file.filename,
+      };
+
+      // Update user with document
+      const updateData: any = {};
+      if (documentType === 'passport') {
+        updateData.passportDocument = fileData;
+      } else if (documentType === 'visa') {
+        updateData.visaDocument = fileData;
+      }
+
+      const updatedUser = await userService.updateProfileCompletion(userId, updateData);
+
+      res.status(StatusCodes.OK).json({
+        message: `${documentType} document uploaded successfully`,
+        data: {
+          document: fileData,
+          user: updatedUser,
+        },
+      });
+    } catch (error) {
+      console.error("Error uploading profile document:", error);
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json({ message: "Error uploading profile document" });
+    }
+  },
 };
 
 // new route to get Employee List
