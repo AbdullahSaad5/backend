@@ -2,13 +2,9 @@ import { Document, Model, Types } from "mongoose";
 import { IUserAddress } from "./user-address.contracts";
 
 export interface IFile {
-  originalname: string;
-  encoding: string;
-  mimetype: string;
-  size: number;
   url: string;
   type: string;
-  filename: string;
+  name?: string;
 }
 
 export interface IUser extends Document {
@@ -17,7 +13,7 @@ export interface IUser extends Document {
   email: string;
   password: string;
   phoneNumber: string;
-  dob: string;
+  dob?: string;
   supplierKey?: string;
   // address: Types.ObjectId
   signUpThrough: string;
@@ -40,7 +36,6 @@ export interface IUser extends Document {
   // Personal Information
   gender?: "Male" | "Female" | "Other";
   emergencyPhoneNumber?: string;
-  dob?: Date;
   
   // Geofencing Configuration
   geofencingRadius?: number;
@@ -73,11 +68,13 @@ export type UserCreatePayload = Pick<
   | "email"
   | "password"
   | "phoneNumber"
-  | "dob"
   | "userType"
   | "additionalAccessRights"
   | "restrictedAccessRights"
-> & { address: Partial<IUserAddress> };
+> & { 
+  dob?: string;
+  address: Partial<IUserAddress> 
+};
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
 

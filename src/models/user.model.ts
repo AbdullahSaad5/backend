@@ -13,13 +13,9 @@ const validateNINumber = (niNumber: string) => {
 };
 
 export const fileSchema = {
-  originalname: { type: String },
-  encoding: { type: String },
-  mimetype: { type: String },
-  size: { type: Number },
   url: { type: String },
   type: { type: String },
-  filename: { type: String },
+  name: { type: String },
 };
 
 const schema = new Schema<IUser, UserModel, IUserMethods>(
@@ -37,7 +33,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     },
     password: { type: String, select: false },
     phoneNumber: { type: String },
-    dob: { type: String },
     signUpThrough: {
       type: String,
       enum: ENUMS.SIGNUP_THROUGH,

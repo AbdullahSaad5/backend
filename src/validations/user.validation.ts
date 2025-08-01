@@ -1,5 +1,5 @@
 import { getZodErrors } from "@/utils/get-zod-errors.util";
-import { NextFunction, Response } from "express";
+import { NextFunction, Response, Request } from "express";
 import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { z, ZodSchema } from "zod";
 import {
@@ -154,19 +154,15 @@ export const userValidation = {
 
   // Profile completion validation
   profileCompletion: async (
-    req: IBodyRequest<ProfileCompletionPayload>,
+    req: Request,
     res: Response,
     next: NextFunction
   ) => {
     const fileSchema = z.object({
-      originalname: z.string(),
-      encoding: z.string(),
-      mimetype: z.string(),
-      size: z.number(),
       url: z.string(),
       type: z.string(),
-      filename: z.string(),
-    });
+      name: z.string().optional(),
+    }).optional();
 
     const schema: ZodSchema = z.object({
       // Personal Information
@@ -179,34 +175,54 @@ export const userValidation = {
       geofencingRadius: z.number().min(100).max(1000).optional(),
       geofencingAttendanceEnabled: z.boolean().optional(),
       
-      // Employment Information
-      jobTitle: z.string().trim().min(1, "Job title is required"),
-      employmentStartDate: z.string().min(1, "Employment start date is required"),
-      niNumber: z.string().trim().min(1, "NI number is required")
-        .regex(/^[A-Z]{2}\d{6}[A-Z]$/, "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)"),
+      // Employment Information - Make optional for step-by-step updates
+      jobTitle: z.string().trim().optional(),
+      employmentStartDate: z.string().optional(),
+      niNumber: z.string().trim().optional(),
       
       // Foreign User Information
       isForeignUser: z.boolean().optional(),
       countryOfIssue: z.string().trim().optional(),
       passportNumber: z.string().trim().optional(),
       passportExpiryDate: z.string().optional(),
-      passportDocument: fileSchema.optional(),
+      passportDocument: z.union([fileSchema, z.null()]).optional(),
       visaNumber: z.string().trim().optional(),
       visaExpiryDate: z.string().optional(),
-      visaDocument: fileSchema.optional(),
+      visaDocument: z.union([fileSchema, z.null()]).optional(),
     }).refine((data) => {
-      // If isForeignUser is true, validate required foreign user fields
-      if (data.isForeignUser) {
-        if (!data.countryOfIssue) {
-          throw new Error("Country of issue is required for foreign users");
+      // Validate DOB - must be at least 18 years ago and not in future
+      if (data.dob) {
+        const dobDate = new Date(data.dob);
+        const today = new Date();
+        const minAgeDate = new Date();
+        minAgeDate.setFullYear(today.getFullYear() - 18);
+        
+        if (dobDate > today) {
+          throw new Error("Date of birth cannot be in the future");
         }
-        if (!data.passportNumber || !data.passportExpiryDate) {
-          throw new Error("Passport number and expiry date are required for foreign users");
-        }
-        if (!data.visaNumber || !data.visaExpiryDate) {
-          throw new Error("Visa number and expiry date are required for foreign users");
+        if (dobDate > minAgeDate) {
+          throw new Error("User must be at least 18 years old");
         }
       }
+      
+      // Validate employment start date - cannot be in future
+      if (data.employmentStartDate) {
+        const startDate = new Date(data.employmentStartDate);
+        const today = new Date();
+        
+        if (startDate > today) {
+          throw new Error("Employment start date cannot be in the future");
+        }
+      }
+      
+      // Validate NI number format only if it's provided
+      if (data.niNumber && data.niNumber.trim()) {
+        const niRegex = /^[A-Z]{2}\d{6}[A-Z]$/;
+        if (!niRegex.test(data.niNumber)) {
+          throw new Error("NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)");
+        }
+      }
+      
       return true;
     });
 

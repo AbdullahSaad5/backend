@@ -119,6 +119,26 @@ export const userService = {
         updateData.dob = new Date(profileData.dob);
       }
 
+      // Handle empty strings - convert to null/undefined for optional fields
+      if (updateData.jobTitle === "") updateData.jobTitle = undefined;
+      if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
+      if (updateData.niNumber === "") updateData.niNumber = undefined;
+      if (updateData.emergencyPhoneNumber === "") updateData.emergencyPhoneNumber = undefined;
+      if (updateData.countryOfIssue === "") updateData.countryOfIssue = undefined;
+      if (updateData.passportNumber === "") updateData.passportNumber = undefined;
+      if (updateData.visaNumber === "") updateData.visaNumber = undefined;
+
+      // If user is not foreign user, clear all foreign user related fields
+      if (updateData.isForeignUser === false) {
+        updateData.countryOfIssue = undefined;
+        updateData.passportNumber = undefined;
+        updateData.passportExpiryDate = undefined;
+        updateData.passportDocument = undefined;
+        updateData.visaNumber = undefined;
+        updateData.visaExpiryDate = undefined;
+        updateData.visaDocument = undefined;
+      }
+
       // Calculate profile completion percentage
       const completionPercentage = await userService.calculateProfileCompletion(userId, updateData);
       updateData.profileCompletionPercentage = completionPercentage;
