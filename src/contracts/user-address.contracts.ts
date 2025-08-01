@@ -9,6 +9,7 @@ export interface IUserAddress extends Document {
   city: string;
   postalCode: string;
   isDefault: boolean;
+  isActive: boolean;
   longitude: number;
   latitude: number;
 }

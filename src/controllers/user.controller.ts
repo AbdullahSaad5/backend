@@ -5,15 +5,15 @@ import { IUser } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { userService } from "@/services";
 import sendEmail from "@/utils/nodeMailer";
-
+  
 export const userController = {
   createUser: async (req: Request, res: Response) => {
     console.log("req.body : ", req.body);
 
     try {
       const { email, address, longitude, latitude } = req.body;
-      console.log("longitude : ", longitude);
-      console.log("latitude : ", latitude);
+      // console.log("longitude : ", longitude);
+      // console.log("latitude : ", latitude);
 
       const userExists: IUser | null =
         await userService.findExistingEmail(email);
@@ -52,30 +52,70 @@ export const userController = {
           .json({ message: "Error creating user" });
       }
 
-      // Handle address update/addition if provided
-      if (longitude && latitude) {
-        req.body.address = [
-          {
-            longitude,
-            latitude,
-          },
-        ];
-      }
-      if (address && Array.isArray(address)) {
-        // Merge longitude/latitude into each address if present at root
-        const addressesToSave = address.map((addr) => ({
-          ...addr,
-          longitude: addr.longitude ?? longitude,
-          latitude: addr.latitude ?? latitude,
-        }));
+      // Handle multiple addresses if provided
+      if (address && Array.isArray(address) && address.length > 0) {
+        try {
+          // Validate addresses before saving
+          const validAddresses = address.filter(addr => 
+            addr.country && addr.city && addr.address && addr.postalCode &&
+            addr.latitude && addr.longitude
+          );
+          
+          if (validAddresses.length === 0) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ 
+              message: "At least one valid address is required" 
+            });
+          }
 
-        for (const addr of addressesToSave) {
-          const createdAddress = await userService.createAddress(
-            addr,
+          // Create multiple addresses using the service
+          const createdAddresses = await userService.createMultipleAddresses(
+            validAddresses,
             newUser._id as string
           );
-          if (!createdAddress) {
-            return res.json({ message: "Error creating address" });
+
+          if (!createdAddresses || createdAddresses.length === 0) {
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+              message: "Error creating addresses" 
+            });
+          }
+
+          console.log(`Created ${createdAddresses.length} addresses for user ${newUser._id}`);
+        } catch (addressError) {
+          console.error("Error creating addresses:", addressError);
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+            message: "Error creating user addresses" 
+          });
+        }
+      } else {
+        // Handle legacy single address with longitude/latitude at root level
+        if (longitude && latitude) {
+          const legacyAddress = {
+            country: req.body.country || "United Kingdom",
+            city: req.body.city || "",
+            county: req.body.county || "",
+            address: req.body.streetAddress || "",
+            appartment: req.body.appartment || "",
+            postalCode: req.body.postalCode || "",
+            longitude,
+            latitude,
+            isDefault: true
+          };
+
+          try {
+            const createdAddress = await userService.createAddress(
+              legacyAddress,
+              newUser._id as string
+            );
+            if (!createdAddress) {
+              return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+                message: "Error creating address" 
+              });
+            }
+          } catch (addressError) {
+            console.error("Error creating legacy address:", addressError);
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+              message: "Error creating user address" 
+            });
           }
         }
       }
@@ -115,8 +155,8 @@ export const userController = {
     try {
       const userId = req.params.id;
       const updateData = req.body;
-      const { address } = updateData;
-      //   console.log("address : " , address)
+      const { addresses } = updateData;
+        console.log("addresssdfsdf : " , addresses)
 
       if (updateData.email) {
         const email = updateData.email;
@@ -160,31 +200,66 @@ export const userController = {
       // }
 
       // Handle address updates if provided
-      if (address && Array.isArray(address)) {
-        for (const addr of address) {
-          if (addr._id) {
-            // Update existing address
-            const updatedAddress = await userService.findAddressandUpdate(
-              addr._id,
-              addr
-            );
-            if (!updatedAddress) {
-              return res
-                .status(StatusCodes.NOT_FOUND)
-                .json({ message: "Address not found" });
+      if (addresses && Array.isArray(addresses)) {
+        try {
+          for (const addr of addresses) {
+            // Validate address data
+            if (!addr.country || !addr.city || !addr.address || !addr.postalCode || 
+                typeof addr.latitude !== 'number' || typeof addr.longitude !== 'number') {
+              return res.status(StatusCodes.BAD_REQUEST).json({ 
+                message: "Invalid address data. Country, city, address, postal code, latitude, and longitude are required." 
+              });
             }
-          } else {
-            // Create new address if _id is not present
-            const createdAddress = await userService.createAddress(
-              addr,
-              userId
-            );
-            if (!createdAddress) {
-              return res
-                .status(StatusCodes.INTERNAL_SERVER_ERROR)
-                .json({ message: "Error creating address" });
+
+            if (addr._id) {
+              // Validate ObjectId format
+              const mongoose = require('mongoose');
+              if (!mongoose.Types.ObjectId.isValid(addr._id)) {
+                console.log(`Invalid ObjectId detected: ${addr._id}, treating as new address`);
+                // Treat invalid ObjectId as new address by removing the _id
+                const { _id, ...addressWithoutId } = addr;
+                const createdAddress = await userService.createAddress(
+                  addressWithoutId,
+                  userId
+                );
+                if (!createdAddress) {
+                  return res
+                    .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                    .json({ message: "Error creating address" });
+                }
+              } else {
+                // Update existing address with valid ObjectId
+                const updatedAddress = await userService.findAddressandUpdate(
+                  addr._id,
+                  {
+                    ...addr,
+                    isActive: true // Ensure address remains active
+                  }
+                );
+                if (!updatedAddress) {
+                  return res
+                    .status(StatusCodes.NOT_FOUND)
+                    .json({ message: "Address not found" });
+                }
+              }
+            } else {
+              // Create new address if _id is not present
+              const createdAddress = await userService.createAddress(
+                addr,
+                userId
+              );
+              if (!createdAddress) {
+                return res
+                  .status(StatusCodes.INTERNAL_SERVER_ERROR)
+                  .json({ message: "Error creating address" });
+              }
             }
           }
+        } catch (addressError) {
+          console.error("Error handling addresses:", addressError);
+          return res
+            .status(StatusCodes.INTERNAL_SERVER_ERROR)
+            .json({ message: "Error processing addresses" });
         }
       }
 
@@ -219,21 +294,28 @@ export const userController = {
           .status(StatusCodes.BAD_REQUEST)
           .json({ error: "User ID is required" });
       }
-      // Find the address for the given userId
-      const address = await Address.findOne({ userId: id });
-      // Handle case where no address is found
-      if (!address) {
+      
+      // Find ALL addresses for the given userId (not just one)
+      const addresses = await userService.findAllAddressesByUserId(id);
+      
+      // Handle case where no addresses are found
+      if (!addresses || addresses.length === 0) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .json({ error: "Address not found for this user" });
+          .json({ error: "No addresses found for this user" });
       }
-      // Return the address
-      return res.status(StatusCodes.OK).json({ address });
+      
+      // Return all addresses
+      return res.status(StatusCodes.OK).json({ 
+        addresses, 
+        count: addresses.length,
+        defaultAddress: addresses.find(addr => addr.isDefault) || addresses[0]
+      });
     } catch (error) {
-      console.error(error); // Log the error for internal debugging
+      console.error("Error fetching user addresses:", error);
       return res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ error: "An error occurred while fetching the address" });
+        .json({ error: "An error occurred while fetching addresses" });
     }
   },
 
@@ -242,13 +324,20 @@ export const userController = {
       const userId = req.params.id;
       const user = await userService.findUserById(userId, "+password");
       if (!user) return res.status(404).json({ message: "User not found" });
-      const address = await userService.findAddressByUserId(userId);
+      
+      // Get all addresses for the user
+      const addresses = await userService.findAllAddressesByUserId(userId);
 
-      const userWithAddresses = { ...user.toObject(), address };
+      const userWithAddresses = { 
+        ...user.toObject(), 
+        addresses: addresses || [],
+        addressCount: addresses ? addresses.length : 0,
+        defaultAddress: addresses ? addresses.find(addr => addr.isDefault) : null
+      };
 
       res.status(StatusCodes.OK).json({ data: userWithAddresses });
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching user details:", error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .json({ message: "Error fetching user details" });
@@ -392,6 +481,124 @@ export const userController = {
       res.status(500).json({
         success: false,
         message: "Error in search and filter users",
+      });
+    }
+  },
+
+  // Additional address management methods
+  deleteUserAddress: async (req: Request, res: Response) => {
+    try {
+      const { userId, addressId } = req.params;
+      
+      // Validate parameters
+      if (!userId || !addressId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "User ID and Address ID are required" 
+        });
+      }
+
+      // Check if user has more than one address
+      const userAddresses = await userService.findAllAddressesByUserId(userId);
+      if (userAddresses.length <= 1) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "Cannot delete the last address. User must have at least one address." 
+        });
+      }
+
+      // Soft delete the address
+      const deletedAddress = await userService.softDeleteAddress(addressId);
+      if (!deletedAddress) {
+        return res.status(StatusCodes.NOT_FOUND).json({ 
+          message: "Address not found" 
+        });
+      }
+
+      res.status(StatusCodes.OK).json({ 
+        message: "Address deleted successfully",
+        deletedAddress 
+      });
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        message: "Error deleting address" 
+      });
+    }
+  },
+
+  setDefaultAddress: async (req: Request, res: Response) => {
+    try {
+      const { userId, addressId } = req.params;
+      
+      // Validate parameters
+      if (!userId || !addressId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "User ID and Address ID are required" 
+        });
+      }
+
+      // Set the address as default
+      const updatedAddress = await userService.setDefaultAddress(addressId, userId);
+      if (!updatedAddress) {
+        return res.status(StatusCodes.NOT_FOUND).json({ 
+          message: "Address not found" 
+        });
+      }
+
+      res.status(StatusCodes.OK).json({ 
+        message: "Default address updated successfully",
+        defaultAddress: updatedAddress 
+      });
+    } catch (error) {
+      console.error("Error setting default address:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        message: "Error setting default address" 
+      });
+    }
+  },
+
+  addUserAddress: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const addressData = req.body;
+      
+      // Validate parameters
+      if (!userId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "User ID is required" 
+        });
+      }
+
+      // Validate address data
+      if (!addressData.country || !addressData.city || !addressData.address || !addressData.postalCode) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "Country, city, address, and postal code are required" 
+        });
+      }
+
+      // Check if user already has 3 addresses (limit)
+      const userAddresses = await userService.findAllAddressesByUserId(userId);
+      if (userAddresses.length >= 3) {
+        return res.status(StatusCodes.BAD_REQUEST).json({ 
+          message: "Maximum 3 addresses allowed per user" 
+        });
+      }
+
+      // Create the address
+      const createdAddress = await userService.createAddress(addressData, userId);
+      if (!createdAddress) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+          message: "Error creating address" 
+        });
+      }
+
+      res.status(StatusCodes.CREATED).json({ 
+        message: "Address added successfully",
+        address: createdAddress 
+      });
+    } catch (error) {
+      console.error("Error adding address:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        message: "Error adding address" 
       });
     }
   },

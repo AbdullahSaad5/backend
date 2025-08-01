@@ -7,16 +7,17 @@ import {
 
 const AddressSchema = new Schema<IUserAddress, UserAddressModel>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User" },
-    country: { type: String },
-    address: { type: String },
-    county: { type: String },
-    appartment: { type: String },
-    city: { type: String },
-    postalCode: { type: String },
-    longitude: { type: Number },
-    latitude: { type: Number },
-    isDefault: { type: Boolean },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    country: { type: String, required: true, trim: true },
+    address: { type: String, required: true, trim: true },
+    county: { type: String, trim: true },
+    appartment: { type: String, trim: true },
+    city: { type: String, required: true, trim: true },
+    postalCode: { type: String, required: true, trim: true },
+    longitude: { type: Number, required: true },
+    latitude: { type: Number, required: true },
+    isDefault: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
   },
   {
     timestamps: true,
