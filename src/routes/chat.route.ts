@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { ChatController, ChatRoomController } from "@/controllers/chat.controller";
 import { authMiddleware } from "@/middlewares";
-import { upload } from "@/middlewares/fileUpload.middleware";
+import { uploadChatFile } from "@/middlewares/uploadMiddlewares";
 
 export const chat = (router: Router) => {
   // Apply authentication middleware to all chat routes
@@ -9,7 +9,7 @@ export const chat = (router: Router) => {
 
   // Message routes
   router.post("/messages", ChatController.sendMessage);
-  router.post("/upload", (upload.single('file') as any), ChatController.uploadFile);
+  router.post("/upload", uploadChatFile, ChatController.uploadFile);
   router.get("/messages", ChatController.getMessages);
   router.get("/messages/search", ChatController.searchMessages);
   router.get("/conversations", ChatController.getConversations);

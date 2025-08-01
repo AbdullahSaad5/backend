@@ -639,16 +639,16 @@ export const ChatController = {
         });
       }
 
-      const fileUrl = `${req.protocol}://${req.get('host')}/uploads/complaints/${req.file.filename}`;
+      const file = req.file as any;
 
       res.status(StatusCodes.OK).json({
         success: true,
         message: "File uploaded successfully",
         data: {
-          fileUrl,
-          fileName: req.file.originalname,
-          fileSize: req.file.size,
-          fileType: req.file.mimetype
+          fileUrl: file.location, // DigitalOcean Spaces URL
+          fileName: file.originalname,
+          fileSize: file.size,
+          fileType: file.mimetype
         }
       });
     } catch (error) {
