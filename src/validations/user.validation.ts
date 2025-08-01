@@ -166,7 +166,10 @@ export const userValidation = {
 
     const schema: ZodSchema = z.object({
       // Personal Information
-      gender: z.enum(["Male", "Female", "Other"]).optional(),
+      gender: z.string().optional().transform((val) => {
+        // Convert empty string to undefined
+        return val === "" ? undefined : val;
+      }).pipe(z.enum(["Male", "Female", "Other"]).optional()),
       emergencyPhoneNumber: z.string().trim().optional(),
       profileImage: z.string().optional(),
       dob: z.string().optional(),
@@ -220,6 +223,25 @@ export const userValidation = {
         const niRegex = /^[A-Z]{2}\d{6}[A-Z]$/;
         if (!niRegex.test(data.niNumber)) {
           throw new Error("NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)");
+        }
+      }
+      
+      // Validate foreign user fields if isForeignUser is true
+      if (data.isForeignUser === true) {
+        if (!data.countryOfIssue || data.countryOfIssue.trim() === '') {
+          throw new Error("Country of issue is required for foreign employees");
+        }
+        if (!data.passportNumber || data.passportNumber.trim() === '') {
+          throw new Error("Passport number is required for foreign employees");
+        }
+        if (!data.passportExpiryDate) {
+          throw new Error("Passport expiry date is required for foreign employees");
+        }
+        if (!data.visaNumber || data.visaNumber.trim() === '') {
+          throw new Error("Visa number is required for foreign employees");
+        }
+        if (!data.visaExpiryDate) {
+          throw new Error("Visa expiry date is required for foreign employees");
         }
       }
       
