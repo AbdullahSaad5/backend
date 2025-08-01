@@ -166,7 +166,10 @@ export const userValidation = {
 
     const schema: ZodSchema = z.object({
       // Personal Information
-      gender: z.enum(["Male", "Female", "Other"]).optional(),
+      gender: z.string().optional().transform((val) => {
+        // Convert empty string to undefined
+        return val === "" ? undefined : val;
+      }).pipe(z.enum(["Male", "Female", "Other"]).optional()),
       emergencyPhoneNumber: z.string().trim().optional(),
       profileImage: z.string().optional(),
       dob: z.string().optional(),
