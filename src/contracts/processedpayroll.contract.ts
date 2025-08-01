@@ -1,5 +1,5 @@
 import { Document, Types, Model } from "mongoose";
-import { ContractType } from "./payroll.contract";
+import { ContractType, PayrollType } from "./payroll.contract";
 
 export enum ProcessedPayrollStatus {
   PENDING = "pending",
@@ -16,6 +16,7 @@ export interface DeductionAllowance {
 
 export interface IProcessedPayroll extends Document {
   employeeId: Types.ObjectId; // Reference to User
+  payrollType: PayrollType; // ACTUAL or GOVERNMENT
   payrollPeriod: {
     start: Date;
     end: Date;

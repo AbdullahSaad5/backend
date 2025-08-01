@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { attendanceService } from "@/services/attendance.service";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
+import { LeaveRequest } from "@/models/leave-request.model";
 import { jwtVerify } from "@/utils/jwt.util";
 import { Types } from "mongoose";
 import { IContextRequest, IUserRequest } from "@/contracts/request.contract";
@@ -9,9 +10,7 @@ export const attendanceController = {
   checkIn: async (req: IContextRequest<IUserRequest>, res: Response) => {
     try {
       const userId = req.context?.user?.id;
-      const userObjectId = Types.ObjectId.isValid(userId)
-        ? new Types.ObjectId(userId)
-        : userId;
+      const userObjectId = Types.ObjectId.isValid(userId) ? new Types.ObjectId(userId) : userId;
 
       const shift = await Shift.findOne({
         employees: { $in: [userObjectId] },
@@ -48,8 +47,7 @@ export const attendanceController = {
   checkOut: async (req: IContextRequest<IUserRequest>, res: Response) => {
     try {
       const user = req.context?.user;
-      if (!user || !user.id)
-        return res.status(401).json({ message: "Unauthorized" });
+      if (!user || !user.id) return res.status(401).json({ message: "Unauthorized" });
       const attendance = await attendanceService.checkOut(user.id as string);
       res.status(200).json(attendance);
     } catch (err: any) {
@@ -61,8 +59,7 @@ export const attendanceController = {
   getOwnAttendance: async (req: Request, res: Response) => {
     try {
       const user = req.context?.user;
-      if (!user || !user.id)
-        return res.status(401).json({ message: "Unauthorized" });
+      if (!user || !user.id) return res.status(401).json({ message: "Unauthorized" });
       const { startDate, endDate } = req.query;
       const attendance = await attendanceService.getAttendance(
         user.id,
@@ -77,21 +74,12 @@ export const attendanceController = {
 
   adminMark: async (req: Request, res: Response) => {
     try {
-      const {
-        employeeId,
-        date,
-        status,
-        shiftId,
-        workModeId,
-        checkIn,
-        checkOut,
-      } = req.body;
+      const { employeeId, date, status, shiftId, workModeId, checkIn, checkOut, isPaid } = req.body;
 
       // Basic validation for required fields
       if (!employeeId || !date || !status) {
         return res.status(400).json({
-          message:
-            "Missing required fields: employeeId, date, and status are mandatory",
+          message: "Missing required fields: employeeId, date, and status are mandatory",
         });
       }
 
@@ -99,8 +87,34 @@ export const attendanceController = {
       if (status === "present") {
         if (!checkIn || !checkOut) {
           return res.status(400).json({
-            message:
-              "Check-in and Check-out times are required for present status",
+            message: "Check-in and Check-out times are required for present status",
+          });
+        }
+      }
+
+      // For leave status, handle leave request creation
+      if (status === "leave") {
+        try {
+          // Create or update leave request
+          await LeaveRequest.findOneAndUpdate(
+            {
+              userId: employeeId,
+              date: new Date(date),
+            },
+            {
+              userId: employeeId,
+              date: new Date(date),
+              reason: "Admin marked leave",
+              leaveType: "normal",
+              isPaid: isPaid || false,
+              status: "approved",
+            },
+            { upsert: true, new: true }
+          );
+        } catch (error) {
+          console.error("Error creating/updating leave request:", error);
+          return res.status(500).json({
+            message: "Failed to process leave request",
           });
         }
       }
@@ -124,10 +138,7 @@ export const attendanceController = {
     try {
       const { attendanceId } = req.params;
       const update = req.body;
-      const attendance = await attendanceService.updateAttendance(
-        attendanceId,
-        update
-      );
+      const attendance = await attendanceService.updateAttendance(attendanceId, update);
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -143,17 +154,11 @@ export const attendanceController = {
       if (!startDate && !endDate) {
         const now = new Date();
         endDate = now.toISOString();
-        startDate = new Date(
-          now.getTime() - 30 * 24 * 60 * 60 * 1000
-        ).toISOString();
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
       } else {
         // If provided, convert to Date
-        startDate = startDate
-          ? new Date(startDate as string).toISOString()
-          : undefined;
-        endDate = endDate
-          ? new Date(endDate as string).toISOString()
-          : undefined;
+        startDate = startDate ? new Date(startDate as string).toISOString() : undefined;
+        endDate = endDate ? new Date(endDate as string).toISOString() : undefined;
       }
       if (status) {
         status = (status as string).toLowerCase();
@@ -190,14 +195,9 @@ export const attendanceController = {
     try {
       const userId = req.context?.user?.id;
       const { latitude, longitude } = req.body;
-      if (!userId || !latitude || !longitude)
-        return res.status(400).json({ message: "Missing required fields" });
+      if (!userId || !latitude || !longitude) return res.status(400).json({ message: "Missing required fields" });
 
-      const attendance = await attendanceService.geoLocationAttendanceMark(
-        userId,
-        latitude,
-        longitude
-      );
+      const attendance = await attendanceService.geoLocationAttendanceMark(userId, latitude, longitude);
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });

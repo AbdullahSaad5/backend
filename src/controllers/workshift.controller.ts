@@ -6,7 +6,8 @@ import { isValidObjectId } from "mongoose";
 export const shiftController = {
   createShift: async (req: Request, res: Response) => {
     try {
-      const { shiftName, shiftDescription, startTime, endTime, employees } = req.body;
+      const { shiftName, shiftDescription, startTime, endTime, breakStartTime, breakEndTime, hasBreak, employees } =
+        req.body;
 
       // Validate employee IDs if employees is provided
       if (employees) {
@@ -25,6 +26,9 @@ export const shiftController = {
         shiftDescription,
         startTime,
         endTime,
+        ...(breakStartTime && { breakStartTime }),
+        ...(breakEndTime && { breakEndTime }),
+        ...(typeof hasBreak === "boolean" && { hasBreak }),
         ...(employees && { employees }), // Only add employees if provided
       });
 
@@ -164,7 +168,7 @@ export const shiftController = {
   updateShift: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { shiftName, shiftDescription, startTime, endTime } = req.body;
+      const { shiftName, shiftDescription, startTime, endTime, breakStartTime, breakEndTime, hasBreak } = req.body;
 
       if (!isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -173,19 +177,20 @@ export const shiftController = {
         });
       }
 
-      const updatedShift = await Shift.findByIdAndUpdate(
-        id,
-        {
-          shiftName,
-          shiftDescription,
-          startTime,
-          endTime,
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      const updateFields: any = {
+        shiftName,
+        shiftDescription,
+        startTime,
+        endTime,
+      };
+      if (breakStartTime !== undefined) updateFields.breakStartTime = breakStartTime;
+      if (breakEndTime !== undefined) updateFields.breakEndTime = breakEndTime;
+      if (typeof hasBreak === "boolean") updateFields.hasBreak = hasBreak;
+
+      const updatedShift = await Shift.findByIdAndUpdate(id, updateFields, {
+        new: true,
+        runValidators: true,
+      });
 
       if (!updatedShift) {
         return res.status(StatusCodes.NOT_FOUND).json({

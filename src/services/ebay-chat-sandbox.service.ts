@@ -17,22 +17,22 @@ const MOCK_BUYERS = [
 ];
 
 const MOCK_LISTINGS = [
-    { itemId: "123456789", title: "iPhone 14 Pro - 128GB - Space Black", price: "$999.99" },
-    { itemId: "987654321", title: "Samsung Galaxy S23 Ultra - 256GB", price: "$1199.99" },
-    { itemId: "456789123", title: "MacBook Pro 14-inch - M2 Chip", price: "$1999.99" },
-    { itemId: "789123456", title: "Sony WH-1000XM5 Wireless Headphones", price: "$399.99" },
-    { itemId: "321654987", title: "Nintendo Switch OLED - White", price: "$349.99" }
+    { itemId: "123456789", title: "iPhone 14 Pro", price: "$999.99" },
+    { itemId: "987654321", title: "Samsung Galaxy", price: "$1199.99" },
+    { itemId: "456789123", title: "MacBook Pro 14-inch", price: "$1999.99" },
+    { itemId: "789123456", title: "Sony WH-1000XM5 ", price: "$399.99" },
+    { itemId: "321654987", title: "Nintendo Switch", price: "$349.99" }
 ];
 
 const MOCK_MESSAGES = [
     "Hi, is this item still available?",
-    "What's the best price you can offer?",
+    "What's the best price you offer?",
     "Do you ship internationally?",
-    "Can I see more photos of the item?",
+    "I see more photos of the item?",
     "Is there any warranty included?",
     "How long does shipping take?",
     "Do you accept returns?",
-    "Can you combine shipping for multiple items?",
+    "Can you combine shipping ",
     "Is this the latest model?",
     "What payment methods do you accept?"
 ];
