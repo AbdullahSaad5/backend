@@ -467,6 +467,8 @@ export const userController = {
         limit: parseInt(limit as string, 10), // Convert limit to number
       };
 
+      console.log("filtersfilters : " , filters)
+
       // Call the service to search and filter the users
       const users = await userService.searchAndFilterUsers(filters);
 

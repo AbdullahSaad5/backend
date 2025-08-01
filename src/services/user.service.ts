@@ -378,6 +378,7 @@ export const userService = {
     try {
       const {
         searchQuery = "",
+        userType,
         isBlocked,
         startDate,
         endDate,
@@ -393,17 +394,104 @@ export const userService = {
 
       // Build the query dynamically based on filters
       const query: any = {};
+      
+      // Always exclude super admin, admin, and supplier users from the results
+      const excludedRoles = ["super admin", "admin", "supplier"];
+      const excludedUserTypes = await UserCategory.find({ 
+        role: { $in: excludedRoles } 
+      });
+      const excludedUserTypeIds = excludedUserTypes.map(cat => cat._id);
+      
+      if (excludedUserTypeIds.length > 0) {
+        query.userType = { $nin: excludedUserTypeIds };
+      }
 
       if (searchQuery) {
+        console.log("Searching for:", searchQuery);
+        
+        // First, try to find user categories that match the search query
+        const matchingCategories = await UserCategory.find({
+          role: { $regex: searchQuery, $options: "i" }
+        });
+        
+        const categoryIds = matchingCategories.map(cat => cat._id);
+        console.log("Found matching categories:", matchingCategories.map(cat => cat.role));
+        console.log("Category IDs:", categoryIds);
+        
         query.$or = [
           { firstName: { $regex: searchQuery, $options: "i" } },
           { lastName: { $regex: searchQuery, $options: "i" } },
           { email: { $regex: searchQuery, $options: "i" } },
+          { phoneNumber: { $regex: searchQuery, $options: "i" } },
+          { jobTitle: { $regex: searchQuery, $options: "i" } },
+          { supplierKey: { $regex: searchQuery, $options: "i" } },
+          { niNumber: { $regex: searchQuery, $options: "i" } },
         ];
+        
+        // Add combined name search for full name searches
+        // This will match when someone searches for "Hammad Zamir" or similar combined names
+        const searchTerms = searchQuery.trim().split(/\s+/);
+        if (searchTerms.length > 1) {
+          console.log("Multiple search terms detected:", searchTerms);
+          
+          // If search query has multiple words, try to match them as first and last name combinations
+          query.$or.push({
+            $and: [
+              { firstName: { $regex: searchTerms[0], $options: "i" } },
+              { lastName: { $regex: searchTerms[searchTerms.length - 1], $options: "i" } }
+            ]
+          });
+          
+          // Also try reverse order (last name first, then first name)
+          if (searchTerms.length === 2) {
+            query.$or.push({
+              $and: [
+                { firstName: { $regex: searchTerms[1], $options: "i" } },
+                { lastName: { $regex: searchTerms[0], $options: "i" } }
+              ]
+            });
+          }
+          
+          console.log("Added combined name search for:", searchTerms);
+        }
+        
+        // If we found matching categories, add them to the search
+        if (categoryIds.length > 0) {
+          // Filter out excluded categories from search results
+          const allowedCategoryIds = categoryIds.filter(id => 
+            !excludedUserTypeIds.some(excludedId => excludedId.toString() === id.toString())
+          );
+          if (allowedCategoryIds.length > 0) {
+            query.$or.push({ userType: { $in: allowedCategoryIds } });
+          }
+        }
       }
 
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
+      }
+
+      if (userType) {
+        console.log("Filtering by userType:", userType);
+        // Find the user category by role name
+        const userCategory = await UserCategory.findOne({ role: userType });
+        if (userCategory) {
+          // If we already have a userType filter (from excluded roles), we need to combine them
+          if (query.userType && query.userType.$nin) {
+            // We have excluded roles, so we need to ensure the selected userType is not in the excluded list
+            // and also match the specific userType
+            query.$and = [
+              { userType: { $nin: excludedUserTypeIds } },
+              { userType: userCategory._id }
+            ];
+            delete query.userType;
+          } else {
+            query.userType = userCategory._id;
+          }
+          console.log("Found user category:", userCategory._id);
+        } else {
+          console.log("No user category found for role:", userType);
+        }
       }
 
       if (startDate || endDate) {
@@ -416,6 +504,8 @@ export const userService = {
       if (additionalAccessRights) {
         query.additionalAccessRights = { $in: additionalAccessRights };
       }
+
+      console.log("Final query:", JSON.stringify(query, null, 2));
 
       // Pagination logic: apply skip and limit
       const users = await User.find(query)
