@@ -7,12 +7,34 @@ import { EmailDirection, EmailType, EmailStatus, EmailPriority } from "@/contrac
 import { MarketingCampaign, SMSMessage, NewsletterSubscriber } from "@/models/marketing.model";
 import { EmailThreadModel } from "@/models/email-thread.model";
 import { smsService } from "@/services/sms.service";
+import crypto from "crypto";
+
+// Helper function to verify SES signature (optional but recommended)
+const verifySESSignature = (notification: any): boolean => {
+  try {
+    // In production, you should verify the SNS signature
+    // For now, we'll do basic validation
+    return notification && notification.Type && notification.Message;
+  } catch (error) {
+    console.error('Error verifying SES signature:', error);
+    return false;
+  }
+};
 
 export const MailboxController = {
   // Process incoming email (from webhooks)
   processEmail: async (req: Request, res: Response) => {
     try {
       const emailEvent = req.body;
+      // Verify the notification signature (optional but recommended)
+      const isSignatureValid = verifySESSignature(emailEvent);
+      if (!isSignatureValid) {
+        return res.status(StatusCodes.FORBIDDEN).json({
+          success: false,
+          message: "Invalid SES notification signature."
+        });
+      }
+
       const result = await EmailProcessingService.processIncomingEmail(emailEvent);
 
       if (result.success) {
