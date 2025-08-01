@@ -396,7 +396,7 @@ export const userService = {
       const query: any = {};
       
       // Always exclude super admin, admin, and supplier users from the results
-      const excludedRoles = ["super admin", "admin", "supplier"];
+      const excludedRoles = ["super admin", "supplier"];
       const excludedUserTypes = await UserCategory.find({ 
         role: { $in: excludedRoles } 
       });
