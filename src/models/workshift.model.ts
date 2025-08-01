@@ -34,6 +34,33 @@ const WorkShift = new Schema<IWorkshift>({
       message: (props) => `${props.value} is not a valid time format (HH:MM)!`,
     },
   },
+  breakStartTime: {
+    type: String,
+    required: false,
+    validate: {
+      validator: function (v: string | null) {
+        // Only validate the time format if value is provided
+        return v == null || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: (props: { value: string }) => `${props.value} is not a valid time format (HH:MM)!`,
+    },
+  },
+  breakEndTime: {
+    type: String,
+    required: false,
+    validate: {
+      validator: function (v: string | null) {
+        // Only validate the time format if value is provided
+        return v == null || /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+      },
+      message: (props: { value: string }) => `${props.value} is not a valid time format (HH:MM)!`,
+    },
+  },
+  hasBreak: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
   employees: [
     {
       type: Schema.Types.ObjectId,

@@ -64,6 +64,41 @@ export const featuredCategoryController = {
     }
   },
 
+  // Update status only
+  updateStatus: async (req: Request, res: Response) => {
+    try {
+      const { status } = req.body;
+      
+      if (!status || !["active", "inactive"].includes(status)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Status must be either 'active' or 'inactive'",
+        });
+      }
+
+      const category = await featuredCategoryService.updateCategory(req.params.id, { status });
+      
+      if (!category) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Featured category not found",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Featured category status updated successfully",
+        data: category,
+      });
+    } catch (error) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update featured category status",
+        data: null,
+      });
+    }
+  },
+
   // Delete a featured category
   deleteCategory: async (req: Request, res: Response) => {
     try {
