@@ -3,6 +3,7 @@ import {
   IUser,
   UserCreatePayload,
   UserUpdatePayload,
+  ProfileCompletionPayload,
 } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
@@ -94,6 +95,172 @@ export const userService = {
       throw new Error("User not found");
     }
     return updateUser;
+  },
+
+  // Profile Completion Methods
+  updateProfileCompletion: async (userId: string, profileData: ProfileCompletionPayload) => {
+    try {
+      // Convert date strings to Date objects if provided
+      const updateData: any = { ...profileData };
+      
+      if (profileData.passportExpiryDate) {
+        updateData.passportExpiryDate = new Date(profileData.passportExpiryDate);
+      }
+      
+      if (profileData.visaExpiryDate) {
+        updateData.visaExpiryDate = new Date(profileData.visaExpiryDate);
+      }
+
+      if (profileData.employmentStartDate) {
+        updateData.employmentStartDate = new Date(profileData.employmentStartDate);
+      }
+
+      if (profileData.dob) {
+        updateData.dob = new Date(profileData.dob);
+      }
+
+      // Handle empty strings - convert to null/undefined for optional fields
+      if (updateData.jobTitle === "") updateData.jobTitle = undefined;
+      if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
+      if (updateData.niNumber === "") updateData.niNumber = undefined;
+      if (updateData.emergencyPhoneNumber === "") updateData.emergencyPhoneNumber = undefined;
+      if (updateData.countryOfIssue === "") updateData.countryOfIssue = undefined;
+      if (updateData.passportNumber === "") updateData.passportNumber = undefined;
+      if (updateData.visaNumber === "") updateData.visaNumber = undefined;
+
+      // If user is not foreign user, clear all foreign user related fields
+      if (updateData.isForeignUser === false) {
+        updateData.countryOfIssue = undefined;
+        updateData.passportNumber = undefined;
+        updateData.passportExpiryDate = undefined;
+        updateData.passportDocument = undefined;
+        updateData.visaNumber = undefined;
+        updateData.visaExpiryDate = undefined;
+        updateData.visaDocument = undefined;
+      }
+
+      // Calculate profile completion percentage
+      const completionPercentage = await userService.calculateProfileCompletion(userId, updateData);
+      updateData.profileCompletionPercentage = completionPercentage;
+      updateData.profileCompleted = completionPercentage === 100;
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        updateData,
+        { new: true }
+      ).populate("userType");
+
+      return updatedUser;
+    } catch (error) {
+      console.error("Error updating profile completion:", error);
+      throw error;
+    }
+  },
+
+  calculateProfileCompletion: async (userId: string, profileData?: any) => {
+    try {
+      let user = profileData;
+      
+      if (!user) {
+        user = await User.findById(userId);
+        if (!user) return 0;
+      }
+
+      const totalFields = 12; // Updated total number of profile fields (added DOB)
+      let completedFields = 0;
+
+      // Personal Information (4 fields)
+      if (user.gender) completedFields++;
+      if (user.emergencyPhoneNumber) completedFields++;
+      if (user.profileImage) completedFields++;
+      if (user.dob) completedFields++;
+
+      // Geofencing Configuration (2 fields)
+      if (user.geofencingRadius !== undefined) completedFields++;
+      if (user.geofencingAttendanceEnabled !== undefined) completedFields++;
+
+      // Employment Information (3 fields)
+      if (user.jobTitle) completedFields++;
+      if (user.employmentStartDate) completedFields++;
+      if (user.niNumber) completedFields++;
+
+      // Foreign User Information (3 fields) - only count if isForeignUser is true
+      if (user.isForeignUser) {
+        if (user.countryOfIssue) completedFields++;
+        if (user.passportNumber && user.passportExpiryDate && user.passportDocument) completedFields++;
+        if (user.visaNumber && user.visaExpiryDate && user.visaDocument) completedFields++;
+      } else {
+        // If not foreign user, these fields are not required, so count them as completed
+        completedFields += 3;
+      }
+
+      return Math.round((completedFields / totalFields) * 100);
+    } catch (error) {
+      console.error("Error calculating profile completion:", error);
+      return 0;
+    }
+  },
+
+  getProfileCompletionStatus: async (userId: string) => {
+    try {
+      const user = await User.findById(userId);
+      if (!user) return null;
+
+      const completionPercentage = await userService.calculateProfileCompletion(userId, user.toObject());
+      
+      return {
+        profileCompleted: user.profileCompleted || false,
+        profileCompletionPercentage: completionPercentage,
+        missingFields: await userService.getMissingProfileFields(userId, user.toObject())
+      };
+    } catch (error) {
+      console.error("Error getting profile completion status:", error);
+      throw error;
+    }
+  },
+
+  getMissingProfileFields: async (userId: string, userData?: any) => {
+    try {
+      let user = userData;
+      
+      if (!user) {
+        user = await User.findById(userId);
+        if (!user) return [];
+      }
+
+      const missingFields = [];
+
+      // Personal Information
+      if (!user.gender) missingFields.push("Gender");
+      if (!user.emergencyPhoneNumber) missingFields.push("Emergency Phone Number");
+      if (!user.profileImage) missingFields.push("Profile Image");
+      if (!user.dob) missingFields.push("Date of Birth");
+
+      // Geofencing Configuration
+      if (user.geofencingRadius === undefined) missingFields.push("Geofencing Radius");
+      if (user.geofencingAttendanceEnabled === undefined) missingFields.push("Geofencing Attendance");
+
+      // Employment Information
+      if (!user.jobTitle) missingFields.push("Job Title");
+      if (!user.employmentStartDate) missingFields.push("Employment Start Date");
+      if (!user.niNumber) missingFields.push("NI Number");
+
+      // Foreign User Information
+      if (user.isForeignUser) {
+        if (!user.countryOfIssue) missingFields.push("Country of Issue");
+        if (!user.passportNumber || !user.passportExpiryDate || !user.passportDocument) {
+          missingFields.push("Passport Information");
+        }
+        if (!user.visaNumber || !user.visaExpiryDate || !user.visaDocument) {
+          missingFields.push("Visa Information");
+        }
+      }
+
+      return missingFields;
+    } catch (error) {
+      console.error("Error getting missing profile fields:", error);
+      return [];
+    }
   },
 
   createAddress: async (addressData: any, userId: string) => {
@@ -211,6 +378,7 @@ export const userService = {
     try {
       const {
         searchQuery = "",
+        userType,
         isBlocked,
         startDate,
         endDate,
@@ -226,17 +394,104 @@ export const userService = {
 
       // Build the query dynamically based on filters
       const query: any = {};
+      
+      // Always exclude super admin, admin, and supplier users from the results
+      const excludedRoles = ["super admin", "supplier"];
+      const excludedUserTypes = await UserCategory.find({ 
+        role: { $in: excludedRoles } 
+      });
+      const excludedUserTypeIds = excludedUserTypes.map(cat => cat._id);
+      
+      if (excludedUserTypeIds.length > 0) {
+        query.userType = { $nin: excludedUserTypeIds };
+      }
 
       if (searchQuery) {
+        console.log("Searching for:", searchQuery);
+        
+        // First, try to find user categories that match the search query
+        const matchingCategories = await UserCategory.find({
+          role: { $regex: searchQuery, $options: "i" }
+        });
+        
+        const categoryIds = matchingCategories.map(cat => cat._id);
+        console.log("Found matching categories:", matchingCategories.map(cat => cat.role));
+        console.log("Category IDs:", categoryIds);
+        
         query.$or = [
           { firstName: { $regex: searchQuery, $options: "i" } },
           { lastName: { $regex: searchQuery, $options: "i" } },
           { email: { $regex: searchQuery, $options: "i" } },
+          { phoneNumber: { $regex: searchQuery, $options: "i" } },
+          { jobTitle: { $regex: searchQuery, $options: "i" } },
+          { supplierKey: { $regex: searchQuery, $options: "i" } },
+          { niNumber: { $regex: searchQuery, $options: "i" } },
         ];
+        
+        // Add combined name search for full name searches
+        // This will match when someone searches for "Hammad Zamir" or similar combined names
+        const searchTerms = searchQuery.trim().split(/\s+/);
+        if (searchTerms.length > 1) {
+          console.log("Multiple search terms detected:", searchTerms);
+          
+          // If search query has multiple words, try to match them as first and last name combinations
+          query.$or.push({
+            $and: [
+              { firstName: { $regex: searchTerms[0], $options: "i" } },
+              { lastName: { $regex: searchTerms[searchTerms.length - 1], $options: "i" } }
+            ]
+          });
+          
+          // Also try reverse order (last name first, then first name)
+          if (searchTerms.length === 2) {
+            query.$or.push({
+              $and: [
+                { firstName: { $regex: searchTerms[1], $options: "i" } },
+                { lastName: { $regex: searchTerms[0], $options: "i" } }
+              ]
+            });
+          }
+          
+          console.log("Added combined name search for:", searchTerms);
+        }
+        
+        // If we found matching categories, add them to the search
+        if (categoryIds.length > 0) {
+          // Filter out excluded categories from search results
+          const allowedCategoryIds = categoryIds.filter(id => 
+            !excludedUserTypeIds.some(excludedId => excludedId.toString() === id.toString())
+          );
+          if (allowedCategoryIds.length > 0) {
+            query.$or.push({ userType: { $in: allowedCategoryIds } });
+          }
+        }
       }
 
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
+      }
+
+      if (userType) {
+        console.log("Filtering by userType:", userType);
+        // Find the user category by role name
+        const userCategory = await UserCategory.findOne({ role: userType });
+        if (userCategory) {
+          // If we already have a userType filter (from excluded roles), we need to combine them
+          if (query.userType && query.userType.$nin) {
+            // We have excluded roles, so we need to ensure the selected userType is not in the excluded list
+            // and also match the specific userType
+            query.$and = [
+              { userType: { $nin: excludedUserTypeIds } },
+              { userType: userCategory._id }
+            ];
+            delete query.userType;
+          } else {
+            query.userType = userCategory._id;
+          }
+          console.log("Found user category:", userCategory._id);
+        } else {
+          console.log("No user category found for role:", userType);
+        }
       }
 
       if (startDate || endDate) {
@@ -249,6 +504,8 @@ export const userService = {
       if (additionalAccessRights) {
         query.additionalAccessRights = { $in: additionalAccessRights };
       }
+
+      console.log("Final query:", JSON.stringify(query, null, 2));
 
       // Pagination logic: apply skip and limit
       const users = await User.find(query)

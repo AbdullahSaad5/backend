@@ -39,4 +39,8 @@ export const user = (router: Router) => {
   router.patch("/block/:id", userController.toggleBlock);
 
   router.patch("/permissions/:id", userController.updatePermissions);
+
+  // Profile Completion Routes
+  router.get("/:id/profile-status", userValidation.validateId, userController.getProfileCompletionStatus);
+  router.patch("/:id/profile-completion", userValidation.validateId, userValidation.profileCompletion, userController.updateProfileCompletion);
 };
