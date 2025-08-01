@@ -183,6 +183,7 @@ export const supplierService = {
     try {
       const {
         searchQuery = "",
+        supplierCategory,
         isBlocked,
         startDate,
         endDate,
@@ -197,21 +198,105 @@ export const supplierService = {
       const skip = (pageNumber - 1) * limitNumber;
 
       // Build the query dynamically based on filters
-      const query: any = {
-        //TODO: confusion here regarding query
-        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3")
-      };
+      const query: Record<string, any> = {};
+      
+      // Find the supplier userType dynamically
+      const supplierUserType = await UserCategory.findOne({ role: "supplier" });
+      if (supplierUserType) {
+        query.userType = supplierUserType._id;
+        console.log("Found supplier userType:", supplierUserType._id);
+      } else {
+        console.log("No supplier userType found");
+        // Return empty results if no supplier userType exists
+        return {
+          suppliers: [],
+          pagination: {
+            totalSuppliers: 0,
+            currentPage: pageNumber,
+            totalPages: 0,
+            perPage: limitNumber,
+          },
+        };
+      }
 
       if (searchQuery) {
-        query.$or = [
+        console.log("Searching for:", searchQuery);
+        
+        // First, try to find supplier categories that match the search query
+        const SupplierCategory = mongoose.model("SupplierCategory");
+        const matchingCategories = await SupplierCategory.find({
+          name: { $regex: searchQuery, $options: "i" }
+        });
+        
+        const categoryIds = matchingCategories.map(cat => cat._id);
+        console.log("Found matching supplier categories:", matchingCategories.map(cat => cat.name));
+        console.log("Category IDs:", categoryIds);
+        
+        const searchConditions: Record<string, any>[] = [
           { firstName: { $regex: searchQuery, $options: "i" } },
           { lastName: { $regex: searchQuery, $options: "i" } },
           { email: { $regex: searchQuery, $options: "i" } },
+          { phoneNumber: { $regex: searchQuery, $options: "i" } },
+          { jobTitle: { $regex: searchQuery, $options: "i" } },
+          { supplierKey: { $regex: searchQuery, $options: "i" } },
+          { niNumber: { $regex: searchQuery, $options: "i" } },
         ];
+        
+        // Add combined name search for full name searches
+        // This will match when someone searches for "John Smith" or similar combined names
+        const searchTerms = searchQuery.trim().split(/\s+/);
+        if (searchTerms.length > 1) {
+          console.log("Multiple search terms detected:", searchTerms);
+          
+          // If search query has multiple words, try to match them as first and last name combinations
+          searchConditions.push({
+            $and: [
+              { firstName: { $regex: searchTerms[0], $options: "i" } },
+              { lastName: { $regex: searchTerms[searchTerms.length - 1], $options: "i" } }
+            ]
+          });
+          
+          // Also try reverse order (last name first, then first name)
+          if (searchTerms.length === 2) {
+            searchConditions.push({
+              $and: [
+                { firstName: { $regex: searchTerms[1], $options: "i" } },
+                { lastName: { $regex: searchTerms[0], $options: "i" } }
+              ]
+            });
+          }
+          
+          console.log("Added combined name search for:", searchTerms);
+        }
+        
+        // If we found matching categories, add them to the search
+        if (categoryIds.length > 0) {
+          searchConditions.push({ supplierCategory: { $in: categoryIds } });
+        }
+        
+        // Use $and to combine the userType filter with the search conditions
+        query.$and = [
+          { userType: query.userType },
+          { $or: searchConditions }
+        ] as Record<string, any>[];
+        delete query.userType; // Remove the top-level userType since it's now in $and
       }
 
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
+      }
+
+      if (supplierCategory) {
+        console.log("Filtering by supplierCategory:", supplierCategory);
+        // Find the supplier category by name
+        const SupplierCategory = mongoose.model("SupplierCategory");
+        const category = await SupplierCategory.findOne({ name: supplierCategory });
+        if (category) {
+          query.supplierCategory = category._id;
+          console.log("Found supplier category:", category._id);
+        } else {
+          console.log("No supplier category found for name:", supplierCategory);
+        }
       }
 
       if (startDate || endDate) {
@@ -225,16 +310,20 @@ export const supplierService = {
         query.additionalAccessRights = { $in: additionalAccessRights };
       }
 
+      console.log("Final query:", JSON.stringify(query, null, 2));
+
       // Pagination logic: apply skip and limit
       const suppliers = await User.find(query)
         .populate("userType")
+        .populate("supplierCategory")
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
 
-      // Count total Suppliers
-      const totalSuppliers = await User.countDocuments({
-        userType: new Types.ObjectId("6749ad51ee2cd751095fb5f3"),
-      });
+      console.log("Found suppliers:", suppliers.length);
+      console.log("Sample supplier:", suppliers[0]);
+
+      // Count total Suppliers using the same query without pagination
+      const totalSuppliers = await User.countDocuments(query);
 
       return {
         suppliers,
