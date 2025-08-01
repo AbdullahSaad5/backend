@@ -104,46 +104,53 @@ export const attendanceService = {
       })
       .sort({ date: -1 });
 
-    // If status is leave, fetch leave request information
+    // Helper function to get leave request info
+    const getLeaveInfo = async (record: any) => {
+      const attendanceDate = new Date(record.date);
+      const year = attendanceDate.getFullYear();
+      const month = attendanceDate.getMonth();
+      const day = attendanceDate.getDate();
+
+      const startOfDay = new Date(year, month, day, 0, 0, 0);
+      const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
+
+      const leaveRequest = await LeaveRequest.findOne({
+        userId: record.employeeId,
+        status: "approved",
+        date: {
+          $gte: startOfDay,
+          $lte: endOfDay,
+        },
+      }).lean();
+
+      console.log("Leave request found:", {
+        employeeId: record.employeeId,
+        date: attendanceDate,
+        leaveRequest: leaveRequest,
+      });
+
+      return {
+        ...record.toObject(),
+        isPaid: leaveRequest?.isPaid || false,
+      };
+    };
+
+    // If status is leave, only process leave records
     if (status === "leave") {
-      const results = await Promise.all(
-        attendance.map(async (record) => {
-          // Convert both dates to local midnight for comparison
-          const attendanceDate = new Date(record.date);
-          // Get the local date parts
-          const year = attendanceDate.getFullYear();
-          const month = attendanceDate.getMonth();
-          const day = attendanceDate.getDate();
-
-          // Create start and end of the day in local time
-          const startOfDay = new Date(year, month, day, 0, 0, 0);
-          const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
-
-          const leaveRequest = await LeaveRequest.findOne({
-            userId: record.employeeId,
-            status: "approved",
-            date: {
-              $gte: startOfDay,
-              $lte: endOfDay,
-            },
-          }).lean();
-
-          console.log("Leave request found:", {
-            employeeId: record.employeeId,
-            date: attendanceDate,
-            leaveRequest: leaveRequest,
-          });
-
-          return {
-            ...record.toObject(),
-            isPaid: leaveRequest?.isPaid || false,
-          };
-        })
-      );
+      const results = await Promise.all(attendance.map(async (record) => await getLeaveInfo(record)));
       return results;
     }
 
-    return attendance;
+    // If no status filter, process all records but add isPaid for leave records
+    const results = await Promise.all(
+      attendance.map(async (record) => {
+        if (record.status === "leave") {
+          return await getLeaveInfo(record);
+        }
+        return record;
+      })
+    );
+    return results;
   },
 
   // Admin: get all employees' attendance for a date

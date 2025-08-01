@@ -138,6 +138,13 @@ export const attendanceController = {
     try {
       const { attendanceId } = req.params;
       const update = req.body;
+
+      // If status is leave or absent, remove check-in and check-out times
+      if (update.status && (update.status === "leave" || update.status === "absent")) {
+        update.checkIn = null;
+        update.checkOut = null;
+      }
+
       const attendance = await attendanceService.updateAttendance(attendanceId, update);
       res.status(200).json(attendance);
     } catch (err: any) {
@@ -160,15 +167,16 @@ export const attendanceController = {
         startDate = startDate ? new Date(startDate as string).toISOString() : undefined;
         endDate = endDate ? new Date(endDate as string).toISOString() : undefined;
       }
-      if (status) {
-        status = (status as string).toLowerCase();
-      }
+      const lowercaseStatus = status ? (status as string).toLowerCase() : undefined;
+
+      // Get attendance with populated shift data and leave request info
       const attendance = await attendanceService.getAttendance(
         employeeId,
         startDate ? new Date(startDate as string) : undefined,
         endDate ? new Date(endDate as string) : undefined,
-        status ? (status as string).toLowerCase() : undefined
+        lowercaseStatus // Pass the status to get isPaid info for leave records
       );
+
       res.status(200).json(attendance);
     } catch (err: any) {
       res.status(400).json({ message: err.message });

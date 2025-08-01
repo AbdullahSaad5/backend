@@ -268,7 +268,7 @@ export const supplierController = {
       // Extract filters from query params
       const {
         searchQuery = "",
-        userType,
+        supplierCategory,
         isBlocked,
         startDate,
         endDate,
@@ -280,7 +280,7 @@ export const supplierController = {
       // Prepare the filters object
       const filters = {
         searchQuery: searchQuery as string,
-        userType: userType ? userType.toString() : undefined,
+        supplierCategory: supplierCategory ? supplierCategory.toString() : undefined,
         isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
         startDate: startDate ? new Date(startDate as string) : undefined,
         endDate: endDate ? new Date(endDate as string) : undefined,
