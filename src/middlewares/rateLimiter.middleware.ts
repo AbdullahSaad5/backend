@@ -7,14 +7,14 @@ export const generalRateLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per windowMs
   message: {
     error: "Too many requests from this IP, please try again later.",
-    retryAfter: "15 minutes"
+    retryAfter: "15 minutes",
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "Too many requests from this IP, please try again later.",
-      retryAfter: "15 minutes"
+      retryAfter: "15 minutes",
     });
   },
 });
@@ -25,7 +25,7 @@ export const authRateLimiter = rateLimit({
   max: 5, // Limit each IP to 5 login attempts per windowMs
   message: {
     error: "Too many authentication attempts, please try again later.",
-    retryAfter: "15 minutes"
+    retryAfter: "15 minutes",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -33,7 +33,7 @@ export const authRateLimiter = rateLimit({
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "Too many authentication attempts from this IP, please try again later.",
-      retryAfter: "15 minutes"
+      retryAfter: "15 minutes",
     });
   },
 });
@@ -44,14 +44,14 @@ export const apiRateLimiter = rateLimit({
   max: 200, // Limit each IP to 200 requests per windowMs for API calls
   message: {
     error: "API rate limit exceeded, please try again later.",
-    retryAfter: "15 minutes"
+    retryAfter: "15 minutes",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "API rate limit exceeded from this IP, please try again later.",
-      retryAfter: "15 minutes"
+      retryAfter: "15 minutes",
     });
   },
 });
@@ -62,14 +62,14 @@ export const uploadRateLimiter = rateLimit({
   max: 10, // Limit each IP to 10 file uploads per hour
   message: {
     error: "Too many file uploads, please try again later.",
-    retryAfter: "1 hour"
+    retryAfter: "1 hour",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "File upload rate limit exceeded from this IP, please try again later.",
-      retryAfter: "1 hour"
+      retryAfter: "1 hour",
     });
   },
 });
@@ -80,14 +80,14 @@ export const passwordResetRateLimiter = rateLimit({
   max: 3, // Limit each IP to 3 password reset attempts per hour
   message: {
     error: "Too many password reset attempts, please try again later.",
-    retryAfter: "1 hour"
+    retryAfter: "1 hour",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "Password reset rate limit exceeded from this IP, please try again later.",
-      retryAfter: "1 hour"
+      retryAfter: "1 hour",
     });
   },
 });
@@ -95,17 +95,17 @@ export const passwordResetRateLimiter = rateLimit({
 // Email sending rate limiter
 export const emailRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // Limit each IP to 5 email sends per hour
+  max: 50, // Limit each IP to 50 email sends per hour
   message: {
     error: "Too many emails sent, please try again later.",
-    retryAfter: "1 hour"
+    retryAfter: "1 hour",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "Email sending rate limit exceeded from this IP, please try again later.",
-      retryAfter: "1 hour"
+      retryAfter: "1 hour",
     });
   },
 });
@@ -116,14 +116,14 @@ export const createAccountRateLimiter = rateLimit({
   max: 3, // Limit each IP to 3 account creations per hour
   message: {
     error: "Too many account creation attempts, please try again later.",
-    retryAfter: "1 hour"
+    retryAfter: "1 hour",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req: Request, res: Response) => {
     res.status(429).json({
       error: "Account creation rate limit exceeded from this IP, please try again later.",
-      retryAfter: "1 hour"
+      retryAfter: "1 hour",
     });
   },
 });
