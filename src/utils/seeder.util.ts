@@ -1,7 +1,8 @@
 import { User, UserCategory } from "@/models";
 import mongoose from "mongoose";
 import { createHash } from "./hash.util";
-
+import dotenv from "dotenv";
+dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
   // 1. Seed User Category (Super Admin Role)
@@ -331,7 +332,7 @@ const seedData = async () => {
       console.log("Supplier User Category already exists and matches.");
     }
   }
-  const actualPassword = "Bmr@1234"; // Hardcoded password for seeding
+  const actualPassword: any = process.env.SYS_PASS; // Hardcoded password for seeding
   // Hash the password using createHash
   const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
