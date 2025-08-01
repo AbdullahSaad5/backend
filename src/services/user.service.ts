@@ -120,6 +120,7 @@ export const userService = {
       }
 
       // Handle empty strings - convert to null/undefined for optional fields
+      if (updateData.gender === "") updateData.gender = undefined;
       if (updateData.jobTitle === "") updateData.jobTitle = undefined;
       if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
       if (updateData.niNumber === "") updateData.niNumber = undefined;
