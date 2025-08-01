@@ -4,12 +4,16 @@ import { emailRateLimiter } from "@/middlewares";
 import { authGuard } from "@/guards";
 
 export const mailbox = (router: Router) => {
-  // Apply authentication to all mailbox routes
+  // Webhook endpoint for processing incoming emails (no auth required) - MUST be first
+  router.post("/webhook/process", MailboxController.processEmail);
+
+  // Apply authentication to all other mailbox routes
   router.use(authGuard.isAuth);
 
   // Email sending routes with rate limiting
   router.post("/send", emailRateLimiter, MailboxController.sendEmail);
   router.post("/send-bulk", emailRateLimiter, MailboxController.sendBulkEmails);
+
   // Marketing email functionality
   router.post("/email/send-marketing", emailRateLimiter, MailboxController.sendMarketingEmail);
   router.get("/email/history/:userId", MailboxController.getEmailHistory);
@@ -37,7 +41,4 @@ export const mailbox = (router: Router) => {
   // Service management routes
   router.get("/test-connection", MailboxController.testConnection);
   router.get("/service-status", MailboxController.getServiceStatus);
-
-  // Webhook endpoint for processing incoming emails (no auth required)
-  router.post("/webhook/process", MailboxController.processEmail);
 };
