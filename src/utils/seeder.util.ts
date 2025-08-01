@@ -261,23 +261,23 @@ const seedData = async () => {
 
       "MANAGE_SUPPLIERS",
       // "ADD_SUPPLIERS_CATEGORY",
-      // "VIEW_SUPPLIERS_CATEGORY",
+      "VIEW_SUPPLIERS_CATEGORY",
       // "ADD_SUPPLIERS",
       "VIEW_SUPPLIERS",
 
-      // "MANAGE_INVENTORY",
+      "MANAGE_INVENTORY",
       // "ADD_INVENTORY_CATEGORY",
       // "VIEW_INVENTORY_CATEGORY",
       // "ADD_INVENTORY",
       "VIEW_INVENTORY",
       // "ADD_STOCK",
-      "VIEW_STOCK",
-      "VIEW_LISTING",
+      // "VIEW_STOCK",
+      // "VIEW_LISTING",
       // "ADD_LISTING",
       // "MANAGE_DISCOUNTS",
 
       "MANAGE_BUNDLES",
-      "ADD_BUNDLES",
+      // "ADD_BUNDLES",
       "VIEW_BUNDLES",
 
       // "GAMERS_COMMUNITY",
