@@ -96,7 +96,7 @@ export const userService = {
     return updateUser;
   },
 
-  createAddress: (addresss: IUserAddress, userId: string) => {
+  createAddress: async (addressData: any, userId: string) => {
     const {
       country,
       address,
@@ -104,10 +104,18 @@ export const userService = {
       appartment,
       city,
       postalCode,
-      isDefault,
+      isDefault = false,
       longitude,
       latitude,
-    } = addresss;
+    } = addressData;
+
+    // If this is set as default, make sure no other address is default for this user
+    if (isDefault) {
+      await Address.updateMany(
+        { userId, isActive: true },
+        { isDefault: false }
+      );
+    }
 
     const newAddress = new Address({
       userId,
@@ -118,10 +126,24 @@ export const userService = {
       postalCode,
       country,
       isDefault,
+      isActive: true,
       longitude,
       latitude,
     });
     return newAddress.save();
+  },
+
+  createMultipleAddresses: async (addresses: any[], userId: string) => {
+    const createdAddresses = [];
+    for (let i = 0; i < addresses.length; i++) {
+      const addressData = {
+        ...addresses[i],
+        isDefault: i === 0, // Make first address default
+      };
+      const createdAddress = await userService.createAddress(addressData, userId);
+      createdAddresses.push(createdAddress);
+    }
+    return createdAddresses;
   },
 
   findAddressandUpdate: (id: string, address: IUserAddress) => {
@@ -129,7 +151,30 @@ export const userService = {
   },
 
   findAddressByUserId: (userId: string) => {
-    return Address.find({ userId: userId });
+    return Address.find({ userId: userId, isActive: true }).sort({ isDefault: -1, createdAt: 1 });
+  },
+
+  findAllAddressesByUserId: (userId: string) => {
+    return Address.find({ userId: userId, isActive: true }).sort({ isDefault: -1, createdAt: 1 });
+  },
+
+  softDeleteAddress: async (addressId: string) => {
+    return Address.findByIdAndUpdate(addressId, { isActive: false }, { new: true });
+  },
+
+  setDefaultAddress: async (addressId: string, userId: string) => {
+    // First, remove default from all addresses for this user
+    await Address.updateMany(
+      { userId, isActive: true },
+      { isDefault: false }
+    );
+    
+    // Then set the specified address as default
+    return Address.findByIdAndUpdate(
+      addressId,
+      { isDefault: true },
+      { new: true }
+    );
   },
 
   updatePermission: (

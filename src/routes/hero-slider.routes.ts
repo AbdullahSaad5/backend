@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { heroSliderController } from "@/controllers";
-import { heroSliderValidation } from "@/validations";
+import { heroSliderValidation, heroSliderStatusValidation } from "@/validations";
 import { authGuard } from "@/guards";
 import multer from "multer";
 import { digitalOceanSpacesStorage } from "@/config/digitalOceanSpaces";
@@ -38,6 +38,14 @@ export const heroSlider = (router: Router) => {
     setImageUrl,
     heroSliderValidation,
     heroSliderController.updateSlide
+  );
+
+  // Update slide status only
+  router.patch(
+    "/:id/status",
+    authGuard.isAuth,
+    heroSliderStatusValidation,
+    heroSliderController.updateSlideStatus
   );
 
   // Delete a slide

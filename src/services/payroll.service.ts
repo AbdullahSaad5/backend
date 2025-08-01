@@ -11,7 +11,9 @@ export const payrollService = {
     employeeId: string,
     payrollType: PayrollType = PayrollType.ACTUAL
   ) {
-    return await Payroll.findOne({ userId: employeeId, payrollType });
+    return await Payroll.findOne({ userId: employeeId, payrollType })
+      .populate("category", "name")
+      .populate("userId", "firstName lastName email");
   },
 
   async createPayroll(

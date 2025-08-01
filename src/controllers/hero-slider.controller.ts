@@ -61,7 +61,7 @@ export const heroSliderController = {
       const { id } = req.params;
       let updateData = { ...req.body };
       if (req.file && (req.file as any).location) {
-        updateData.assetUrl = (req.file as any).location;
+        updateData.imageUrl = (req.file as any).location;
       }
       const updated = await heroSliderService.updateSlide(id, updateData);
       if (!updated) {
@@ -81,6 +81,43 @@ export const heroSliderController = {
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to update slide",
+        data: null,
+      });
+    }
+  },
+
+  // Update slide status only
+  updateSlideStatus: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      
+      if (!status || !["active", "inactive"].includes(status)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid status. Must be 'active' or 'inactive'",
+          data: null,
+        });
+      }
+
+      const updated = await heroSliderService.updateSlide(id, { status });
+      if (!updated) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Slide not found",
+          data: null,
+        });
+      }
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Slide status updated successfully",
+        data: updated,
+      });
+    } catch (error) {
+      console.error("Error updating hero slider slide status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update slide status",
         data: null,
       });
     }

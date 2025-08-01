@@ -71,7 +71,7 @@ export const payrollController = {
       // Update or create actual payroll
       if (existingActual) {
         actualPayroll = await payrollService.updatePayroll(
-          existingActual._id.toString(),
+          (existingActual as any)._id.toString(),
           {
             contractType: updateData.contactType,
             baseSalary: updateData.actualBaseSalary,
@@ -81,7 +81,7 @@ export const payrollController = {
           }
         );
       } else {
-        actualPayroll = await payrollService.createPayroll({
+        const actualPayload = {
           userId: new Types.ObjectId(userId),
           payrollType: PayrollType.ACTUAL,
           contractType: updateData.contactType,
@@ -89,14 +89,18 @@ export const payrollController = {
           hourlyRate: updateData.actualHourlyRate,
           allowances: updateData.actualAllowances || [],
           deductions: updateData.actualDeductions || [],
-          category: existingGovernment?.category || new Types.ObjectId(), // Use existing category or create new
-        });
+          category:
+            (existingGovernment as any)?.category || new Types.ObjectId(),
+        };
+        actualPayroll = await payrollService.createPayroll(
+          actualPayload as any
+        );
       }
 
       // Update or create government payroll
       if (existingGovernment) {
         governmentPayroll = await payrollService.updatePayroll(
-          existingGovernment._id.toString(),
+          (existingGovernment as any)._id.toString(),
           {
             contractType: updateData.contactType,
             baseSalary:
@@ -112,7 +116,7 @@ export const payrollController = {
           }
         );
       } else {
-        governmentPayroll = await payrollService.createPayroll({
+        const governmentPayload = {
           userId: new Types.ObjectId(userId),
           payrollType: PayrollType.GOVERNMENT,
           contractType: updateData.contactType,
@@ -126,18 +130,26 @@ export const payrollController = {
           deductions: updateData.sameAllowancesDeductions
             ? updateData.actualDeductions || []
             : updateData.governmentDeductions || [],
-          category: existingActual?.category || new Types.ObjectId(), // Use existing category or create new
-        });
+          category: (existingActual as any)?.category || new Types.ObjectId(),
+        };
+        governmentPayroll = await payrollService.createPayroll(
+          governmentPayload as any
+        );
       }
+
+      // Determine if we have dual payrolls
+      const hasDualPayrolls = existingActual && existingGovernment;
 
       res.json({
         success: true,
         data: {
           actual: actualPayroll,
           government: governmentPayroll,
+          hasDualPayrolls: hasDualPayrolls,
         },
       });
     } catch (error) {
+      console.error("Error updating merged payroll:", error);
       res.status(400).json({
         success: false,
         error:
@@ -252,11 +264,39 @@ export const payrollController = {
         });
       }
 
+      // Determine if we have dual payrolls
+      const hasDualPayrolls = actualPayroll && governmentPayroll;
+
+      // Get employee name from populated user data
+      const getEmployeeName = (user: any) => {
+        if (user?.firstName && user?.lastName) {
+          return `${user.firstName} ${user.lastName}`;
+        }
+        if (user?.firstName) {
+          return user.firstName;
+        }
+        if (user?.lastName) {
+          return user.lastName;
+        }
+        if (user?.email) {
+          const emailName = user.email.split("@")[0];
+          return emailName
+            .replace(/[._]/g, " ")
+            .replace(/\b\w/g, (l: string) => l.toUpperCase());
+        }
+        return "Unknown Employee";
+      };
+
+      // Get user data from either actual or government payroll
+      const userData = actualPayroll?.userId || governmentPayroll?.userId;
+      const employeeName = getEmployeeName(userData);
+
       // Merge the payrolls into a single response
       const mergedPayroll = {
         _id: actualPayroll?._id || governmentPayroll?._id,
         category: actualPayroll?.category || governmentPayroll?.category,
         userId: actualPayroll?.userId || governmentPayroll?.userId,
+        employeeName: employeeName, // Add employee name
         contractType:
           actualPayroll?.contractType || governmentPayroll?.contractType,
         baseSalary: actualPayroll?.baseSalary || 0,
@@ -264,12 +304,17 @@ export const payrollController = {
         allowances: actualPayroll?.allowances || [],
         deductions: actualPayroll?.deductions || [],
         // Government payroll data
-        governmentAllowances: governmentPayroll?.allowances || [],
-        governmentDeductions: governmentPayroll?.deductions || [],
-        governmentBaseSalary: governmentPayroll?.baseSalary,
-        governmentHourlyRate: governmentPayroll?.hourlyRate,
+        governmentAllowances:
+          governmentPayroll?.allowances || actualPayroll?.allowances || [],
+        governmentDeductions:
+          governmentPayroll?.deductions || actualPayroll?.deductions || [],
+        governmentBaseSalary:
+          governmentPayroll?.baseSalary || actualPayroll?.baseSalary,
+        governmentHourlyRate:
+          governmentPayroll?.hourlyRate || actualPayroll?.hourlyRate,
         // Flag to indicate if same allowances/deductions are used
-        sameAllowancesDeductions: false, // This will be determined by frontend logic
+        sameAllowancesDeductions: !hasDualPayrolls, // If only one payroll exists, they're the same
+        hasDualPayrolls: hasDualPayrolls,
         createdAt: actualPayroll?.createdAt || governmentPayroll?.createdAt,
         updatedAt: actualPayroll?.updatedAt || governmentPayroll?.updatedAt,
       };

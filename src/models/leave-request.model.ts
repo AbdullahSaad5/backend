@@ -5,6 +5,16 @@ const leaveRequestSchema = new Schema<ILeaveRequest>({
   userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   date: { type: Date, required: true },
   reason: { type: String, required: true },
+  leaveType: {
+    type: String,
+    enum: ["normal", "urgent"],
+    required: true,
+  },
+  isPaid: {
+    type: Boolean,
+    required: false,
+    default: false,
+  },
   status: {
     type: String,
     enum: ["pending", "approved", "rejected"],
@@ -15,7 +25,4 @@ const leaveRequestSchema = new Schema<ILeaveRequest>({
   updatedAt: { type: Date, default: Date.now },
 });
 
-export const LeaveRequest = model<ILeaveRequest>(
-  "LeaveRequest",
-  leaveRequestSchema
-);
+export const LeaveRequest = model<ILeaveRequest>("LeaveRequest", leaveRequestSchema);
