@@ -532,6 +532,7 @@ export const amazonListingService = {
     const {
       productInfo: { sku, item_name, brand, product_description, condition_type },
       // prodTechInfo: { condition_type },
+      prodPricing: { retailPrice },
       prodDelivery: { item_display_weight, item_package_weight, item_package_dimensions, epr_product_packaging },
     } = populatedListing;
 
@@ -574,6 +575,8 @@ export const amazonListingService = {
         item_package_weight: item_package_weight || [],
         item_package_dimensions: item_package_dimensions || [],
         epr_product_packaging: epr_product_packaging || [],
+        list_price: [{ currency: "GBP", value_with_tax: retailPrice, marketplace_id: "A1F83G8C2ARO7P" }],
+
         ...otherProdTechInfo,
       },
     };
@@ -1484,27 +1487,26 @@ export const amazonListingService = {
       const queryParams = new URLSearchParams();
 
       // Use the exact Amazon SP-API parameter name: MarketplaceIds (capital M, I, plural)
-      queryParams.append('MarketplaceIds', marketplaceId);
-      queryParams.append('CreatedAfter', startDate.toISOString());
+      queryParams.append("MarketplaceIds", marketplaceId);
+      queryParams.append("CreatedAfter", startDate.toISOString());
 
       // Add sellerId if available
       if (sellerId) {
-        queryParams.append('SellerId', sellerId);
+        queryParams.append("SellerId", sellerId);
       }
 
       const finalUrl = `${redirectUri}/orders/v0/orders?${queryParams.toString()}`;
-      
 
       const headers = {
         Authorization: `Bearer ${token}`,
         "x-amz-access-token": token,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       };
       console.log("🔍 Debug - Headers:", JSON.stringify(headers, null, 2));
 
       const response = await fetch(finalUrl, {
-        method: 'GET',
-        headers
+        method: "GET",
+        headers,
       });
 
       // Parse response as text, then try/catch JSON.parse (like other functions)
@@ -1526,14 +1528,14 @@ export const amazonListingService = {
         return res.status(StatusCodes.OK).json({
           status: StatusCodes.OK,
           message: ReasonPhrases.OK,
-          data: orders
+          data: orders,
         });
       } else {
         return res.status(StatusCodes.BAD_REQUEST).json({
           status: StatusCodes.BAD_REQUEST,
           message: "Failed to fetch Amazon orders",
           error: orders.error || orders.message || "Amazon API error",
-          details: orders
+          details: orders,
         });
       }
     } catch (error: any) {

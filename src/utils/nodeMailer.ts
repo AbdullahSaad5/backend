@@ -4,13 +4,13 @@ const sendEmail = async ({ to, subject, html }: { to: string; subject: string; h
   const transporter = nodemailer.createTransport({
     service: "Gmail",
     auth: {
-      user: "bavituk2024@gmail.com",
-      pass: "qkcv mnae equa upqg",
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
     },
   });
 
   const mailOptions = {
-    from: "Build-My-Rig <bavituk2024@gmail.com>",
+    from: process.env.SMTP_FROM,
     to,
     subject,
     html,

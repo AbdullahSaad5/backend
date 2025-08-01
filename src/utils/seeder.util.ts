@@ -57,7 +57,6 @@ const seedData = async () => {
       "MANAGE_TICKETING",
       "ADD_TICKET",
       "VIEW_TICKET",
-
       "MANAGE_DOCUMENTS",
 
       "MANAGE_POLICIES",
@@ -104,6 +103,7 @@ const seedData = async () => {
       "ADD_GUIDES",
 
       "SETTINGS",
+      "MANAGE_CONTENT",
     ],
     isBlocked: false,
     createdAt: new Date(),
