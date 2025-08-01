@@ -68,7 +68,6 @@ import { mailbox } from "./mailbox.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
-router.use("/mailbox", mailbox);
 
 const routes: {
   [key: string]: (router: Router) => void;
@@ -134,6 +133,7 @@ const routes: {
   heroSlider,
   featuredCategory,
   marketing,
+  mailbox,
 };
 
 // Loop through all routes and pass the router to each route
