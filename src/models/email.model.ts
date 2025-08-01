@@ -1,5 +1,6 @@
 import { Schema, model, models } from "mongoose";
 import { IEmail, EmailDirection, EmailType, EmailStatus, EmailPriority } from "@/contracts/mailbox.contract";
+import _ from "lodash";
 
 const EmailSchema = new Schema<IEmail>(
   {
@@ -30,13 +31,14 @@ const EmailSchema = new Schema<IEmail>(
     textContent: { type: String },
     htmlContent: { type: String },
     from: { email: { type: String, required: true }, name: { type: String } },
-    to: [{ email: { type: String, required: true }, name: { type: String } }],
-    cc: [{ email: { type: String }, name: { type: String } }],
-    bcc: [{ email: { type: String }, name: { type: String } }],
-    replyTo: { email: { type: String }, name: { type: String } },
-    headers: [{ name: { type: String }, value: { type: String } }],
+    to: [{ _id: false, email: { type: String, required: true }, name: { type: String } }],
+    cc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    bcc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    replyTo: { _id: false, email: { type: String }, name: { type: String } },
+    headers: [{ _id: false, name: { type: String }, value: { type: String } }],
     attachments: [
       {
+        _id: false,
         fileName: { type: String },
         fileUrl: { type: String },
         fileSize: { type: Number },
