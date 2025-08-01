@@ -10,6 +10,13 @@ export const processedpayroll = (router: Router) => {
     processedPayrollController.createProcessedPayroll
   );
 
+  // Create dual processed payrolls (actual and government)
+  router.post(
+    "/dual",
+    adminRoleCheck,
+    processedPayrollController.createDualProcessedPayrolls
+  );
+
   // Get all processed payrolls
   router.get(
     "/",
@@ -24,10 +31,38 @@ export const processedpayroll = (router: Router) => {
     processedPayrollController.getProcessedPayrollById
   );
 
+  // Get processed payrolls by employee and period
+  router.get(
+    "/employee/:employeeId/period/:startDate/:endDate",
+    adminRoleCheck,
+    processedPayrollController.getProcessedPayrollsByEmployeeAndPeriod
+  );
+
   // Update processed payroll by id
   router.patch(
     "/:id",
     adminRoleCheck,
     processedPayrollController.updateProcessedPayrollById
+  );
+
+  // Update dual processed payrolls
+  router.patch(
+    "/dual/:actualId/:governmentId",
+    adminRoleCheck,
+    processedPayrollController.updateDualProcessedPayrolls
+  );
+
+  // Get merged processed payroll by user and month
+  router.get(
+    "/user/:userId/month/:month/year/:year/merged",
+    adminRoleCheck,
+    processedPayrollController.getMergedProcessedPayrollByUserId
+  );
+
+  // Update merged processed payroll by user and month
+  router.patch(
+    "/user/:userId/month/:month/year/:year/merged",
+    adminRoleCheck,
+    processedPayrollController.updateMergedProcessedPayroll
   );
 };

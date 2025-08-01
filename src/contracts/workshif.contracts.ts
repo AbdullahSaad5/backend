@@ -5,6 +5,9 @@ export interface IWorkshift extends Document {
   shiftDescription: string;
   startTime: string;
   endTime: string;
+  breakStartTime?: string;
+  breakEndTime?: string;
+  hasBreak?: boolean;
   employees: string[];
   isBlocked?: boolean;
   createdBy?: string;
