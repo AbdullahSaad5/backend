@@ -24,7 +24,7 @@ export const mailbox = (router: Router) => {
   router.post("/sms/send", MailboxController.sendSms);
   router.get("/sms/history/:userId", MailboxController.getSmsHistory);
 
-// Newsletter functionality
+  // Newsletter functionality
   router.post("/newsletter/subscribe", MailboxController.subscribeToNewsletter);
   router.get("/newsletter/subscribers", MailboxController.getSubscribers);
 
@@ -43,6 +43,11 @@ export const mailbox = (router: Router) => {
   router.patch("/emails/spam", MailboxController.markEmailsAsSpam);
   router.get("/emails/status-summary", MailboxController.getEmailStatusSummary);
   router.patch("/emails/bulk-update-status", MailboxController.bulkUpdateEmailStatus);
+
+  // IMAP/POP3 Protocol Support for External Email Clients
+  router.get("/imap/:userId/messages", MailboxController.getIMAPMessages);
+  router.patch("/imap/:userId/messages/:messageId/flags", MailboxController.updateIMAPFlags);
+  router.get("/imap/capabilities", MailboxController.getEmailClientCapabilities);
 
   // Email retrieval routes
   router.get("/emails", MailboxController.getEmails);
