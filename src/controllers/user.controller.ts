@@ -5,7 +5,7 @@ import { IUser, ProfileCompletionPayload } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { userService } from "@/services";
 import sendEmail from "@/utils/nodeMailer";
-  
+
 export const userController = {
   createUser: async (req: Request, res: Response) => {
     console.log("req.body : ", req.body);
@@ -15,8 +15,7 @@ export const userController = {
       // console.log("longitude : ", longitude);
       // console.log("latitude : ", latitude);
 
-      const userExists =
-        await userService.findExistingEmail(email);
+      const userExists = await userService.findExistingEmail(email);
       if (userExists) {
         return res
           .status(StatusCodes.CONFLICT)
@@ -56,14 +55,19 @@ export const userController = {
       if (address && Array.isArray(address) && address.length > 0) {
         try {
           // Validate addresses before saving
-          const validAddresses = address.filter(addr => 
-            addr.country && addr.city && addr.address && addr.postalCode &&
-            addr.latitude && addr.longitude
+          const validAddresses = address.filter(
+            (addr) =>
+              addr.country &&
+              addr.city &&
+              addr.address &&
+              addr.postalCode &&
+              addr.latitude &&
+              addr.longitude
           );
-          
+
           if (validAddresses.length === 0) {
-            return res.status(StatusCodes.BAD_REQUEST).json({ 
-              message: "At least one valid address is required" 
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              message: "At least one valid address is required",
             });
           }
 
@@ -74,16 +78,18 @@ export const userController = {
           );
 
           if (!createdAddresses || createdAddresses.length === 0) {
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-              message: "Error creating addresses" 
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+              message: "Error creating addresses",
             });
           }
 
-          console.log(`Created ${createdAddresses.length} addresses for user ${newUser._id}`);
+          console.log(
+            `Created ${createdAddresses.length} addresses for user ${newUser._id}`
+          );
         } catch (addressError) {
           console.error("Error creating addresses:", addressError);
-          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-            message: "Error creating user addresses" 
+          return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+            message: "Error creating user addresses",
           });
         }
       } else {
@@ -98,7 +104,7 @@ export const userController = {
             postalCode: req.body.postalCode || "",
             longitude,
             latitude,
-            isDefault: true
+            isDefault: true,
           };
 
           try {
@@ -107,14 +113,14 @@ export const userController = {
               newUser._id as string
             );
             if (!createdAddress) {
-              return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-                message: "Error creating address" 
+              return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                message: "Error creating address",
               });
             }
           } catch (addressError) {
             console.error("Error creating legacy address:", addressError);
-            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-              message: "Error creating user address" 
+            return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+              message: "Error creating user address",
             });
           }
         }
@@ -157,7 +163,7 @@ export const userController = {
       const userId = req.params.id;
       const updateData = req.body;
       const { addresses } = updateData;
-        console.log("addresssdfsdf : " , addresses)
+      console.log("addresssdfsdf : ", addresses);
 
       if (updateData.email) {
         const email = updateData.email;
@@ -204,51 +210,78 @@ export const userController = {
       if (addresses && Array.isArray(addresses)) {
         try {
           console.log(`Processing ${addresses.length} addresses from payload`);
-          
+
           // Get all existing addresses for this user
-          const existingAddresses = await userService.findAllAddressesByUserId(userId);
-          const existingAddressIds = existingAddresses.map((addr: any) => addr._id.toString());
-          console.log(`Found ${existingAddresses.length} existing addresses:`, existingAddressIds);
-          
+          const existingAddresses =
+            await userService.findAllAddressesByUserId(userId);
+          const existingAddressIds = existingAddresses.map((addr: any) =>
+            addr._id.toString()
+          );
+          console.log(
+            `Found ${existingAddresses.length} existing addresses:`,
+            existingAddressIds
+          );
+
           // Get IDs of addresses in the payload (only valid ObjectIds)
           const payloadAddressIds = addresses
-            .filter(addr => addr._id && require('mongoose').Types.ObjectId.isValid(addr._id))
-            .map(addr => addr._id.toString());
-          console.log(`Payload contains ${payloadAddressIds.length} existing addresses:`, payloadAddressIds);
-          
+            .filter(
+              (addr) =>
+                addr._id && require("mongoose").Types.ObjectId.isValid(addr._id)
+            )
+            .map((addr) => addr._id.toString());
+          console.log(
+            `Payload contains ${payloadAddressIds.length} existing addresses:`,
+            payloadAddressIds
+          );
+
           // Find addresses that exist in database but not in payload (these should be deleted)
-          const addressesToDelete = existingAddressIds.filter(id => !payloadAddressIds.includes(id));
+          const addressesToDelete = existingAddressIds.filter(
+            (id) => !payloadAddressIds.includes(id)
+          );
           console.log(`Addresses to delete:`, addressesToDelete);
-          
+
           // Delete addresses that were removed from frontend
           for (const addressId of addressesToDelete) {
             try {
-              const deletedAddress = await userService.softDeleteAddress(addressId);
+              const deletedAddress =
+                await userService.softDeleteAddress(addressId);
               if (deletedAddress) {
                 console.log(`Successfully deleted address: ${addressId}`);
               } else {
                 console.log(`Address not found for deletion: ${addressId}`);
               }
             } catch (deleteError) {
-              console.error(`Error deleting address ${addressId}:`, deleteError);
+              console.error(
+                `Error deleting address ${addressId}:`,
+                deleteError
+              );
             }
           }
-          
+
           // Process addresses in the payload
           for (const addr of addresses) {
             // Validate address data
-            if (!addr.country || !addr.city || !addr.address || !addr.postalCode || 
-                typeof addr.latitude !== 'number' || typeof addr.longitude !== 'number') {
-              return res.status(StatusCodes.BAD_REQUEST).json({ 
-                message: "Invalid address data. Country, city, address, postal code, latitude, and longitude are required." 
+            if (
+              !addr.country ||
+              !addr.city ||
+              !addr.address ||
+              !addr.postalCode ||
+              typeof addr.latitude !== "number" ||
+              typeof addr.longitude !== "number"
+            ) {
+              return res.status(StatusCodes.BAD_REQUEST).json({
+                message:
+                  "Invalid address data. Country, city, address, postal code, latitude, and longitude are required.",
               });
             }
 
             if (addr._id) {
               // Validate ObjectId format
-              const mongoose = require('mongoose');
+              const mongoose = require("mongoose");
               if (!mongoose.Types.ObjectId.isValid(addr._id)) {
-                console.log(`Invalid ObjectId detected: ${addr._id}, treating as new address`);
+                console.log(
+                  `Invalid ObjectId detected: ${addr._id}, treating as new address`
+                );
                 // Treat invalid ObjectId as new address by removing the _id
                 const { _id, ...addressWithoutId } = addr;
                 const createdAddress = await userService.createAddress(
@@ -266,7 +299,7 @@ export const userController = {
                   addr._id,
                   {
                     ...addr,
-                    isActive: true // Ensure address remains active
+                    isActive: true, // Ensure address remains active
                   }
                 );
                 if (!updatedAddress) {
@@ -288,12 +321,21 @@ export const userController = {
               }
             }
           }
-          
+
           // Verify final state
-          const finalAddresses = await userService.findAllAddressesByUserId(userId);
-          console.log(`Final address count for user ${userId}: ${finalAddresses.length}`);
-          console.log(`Final addresses:`, finalAddresses.map(addr => ({ id: addr._id, address: addr.address, isActive: addr.isActive })));
-          
+          const finalAddresses =
+            await userService.findAllAddressesByUserId(userId);
+          console.log(
+            `Final address count for user ${userId}: ${finalAddresses.length}`
+          );
+          console.log(
+            `Final addresses:`,
+            finalAddresses.map((addr) => ({
+              id: addr._id,
+              address: addr.address,
+              isActive: addr.isActive,
+            }))
+          );
         } catch (addressError) {
           console.error("Error handling addresses:", addressError);
           return res
@@ -333,22 +375,23 @@ export const userController = {
           .status(StatusCodes.BAD_REQUEST)
           .json({ error: "User ID is required" });
       }
-      
+
       // Find ALL addresses for the given userId (not just one)
       const addresses = await userService.findAllAddressesByUserId(id);
-      
+
       // Handle case where no addresses are found
       if (!addresses || addresses.length === 0) {
         return res
           .status(StatusCodes.NOT_FOUND)
           .json({ error: "No addresses found for this user" });
       }
-      
+
       // Return all addresses
-      return res.status(StatusCodes.OK).json({ 
-        addresses, 
+      return res.status(StatusCodes.OK).json({
+        addresses,
         count: addresses.length,
-        defaultAddress: addresses.find(addr => addr.isDefault) || addresses[0]
+        defaultAddress:
+          addresses.find((addr) => addr.isDefault) || addresses[0],
       });
     } catch (error) {
       console.error("Error fetching user addresses:", error);
@@ -363,15 +406,17 @@ export const userController = {
       const userId = req.params.id;
       const user = await userService.findUserById(userId, "+password");
       if (!user) return res.status(404).json({ message: "User not found" });
-      
+
       // Get all addresses for the user
       const addresses = await userService.findAllAddressesByUserId(userId);
 
-      const userWithAddresses = { 
-        ...user.toObject(), 
+      const userWithAddresses = {
+        ...user.toObject(),
         addresses: addresses || [],
         addressCount: addresses ? addresses.length : 0,
-        defaultAddress: addresses ? addresses.find(addr => addr.isDefault) : null
+        defaultAddress: addresses
+          ? addresses.find((addr) => addr.isDefault)
+          : null,
       };
 
       res.status(StatusCodes.OK).json({ data: userWithAddresses });
@@ -506,7 +551,7 @@ export const userController = {
         limit: parseInt(limit as string, 10), // Convert limit to number
       };
 
-      console.log("filtersfilters : " , filters)
+      console.log("filtersfilters : ", filters);
 
       // Call the service to search and filter the users
       const users = await userService.searchAndFilterUsers(filters);
@@ -530,38 +575,39 @@ export const userController = {
   deleteUserAddress: async (req: Request, res: Response) => {
     try {
       const { userId, addressId } = req.params;
-      
+
       // Validate parameters
       if (!userId || !addressId) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "User ID and Address ID are required" 
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "User ID and Address ID are required",
         });
       }
 
       // Check if user has more than one address
       const userAddresses = await userService.findAllAddressesByUserId(userId);
       if (userAddresses.length <= 1) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "Cannot delete the last address. User must have at least one address." 
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message:
+            "Cannot delete the last address. User must have at least one address.",
         });
       }
 
       // Soft delete the address
       const deletedAddress = await userService.softDeleteAddress(addressId);
       if (!deletedAddress) {
-        return res.status(StatusCodes.NOT_FOUND).json({ 
-          message: "Address not found" 
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Address not found",
         });
       }
 
-      res.status(StatusCodes.OK).json({ 
+      res.status(StatusCodes.OK).json({
         message: "Address deleted successfully",
-        deletedAddress 
+        deletedAddress,
       });
     } catch (error) {
       console.error("Error deleting address:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-        message: "Error deleting address" 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error deleting address",
       });
     }
   },
@@ -569,30 +615,33 @@ export const userController = {
   setDefaultAddress: async (req: Request, res: Response) => {
     try {
       const { userId, addressId } = req.params;
-      
+
       // Validate parameters
       if (!userId || !addressId) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "User ID and Address ID are required" 
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "User ID and Address ID are required",
         });
       }
 
       // Set the address as default
-      const updatedAddress = await userService.setDefaultAddress(addressId, userId);
+      const updatedAddress = await userService.setDefaultAddress(
+        addressId,
+        userId
+      );
       if (!updatedAddress) {
-        return res.status(StatusCodes.NOT_FOUND).json({ 
-          message: "Address not found" 
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "Address not found",
         });
       }
 
-      res.status(StatusCodes.OK).json({ 
+      res.status(StatusCodes.OK).json({
         message: "Default address updated successfully",
-        defaultAddress: updatedAddress 
+        defaultAddress: updatedAddress,
       });
     } catch (error) {
       console.error("Error setting default address:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-        message: "Error setting default address" 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error setting default address",
       });
     }
   },
@@ -601,45 +650,53 @@ export const userController = {
     try {
       const { userId } = req.params;
       const addressData = req.body;
-      
+
       // Validate parameters
       if (!userId) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "User ID is required" 
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "User ID is required",
         });
       }
 
       // Validate address data
-      if (!addressData.country || !addressData.city || !addressData.address || !addressData.postalCode) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "Country, city, address, and postal code are required" 
+      if (
+        !addressData.country ||
+        !addressData.city ||
+        !addressData.address ||
+        !addressData.postalCode
+      ) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "Country, city, address, and postal code are required",
         });
       }
 
       // Check if user already has 3 addresses (limit)
       const userAddresses = await userService.findAllAddressesByUserId(userId);
       if (userAddresses.length >= 3) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ 
-          message: "Maximum 3 addresses allowed per user" 
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "Maximum 3 addresses allowed per user",
         });
       }
 
       // Create the address
-      const createdAddress = await userService.createAddress(addressData, userId);
+      const createdAddress = await userService.createAddress(
+        addressData,
+        userId
+      );
       if (!createdAddress) {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-          message: "Error creating address" 
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          message: "Error creating address",
         });
       }
 
-      res.status(StatusCodes.CREATED).json({ 
+      res.status(StatusCodes.CREATED).json({
         message: "Address added successfully",
-        address: createdAddress 
+        address: createdAddress,
       });
     } catch (error) {
       console.error("Error adding address:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
-        message: "Error adding address" 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error adding address",
       });
     }
   },
@@ -650,12 +707,7 @@ export const userController = {
       const userId = req.params.id;
       const profileData = req.body as ProfileCompletionPayload;
 
-      // Debug logging for document data
-      console.log("Profile data received:", {
-        isForeignUser: profileData.isForeignUser,
-        passportDocument: profileData.passportDocument,
-        visaDocument: profileData.visaDocument
-      });
+      console.log("profileDataprofileData : " , profileData)
 
       // Validate user exists
       const existingUser = await userService.findUserById(userId);
@@ -666,8 +718,11 @@ export const userController = {
       }
 
       // Update profile completion
-      const updatedUser = await userService.updateProfileCompletion(userId, profileData);
-      
+      const updatedUser = await userService.updateProfileCompletion(
+        userId,
+        profileData
+      );
+
       if (!updatedUser) {
         return res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -675,11 +730,20 @@ export const userController = {
       }
 
       // Check if this is a complete profile submission or step-by-step update
-      const isCompleteSubmission = profileData.jobTitle && profileData.employmentStartDate && profileData.niNumber && profileData.taxId;
-      
+      const isCompleteSubmission =
+        profileData.jobTitle &&
+        profileData.employmentStartDate &&
+        profileData.niNumber &&
+        profileData.taxId &&
+        profileData.bankName &&
+        profileData.bankBranch &&
+        profileData.accountName &&
+        profileData.accountNumber &&
+        profileData.sortCode;
+
       res.status(StatusCodes.OK).json({
-        message: isCompleteSubmission 
-          ? "Profile completion updated successfully" 
+        message: isCompleteSubmission
+          ? "Profile completion updated successfully"
           : "Profile data saved successfully",
         data: updatedUser,
       });
@@ -703,8 +767,9 @@ export const userController = {
           .json({ message: "User not found" });
       }
 
-      const profileStatus = await userService.getProfileCompletionStatus(userId);
-      
+      const profileStatus =
+        await userService.getProfileCompletionStatus(userId);
+
       if (!profileStatus) {
         return res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)

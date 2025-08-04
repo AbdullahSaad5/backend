@@ -105,10 +105,18 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     countryOfIssue: { type: String },
     passportNumber: { type: String },
     passportExpiryDate: { type: Date },
-    passportDocument: { type: fileSchema, _id: false },
+    passportDocument: {
+      url: { type: String },
+      type: { type: String },
+      name: { type: String },
+    },
     visaNumber: { type: String },
     visaExpiryDate: { type: Date },
-    visaDocument: { type: fileSchema, _id: false },
+    visaDocument: {
+      url: { type: String },
+      type: { type: String },
+      name: { type: String },
+    },
 
     // Employment Information
     jobTitle: { type: String },
@@ -124,6 +132,13 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     taxId: {
       type: String,
     },
+
+    // Banking Details
+    bankName: { type: String },
+    bankBranch: { type: String },
+    accountName: { type: String },
+    accountNumber: { type: String },
+    sortCode: { type: String },
 
     // Profile Completion Status
     profileCompleted: {
