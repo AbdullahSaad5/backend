@@ -31,6 +31,9 @@ export interface IUser extends Document {
   isBlocked: boolean;
   additionalDocuments: [IFile];
   // isSupplier: boolean;
+  
+  // Employee ID - unique 6-character alphanumeric identifier
+  employeeId: string;
 
   // Profile Completion Fields
   // Personal Information
