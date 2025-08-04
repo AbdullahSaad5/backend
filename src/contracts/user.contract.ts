@@ -58,6 +58,7 @@ export interface IUser extends Document {
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
+  taxId?: string;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -106,6 +107,7 @@ export type ProfileCompletionPayload = {
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
+  taxId?: string;
 };
 
 export interface IUserMethods {

@@ -154,6 +154,7 @@ export const userService = {
       if (updateData.jobTitle === "") updateData.jobTitle = undefined;
       if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
       if (updateData.niNumber === "") updateData.niNumber = undefined;
+      if (updateData.taxId === "") updateData.taxId = undefined;
       if (updateData.emergencyPhoneNumber === "") updateData.emergencyPhoneNumber = undefined;
       if (updateData.countryOfIssue === "") updateData.countryOfIssue = undefined;
       if (updateData.passportNumber === "") updateData.passportNumber = undefined;
@@ -210,10 +211,11 @@ export const userService = {
       if (user.geofencingRadius !== undefined) completedFields++;
       if (user.geofencingAttendanceEnabled !== undefined) completedFields++;
 
-      // Employment Information (3 fields)
+      // Employment Information (4 fields)
       if (user.jobTitle) completedFields++;
       if (user.employmentStartDate) completedFields++;
       if (user.niNumber) completedFields++;
+      if (user.taxId) completedFields++;
 
       // Foreign User Information (3 fields) - only count if isForeignUser is true
       if (user.isForeignUser) {
@@ -275,6 +277,7 @@ export const userService = {
       if (!user.jobTitle) missingFields.push("Job Title");
       if (!user.employmentStartDate) missingFields.push("Employment Start Date");
       if (!user.niNumber) missingFields.push("NI Number");
+      if (!user.taxId) missingFields.push("Tax ID");
 
       // Foreign User Information
       if (user.isForeignUser) {
@@ -457,6 +460,7 @@ export const userService = {
           { jobTitle: { $regex: searchQuery, $options: "i" } },
           { supplierKey: { $regex: searchQuery, $options: "i" } },
           { niNumber: { $regex: searchQuery, $options: "i" } },
+          { taxId: { $regex: searchQuery, $options: "i" } },
           { employeeId: { $regex: searchQuery, $options: "i" } },
         ];
         

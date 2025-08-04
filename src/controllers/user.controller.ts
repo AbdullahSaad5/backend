@@ -675,7 +675,7 @@ export const userController = {
       }
 
       // Check if this is a complete profile submission or step-by-step update
-      const isCompleteSubmission = profileData.jobTitle && profileData.employmentStartDate && profileData.niNumber;
+      const isCompleteSubmission = profileData.jobTitle && profileData.employmentStartDate && profileData.niNumber && profileData.taxId;
       
       res.status(StatusCodes.OK).json({
         message: isCompleteSubmission 
