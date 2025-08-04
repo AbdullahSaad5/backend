@@ -67,78 +67,52 @@ class EmailProcessor {
   static BUCKET_NAME = process.env.S3_BUCKET_NAME;
   static async processInboundEmail(sesNotification) {
     try {
-      console.log("Processing SES notification:", JSON.stringify(sesNotification, null, 2));
-      let textContent = "";
-      let htmlContent = "";
-      let attachments = [];
-      if (sesNotification.receipt?.action?.bucketName && sesNotification.receipt.action.objectKey) {
-        const emailContent = await this.getEmailFromS3(
-          sesNotification.receipt.action.bucketName,
-          sesNotification.receipt.action.objectKey
-        );
-        const parsedEmail = await this.parseEmailContent(emailContent);
-        textContent = parsedEmail.textContent;
-        htmlContent = parsedEmail.htmlContent;
-        attachments = parsedEmail.attachments;
-      }
-      const extractedThreadId = await this.extractThreadId(
-        sesNotification.mail.headers,
-        sesNotification.mail.commonHeaders.subject || "No Subject",
-        sesNotification.mail.commonHeaders.from[0] || ""
-      );
-
-      const finalThreadId = await this.findOrCreateThreadId(
-        extractedThreadId,
-        sesNotification.mail.commonHeaders.subject || "No Subject",
-        sesNotification.mail.commonHeaders.from[0] || ""
-      );
-
-      // Determine email status flags
-      const statusFlags = this.determineEmailStatusFlags(sesNotification.mail, textContent, htmlContent);
+      // Extract only essential data
+      const mail = sesNotification.mail;
+      const headers = mail.headers;
+      const commonHeaders = mail.commonHeaders;
       
+      // Fast thread ID extraction - no DB queries
+      const threadId = this.extractThreadId(headers, commonHeaders.subject, commonHeaders.from[0]);
+      
+      // Build minimal email object for fast insertion
       const email = {
-        messageId: sesNotification.mail.messageId,
-        threadId: finalThreadId,
+        messageId: mail.messageId,
+        threadId,
         direction: email_model_1.EmailDirection.INBOUND,
-        type: this.classifyEmailType(sesNotification.mail),
+        type: email_model_1.EmailType.GENERAL,
         status: email_model_1.EmailStatus.RECEIVED,
-        priority: this.determinePriority(sesNotification.mail),
-        subject: sesNotification.mail.commonHeaders.subject || "No Subject",
-        textContent,
-        htmlContent,
-        from: this.parseEmailAddress(sesNotification.mail.commonHeaders.from[0] || ""),
-        to: sesNotification.mail.commonHeaders.to.map((email) => this.parseEmailAddress(email)),
-        cc: sesNotification.mail.commonHeaders.cc?.map((email) => this.parseEmailAddress(email)),
-        bcc: sesNotification.mail.commonHeaders.bcc?.map((email) => this.parseEmailAddress(email)),
-        replyTo: this.getReplyToAddress(sesNotification.mail.headers),
-        headers: sesNotification.mail.headers,
-        attachments,
-        receivedAt: new Date(sesNotification.mail.timestamp),
-        isRead: statusFlags.isRead,
-        isReplied: statusFlags.isReplied,
-        isForwarded: statusFlags.isForwarded,
-        isArchived: statusFlags.isArchived,
-        isSpam: statusFlags.isSpam,
-        tags: this.extractTags(sesNotification.mail),
-        category: this.categorizeEmail(sesNotification.mail),
-        amazonOrderId: this.extractAmazonOrderId(sesNotification.mail),
-        amazonBuyerId: this.extractAmazonBuyerId(sesNotification.mail),
-        ebayItemId: this.extractEbayItemId(sesNotification.mail),
-        rawEmailData: {
-          sesNotification,
-          processingTimestamp: new Date().toISOString(),
-        },
+        priority: email_model_1.EmailPriority.NORMAL,
+        subject: commonHeaders.subject || "No Subject",
+        textContent: "", // Skip content parsing for speed
+        htmlContent: "",
+        from: { email: commonHeaders.from[0] || "" },
+        to: (commonHeaders.to || []).map(email => ({ email })),
+        cc: (commonHeaders.cc || []).map(email => ({ email })),
+        bcc: (commonHeaders.bcc || []).map(email => ({ email })),
+        headers,
+        attachments: [],
+        receivedAt: new Date(mail.timestamp),
+        isRead: false,
+        isReplied: false,
+        isForwarded: false,
+        isArchived: false,
+        isSpam: false,
+        tags: [],
+        category: "general",
+        rawEmailData: { sesNotification, processingTimestamp: new Date().toISOString() },
       };
-      const existingEmail = await email_model_1.EmailModel.findOne({ messageId: email.messageId }).exec();
-      if (existingEmail) {
-        console.log("Email already exists:", email.messageId);
-        return existingEmail;
-      }
+      
+      // Single DB operation - fast insert without duplicate check for speed
       const savedEmail = await email_model_1.EmailModel.create(email);
-      console.log("✅ Email saved successfully:", savedEmail._id);
-      await this.processEmailRules(savedEmail);
+      console.log("✅ Email saved:", savedEmail._id);
       return savedEmail;
     } catch (error) {
+      // If duplicate key error, ignore it
+      if (error.code === 11000) {
+        console.log("Email already exists (duplicate):", sesNotification.mail.messageId);
+        return null;
+      }
       console.error("❌ Error processing email:", error);
       throw error;
     }
@@ -210,7 +184,7 @@ class EmailProcessor {
     }
     return { email: emailString };
   }
-    static async extractThreadId(headers, subject, fromEmail) {
+  static extractThreadId(headers, subject, fromEmail) {
     const messageIdHeader = headers.find((h) => h.name.toLowerCase() === "message-id");
     const inReplyToHeader = headers.find((h) => h.name.toLowerCase() === "in-reply-to");
     const referencesHeader = headers.find((h) => h.name.toLowerCase() === "references");
@@ -224,48 +198,25 @@ class EmailProcessor {
     
     console.log("Email analysis - Subject:", subject, "IsReply:", isReply);
     
-    // Only try to find existing thread if this is actually a reply
+    // If this is a reply, extract thread ID directly from headers
     if (isReply) {
-      // First, try to extract thread ID from email headers
+      // First priority: References header (contains thread ID as first message ID)
       if (referencesHeader) {
         const references = referencesHeader.value.split(/\s+/);
-        const refMatch = references[0].match(/<(.+?)>/);
-        threadId = refMatch ? refMatch[1] : references[0];
-        console.log("Using thread ID from References:", threadId);
-      } else if (inReplyToHeader) {
+        const firstReference = references[0]; // First reference is the thread root
+        const refMatch = firstReference.match(/<(.+?)>/);
+        threadId = refMatch ? refMatch[1] : firstReference;
+        threadId = threadId.replace(/[<>]/g, "").trim();
+        console.log("Using thread ID from References (first reference):", threadId);
+        return threadId;
+      }
+      
+      // Second priority: In-Reply-To header (direct parent message ID = thread ID)
+      if (inReplyToHeader) {
         const replyMatch = inReplyToHeader.value.match(/<(.+?)>/);
         threadId = replyMatch ? replyMatch[1] : inReplyToHeader.value;
-        console.log("Using thread ID from In-Reply-To:", threadId);
-      }
-      
-      // Clean up thread ID (remove angle brackets and normalize)
-      if (threadId) {
         threadId = threadId.replace(/[<>]/g, "").trim();
-      }
-      
-      // If this is a reply, try to find existing thread
-      if (subject && subject.toLowerCase().includes("re:")) {
-        const cleanSubject = subject.replace(/^re:\s*/i, "").trim();
-        console.log("Looking for existing thread with clean subject:", cleanSubject);
-        
-        try {
-          const existingEmail = await email_model_1.EmailModel.findOne({
-            subject: { $regex: cleanSubject, $options: "i" },
-            "from.email": fromEmail,
-          }).sort({ receivedAt: -1 });
-          
-          if (existingEmail && existingEmail.threadId) {
-            console.log("Found existing thread:", existingEmail.threadId);
-            return existingEmail.threadId;
-          }
-        } catch (error) {
-          console.error("Error looking up existing thread:", error);
-        }
-      }
-      
-      // If we have a threadId from headers, use it
-      if (threadId) {
-        console.log("Using thread ID from headers:", threadId);
+        console.log("Using thread ID from In-Reply-To:", threadId);
         return threadId;
       }
     }
@@ -273,7 +224,7 @@ class EmailProcessor {
     // For new threads (not replies), use the current message ID as thread ID
     if (messageIdHeader) {
       threadId = messageIdHeader.value.replace(/[<>]/g, "").trim();
-      console.log("Creating new thread with message ID:", threadId);
+      console.log("Creating new thread with current message ID:", threadId);
       return threadId;
     }
     
@@ -464,27 +415,12 @@ class EmailProcessor {
         threadId
       );
 
-      // If this is a reply (subject contains "Re:"), try to find existing thread
-      if (subject && subject.toLowerCase().includes("re:")) {
-        const cleanSubject = subject.replace(/^re:\s*/i, "").trim();
-        console.log("Looking for existing thread with clean subject:", cleanSubject);
-
-        const existingEmail = await email_model_1.EmailModel.findOne({
-          subject: { $regex: cleanSubject, $options: "i" },
-          "from.email": fromEmail,
-        }).sort({ receivedAt: -1 });
-
-        if (existingEmail && existingEmail.threadId) {
-          console.log("Found existing thread:", existingEmail.threadId);
-          return existingEmail.threadId;
-        }
-      }
-
       // If we have a threadId from headers, try to find existing emails with that threadId
       if (threadId) {
-        const existingThread = await email_model_1.EmailModel.findOne({
-          threadId: threadId,
-        });
+        const existingThread = await email_model_1.EmailModel.findOne(
+          { threadId: threadId },
+          { _id: 1 } // Only fetch _id for performance
+        ).lean();
 
         if (existingThread) {
           console.log("Found existing thread with threadId:", threadId);
@@ -493,7 +429,9 @@ class EmailProcessor {
       }
 
       // If no existing thread found, use the provided threadId or generate a new one
-      return threadId || (0, uuid_1.v4)();
+      const finalThreadId = threadId || (0, uuid_1.v4)();
+      console.log("Creating new thread with ID:", finalThreadId);
+      return finalThreadId;
     } catch (error) {
       console.error("Error finding or creating thread ID:", error);
       return threadId || (0, uuid_1.v4)();

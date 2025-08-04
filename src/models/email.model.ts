@@ -78,9 +78,15 @@ const EmailSchema = new Schema<IEmail>(
 );
 
 EmailSchema.index({ messageId: 1 }, { unique: true });
+EmailSchema.index({ threadId: 1 });
 EmailSchema.index({ "from.email": 1 });
 EmailSchema.index({ "to.email": 1 });
 EmailSchema.index({ amazonOrderId: 1 });
 EmailSchema.index({ ebayItemId: 1 });
+EmailSchema.index({ subject: 1 });
+EmailSchema.index({ receivedAt: -1 });
+// Optimized indexes for thread processing
+EmailSchema.index({ messageId: 1, threadId: 1 });
+EmailSchema.index({ threadId: 1, receivedAt: -1 });
 
 export const EmailModel = models.Email || model<IEmail>("Email", EmailSchema);

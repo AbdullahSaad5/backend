@@ -116,4 +116,7 @@ EmailSchema.index({ amazonOrderId: 1 });
 EmailSchema.index({ ebayItemId: 1 });
 EmailSchema.index({ subject: 1 });
 EmailSchema.index({ receivedAt: -1 });
+// Optimized indexes for thread processing
+EmailSchema.index({ messageId: 1, threadId: 1 });
+EmailSchema.index({ threadId: 1, receivedAt: -1 });
 exports.EmailModel = mongoose_1.models.Email || (0, mongoose_1.model)("Email", EmailSchema);
