@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { IContextRequest } from "@/contracts/request.contract";
+import { Shift } from "@/models/workshift.model";
+import { Workmode } from "@/models/workmode.model";
 import { locationService } from "@/services/location.service";
 import { Types } from "mongoose";
 import { StatusCodes } from "http-status-codes";
@@ -21,7 +23,9 @@ export const locationController = {
       const userId = req.context?.user?.id;
 
       if (!userId) {
-        return res.status(StatusCodes.UNAUTHORIZED).json({ message: "Unauthorized" });
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .json({ message: "Unauthorized" });
       }
 
       const location = await locationService.createLocation({
@@ -38,9 +42,14 @@ export const locationController = {
   updateLocation: async (req: Request, res: Response) => {
     try {
       const { locationId } = req.params;
-      const location = await locationService.updateLocation(locationId, req.body);
+      const location = await locationService.updateLocation(
+        locationId,
+        req.body
+      );
       if (!location) {
-        return res.status(StatusCodes.NOT_FOUND).json({ message: "Location not found" });
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "Location not found" });
       }
       res.status(StatusCodes.OK).json(location);
     } catch (err: any) {
@@ -54,9 +63,13 @@ export const locationController = {
       const { locationId } = req.params;
       const location = await locationService.deleteLocation(locationId);
       if (!location) {
-        return res.status(StatusCodes.NOT_FOUND).json({ message: "Location not found" });
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .json({ message: "Location not found" });
       }
-      res.status(StatusCodes.OK).json({ message: "Location deleted successfully" });
+      res
+        .status(StatusCodes.OK)
+        .json({ message: "Location deleted successfully" });
     } catch (err: any) {
       res.status(StatusCodes.BAD_REQUEST).json({ message: err.message });
     }
