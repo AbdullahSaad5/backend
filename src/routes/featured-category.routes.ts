@@ -40,6 +40,13 @@ export const featuredCategory = (router: Router) => {
     featuredCategoryController.updateCategory
   );
 
+  // Update status only
+  router.patch(
+    "/:id/status",
+    authGuard.isAuth,
+    featuredCategoryController.updateStatus
+  );
+
   // Delete a featured category
   router.delete("/:id", authGuard.isAuth, featuredCategoryController.deleteCategory);
 };

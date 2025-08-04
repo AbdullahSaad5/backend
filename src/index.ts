@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import express, { Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
+import path from "path";
 import { mongoose } from "./datasources";
 import { authMiddleware, corsMiddleware, apiRateLimiter } from "./middlewares";
 import { router } from "./routes/index.route";
@@ -49,6 +50,9 @@ app.use(
   authMiddleware,
   helmet()
 );
+
+// Serve static files for profile documents
+app.use("/uploads/profile-documents", express.static(path.join(__dirname, "../uploads/profile-documents")));
 
 // Add the new route to show the welcome message
 app.get("/", (req, res) => {
