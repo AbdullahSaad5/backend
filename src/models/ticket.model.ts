@@ -70,6 +70,10 @@ const TicketSchema = new Schema<ITicket>(
       type: Boolean,
       default: false,
     },
+    isManuallyEscalated: {
+      type: Boolean,
+      default: false,
+    },
     chatMessageId: {
       type: String,
       default: null,
