@@ -14,54 +14,26 @@ export const attendanceService = {
   ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    // Use findOneAndUpdate with upsert to ensure atomic operation and prevent duplicates
-    const attendance = await Attendance.findOneAndUpdate(
-      { employeeId, date: today },
-      {
-        $setOnInsert: {
-          employeeId,
-          date: today,
-          checkIn: checkIn,
-          checkOut: undefined,
-          shiftId,
-          workModeId,
-          status: "present",
-        },
-        $set: {
-          // Only update if no check-in exists
-          checkIn: {
-            $cond: {
-              if: { $eq: ["$checkIn", null] },
-              then: checkIn,
-              else: "$checkIn",
-            },
-          },
-          status: {
-            $cond: {
-              if: { $eq: ["$checkIn", null] },
-              then: "present",
-              else: "$status",
-            },
-          },
-          updatedAt: new Date(),
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
+    // Removed isEmployee check as requested
+    let attendance = await Attendance.findOne({ employeeId, date: today });
+    if (!attendance) {
+      attendance = await Attendance.create({
+        employeeId,
+        date: today,
+        checkIn: checkIn,
+        checkOut: undefined,
+        shiftId,
+        workModeId,
+        status: "present",
+      });
+    } else {
+      if (attendance.checkIn) {
+        throw new Error("You have already checked in today.");
       }
-    );
-
-    // Check if user already checked in today
-    if (
-      attendance.checkIn &&
-      attendance.checkIn.getTime() !== checkIn.getTime()
-    ) {
-      throw new Error("You have already checked in today.");
+      attendance.checkIn = new Date();
+      attendance.status = "present";
+      await attendance.save();
     }
-
     return attendance;
   },
 
@@ -92,36 +64,25 @@ export const attendanceService = {
     checkOut?: Date
   ) => {
     date.setHours(0, 0, 0, 0);
-
-    // Use findOneAndUpdate with upsert to ensure atomic operation and prevent duplicates
-    const attendance = await Attendance.findOneAndUpdate(
-      { employeeId, date },
-      {
-        $setOnInsert: {
-          employeeId,
-          date,
-          checkIn,
-          checkOut,
-          shiftId,
-          workModeId,
-          status,
-        },
-        $set: {
-          status,
-          ...(shiftId && { shiftId }),
-          ...(workModeId && { workModeId }),
-          ...(checkIn && { checkIn }),
-          ...(checkOut && { checkOut }),
-          updatedAt: new Date(),
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
-      }
-    );
-
+    let attendance = await Attendance.findOne({ employeeId, date });
+    if (!attendance) {
+      attendance = await Attendance.create({
+        employeeId,
+        date,
+        checkIn,
+        checkOut,
+        shiftId,
+        workModeId,
+        status,
+      });
+    } else {
+      attendance.status = status;
+      if (shiftId) attendance.shiftId = shiftId as any;
+      if (workModeId) attendance.workModeId = workModeId as any;
+      if (checkIn) attendance.checkIn = checkIn;
+      if (checkOut) attendance.checkOut = checkOut;
+      await attendance.save();
+    }
     return attendance;
   },
 
@@ -333,51 +294,25 @@ export const attendanceService = {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const employeeObjectId = new Types.ObjectId(userId);
-
-    // Use findOneAndUpdate with upsert to ensure atomic operation and prevent duplicates
-    const attendance = await Attendance.findOneAndUpdate(
-      { employeeId: employeeObjectId, date: today },
-      {
-        $setOnInsert: {
-          employeeId: employeeObjectId,
-          date: today,
-          checkIn: new Date(),
-          status: "present",
-        },
-        $set: {
-          // Only update if no check-in exists
-          checkIn: {
-            $cond: {
-              if: { $eq: ["$checkIn", null] },
-              then: new Date(),
-              else: "$checkIn",
-            },
-          },
-          status: {
-            $cond: {
-              if: { $eq: ["$checkIn", null] },
-              then: "present",
-              else: "$status",
-            },
-          },
-          updatedAt: new Date(),
-        },
-      },
-      {
-        upsert: true,
-        new: true,
-        setDefaultsOnInsert: true,
+    let attendance = await Attendance.findOne({
+      employeeId: employeeObjectId,
+      date: today,
+    });
+    if (!attendance) {
+      attendance = await Attendance.create({
+        employeeId: employeeObjectId,
+        date: today,
+        checkIn: new Date(),
+        status: "present",
+      });
+    } else {
+      if (attendance.checkIn) {
+        throw new Error("You have already checked in today.");
       }
-    );
-
-    // Check if user already checked in today
-    if (
-      attendance.checkIn &&
-      attendance.checkIn.getTime() !== new Date().getTime()
-    ) {
-      throw new Error("You have already checked in today.");
+      attendance.checkIn = new Date();
+      attendance.status = "present";
+      await attendance.save();
     }
-
     return attendance;
   },
 };
@@ -391,54 +326,37 @@ export const markAbsentForUsers = async () => {
   const GRACE_MINUTES = 120;
   const now = new Date();
   const shifts = await Shift.find({ isBlocked: false }).populate("employees");
-
   for (const shift of shifts) {
     const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-
     for (const employeeId of shift.employees) {
       // Try for both today and yesterday
       for (let offset = 0; offset <= 1; offset++) {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - offset);
         shiftDate.setHours(0, 0, 0, 0);
-
         const shiftEnd = new Date(shiftDate);
         shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
-
         if (now >= shiftEnd) {
-          // Use findOneAndUpdate with upsert to ensure atomic operation
-          // This prevents race conditions and duplicate records
-          await Attendance.findOneAndUpdate(
-            {
+          const attendance = await Attendance.findOne({
+            employeeId,
+            date: shiftDate,
+          });
+          if (!attendance) {
+            await Attendance.create({
               employeeId,
               date: shiftDate,
-            },
-            {
-              $setOnInsert: {
-                employeeId,
-                date: shiftDate,
-                status: "absent",
-                shiftId: shift._id as Types.ObjectId,
-              },
-              $set: {
-                // Only update status to absent if current status is not present, leave, or already absent
-                status: {
-                  $cond: {
-                    if: { $in: ["$status", ["present", "leave", "absent"]] },
-                    then: "$status", // Keep existing status
-                    else: "absent", // Update to absent
-                  },
-                },
-                shiftId: shift._id as Types.ObjectId,
-                updatedAt: new Date(),
-              },
-            },
-            {
-              upsert: true,
-              new: true,
-              setDefaultsOnInsert: true,
-            }
-          );
+              status: "absent",
+              shiftId: shift._id as Types.ObjectId,
+            });
+          } else if (
+            attendance.status !== "present" &&
+            attendance.status !== "leave" &&
+            attendance.status !== "absent"
+          ) {
+            attendance.status = "absent";
+            attendance.shiftId = shift._id as Types.ObjectId;
+            await attendance.save();
+          }
         }
       }
     }
