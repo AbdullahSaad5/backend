@@ -707,7 +707,7 @@ export const userController = {
       const userId = req.params.id;
       const profileData = req.body as ProfileCompletionPayload;
 
-      console.log("profileDataprofileData : " , profileData)
+      console.log("profileDataprofileData sdsdsdsd : " , profileData)
 
       // Validate user exists
       const existingUser = await userService.findUserById(userId);
@@ -769,6 +769,8 @@ export const userController = {
 
       const profileStatus =
         await userService.getProfileCompletionStatus(userId);
+
+        console.log("profileStatus in contoleer : " ,profileStatus)
 
       if (!profileStatus) {
         return res

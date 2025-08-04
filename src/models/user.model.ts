@@ -68,7 +68,7 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     employeeId: {
       type: String,
       unique: true,
-      required: true,
+      // required: true,
       validate: {
         validator: validateEmployeeId,
         message:

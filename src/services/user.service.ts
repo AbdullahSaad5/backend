@@ -138,6 +138,8 @@ export const userService = {
       // Convert date strings to Date objects if provided
       const updateData: any = { ...profileData };
 
+      console.log("updateData last and agaonn : ", updateData);
+
       if (profileData.passportExpiryDate) {
         updateData.passportExpiryDate = new Date(
           profileData.passportExpiryDate
@@ -188,14 +190,6 @@ export const userService = {
         updateData.visaExpiryDate = undefined;
         updateData.visaDocument = undefined;
       }
-
-      // Calculate profile completion percentage
-      const completionPercentage = await userService.calculateProfileCompletion(
-        userId,
-        updateData
-      );
-      updateData.profileCompletionPercentage = completionPercentage;
-      updateData.profileCompleted = completionPercentage === 100;
 
       const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
         new: true,
@@ -282,20 +276,17 @@ export const userService = {
         user.toObject()
       );
 
+      const profileCompleted = completionPercentage === 100;
+
       // Update user with calculated values
       user.profileCompletionPercentage = completionPercentage;
-      user.profileCompleted = completionPercentage === 100;
+      user.profileCompleted = profileCompleted;
 
       // Save the updated user
       await user.save();
 
-      console.log(
-        "completionPercentagecompletionPercentage : ",
-        completionPercentage
-      );
-
       return {
-        profileCompleted: user.profileCompleted,
+        profileCompleted: profileCompleted || false,
         profileCompletionPercentage: completionPercentage,
         missingFields: await userService.getMissingProfileFields(
           userId,
