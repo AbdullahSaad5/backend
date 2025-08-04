@@ -138,12 +138,6 @@ export const userService = {
       // Convert date strings to Date objects if provided
       const updateData: any = { ...profileData };
 
-      console.log(
-        "updateData.passportDocument : ",
-        updateData.passportDocument
-      );
-      console.log("updateData.visaDocument : ", updateData.visaDocument);
-
       if (profileData.passportExpiryDate) {
         updateData.passportExpiryDate = new Date(
           profileData.passportExpiryDate
@@ -203,18 +197,9 @@ export const userService = {
       updateData.profileCompletionPercentage = completionPercentage;
       updateData.profileCompleted = completionPercentage === 100;
 
-      console.log("updateData is before : ", updateData);
-
       const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
         new: true,
       }).populate("userType");
-
-      console.log("updatedData is after as updatedUser : ", updatedUser);
-
-      // Try to fetch the user again to see if documents are properly saved
-      const userCheck = await User.findById(userId).populate("userType");
-      console.log("userCheck passportDocument:", userCheck?.passportDocument);
-      console.log("userCheck visaDocument:", userCheck?.visaDocument);
 
       return updatedUser;
     } catch (error) {
@@ -232,7 +217,15 @@ export const userService = {
         if (!user) return 0;
       }
 
-      const totalFields = 17; // Updated total number of profile fields (added account number)
+      // Base fields that apply to all users (14 fields)
+      const baseFields = 15;
+      // Foreign user specific fields (3 fields)
+      const foreignFields = 3;
+
+      // Calculate total fields based on user type
+      const totalFields = user.isForeignUser
+        ? baseFields + foreignFields
+        : baseFields;
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -269,10 +262,8 @@ export const userService = {
           completedFields++;
         if (user.visaNumber && user.visaExpiryDate && user.visaDocument)
           completedFields++;
-      } else {
-        // If not foreign user, these fields are not required, so count them as completed
-        completedFields += 3;
       }
+      // Note: If not foreign user, we don't add these fields to either completed or total
 
       return Math.round((completedFields / totalFields) * 100);
     } catch (error) {
@@ -291,8 +282,20 @@ export const userService = {
         user.toObject()
       );
 
+      // Update user with calculated values
+      user.profileCompletionPercentage = completionPercentage;
+      user.profileCompleted = completionPercentage === 100;
+
+      // Save the updated user
+      await user.save();
+
+      console.log(
+        "completionPercentagecompletionPercentage : ",
+        completionPercentage
+      );
+
       return {
-        profileCompleted: user.profileCompleted || false,
+        profileCompleted: user.profileCompleted,
         profileCompletionPercentage: completionPercentage,
         missingFields: await userService.getMissingProfileFields(
           userId,
