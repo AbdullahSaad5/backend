@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { attendanceController } from "@/controllers/attendance.controller";
+import { locationController } from "@/controllers/location.controller";
 import { authMiddleware, adminRoleCheck } from "@/middlewares/auth.middleware";
 import { authGuard } from "@/guards/auth.guard";
+import { locationValidation } from "@/validations/location.validation";
 
 export const attendance = (router: Router) => {
   // Employee self-service routes
@@ -34,5 +36,32 @@ export const attendance = (router: Router) => {
     authMiddleware,
     adminRoleCheck,
     attendanceController.getAllForDate
+  );
+
+  // Location routes
+  router.get("/locations", authMiddleware, locationController.getAllLocations);
+  router.get("/punch-in/:employeeId", attendanceController.punchIn);
+
+  router.post(
+    "/locations",
+    authMiddleware,
+    adminRoleCheck,
+    locationValidation.validateCreate,
+    locationController.createLocation
+  );
+
+  router.patch(
+    "/locations/:locationId",
+    authMiddleware,
+    adminRoleCheck,
+    locationValidation.validateUpdate,
+    locationController.updateLocation
+  );
+
+  router.delete(
+    "/locations/:locationId",
+    authMiddleware,
+    adminRoleCheck,
+    locationController.deleteLocation
   );
 };
