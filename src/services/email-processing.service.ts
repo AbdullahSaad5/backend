@@ -9,6 +9,7 @@ import {
 import { EmailModel } from "@/models/email.model";
 import { EmailThreadModel } from "@/models/email-thread.model";
 import { logger } from "@/utils/logger.util";
+import { socketManager } from "@/datasources/socket.datasource";
 import crypto from "crypto";
 
 export const EmailProcessingService = {
@@ -95,6 +96,20 @@ export const EmailProcessingService = {
       logger.info(`[${requestId}] Email saved successfully`, {
         emailId: email._id,
         messageId: email.messageId,
+      });
+
+      // Emit real-time notification to all recipients
+      const recipients = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+      recipients.forEach((recipient) => {
+        socketManager.emitNewEmail(recipient.email, {
+          emailId: email._id,
+          messageId: email.messageId,
+          subject: email.subject,
+          from: email.from,
+          receivedAt: email.receivedAt,
+          isRead: email.isRead,
+          threadId: email.threadId,
+        });
       });
 
       // Create or update email thread
