@@ -24,7 +24,7 @@ export const mailbox = (router: Router) => {
   router.post("/sms/send", MailboxController.sendSms);
   router.get("/sms/history/:userId", MailboxController.getSmsHistory);
 
-  // Newsletter functionality
+// Newsletter functionality
   router.post("/newsletter/subscribe", MailboxController.subscribeToNewsletter);
   router.get("/newsletter/subscribers", MailboxController.getSubscribers);
 
@@ -33,6 +33,16 @@ export const mailbox = (router: Router) => {
   router.get("/threads/:threadId", MailboxController.getEmailThreadById);
   router.get("/threads/:threadId/conversation", MailboxController.getEmailThreadConversation);
   router.patch("/threads/:threadId", MailboxController.updateEmailThreadStatus);
+
+  // Email status flag routes
+  router.patch("/emails/:id/read", MailboxController.markEmailAsRead);
+  router.patch("/emails/read", MailboxController.markEmailsAsRead);
+  router.patch("/emails/:id/replied", MailboxController.markEmailAsReplied);
+  router.patch("/emails/:id/forwarded", MailboxController.markEmailAsForwarded);
+  router.patch("/emails/archive", MailboxController.archiveEmails);
+  router.patch("/emails/spam", MailboxController.markEmailsAsSpam);
+  router.get("/emails/status-summary", MailboxController.getEmailStatusSummary);
+  router.patch("/emails/bulk-update-status", MailboxController.bulkUpdateEmailStatus);
 
   // Email retrieval routes
   router.get("/emails", MailboxController.getEmails);

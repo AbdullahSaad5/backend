@@ -136,9 +136,65 @@ export const MailboxController = {
       });
 
       if (result.status === "sent") {
-        // Normalize subject and generate thread ID
-        const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-        const threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+        // Check if this is a reply or forward by analyzing subject and finding original email
+        const isReply = subject.toLowerCase().includes('re:');
+        const isForward = subject.toLowerCase().includes('fwd:') || subject.toLowerCase().includes('fw:');
+        let threadId;
+        let originalEmailId = null;
+
+        if (isReply || isForward) {
+          // Find the original email being replied to or forwarded
+          const cleanSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+          
+          // Look for existing emails with similar subject or in same thread
+          const originalEmail = await EmailModel.findOne({
+            $or: [
+              { subject: { $regex: cleanSubject, $options: "i" } },
+              { subject: cleanSubject }
+            ],
+            $or: [
+              { "from.email": Array.isArray(to) ? to[0] : to },
+              { "to.email": from || switchableEmailService.getProviderConfig().config.defaultFromEmail }
+            ]
+          }).sort({ receivedAt: -1 });
+
+          if (originalEmail) {
+            threadId = originalEmail.threadId;
+            originalEmailId = originalEmail._id;
+            
+            // Mark original email as replied or forwarded
+            if (isReply) {
+              originalEmail.isReplied = true;
+              originalEmail.repliedAt = new Date();
+              if (!originalEmail.isRead) {
+                originalEmail.isRead = true;
+                originalEmail.readAt = new Date();
+              }
+            } else if (isForward) {
+              originalEmail.isForwarded = true;
+              originalEmail.forwardedAt = new Date();
+              if (!originalEmail.isRead) {
+                originalEmail.isRead = true;
+                originalEmail.readAt = new Date();
+              }
+            }
+            await originalEmail.save();
+            
+            logger.info(`Original email updated`, {
+              originalEmailId: originalEmail._id,
+              isReply,
+              isForward,
+              threadId
+            });
+          } else {
+            // No original email found, create new thread
+            threadId = `thread_${cleanSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+          }
+        } else {
+          // New email thread
+          const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+          threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+        }
 
         // Save sent email to database
         const emailData = {
@@ -157,7 +213,8 @@ export const MailboxController = {
           bcc: bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : [],
           sentAt: new Date(),
           receivedAt: new Date(),
-          isRead: false,
+          isRead: true, // Outbound emails are considered "read" by the sender
+          readAt: new Date(),
           isReplied: false,
           isForwarded: false,
           isArchived: false,
@@ -785,6 +842,8 @@ export const MailboxController = {
   getEmailById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const { markAsRead = false } = req.query;
+      
       const email = await EmailModel.findById(id)
         .populate("assignedTo", "name email")
         .populate("relatedOrderId")
@@ -794,6 +853,19 @@ export const MailboxController = {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Email not found",
+        });
+      }
+
+      // Mark as read if requested (like when user opens email)
+      if (markAsRead === "true" && !email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+        await email.save();
+        
+        logger.info("Email marked as read", {
+          emailId: email._id,
+          messageId: email.messageId,
+          readAt: email.readAt,
         });
       }
 
@@ -857,6 +929,522 @@ export const MailboxController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to get service status",
+        error: error.message,
+      });
+    }
+  },
+
+  // ====================
+  // EMAIL STATUS FLAGS MANAGEMENT (Real Email Client Functionality)
+  // ====================
+
+  // Mark single email as read/unread
+  markEmailAsRead: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isRead = true } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      const wasRead = email.isRead;
+      email.isRead = isRead;
+      email.readAt = isRead && !wasRead ? new Date() : (isRead ? email.readAt : null);
+      await email.save();
+
+      logger.info(`Email marked as ${isRead ? 'read' : 'unread'}`, {
+        emailId: email._id,
+        messageId: email.messageId,
+        previousState: wasRead,
+        newState: isRead,
+        readAt: email.readAt,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Email marked as ${isRead ? 'read' : 'unread'}`,
+        data: {
+          id: email._id,
+          isRead: email.isRead,
+          readAt: email.readAt,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as read error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update read status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark multiple emails as read/unread
+  markEmailsAsRead: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isRead = true } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isRead };
+      if (isRead) {
+        updateData.readAt = new Date();
+      } else {
+        updateData.readAt = null;
+      }
+
+      const result = await EmailModel.updateMany(
+        { _id: { $in: emailIds } },
+        { $set: updateData }
+      );
+
+      logger.info(`Bulk email read status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isRead,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails marked as ${isRead ? 'read' : 'unread'}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isRead,
+        },
+      });
+    } catch (error: any) {
+      console.error("Bulk mark emails as read error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update read status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark email as replied (when user sends a reply)
+  markEmailAsReplied: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { repliedAt } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      email.isReplied = true;
+      email.repliedAt = repliedAt ? new Date(repliedAt) : new Date();
+      
+      // Also mark as read when replying
+      if (!email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+      }
+      
+      await email.save();
+
+      logger.info("Email marked as replied", {
+        emailId: email._id,
+        messageId: email.messageId,
+        repliedAt: email.repliedAt,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email marked as replied",
+        data: {
+          id: email._id,
+          isReplied: email.isReplied,
+          repliedAt: email.repliedAt,
+          isRead: email.isRead,
+          readAt: email.readAt,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as replied error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark email as replied",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark email as forwarded (when user forwards an email)
+  markEmailAsForwarded: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { forwardedAt, forwardedTo } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      email.isForwarded = true;
+      email.forwardedAt = forwardedAt ? new Date(forwardedAt) : new Date();
+      
+      // Store forwarded recipients in tags or custom field
+      if (forwardedTo) {
+        const forwardTag = `forwarded_to:${Array.isArray(forwardedTo) ? forwardedTo.join(',') : forwardedTo}`;
+        if (!email.tags.includes(forwardTag)) {
+          email.tags.push(forwardTag);
+        }
+      }
+      
+      // Also mark as read when forwarding
+      if (!email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+      }
+      
+      await email.save();
+
+      logger.info("Email marked as forwarded", {
+        emailId: email._id,
+        messageId: email.messageId,
+        forwardedAt: email.forwardedAt,
+        forwardedTo,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email marked as forwarded",
+        data: {
+          id: email._id,
+          isForwarded: email.isForwarded,
+          forwardedAt: email.forwardedAt,
+          isRead: email.isRead,
+          readAt: email.readAt,
+          tags: email.tags,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as forwarded error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark email as forwarded",
+        error: error.message,
+      });
+    }
+  },
+
+  // Archive/Unarchive emails
+  archiveEmails: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isArchived = true } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isArchived };
+      if (isArchived) {
+        updateData.archivedAt = new Date();
+      } else {
+        updateData.archivedAt = null;
+      }
+
+      const result = await EmailModel.updateMany(
+        { _id: { $in: emailIds } },
+        { $set: updateData }
+      );
+
+      logger.info(`Bulk email archive status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isArchived,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails ${isArchived ? 'archived' : 'unarchived'}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isArchived,
+        },
+      });
+    } catch (error: any) {
+      console.error("Archive emails error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to archive emails",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark emails as spam/not spam
+  markEmailsAsSpam: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isSpam = true, reason } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isSpam };
+      if (isSpam) {
+        updateData.spamMarkedAt = new Date();
+        updateData.status = EmailStatus.SPAM;
+        // Add spam reason to tags if provided
+        if (reason) {
+          updateData.$addToSet = { tags: `spam_reason:${reason}` };
+        }
+      } else {
+        updateData.spamMarkedAt = null;
+        updateData.status = EmailStatus.RECEIVED; // Reset to received status
+        // Remove spam-related tags
+        updateData.$pull = { tags: { $regex: '^spam_reason:' } };
+      }
+
+      const result = await EmailModel.updateMany(
+        { _id: { $in: emailIds } },
+        updateData
+      );
+
+      logger.info(`Bulk email spam status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isSpam,
+        reason,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails marked as ${isSpam ? 'spam' : 'not spam'}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isSpam,
+          reason,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark emails as spam error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark emails as spam",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get email status summary for a user
+  getEmailStatusSummary: async (req: Request, res: Response) => {
+    try {
+      const { userEmail } = req.query;
+
+      if (!userEmail) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "User email is required",
+        });
+      }
+
+      const filter = {
+        $or: [
+          { "from.email": userEmail },
+          { "to.email": userEmail },
+          { "cc.email": userEmail },
+          { "bcc.email": userEmail },
+        ],
+      };
+
+      const [inboundStats, outboundStats] = await Promise.all([
+        // Inbound email stats
+        EmailModel.aggregate([
+          {
+            $match: {
+              ...filter,
+              direction: EmailDirection.INBOUND,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              unread: { $sum: { $cond: ["$isRead", 0, 1] } },
+              read: { $sum: { $cond: ["$isRead", 1, 0] } },
+              replied: { $sum: { $cond: ["$isReplied", 1, 0] } },
+              forwarded: { $sum: { $cond: ["$isForwarded", 1, 0] } },
+              archived: { $sum: { $cond: ["$isArchived", 1, 0] } },
+              spam: { $sum: { $cond: ["$isSpam", 1, 0] } },
+            },
+          },
+        ]),
+        // Outbound email stats
+        EmailModel.aggregate([
+          {
+            $match: {
+              ...filter,
+              direction: EmailDirection.OUTBOUND,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              sent: { $sum: { $cond: [{ $eq: ["$status", EmailStatus.PROCESSED] }, 1, 0] } },
+              failed: { $sum: { $cond: [{ $eq: ["$status", EmailStatus.FAILED] }, 1, 0] } },
+              archived: { $sum: { $cond: ["$isArchived", 1, 0] } },
+            },
+          },
+        ]),
+      ]);
+
+      const inbound = inboundStats[0] || {
+        total: 0,
+        unread: 0,
+        read: 0,
+        replied: 0,
+        forwarded: 0,
+        archived: 0,
+        spam: 0,
+      };
+
+      const outbound = outboundStats[0] || {
+        total: 0,
+        sent: 0,
+        failed: 0,
+        archived: 0,
+      };
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          userEmail,
+          inbound: {
+            total: inbound.total,
+            unread: inbound.unread,
+            read: inbound.read,
+            replied: inbound.replied,
+            forwarded: inbound.forwarded,
+            archived: inbound.archived,
+            spam: inbound.spam,
+            active: inbound.total - inbound.archived - inbound.spam,
+          },
+          outbound: {
+            total: outbound.total,
+            sent: outbound.sent,
+            failed: outbound.failed,
+            archived: outbound.archived,
+            active: outbound.total - outbound.archived,
+          },
+          overall: {
+            total: inbound.total + outbound.total,
+            totalActive: (inbound.total - inbound.archived - inbound.spam) + (outbound.total - outbound.archived),
+            totalArchived: inbound.archived + outbound.archived,
+            totalSpam: inbound.spam,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("Get email status summary error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get email status summary",
+        error: error.message,
+      });
+    }
+  },
+
+  // Bulk update email status flags
+  bulkUpdateEmailStatus: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, updates } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      if (!updates || typeof updates !== 'object') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Updates object is required",
+        });
+      }
+
+      // Validate and prepare update data
+      const updateData: any = {};
+      const validFlags = ['isRead', 'isReplied', 'isForwarded', 'isArchived', 'isSpam'];
+      
+      for (const flag of validFlags) {
+        if (updates[flag] !== undefined) {
+          updateData[flag] = updates[flag];
+          
+          // Set corresponding timestamp fields
+          if (flag === 'isRead' && updates[flag]) {
+            updateData.readAt = new Date();
+          } else if (flag === 'isRead' && !updates[flag]) {
+            updateData.readAt = null;
+          } else if (flag === 'isArchived' && updates[flag]) {
+            updateData.archivedAt = new Date();
+          } else if (flag === 'isArchived' && !updates[flag]) {
+            updateData.archivedAt = null;
+          } else if (flag === 'isSpam' && updates[flag]) {
+            updateData.spamMarkedAt = new Date();
+            updateData.status = EmailStatus.SPAM;
+          } else if (flag === 'isSpam' && !updates[flag]) {
+            updateData.spamMarkedAt = null;
+            updateData.status = EmailStatus.RECEIVED;
+          }
+        }
+      }
+
+      const result = await EmailModel.updateMany(
+        { _id: { $in: emailIds } },
+        { $set: updateData }
+      );
+
+      logger.info("Bulk email status update", {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        updates: updateData,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails updated`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          updates: updateData,
+        },
+      });
+    } catch (error: any) {
+      console.error("Bulk update email status error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update email status",
         error: error.message,
       });
     }

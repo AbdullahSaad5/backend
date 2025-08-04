@@ -5,6 +5,24 @@ const AWS = require("aws-sdk");
 // Cache the DB connection
 let cachedDb = null;
 
+// Function to emit real-time notification to main app
+const emitEmailNotification = async (emailData) => {
+  try {
+    // This will be handled by the main app's webhook endpoint
+    // The Lambda saves the email, and the main app's webhook will emit notifications
+    console.log("Email processed by Lambda, ready for real-time notification:", {
+      messageId: emailData.messageId,
+      subject: emailData.subject,
+      from: emailData.from.email,
+      to: emailData.to.map(t => t.email),
+      isRead: emailData.isRead,
+      isSpam: emailData.isSpam,
+    });
+  } catch (error) {
+    console.error("Error in notification preparation:", error);
+  }
+};
+
 const connectToDatabase = async () => {
   if (cachedDb && cachedDb.connection.readyState === 1) {
     return cachedDb;
@@ -588,8 +606,11 @@ exports.handler = async (event, context) => {
                 isRead: emailData.isRead,
                 isArchived: emailData.isArchived,
               });
-              await EmailModel.create(emailData);
+              const savedEmail = await EmailModel.create(emailData);
               console.log("Email saved from S3:", emailData.messageId, "Thread ID:", emailData.threadId);
+              
+              // Prepare for real-time notification
+              await emitEmailNotification(savedEmail);
             } else {
               console.log("Duplicate email from S3:", emailData.messageId);
             }
@@ -786,8 +807,11 @@ exports.handler = async (event, context) => {
                 isRead: emailData.isRead,
                 isArchived: emailData.isArchived,
               });
-              await EmailModel.create(emailData);
+              const savedEmail = await EmailModel.create(emailData);
               console.log("Email saved from SNS:", emailData.messageId, "Thread ID:", emailData.threadId);
+              
+              // Prepare for real-time notification
+              await emitEmailNotification(savedEmail);
             } else {
               console.log("Duplicate email from SNS:", emailData.messageId);
             }
