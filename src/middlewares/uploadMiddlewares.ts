@@ -60,8 +60,8 @@ const upload = multer({
 const restrictedUpload = multer({
   storage: digitalOceanSpacesStorage,
   limits: {
-    fileSize: 1024 * 1024 * 50, // 50MB limit
-    files: 10, // Maximum 10 files
+    fileSize: 1024 * 1024 * 100, // 50MB limit
+    files: 100, // Maximum 100 files
   },
   fileFilter: restrictedFileFilter,
 });

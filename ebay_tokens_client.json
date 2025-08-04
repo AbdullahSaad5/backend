@@ -4,7 +4,11 @@
   "refresh_token": "v^1.1#i^1#f^0#r^1#p^3#I^3#t^Ul4xMF81Ojg3OEVCNDc4NTQ1NUUyOERDMzBFRkYxRUZCOUQ4NEYzXzFfMSNFXjI2MA==",
   "refresh_token_expires_in": 47304000,
   "token_type": "User Access Token",
+<<<<<<< HEAD
   "generated_at": 1754315101982,
+=======
+  "generated_at": 1754305801461,
+>>>>>>> 33132eca1fa9027543dcde427b015dda3b490bb9
   "error": "invalid_grant",
   "error_description": "the provided authorization refresh token is invalid or was issued to another client"
 }
