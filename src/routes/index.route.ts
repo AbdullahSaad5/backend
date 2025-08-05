@@ -69,6 +69,7 @@ import { ForumTopic } from "./forum-topic.route";
 import { team } from "./team.route";
 import { emailAccount } from "./email-account.route";
 import { emailClient } from "./email-client.route";
+import { documentation } from "./documentation.route";
 
 const router: Router = Router();
 
@@ -144,6 +145,7 @@ const routes: {
   team,
   emailAccount,
   emailClient,
+  documentation,
 };
 
 // Loop through all routes and pass the router to each route
