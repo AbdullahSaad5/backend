@@ -1,4 +1,4 @@
-import { IForum , ForumModel } from '@/contracts/forum';
+import { IForum, ForumModel } from '@/contracts/forum';
 import mongoose, { Document, Schema, model } from 'mongoose';
 
 
@@ -11,17 +11,10 @@ const ForumSchema = new Schema<IForum, ForumModel>({
     maxlength: 100
   },
   category: {
-    type: String,
-    required: true,
-    enum: [
-      'General Categories',
-      'Technology',
-      'Education',
-      'Gaming',
-      'Creative & Media',
-      'Support & Help',
-      'Marketplace'
-    ]
+    type: Schema.Types.ObjectId,
+    ref: "ForumCategory",
+    required: [true, "Forum category is required"],
+
   },
   content: {
     type: String,

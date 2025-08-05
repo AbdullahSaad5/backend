@@ -11,7 +11,7 @@ export const permissionsController = {
         },
         userManagement: {
           parent: "MANAGE_USERS",
-          children: ["ADD_USERS_CATEGORY", "VIEW_USERS_CATEGORY", "ADD_USERS", "VIEW_USERS"],
+          children: ["ADD_USERS_CATEGORY", "VIEW_USERS_CATEGORY", "ADD_TEAMS", "VIEW_TEAMS" , "ADD_USERS", "VIEW_USERS"],
         },
         supplierManagement: {
           parent: "MANAGE_SUPPLIERS",

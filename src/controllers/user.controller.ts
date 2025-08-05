@@ -195,11 +195,24 @@ export const userController = {
         updateData.password = await createHash(updateData.password);
       }
 
+      // Handle team assignments if provided
+      let teamIdsToAssign: string[] = [];
+      if (updateData.teamIds && Array.isArray(updateData.teamIds)) {
+        teamIdsToAssign = [...updateData.teamIds];
+        // Remove teamIds from updateData as it will be handled separately
+        delete updateData.teamIds;
+      }
+
       const updatedUser = await userService.updateById(userId, updateData);
       if (!updatedUser) {
         return res
           .status(StatusCodes.NOT_FOUND)
           .json({ message: "User not found" });
+      }
+
+      // Update team assignments if provided
+      if (teamIdsToAssign.length > 0) {
+        await userService.assignTeamsToUser(userId, teamIdsToAssign);
       }
       // console.log("user.email : " , updateData.email , updatedUser.email)
       // if(updateData.email !== updatedUser.email){

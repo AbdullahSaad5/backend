@@ -50,7 +50,7 @@ export const ForumTopicController = {
   // Get all forum topics
   getAllForumTopics: async (req: Request, res: Response) => {
     try {
-      const forumTopics = await ForumTopic.find().sort({ createdAt: -1 });
+      const forumTopics = await ForumTopic.find().populate('category','name').sort({ createdAt: -1 });
       res.status(StatusCodes.OK).json({
         success: true,
         data: forumTopics
@@ -67,8 +67,11 @@ export const ForumTopicController = {
 
   // Get a single forum topic by ID
   getForumTopicById: async (req: Request, res: Response) => {
+    console.log(req.params.id, 123);
+
     try {
-      const forumTopic = await ForumTopic.findById(req.params.id);
+      const forumTopic = await ForumTopic.find({category:req.params.id}).populate('category','name');
+      console.log(forumTopic, 123);
 
       if (!forumTopic) {
         return res.status(StatusCodes.NOT_FOUND).json({

@@ -10,6 +10,8 @@ import { socketManager } from "./datasources/socket.datasource";
 import seedData from "./utils/seeder.util";
 import { requestLogger } from "./middlewares/requestLogger.middleware";
 import { initCron } from "./cron";
+import { ApiDocumentation } from "./utils/api-documentation.util";
+import { documentationConfig } from "./config/documentation.config";
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -52,12 +54,19 @@ app.use(
 );
 
 // Serve static files for profile documents
-app.use("/uploads/profile-documents", express.static(path.join(__dirname, "../uploads/profile-documents")));
+app.use(
+  "/uploads/profile-documents",
+  express.static(path.join(__dirname, "../uploads/profile-documents"))
+);
 
 // Add the new route to show the welcome message
 app.get("/", (req, res) => {
   res.send("Welcome to Bavit Backend");
 });
+
+// Setup API documentation
+const apiDoc = new ApiDocumentation(app, documentationConfig);
+
 app.use("/api", router);
 
 initCron();

@@ -89,6 +89,22 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       _id: false,
     },
 
+    // Supervisor Configuration
+    isSupervisor: {
+      type: Boolean,
+      default: false,
+    },
+    supervisorTeams: {
+      type: [
+        {
+          teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+          assignedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+      _id: false,
+    },
+
     // Profile Completion Fields
     // Personal Information
     gender: {
