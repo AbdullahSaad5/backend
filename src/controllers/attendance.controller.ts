@@ -273,7 +273,7 @@ export const attendanceController = {
   punchInCheckIn: async (req: Request, res: Response) => {
     try {
       const { employeeId } = req.params;
-      const { date, location } = req.body;
+      const { date, locationId, location } = req.body;
 
       if (!employeeId) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -286,6 +286,13 @@ export const attendanceController = {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Date is required",
+        });
+      }
+
+      if (!locationId || !Types.ObjectId.isValid(locationId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Location ID is required",
         });
       }
 
@@ -313,6 +320,7 @@ export const attendanceController = {
       const attendance = await attendanceService.punchInCheckIn(
         employeeId,
         parsedDate,
+        locationId,
         location
       );
 

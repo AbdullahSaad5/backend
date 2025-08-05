@@ -2,7 +2,7 @@ import { IAttendance } from "@/contracts/attendance.contract";
 import { Attendance } from "@/models/attendance.model";
 import { Address, User } from "@/models";
 import { Types } from "mongoose";
-
+import { Location } from "@/models/location.model";
 import { Shift } from "@/models/workshift.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 import { Workmode } from "@/models/workmode.model";
@@ -299,7 +299,6 @@ export const attendanceService = {
     }
   },
 
-  // Helper: Haversine formula to calculate distance in meters
   haversineDistance: (
     lat1: number,
     lon1: number,
@@ -400,12 +399,24 @@ export const attendanceService = {
   punchInCheckIn: async (
     employeeId: string,
     date: Date,
+    locationId: string,
     location?: { latitude: number; longitude: number }
   ) => {
     try {
       // Get userId from employeeId
       const userId =
         await attendanceService.getUserIdFromEmployeeId(employeeId);
+
+      // Get location from locationId
+      const locationData = await Location.findById(locationId);
+      if (!locationData) {
+        throw new Error("Location not found");
+      }
+
+      // Check if location is active
+      if (!locationData.isActive) {
+        throw new Error("This location is not active for attendance");
+      }
 
       // Check if user exists and is active
       const user = await User.findById(userId);
@@ -417,34 +428,29 @@ export const attendanceService = {
       const attendanceDate = new Date(date);
       attendanceDate.setHours(0, 0, 0, 0);
 
-      // Check for existing attendance
       let attendance = await Attendance.findOne({
         employeeId: userId,
         date: attendanceDate,
       });
 
-      // Check if geofencing is enabled for the user
-      if (user.geofencingAttendanceEnabled && location) {
-        // Get user's registered address
-        const address = await Address.findOne({ userId: userId });
-        if (!address || !address.latitude || !address.longitude) {
-          throw new Error("User's registered location not found");
-        }
+      // Check if location coordinates are provided
+      if (!location || !location.latitude || !location.longitude) {
+        throw new Error("Current location coordinates are required");
+      }
 
-        // Calculate distance
-        const distance = attendanceService.haversineDistance(
-          address.latitude,
-          address.longitude,
-          location.latitude,
-          location.longitude
+      // Calculate distance between provided location and office location
+      const distance = attendanceService.haversineDistance(
+        location.latitude,
+        location.longitude,
+        locationData.latitude,
+        locationData.longitude
+      );
+
+      // Check if user is within allowed radius of the office location
+      if (distance > locationData.radius) {
+        throw new Error(
+          `You are too far from the office location. Distance: ${distance.toFixed(2)} meters. Maximum allowed distance: ${locationData.radius} meters.`
         );
-
-        // Check if user is within allowed radius
-        if (distance > (user.geofencingRadius || 500)) {
-          throw new Error(
-            `You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`
-          );
-        }
       }
 
       if (!attendance) {
