@@ -53,9 +53,15 @@ export const leaveRequestController = {
       // Extract pagination parameters from query string
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
+      const search = req.query.search as string;
 
-      // Add filter based on query parameters if needed
-      const filter = {};
+      // Add filter based on query parameters
+      const filter: Record<string, any> = {};
+      
+      // Add search functionality if search parameter is provided
+      if (search) {
+        filter.search = search;
+      }
 
       const leaveRequests = await leaveRequestService.getLeaveRequests(filter, page, limit);
       res.status(200).json(leaveRequests);
