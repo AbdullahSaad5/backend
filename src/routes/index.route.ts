@@ -67,6 +67,8 @@ import { mailbox } from "./mailbox.route";
 import { Forum } from "./forum.route";
 import { ForumTopic } from "./forum-topic.route";
 import { team } from "./team.route";
+import { emailAccount } from "./email-account.route";
+import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 
 const router: Router = Router();
@@ -141,6 +143,8 @@ const routes: {
   Forum,
   ForumTopic,
   team,
+  emailAccount,
+  emailClient,
   documentation,
 };
 
