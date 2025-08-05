@@ -20,8 +20,14 @@ export const user = (router: Router) => {
 
   // Address management routes
   router.post("/:userId/address", userController.addUserAddress);
-  router.delete("/:userId/address/:addressId", userController.deleteUserAddress);
-  router.patch("/:userId/address/:addressId/default", userController.setDefaultAddress);
+  router.delete(
+    "/:userId/address/:addressId",
+    userController.deleteUserAddress
+  );
+  router.patch(
+    "/:userId/address/:addressId/default",
+    userController.setDefaultAddress
+  );
 
   // route for update user
   router.patch("/:id", userValidation.updateUser, userController.updateUser);
