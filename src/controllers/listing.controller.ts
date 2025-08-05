@@ -1244,4 +1244,58 @@ export const listingController = {
       });
     }
   },
+
+  // Get all Website listings
+  getWebsiteListings: async (req: Request, res: Response) => {
+    try {
+      // Extract filters from query params
+      const {
+        searchQuery = "",
+        status,
+        listingType,
+        productCategory,
+        startDate,
+        endDate,
+        isBlocked,
+        page = "1",
+        limit = "10",
+      } = req.query;
+
+      console.log("Raw query params:", req.query);
+
+      // Safe parsing and validation
+      const filters = {
+        searchQuery: searchQuery as string,
+        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined,
+        listingType:
+          listingType && ["product", "part", "bundle"].includes(listingType.toString())
+            ? listingType.toString()
+            : undefined,
+        productCategory: productCategory ? productCategory.toString() : undefined,
+        startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
+        endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
+        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined,
+        page: Math.max(parseInt(page as string, 10) || 1, 1),
+        limit: parseInt(limit as string, 10) || 10,
+      };
+
+      console.log("Parsed filters:", filters);
+
+      // Call the service to get Website listings
+      const result = await listingService.getWebsiteListings(filters);
+
+      // Return the results
+      res.status(200).json({
+        success: true,
+        message: "Website listings fetched successfully",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Website listings:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Error fetching Website listings",
+      });
+    }
+  },
 };
