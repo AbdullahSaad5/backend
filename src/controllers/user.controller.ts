@@ -125,6 +125,7 @@ export const userController = {
         const emailContent = `
         <p>Dear ${newUser.firstName || "User"},</p>
         <p>Your account has been created by Build-My-Rig admin. Below are your login credentials:</p>
+        <p><strong>Employee ID:</strong> ${newUser.employeeId}</p>
         <p><strong>Email:</strong> ${newUser.email}</p>
         <p><strong>Password:</strong> ${password}</p>
       `;
@@ -202,6 +203,38 @@ export const userController = {
       // Handle address updates if provided
       if (addresses && Array.isArray(addresses)) {
         try {
+          console.log(`Processing ${addresses.length} addresses from payload`);
+          
+          // Get all existing addresses for this user
+          const existingAddresses = await userService.findAllAddressesByUserId(userId);
+          const existingAddressIds = existingAddresses.map((addr: any) => addr._id.toString());
+          console.log(`Found ${existingAddresses.length} existing addresses:`, existingAddressIds);
+          
+          // Get IDs of addresses in the payload (only valid ObjectIds)
+          const payloadAddressIds = addresses
+            .filter(addr => addr._id && require('mongoose').Types.ObjectId.isValid(addr._id))
+            .map(addr => addr._id.toString());
+          console.log(`Payload contains ${payloadAddressIds.length} existing addresses:`, payloadAddressIds);
+          
+          // Find addresses that exist in database but not in payload (these should be deleted)
+          const addressesToDelete = existingAddressIds.filter(id => !payloadAddressIds.includes(id));
+          console.log(`Addresses to delete:`, addressesToDelete);
+          
+          // Delete addresses that were removed from frontend
+          for (const addressId of addressesToDelete) {
+            try {
+              const deletedAddress = await userService.softDeleteAddress(addressId);
+              if (deletedAddress) {
+                console.log(`Successfully deleted address: ${addressId}`);
+              } else {
+                console.log(`Address not found for deletion: ${addressId}`);
+              }
+            } catch (deleteError) {
+              console.error(`Error deleting address ${addressId}:`, deleteError);
+            }
+          }
+          
+          // Process addresses in the payload
           for (const addr of addresses) {
             // Validate address data
             if (!addr.country || !addr.city || !addr.address || !addr.postalCode || 
@@ -255,6 +288,12 @@ export const userController = {
               }
             }
           }
+          
+          // Verify final state
+          const finalAddresses = await userService.findAllAddressesByUserId(userId);
+          console.log(`Final address count for user ${userId}: ${finalAddresses.length}`);
+          console.log(`Final addresses:`, finalAddresses.map(addr => ({ id: addr._id, address: addr.address, isActive: addr.isActive })));
+          
         } catch (addressError) {
           console.error("Error handling addresses:", addressError);
           return res

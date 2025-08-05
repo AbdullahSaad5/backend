@@ -10,6 +10,32 @@ import { IUserAddress } from "@/contracts/user-address.contracts";
 import { Types } from "mongoose";
 import { toUpper } from "lodash";
 
+// Function to generate unique Employee ID
+const generateUniqueEmployeeId = async (): Promise<string> => {
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let employeeId = '';
+  let isUnique = false;
+  
+  while (!isUnique) {
+    // Generate a 6-character alphanumeric string
+    let randomPart = '';
+    for (let i = 0; i < 6; i++) {
+      randomPart += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    
+    // Add BMR- prefix
+    employeeId = `BMR-${randomPart}`;
+    
+    // Check if this Employee ID already exists
+    const existingUser = await User.findOne({ employeeId });
+    if (!existingUser) {
+      isUnique = true;
+    }
+  }
+  
+  return employeeId;
+};
+
 export const userService = {
   getAllUsers: async () => {
     return await User.find().populate("userType");
@@ -49,6 +75,9 @@ export const userService = {
       supplierKey = await generateUniqueSupplierKey(firstName, lastName);
     }
 
+    // Generate unique Employee ID
+    const employeeId = await generateUniqueEmployeeId();
+
     const newUser = new User({
       firstName,
       lastName,
@@ -60,6 +89,7 @@ export const userService = {
       phoneNumber,
       dob,
       supplierKey, // Ensure supplierKey is set
+      employeeId, // Add the generated Employee ID
     });
 
     return await newUser.save();
@@ -427,6 +457,7 @@ export const userService = {
           { jobTitle: { $regex: searchQuery, $options: "i" } },
           { supplierKey: { $regex: searchQuery, $options: "i" } },
           { niNumber: { $regex: searchQuery, $options: "i" } },
+          { employeeId: { $regex: searchQuery, $options: "i" } },
         ];
         
         // Add combined name search for full name searches

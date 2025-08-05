@@ -12,6 +12,12 @@ const validateNINumber = (niNumber: string) => {
   return niRegex.test(niNumber);
 };
 
+// Employee ID validation function
+const validateEmployeeId = (employeeId: string) => {
+  const employeeIdRegex = /^BMR-[A-Z0-9]{6}$/;
+  return employeeIdRegex.test(employeeId);
+};
+
 export const fileSchema = {
   url: { type: String },
   type: { type: String },
@@ -57,6 +63,17 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
 
     // supplierKey added but not required by default
     supplierKey: { type: String },
+
+    // Employee ID - unique 6-character alphanumeric identifier
+    employeeId: {
+      type: String,
+      unique: true,
+      required: true,
+      validate: {
+        validator: validateEmployeeId,
+        message: "Employee ID must be in format: BMR-XXXXXX (where XXXXXX are 6 uppercase letters/numbers)",
+      },
+    },
 
     // Profile Completion Fields
     // Personal Information
