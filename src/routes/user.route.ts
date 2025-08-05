@@ -43,4 +43,9 @@ export const user = (router: Router) => {
   // Profile Completion Routes
   router.get("/:id/profile-status", userValidation.validateId, userController.getProfileCompletionStatus);
   router.patch("/:id/profile-completion", userValidation.validateId, userValidation.profileCompletion, userController.updateProfileCompletion);
+
+  // Team Assignment Routes
+  router.patch("/:id/assign-teams", userValidation.validateId, userController.assignTeams);
+  router.get("/:id/teams", userValidation.validateId, userController.getUserWithTeams);
+  router.delete("/:userId/teams/:teamId", userValidation.validateId, userController.removeTeam);
 };

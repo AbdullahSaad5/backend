@@ -44,9 +44,26 @@ export const userService = {
   },
   findUserById: async (id: string, select?: string) => {
     if (select) {
-      return await User.findById(id).populate("userType").select(select);
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
+        .select(select);
     } else {
-      return await User.findById(id).populate("userType");
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        });
     }
   },
 
