@@ -15,8 +15,27 @@ export const leaveRequestService = {
     return LeaveRequest.create({ userId, date, reason, leaveType, ...(isPaid !== undefined && { isPaid }) });
   },
 
-  getLeaveRequests: async (filter: any = {}) => {
-    return LeaveRequest.find(filter).populate("userId", "firstName lastName email").sort({ date: -1 });
+  getLeaveRequests: async (filter: any = {}, page: number = 1, limit: number = 5) => {
+    const skip = (page - 1) * limit;
+
+    const [results, total] = await Promise.all([
+      LeaveRequest.find(filter)
+        .populate("userId", "firstName lastName email")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit),
+      LeaveRequest.countDocuments(filter),
+    ]);
+
+    return {
+      results,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    };
   },
 
   updateLeaveRequestStatus: async (requestId: string, status: "approved" | "rejected", isPaid?: boolean) => {
@@ -36,7 +55,26 @@ export const leaveRequestService = {
     return LeaveRequest.findById(id).populate("userId", "firstName lastName email");
   },
 
-  getUserLeaveRequests: async (userId: string) => {
-    return LeaveRequest.find({ userId }).populate("userId", "firstName lastName email,");
+  getUserLeaveRequests: async (userId: string, page: number = 1, limit: number = 5) => {
+    const skip = (page - 1) * limit;
+
+    const [results, total] = await Promise.all([
+      LeaveRequest.find({ userId })
+        .populate("userId", "firstName lastName email")
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(limit),
+      LeaveRequest.countDocuments({ userId }),
+    ]);
+
+    return {
+      results,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+    };
   },
 };
