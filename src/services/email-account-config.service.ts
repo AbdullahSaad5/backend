@@ -70,7 +70,7 @@ export class EmailAccountConfigService {
             refreshToken: oauth.refreshToken,
             accessToken: accessTokenResponse.token || "",
           },
-        });
+        } as any);
       }
 
       // Outlook OAuth configuration
@@ -87,7 +87,7 @@ export class EmailAccountConfigService {
             refreshToken: oauth.refreshToken,
             accessToken: oauth.accessToken || "",
           },
-        });
+        } as any);
       }
 
       // Standard SMTP configuration
