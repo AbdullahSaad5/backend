@@ -3,7 +3,7 @@ import { IForumTopic, ForumTopicModel } from '@/contracts/forum-topic.contract';
 import mongoose, { Document, Schema, model } from 'mongoose';
 
 
-const ForumTopicSchema = new Schema<IForumTopic,ForumTopicModel>({
+const ForumTopicSchema = new Schema<IForumTopic, ForumTopicModel>({
   topic: {
     type: String,
     required: true,
@@ -12,17 +12,9 @@ const ForumTopicSchema = new Schema<IForumTopic,ForumTopicModel>({
     maxlength: 100
   },
   category: {
-    type: String,
-    required: true,
-    enum: [
-      'General Categories',
-      'Technology',
-      'Education',
-      'Gaming',
-      'Creative & Media',
-      'Support & Help',
-      'Marketplace'
-    ]
+    type: Schema.Types.ObjectId,
+    ref: "ForumCategory",
+    required: [true, "Forum category is required"],
   },
   content: {
     type: String,

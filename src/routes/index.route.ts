@@ -71,6 +71,7 @@ import { emailAccount } from "./email-account.route";
 import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 
+import { ForumCategory } from "./forum-category.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -146,6 +147,7 @@ const routes: {
   emailAccount,
   emailClient,
   documentation,
+  ForumCategory
 };
 
 // Loop through all routes and pass the router to each route
