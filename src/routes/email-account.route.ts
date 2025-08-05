@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { MailboxController } from "@/controllers/mailbox.controller";
 
-export const emailAccountRoutes = (router: Router) => {
+export const emailAccount = (router: Router) => {
   // Admin routes for managing email accounts
   router.post("/admin/email-accounts", MailboxController.createEmailAccount);
   router.get("/admin/email-accounts", MailboxController.getEmailAccounts);
@@ -9,4 +9,3 @@ export const emailAccountRoutes = (router: Router) => {
   router.patch("/admin/email-accounts/:id", MailboxController.updateEmailAccount);
   router.delete("/admin/email-accounts/:id", MailboxController.deleteEmailAccount);
 };
-
