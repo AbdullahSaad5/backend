@@ -76,6 +76,19 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       },
     },
 
+    // Team Assignments
+    teamAssignments: {
+      type: [
+        {
+          teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+          priority: { type: Number, required: true },
+          assignedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+      _id: false,
+    },
+
     // Profile Completion Fields
     // Personal Information
     gender: {
