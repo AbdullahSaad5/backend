@@ -12,27 +12,29 @@ import { toUpper } from "lodash";
 
 // Function to generate unique Employee ID
 const generateUniqueEmployeeId = async (): Promise<string> => {
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let employeeId = '';
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let employeeId = "";
   let isUnique = false;
-  
+
   while (!isUnique) {
     // Generate a 6-character alphanumeric string
-    let randomPart = '';
+    let randomPart = "";
     for (let i = 0; i < 6; i++) {
-      randomPart += characters.charAt(Math.floor(Math.random() * characters.length));
+      randomPart += characters.charAt(
+        Math.floor(Math.random() * characters.length)
+      );
     }
-    
+
     // Add BMR- prefix
     employeeId = `BMR-${randomPart}`;
-    
+
     // Check if this Employee ID already exists
     const existingUser = await User.findOne({ employeeId });
     if (!existingUser) {
       isUnique = true;
     }
   }
-  
+
   return employeeId;
 };
 
@@ -128,21 +130,30 @@ export const userService = {
   },
 
   // Profile Completion Methods
-  updateProfileCompletion: async (userId: string, profileData: ProfileCompletionPayload) => {
+  updateProfileCompletion: async (
+    userId: string,
+    profileData: ProfileCompletionPayload
+  ) => {
     try {
       // Convert date strings to Date objects if provided
       const updateData: any = { ...profileData };
-      
+
+      console.log("updateData last and agaonn : ", updateData);
+
       if (profileData.passportExpiryDate) {
-        updateData.passportExpiryDate = new Date(profileData.passportExpiryDate);
+        updateData.passportExpiryDate = new Date(
+          profileData.passportExpiryDate
+        );
       }
-      
+
       if (profileData.visaExpiryDate) {
         updateData.visaExpiryDate = new Date(profileData.visaExpiryDate);
       }
 
       if (profileData.employmentStartDate) {
-        updateData.employmentStartDate = new Date(profileData.employmentStartDate);
+        updateData.employmentStartDate = new Date(
+          profileData.employmentStartDate
+        );
       }
 
       if (profileData.dob) {
@@ -152,12 +163,22 @@ export const userService = {
       // Handle empty strings - convert to null/undefined for optional fields
       if (updateData.gender === "") updateData.gender = undefined;
       if (updateData.jobTitle === "") updateData.jobTitle = undefined;
-      if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
+      if (updateData.employmentStartDate === "")
+        updateData.employmentStartDate = undefined;
       if (updateData.niNumber === "") updateData.niNumber = undefined;
-      if (updateData.emergencyPhoneNumber === "") updateData.emergencyPhoneNumber = undefined;
-      if (updateData.countryOfIssue === "") updateData.countryOfIssue = undefined;
-      if (updateData.passportNumber === "") updateData.passportNumber = undefined;
+      if (updateData.taxId === "") updateData.taxId = undefined;
+      if (updateData.emergencyPhoneNumber === "")
+        updateData.emergencyPhoneNumber = undefined;
+      if (updateData.countryOfIssue === "")
+        updateData.countryOfIssue = undefined;
+      if (updateData.passportNumber === "")
+        updateData.passportNumber = undefined;
       if (updateData.visaNumber === "") updateData.visaNumber = undefined;
+      if (updateData.bankName === "") updateData.bankName = undefined;
+      if (updateData.bankBranch === "") updateData.bankBranch = undefined;
+      if (updateData.accountName === "") updateData.accountName = undefined;
+      if (updateData.sortCode === "") updateData.sortCode = undefined;
+      if (updateData.accountNumber === "") updateData.accountNumber = undefined;
 
       // If user is not foreign user, clear all foreign user related fields
       if (updateData.isForeignUser === false) {
@@ -170,16 +191,9 @@ export const userService = {
         updateData.visaDocument = undefined;
       }
 
-      // Calculate profile completion percentage
-      const completionPercentage = await userService.calculateProfileCompletion(userId, updateData);
-      updateData.profileCompletionPercentage = completionPercentage;
-      updateData.profileCompleted = completionPercentage === 100;
-
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true }
-      ).populate("userType");
+      const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+        new: true,
+      }).populate("userType");
 
       return updatedUser;
     } catch (error) {
@@ -191,13 +205,21 @@ export const userService = {
   calculateProfileCompletion: async (userId: string, profileData?: any) => {
     try {
       let user = profileData;
-      
+
       if (!user) {
         user = await User.findById(userId);
         if (!user) return 0;
       }
 
-      const totalFields = 12; // Updated total number of profile fields (added DOB)
+      // Base fields that apply to all users (14 fields)
+      const baseFields = 15;
+      // Foreign user specific fields (3 fields)
+      const foreignFields = 3;
+
+      // Calculate total fields based on user type
+      const totalFields = user.isForeignUser
+        ? baseFields + foreignFields
+        : baseFields;
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -210,20 +232,32 @@ export const userService = {
       if (user.geofencingRadius !== undefined) completedFields++;
       if (user.geofencingAttendanceEnabled !== undefined) completedFields++;
 
-      // Employment Information (3 fields)
+      // Employment Information (4 fields)
       if (user.jobTitle) completedFields++;
       if (user.employmentStartDate) completedFields++;
       if (user.niNumber) completedFields++;
+      if (user.taxId) completedFields++;
+
+      // Banking Details (5 fields)
+      if (user.bankName) completedFields++;
+      if (user.bankBranch) completedFields++;
+      if (user.accountName) completedFields++;
+      if (user.sortCode) completedFields++;
+      if (user.accountNumber) completedFields++;
 
       // Foreign User Information (3 fields) - only count if isForeignUser is true
       if (user.isForeignUser) {
         if (user.countryOfIssue) completedFields++;
-        if (user.passportNumber && user.passportExpiryDate && user.passportDocument) completedFields++;
-        if (user.visaNumber && user.visaExpiryDate && user.visaDocument) completedFields++;
-      } else {
-        // If not foreign user, these fields are not required, so count them as completed
-        completedFields += 3;
+        if (
+          user.passportNumber &&
+          user.passportExpiryDate &&
+          user.passportDocument
+        )
+          completedFields++;
+        if (user.visaNumber && user.visaExpiryDate && user.visaDocument)
+          completedFields++;
       }
+      // Note: If not foreign user, we don't add these fields to either completed or total
 
       return Math.round((completedFields / totalFields) * 100);
     } catch (error) {
@@ -237,12 +271,27 @@ export const userService = {
       const user = await User.findById(userId);
       if (!user) return null;
 
-      const completionPercentage = await userService.calculateProfileCompletion(userId, user.toObject());
-      
+      const completionPercentage = await userService.calculateProfileCompletion(
+        userId,
+        user.toObject()
+      );
+
+      const profileCompleted = completionPercentage === 100;
+
+      // Update user with calculated values
+      user.profileCompletionPercentage = completionPercentage;
+      user.profileCompleted = profileCompleted;
+
+      // Save the updated user
+      await user.save();
+
       return {
-        profileCompleted: user.profileCompleted || false,
+        profileCompleted: profileCompleted || false,
         profileCompletionPercentage: completionPercentage,
-        missingFields: await userService.getMissingProfileFields(userId, user.toObject())
+        missingFields: await userService.getMissingProfileFields(
+          userId,
+          user.toObject()
+        ),
       };
     } catch (error) {
       console.error("Error getting profile completion status:", error);
@@ -253,7 +302,7 @@ export const userService = {
   getMissingProfileFields: async (userId: string, userData?: any) => {
     try {
       let user = userData;
-      
+
       if (!user) {
         user = await User.findById(userId);
         if (!user) return [];
@@ -263,23 +312,39 @@ export const userService = {
 
       // Personal Information
       if (!user.gender) missingFields.push("Gender");
-      if (!user.emergencyPhoneNumber) missingFields.push("Emergency Phone Number");
+      if (!user.emergencyPhoneNumber)
+        missingFields.push("Emergency Phone Number");
       if (!user.profileImage) missingFields.push("Profile Image");
       if (!user.dob) missingFields.push("Date of Birth");
 
       // Geofencing Configuration
-      if (user.geofencingRadius === undefined) missingFields.push("Geofencing Radius");
-      if (user.geofencingAttendanceEnabled === undefined) missingFields.push("Geofencing Attendance");
+      if (user.geofencingRadius === undefined)
+        missingFields.push("Geofencing Radius");
+      if (user.geofencingAttendanceEnabled === undefined)
+        missingFields.push("Geofencing Attendance");
 
       // Employment Information
       if (!user.jobTitle) missingFields.push("Job Title");
-      if (!user.employmentStartDate) missingFields.push("Employment Start Date");
+      if (!user.employmentStartDate)
+        missingFields.push("Employment Start Date");
       if (!user.niNumber) missingFields.push("NI Number");
+      if (!user.taxId) missingFields.push("Tax ID");
+
+      // Banking Details
+      if (!user.bankName) missingFields.push("Bank Name");
+      if (!user.bankBranch) missingFields.push("Bank Branch");
+      if (!user.accountName) missingFields.push("Account Name");
+      if (!user.accountNumber) missingFields.push("Account Number");
+      if (!user.sortCode) missingFields.push("Sort Code");
 
       // Foreign User Information
       if (user.isForeignUser) {
         if (!user.countryOfIssue) missingFields.push("Country of Issue");
-        if (!user.passportNumber || !user.passportExpiryDate || !user.passportDocument) {
+        if (
+          !user.passportNumber ||
+          !user.passportExpiryDate ||
+          !user.passportDocument
+        ) {
           missingFields.push("Passport Information");
         }
         if (!user.visaNumber || !user.visaExpiryDate || !user.visaDocument) {
@@ -338,7 +403,10 @@ export const userService = {
         ...addresses[i],
         isDefault: i === 0, // Make first address default
       };
-      const createdAddress = await userService.createAddress(addressData, userId);
+      const createdAddress = await userService.createAddress(
+        addressData,
+        userId
+      );
       createdAddresses.push(createdAddress);
     }
     return createdAddresses;
@@ -349,24 +417,31 @@ export const userService = {
   },
 
   findAddressByUserId: (userId: string) => {
-    return Address.find({ userId: userId, isActive: true }).sort({ isDefault: -1, createdAt: 1 });
+    return Address.find({ userId: userId, isActive: true }).sort({
+      isDefault: -1,
+      createdAt: 1,
+    });
   },
 
   findAllAddressesByUserId: (userId: string) => {
-    return Address.find({ userId: userId, isActive: true }).sort({ isDefault: -1, createdAt: 1 });
+    return Address.find({ userId: userId, isActive: true }).sort({
+      isDefault: -1,
+      createdAt: 1,
+    });
   },
 
   softDeleteAddress: async (addressId: string) => {
-    return Address.findByIdAndUpdate(addressId, { isActive: false }, { new: true });
+    return Address.findByIdAndUpdate(
+      addressId,
+      { isActive: false },
+      { new: true }
+    );
   },
 
   setDefaultAddress: async (addressId: string, userId: string) => {
     // First, remove default from all addresses for this user
-    await Address.updateMany(
-      { userId, isActive: true },
-      { isDefault: false }
-    );
-    
+    await Address.updateMany({ userId, isActive: true }, { isDefault: false });
+
     // Then set the specified address as default
     return Address.findByIdAndUpdate(
       addressId,
@@ -425,30 +500,33 @@ export const userService = {
 
       // Build the query dynamically based on filters
       const query: any = {};
-      
+
       // Always exclude super admin, admin, and supplier users from the results
       const excludedRoles = ["super admin", "supplier"];
-      const excludedUserTypes = await UserCategory.find({ 
-        role: { $in: excludedRoles } 
+      const excludedUserTypes = await UserCategory.find({
+        role: { $in: excludedRoles },
       });
-      const excludedUserTypeIds = excludedUserTypes.map(cat => cat._id);
-      
+      const excludedUserTypeIds = excludedUserTypes.map((cat) => cat._id);
+
       if (excludedUserTypeIds.length > 0) {
         query.userType = { $nin: excludedUserTypeIds };
       }
 
       if (searchQuery) {
         console.log("Searching for:", searchQuery);
-        
+
         // First, try to find user categories that match the search query
         const matchingCategories = await UserCategory.find({
-          role: { $regex: searchQuery, $options: "i" }
+          role: { $regex: searchQuery, $options: "i" },
         });
-        
-        const categoryIds = matchingCategories.map(cat => cat._id);
-        console.log("Found matching categories:", matchingCategories.map(cat => cat.role));
+
+        const categoryIds = matchingCategories.map((cat) => cat._id);
+        console.log(
+          "Found matching categories:",
+          matchingCategories.map((cat) => cat.role)
+        );
         console.log("Category IDs:", categoryIds);
-        
+
         query.$or = [
           { firstName: { $regex: searchQuery, $options: "i" } },
           { lastName: { $regex: searchQuery, $options: "i" } },
@@ -457,41 +535,50 @@ export const userService = {
           { jobTitle: { $regex: searchQuery, $options: "i" } },
           { supplierKey: { $regex: searchQuery, $options: "i" } },
           { niNumber: { $regex: searchQuery, $options: "i" } },
+          { taxId: { $regex: searchQuery, $options: "i" } },
           { employeeId: { $regex: searchQuery, $options: "i" } },
         ];
-        
+
         // Add combined name search for full name searches
         // This will match when someone searches for "Hammad Zamir" or similar combined names
         const searchTerms = searchQuery.trim().split(/\s+/);
         if (searchTerms.length > 1) {
           console.log("Multiple search terms detected:", searchTerms);
-          
+
           // If search query has multiple words, try to match them as first and last name combinations
           query.$or.push({
             $and: [
               { firstName: { $regex: searchTerms[0], $options: "i" } },
-              { lastName: { $regex: searchTerms[searchTerms.length - 1], $options: "i" } }
-            ]
+              {
+                lastName: {
+                  $regex: searchTerms[searchTerms.length - 1],
+                  $options: "i",
+                },
+              },
+            ],
           });
-          
+
           // Also try reverse order (last name first, then first name)
           if (searchTerms.length === 2) {
             query.$or.push({
               $and: [
                 { firstName: { $regex: searchTerms[1], $options: "i" } },
-                { lastName: { $regex: searchTerms[0], $options: "i" } }
-              ]
+                { lastName: { $regex: searchTerms[0], $options: "i" } },
+              ],
             });
           }
-          
+
           console.log("Added combined name search for:", searchTerms);
         }
-        
+
         // If we found matching categories, add them to the search
         if (categoryIds.length > 0) {
           // Filter out excluded categories from search results
-          const allowedCategoryIds = categoryIds.filter(id => 
-            !excludedUserTypeIds.some(excludedId => excludedId.toString() === id.toString())
+          const allowedCategoryIds = categoryIds.filter(
+            (id) =>
+              !excludedUserTypeIds.some(
+                (excludedId) => excludedId.toString() === id.toString()
+              )
           );
           if (allowedCategoryIds.length > 0) {
             query.$or.push({ userType: { $in: allowedCategoryIds } });
@@ -514,7 +601,7 @@ export const userService = {
             // and also match the specific userType
             query.$and = [
               { userType: { $nin: excludedUserTypeIds } },
-              { userType: userCategory._id }
+              { userType: userCategory._id },
             ];
             delete query.userType;
           } else {

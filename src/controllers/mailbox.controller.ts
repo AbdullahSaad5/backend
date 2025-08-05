@@ -7,6 +7,9 @@ import { EmailDirection, EmailType, EmailStatus, EmailPriority } from "@/contrac
 import { MarketingCampaign, SMSMessage, NewsletterSubscriber } from "@/models/marketing.model";
 import { EmailThreadModel } from "@/models/email-thread.model";
 import { smsService } from "@/services/sms.service";
+import { EmailAccountModel } from "@/models/email-account.model";
+import { logger } from "@/utils/logger.util";
+import { socketManager } from "@/datasources/socket.datasource";
 import crypto from "crypto";
 
 // Helper function to verify SES signature (optional but recommended)
@@ -16,7 +19,7 @@ const verifySESSignature = (notification: any): boolean => {
     // For now, we'll do basic validation
     return notification && notification.Type && notification.Message;
   } catch (error) {
-    console.error('Error verifying SES signature:', error);
+    console.error("Error verifying SES signature:", error);
     return false;
   }
 };
@@ -24,26 +27,89 @@ const verifySESSignature = (notification: any): boolean => {
 export const MailboxController = {
   // Process incoming email (from webhooks)
   processEmail: async (req: Request, res: Response) => {
+    const webhookRequestId = crypto.randomUUID();
+    const startTime = Date.now();
+
     try {
       const emailEvent = req.body;
+      const clientIP = req.ip || req.connection.remoteAddress || "unknown";
+      const userAgent = req.get("User-Agent") || "unknown";
+
+      logger.info(`[${webhookRequestId}] Webhook request received`, {
+        ip: clientIP,
+        userAgent,
+        contentType: req.get("Content-Type"),
+        contentLength: req.get("Content-Length"),
+        hasBody: !!emailEvent,
+        bodyKeys: emailEvent ? Object.keys(emailEvent) : [],
+      });
+
       // Verify the notification signature (optional but recommended)
+      logger.info(`[${webhookRequestId}] Verifying webhook signature`);
       const isSignatureValid = verifySESSignature(emailEvent);
+
       if (!isSignatureValid) {
+        logger.warn(`[${webhookRequestId}] Invalid webhook signature`, {
+          ip: clientIP,
+          userAgent,
+          eventType: emailEvent?.Type,
+          hasMessage: !!emailEvent?.Message,
+        });
+
         return res.status(StatusCodes.FORBIDDEN).json({
           success: false,
-          message: "Invalid SES notification signature."
+          message: "Invalid SES notification signature.",
         });
       }
 
-      const result = await EmailProcessingService.processIncomingEmail(emailEvent);
+      logger.info(`[${webhookRequestId}] Webhook signature valid, processing email`);
+      const result: any = await EmailProcessingService.processIncomingEmail(emailEvent);
+
+      const processingTime = Date.now() - startTime;
 
       if (result.success) {
-        res.status(StatusCodes.CREATED).json({ success: true, data: result.email });
+        logger.info(`[${webhookRequestId}] Webhook processing completed successfully`, {
+          processingTimeMs: processingTime,
+          emailId: result.email?._id,
+          messageId: result.email?.messageId,
+          threadId: result.email?.threadId,
+          from: result.email?.from?.email,
+          to: result.email?.to?.map((t: any) => t.email),
+          subject: result.email?.subject,
+        });
+
+        res.status(StatusCodes.CREATED).json({
+          success: true,
+          data: result.email,
+          processingTime: processingTime,
+        });
       } else {
-        res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: result.error });
+        logger.error(`[${webhookRequestId}] Webhook processing failed`, {
+          error: result.error,
+          processingTimeMs: processingTime,
+          ip: clientIP,
+        });
+
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: result.error,
+        });
       }
-    } catch (error) {
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Failed to process email." });
+    } catch (error: any) {
+      const processingTime = Date.now() - startTime;
+
+      logger.error(`[${webhookRequestId}] Webhook processing exception`, {
+        error: error.message,
+        stack: error.stack,
+        processingTimeMs: processingTime,
+        ip: req.ip || "unknown",
+        userAgent: req.get("User-Agent") || "unknown",
+      });
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to process email.",
+      });
     }
   },
 
@@ -72,9 +138,68 @@ export const MailboxController = {
       });
 
       if (result.status === "sent") {
-        // Normalize subject and generate thread ID
-        const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-        const threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+        // Check if this is a reply or forward by analyzing subject and finding original email
+        const isReply = subject.toLowerCase().includes("re:");
+        const isForward = subject.toLowerCase().includes("fwd:") || subject.toLowerCase().includes("fw:");
+        let threadId;
+        let originalEmailId = null;
+
+        if (isReply || isForward) {
+          // Find the original email being replied to or forwarded
+          const cleanSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+
+          // Look for existing emails with similar subject or in same thread
+          const originalEmail = await EmailModel.findOne({
+            $and: [
+              {
+                $or: [{ subject: { $regex: cleanSubject, $options: "i" } }, { subject: cleanSubject }],
+              },
+              {
+                $or: [
+                  { "from.email": Array.isArray(to) ? to[0] : to },
+                  { "to.email": from || switchableEmailService.getProviderConfig().config.defaultFromEmail },
+                ],
+              },
+            ],
+          }).sort({ receivedAt: -1 });
+
+          if (originalEmail) {
+            threadId = originalEmail.threadId;
+            originalEmailId = originalEmail._id;
+
+            // Mark original email as replied or forwarded
+            if (isReply) {
+              originalEmail.isReplied = true;
+              originalEmail.repliedAt = new Date();
+              if (!originalEmail.isRead) {
+                originalEmail.isRead = true;
+                originalEmail.readAt = new Date();
+              }
+            } else if (isForward) {
+              originalEmail.isForwarded = true;
+              originalEmail.forwardedAt = new Date();
+              if (!originalEmail.isRead) {
+                originalEmail.isRead = true;
+                originalEmail.readAt = new Date();
+              }
+            }
+            await originalEmail.save();
+
+            logger.info(`Original email updated`, {
+              originalEmailId: originalEmail._id,
+              isReply,
+              isForward,
+              threadId,
+            });
+          } else {
+            // No original email found, create new thread
+            threadId = `thread_${cleanSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+          }
+        } else {
+          // New email thread
+          const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+          threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+        }
 
         // Save sent email to database
         const emailData = {
@@ -93,7 +218,8 @@ export const MailboxController = {
           bcc: bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : [],
           sentAt: new Date(),
           receivedAt: new Date(),
-          isRead: false,
+          isRead: true, // Outbound emails are considered "read" by the sender
+          readAt: new Date(),
           isReplied: false,
           isForwarded: false,
           isArchived: false,
@@ -225,7 +351,6 @@ export const MailboxController = {
       const history = await EmailModel.find({ "to.email": userId })
         .populate("assignedTo")
         .populate("relatedOrderId")
-        .populate("relatedCustomerId")
         .exec();
       res.status(StatusCodes.OK).json({
         success: true,
@@ -432,8 +557,7 @@ export const MailboxController = {
         .skip(skip)
         .limit(Number(limit))
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       const total = await EmailThreadModel.countDocuments(filter);
 
@@ -491,8 +615,7 @@ export const MailboxController = {
       // Get thread information
       const thread = await EmailThreadModel.findOne({ threadId })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       if (!thread) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -505,8 +628,7 @@ export const MailboxController = {
       const emails = await EmailModel.find({ threadId })
         .sort({ receivedAt: 1, sentAt: 1 })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       // Mark emails as read if requested
       if (markAsRead === "true" && userEmail) {
@@ -607,8 +729,7 @@ export const MailboxController = {
 
       const thread = await EmailThreadModel.findOne({ threadId })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       if (!thread) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -690,8 +811,7 @@ export const MailboxController = {
         .skip(skip)
         .limit(Number(limit))
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       const total = await EmailModel.countDocuments(filter);
 
@@ -721,15 +841,27 @@ export const MailboxController = {
   getEmailById: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const email = await EmailModel.findById(id)
-        .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+      const { markAsRead = false } = req.query;
+
+      const email = await EmailModel.findById(id).populate("assignedTo", "name email").populate("relatedOrderId");
 
       if (!email) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Email not found",
+        });
+      }
+
+      // Mark as read if requested (like when user opens email)
+      if (markAsRead === "true" && !email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+        await email.save();
+
+        logger.info("Email marked as read", {
+          emailId: email._id,
+          messageId: email.messageId,
+          readAt: email.readAt,
         });
       }
 
@@ -793,6 +925,962 @@ export const MailboxController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to get service status",
+        error: error.message,
+      });
+    }
+  },
+
+  // ====================
+  // EMAIL STATUS FLAGS MANAGEMENT (Real Email Client Functionality)
+  // ====================
+
+  // Mark single email as read/unread
+  markEmailAsRead: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isRead = true } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      const wasRead = email.isRead;
+      email.isRead = isRead;
+      email.readAt = isRead && !wasRead ? new Date() : isRead ? email.readAt : null;
+      await email.save();
+
+      // Emit real-time notification to all recipients
+      const recipients = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+      recipients.forEach((recipient) => {
+        socketManager.emitEmailStatusUpdate(recipient.email, {
+          emailId: email._id.toString(),
+          isRead: email.isRead,
+          readAt: email.readAt,
+        });
+      });
+
+      logger.info(`Email marked as ${isRead ? "read" : "unread"}`, {
+        emailId: email._id,
+        messageId: email.messageId,
+        previousState: wasRead,
+        newState: isRead,
+        readAt: email.readAt,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Email marked as ${isRead ? "read" : "unread"}`,
+        data: {
+          id: email._id,
+          isRead: email.isRead,
+          readAt: email.readAt,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as read error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update read status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark multiple emails as read/unread
+  markEmailsAsRead: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isRead = true } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isRead };
+      if (isRead) {
+        updateData.readAt = new Date();
+      } else {
+        updateData.readAt = null;
+      }
+
+      const result = await EmailModel.updateMany({ _id: { $in: emailIds } }, { $set: updateData });
+
+      logger.info(`Bulk email read status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isRead,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails marked as ${isRead ? "read" : "unread"}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isRead,
+        },
+      });
+    } catch (error: any) {
+      console.error("Bulk mark emails as read error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update read status",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark email as replied (when user sends a reply)
+  markEmailAsReplied: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { repliedAt } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      email.isReplied = true;
+      email.repliedAt = repliedAt ? new Date(repliedAt) : new Date();
+
+      // Also mark as read when replying
+      if (!email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+      }
+
+      await email.save();
+
+      logger.info("Email marked as replied", {
+        emailId: email._id,
+        messageId: email.messageId,
+        repliedAt: email.repliedAt,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email marked as replied",
+        data: {
+          id: email._id,
+          isReplied: email.isReplied,
+          repliedAt: email.repliedAt,
+          isRead: email.isRead,
+          readAt: email.readAt,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as replied error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark email as replied",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark email as forwarded (when user forwards an email)
+  markEmailAsForwarded: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { forwardedAt, forwardedTo } = req.body;
+
+      const email = await EmailModel.findById(id);
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      email.isForwarded = true;
+      email.forwardedAt = forwardedAt ? new Date(forwardedAt) : new Date();
+
+      // Store forwarded recipients in tags or custom field
+      if (forwardedTo) {
+        const forwardTag = `forwarded_to:${Array.isArray(forwardedTo) ? forwardedTo.join(",") : forwardedTo}`;
+        if (!email.tags.includes(forwardTag)) {
+          email.tags.push(forwardTag);
+        }
+      }
+
+      // Also mark as read when forwarding
+      if (!email.isRead) {
+        email.isRead = true;
+        email.readAt = new Date();
+      }
+
+      await email.save();
+
+      logger.info("Email marked as forwarded", {
+        emailId: email._id,
+        messageId: email.messageId,
+        forwardedAt: email.forwardedAt,
+        forwardedTo,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email marked as forwarded",
+        data: {
+          id: email._id,
+          isForwarded: email.isForwarded,
+          forwardedAt: email.forwardedAt,
+          isRead: email.isRead,
+          readAt: email.readAt,
+          tags: email.tags,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark email as forwarded error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark email as forwarded",
+        error: error.message,
+      });
+    }
+  },
+
+  // Archive/Unarchive emails
+  archiveEmails: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isArchived = true } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isArchived };
+      if (isArchived) {
+        updateData.archivedAt = new Date();
+      } else {
+        updateData.archivedAt = null;
+      }
+
+      const result = await EmailModel.updateMany({ _id: { $in: emailIds } }, { $set: updateData });
+
+      logger.info(`Bulk email archive status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isArchived,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails ${isArchived ? "archived" : "unarchived"}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isArchived,
+        },
+      });
+    } catch (error: any) {
+      console.error("Archive emails error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to archive emails",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark emails as spam/not spam
+  markEmailsAsSpam: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, isSpam = true, reason } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      const updateData: any = { isSpam };
+      if (isSpam) {
+        updateData.spamMarkedAt = new Date();
+        updateData.status = EmailStatus.SPAM;
+        // Add spam reason to tags if provided
+        if (reason) {
+          updateData.$addToSet = { tags: `spam_reason:${reason}` };
+        }
+      } else {
+        updateData.spamMarkedAt = null;
+        updateData.status = EmailStatus.RECEIVED; // Reset to received status
+        // Remove spam-related tags
+        updateData.$pull = { tags: { $regex: "^spam_reason:" } };
+      }
+
+      const result = await EmailModel.updateMany({ _id: { $in: emailIds } }, updateData);
+
+      logger.info(`Bulk email spam status update`, {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        isSpam,
+        reason,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails marked as ${isSpam ? "spam" : "not spam"}`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          isSpam,
+          reason,
+        },
+      });
+    } catch (error: any) {
+      console.error("Mark emails as spam error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark emails as spam",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get email status summary for a user
+  getEmailStatusSummary: async (req: Request, res: Response) => {
+    try {
+      const { userEmail } = req.query;
+
+      if (!userEmail) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "User email is required",
+        });
+      }
+
+      const filter = {
+        $or: [
+          { "from.email": userEmail },
+          { "to.email": userEmail },
+          { "cc.email": userEmail },
+          { "bcc.email": userEmail },
+        ],
+      };
+
+      const [inboundStats, outboundStats] = await Promise.all([
+        // Inbound email stats
+        EmailModel.aggregate([
+          {
+            $match: {
+              ...filter,
+              direction: EmailDirection.INBOUND,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              unread: { $sum: { $cond: ["$isRead", 0, 1] } },
+              read: { $sum: { $cond: ["$isRead", 1, 0] } },
+              replied: { $sum: { $cond: ["$isReplied", 1, 0] } },
+              forwarded: { $sum: { $cond: ["$isForwarded", 1, 0] } },
+              archived: { $sum: { $cond: ["$isArchived", 1, 0] } },
+              spam: { $sum: { $cond: ["$isSpam", 1, 0] } },
+            },
+          },
+        ]),
+        // Outbound email stats
+        EmailModel.aggregate([
+          {
+            $match: {
+              ...filter,
+              direction: EmailDirection.OUTBOUND,
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              sent: { $sum: { $cond: [{ $eq: ["$status", EmailStatus.PROCESSED] }, 1, 0] } },
+              failed: { $sum: { $cond: [{ $eq: ["$status", EmailStatus.FAILED] }, 1, 0] } },
+              archived: { $sum: { $cond: ["$isArchived", 1, 0] } },
+            },
+          },
+        ]),
+      ]);
+
+      const inbound = inboundStats[0] || {
+        total: 0,
+        unread: 0,
+        read: 0,
+        replied: 0,
+        forwarded: 0,
+        archived: 0,
+        spam: 0,
+      };
+
+      const outbound = outboundStats[0] || {
+        total: 0,
+        sent: 0,
+        failed: 0,
+        archived: 0,
+      };
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          userEmail,
+          inbound: {
+            total: inbound.total,
+            unread: inbound.unread,
+            read: inbound.read,
+            replied: inbound.replied,
+            forwarded: inbound.forwarded,
+            archived: inbound.archived,
+            spam: inbound.spam,
+            active: inbound.total - inbound.archived - inbound.spam,
+          },
+          outbound: {
+            total: outbound.total,
+            sent: outbound.sent,
+            failed: outbound.failed,
+            archived: outbound.archived,
+            active: outbound.total - outbound.archived,
+          },
+          overall: {
+            total: inbound.total + outbound.total,
+            totalActive: inbound.total - inbound.archived - inbound.spam + (outbound.total - outbound.archived),
+            totalArchived: inbound.archived + outbound.archived,
+            totalSpam: inbound.spam,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("Get email status summary error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get email status summary",
+        error: error.message,
+      });
+    }
+  },
+
+  // Bulk update email status flags
+  bulkUpdateEmailStatus: async (req: Request, res: Response) => {
+    try {
+      const { emailIds, updates } = req.body;
+
+      if (!emailIds || !Array.isArray(emailIds) || emailIds.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Email IDs array is required",
+        });
+      }
+
+      if (!updates || typeof updates !== "object") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Updates object is required",
+        });
+      }
+
+      // Validate and prepare update data
+      const updateData: any = {};
+      const validFlags = ["isRead", "isReplied", "isForwarded", "isArchived", "isSpam"];
+
+      for (const flag of validFlags) {
+        if (updates[flag] !== undefined) {
+          updateData[flag] = updates[flag];
+
+          // Set corresponding timestamp fields
+          if (flag === "isRead" && updates[flag]) {
+            updateData.readAt = new Date();
+          } else if (flag === "isRead" && !updates[flag]) {
+            updateData.readAt = null;
+          } else if (flag === "isArchived" && updates[flag]) {
+            updateData.archivedAt = new Date();
+          } else if (flag === "isArchived" && !updates[flag]) {
+            updateData.archivedAt = null;
+          } else if (flag === "isSpam" && updates[flag]) {
+            updateData.spamMarkedAt = new Date();
+            updateData.status = EmailStatus.SPAM;
+          } else if (flag === "isSpam" && !updates[flag]) {
+            updateData.spamMarkedAt = null;
+            updateData.status = EmailStatus.RECEIVED;
+          }
+        }
+      }
+
+      const result = await EmailModel.updateMany({ _id: { $in: emailIds } }, { $set: updateData });
+
+      // Get updated emails for real-time notifications
+      const updatedEmails = await EmailModel.find({ _id: { $in: emailIds } });
+
+      // Group emails by recipient for real-time notifications
+      const recipientUpdates = new Map<string, any[]>();
+      updatedEmails.forEach((email) => {
+        const recipients = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+        recipients.forEach((recipient) => {
+          if (!recipientUpdates.has(recipient.email)) {
+            recipientUpdates.set(recipient.email, []);
+          }
+          recipientUpdates.get(recipient.email)!.push({
+            emailId: email._id.toString(),
+            ...updateData,
+          });
+        });
+      });
+
+      // Emit real-time notifications
+      recipientUpdates.forEach((updates, recipientEmail) => {
+        socketManager.emitBulkEmailStatusUpdate(recipientEmail, updates);
+      });
+
+      logger.info("Bulk email status update", {
+        emailCount: emailIds.length,
+        modifiedCount: result.modifiedCount,
+        updates: updateData,
+        recipientsNotified: recipientUpdates.size,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `${result.modifiedCount} emails updated`,
+        data: {
+          requestedCount: emailIds.length,
+          modifiedCount: result.modifiedCount,
+          updates: updateData,
+        },
+      });
+    } catch (error: any) {
+      console.error("Bulk update email status error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update email status",
+        error: error.message,
+      });
+    }
+  },
+  // Create new email account
+  createEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const accountData = req.body;
+      const newAccount = await EmailAccountModel.create(accountData);
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        data: newAccount,
+      });
+    } catch (error: any) {
+      console.error("Create email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to create email account",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get all email accounts
+  getEmailAccounts: async (req: Request, res: Response) => {
+    try {
+      const accounts = await EmailAccountModel.find();
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: accounts,
+      });
+    } catch (error: any) {
+      console.error("Get email accounts error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve email accounts",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get email account by ID
+  getEmailAccountById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const account = await EmailAccountModel.findById(id);
+      if (!account) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: account,
+      });
+    } catch (error: any) {
+      console.error("Get email account by ID error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve email account",
+        error: error.message,
+      });
+    }
+  },
+
+  // Update email account
+  updateEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const updatedAccount = await EmailAccountModel.findByIdAndUpdate(id, updateData, { new: true });
+      if (!updatedAccount) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: updatedAccount,
+      });
+    } catch (error: any) {
+      console.error("Update email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update email account",
+        error: error.message,
+      });
+    }
+  },
+
+  // Delete email account
+  deleteEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const account = await EmailAccountModel.findByIdAndDelete(id);
+      if (!account) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email account deleted",
+      });
+    } catch (error: any) {
+      console.error("Delete email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete email account",
+        error: error.message,
+      });
+    }
+  },
+  // ====================
+  // IMAP/POP3 PROTOCOL SUPPORT FOR EXTERNAL EMAIL CLIENTS
+  // ====================
+  // Get emails in IMAP format for external email clients
+  getIMAPMessages: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const { folder = "INBOX", limit = 50, offset = 0, flags, since, before } = req.query;
+
+      // Build filter based on folder and flags
+      const filter: any = {
+        $or: [{ "to.email": userId }, { "cc.email": userId }, { "bcc.email": userId }],
+      };
+
+      // Folder filtering
+      switch (folder) {
+        case "INBOX":
+          filter.isArchived = { $ne: true };
+          filter.isSpam = { $ne: true };
+          break;
+        case "ARCHIVE":
+          filter.isArchived = true;
+          break;
+        case "SPAM":
+          filter.isSpam = true;
+          break;
+        case "SENT":
+          filter.direction = EmailDirection.OUTBOUND;
+          filter["from.email"] = userId;
+          break;
+        case "DRAFTS":
+          filter.status = EmailStatus.PROCESSING;
+          break;
+      }
+
+      // Date filtering
+      if (since) {
+        filter.receivedAt = { $gte: new Date(since as string) };
+      }
+      if (before) {
+        filter.receivedAt = { ...filter.receivedAt, $lt: new Date(before as string) };
+      }
+
+      const emails = await EmailModel.find(filter)
+        .sort({ receivedAt: -1 })
+        .skip(Number(offset))
+        .limit(Number(limit))
+        .select("-rawEmailData"); // Exclude large raw data
+
+      // Convert to IMAP format
+      const imapMessages = emails.map((email) => ({
+        uid: email._id.toString(),
+        flags: [
+          email.isRead ? "\\Seen" : "\\Unseen",
+          email.isReplied ? "\\Answered" : "",
+          email.isForwarded ? "\\Forwarded" : "",
+          email.isArchived ? "\\Archived" : "",
+          email.isSpam ? "\\Spam" : "",
+        ].filter(Boolean),
+        internalDate: email.receivedAt,
+        envelope: {
+          date: email.receivedAt,
+          subject: email.subject,
+          from: [email.from],
+          to: email.to,
+          cc: email.cc || [],
+          bcc: email.bcc || [],
+          messageId: email.messageId,
+          inReplyTo: email.headers?.find((h: any) => h.name === "In-Reply-To")?.value,
+          references: email.headers?.find((h: any) => h.name === "References")?.value,
+        },
+        bodyStructure: {
+          type: "text",
+          subtype: "plain",
+          encoding: "7bit",
+          size: email.textContent?.length || 0,
+        },
+        text: email.textContent,
+        html: email.htmlContent,
+      }));
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          messages: imapMessages,
+          total: await EmailModel.countDocuments(filter),
+          folder,
+          limit: Number(limit),
+          offset: Number(offset),
+        },
+      });
+    } catch (error: any) {
+      console.error("Get IMAP messages error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get IMAP messages",
+        error: error.message,
+      });
+    }
+  },
+  // Update email flags in IMAP format
+  updateIMAPFlags: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const { messageId } = req.params;
+      const { flags, operation = "set" } = req.body; // operation: 'set', 'add', 'remove'
+
+      if (!flags || !Array.isArray(flags)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Flags array is required",
+        });
+      }
+
+      const email = await EmailModel.findOne({
+        _id: messageId,
+        $or: [{ "to.email": userId }, { "cc.email": userId }, { "bcc.email": userId }, { "from.email": userId }],
+      });
+
+      if (!email) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      // Map IMAP flags to email status
+      const flagUpdates: any = {};
+
+      flags.forEach((flag) => {
+        switch (flag) {
+          case "\\Seen":
+            if (operation === "set" || operation === "add") {
+              flagUpdates.isRead = true;
+              flagUpdates.readAt = new Date();
+            } else if (operation === "remove") {
+              flagUpdates.isRead = false;
+              flagUpdates.readAt = null;
+            }
+            break;
+          case "\\Answered":
+            if (operation === "set" || operation === "add") {
+              flagUpdates.isReplied = true;
+              flagUpdates.repliedAt = new Date();
+            } else if (operation === "remove") {
+              flagUpdates.isReplied = false;
+              flagUpdates.repliedAt = null;
+            }
+            break;
+          case "\\Forwarded":
+            if (operation === "set" || operation === "add") {
+              flagUpdates.isForwarded = true;
+              flagUpdates.forwardedAt = new Date();
+            } else if (operation === "remove") {
+              flagUpdates.isForwarded = false;
+              flagUpdates.forwardedAt = null;
+            }
+            break;
+          case "\\Archived":
+            if (operation === "set" || operation === "add") {
+              flagUpdates.isArchived = true;
+              flagUpdates.archivedAt = new Date();
+            } else if (operation === "remove") {
+              flagUpdates.isArchived = false;
+              flagUpdates.archivedAt = null;
+            }
+            break;
+          case "\\Spam":
+            if (operation === "set" || operation === "add") {
+              flagUpdates.isSpam = true;
+              flagUpdates.spamMarkedAt = new Date();
+              flagUpdates.status = EmailStatus.SPAM;
+            } else if (operation === "remove") {
+              flagUpdates.isSpam = false;
+              flagUpdates.spamMarkedAt = null;
+              flagUpdates.status = EmailStatus.RECEIVED;
+            }
+            break;
+        }
+      });
+
+      // Update email
+      Object.assign(email, flagUpdates);
+      await email.save();
+
+      // Emit real-time notification
+      const recipients = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+      recipients.forEach((recipient) => {
+        socketManager.emitEmailStatusUpdate(recipient.email, {
+          emailId: email._id.toString(),
+          ...flagUpdates,
+        });
+      });
+
+      logger.info("IMAP flags updated", {
+        messageId,
+        userId,
+        flags,
+        operation,
+        updates: flagUpdates,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email flags updated successfully",
+        data: {
+          messageId: email._id,
+          flags: [
+            email.isRead ? "\\Seen" : "\\Unseen",
+            email.isReplied ? "\\Answered" : "",
+            email.isForwarded ? "\\Forwarded" : "",
+            email.isArchived ? "\\Archived" : "",
+            email.isSpam ? "\\Spam" : "",
+          ].filter(Boolean),
+        },
+      });
+    } catch (error: any) {
+      console.error("Update IMAP flags error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update email flags",
+        error: error.message,
+      });
+    }
+  },
+  // Get email client capabilities
+  getEmailClientCapabilities: async (req: Request, res: Response) => {
+    try {
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          protocol: "IMAP",
+          version: "1.0",
+          capabilities: [
+            "IMAP4rev1",
+            "STARTTLS",
+            "AUTH=PLAIN",
+            "AUTH=LOGIN",
+            "IDLE",
+            "CONDSTORE",
+            "ENABLE",
+            "UTF8=ACCEPT",
+            "MOVE",
+            "UIDPLUS",
+            "UNSELECT",
+            "CHILDREN",
+            "LIST-EXTENDED",
+            "LIST-STATUS",
+            "LIST-SUBSCRIBED",
+            "LIST-UNSUBSCRIPTION",
+            "LIST-MYRIGHTS",
+            "LIST-METADATA",
+            "METADATA",
+            "METADATA-SERVER",
+            "NOTIFY",
+            "FILTERS",
+            "LOGINDISABLED",
+            "QUOTA",
+            "SORT",
+            "THREAD=ORDEREDSUBJECT",
+            "THREAD=REFERENCES",
+            "THREAD=REFS",
+            "ANNOTATE-EXPERIMENT-1",
+            "CATENATE",
+            "COMPRESS=DEFLATE",
+            "ESEARCH",
+            "ESORT",
+            "ID",
+            "MULTIAPPEND",
+            "MULTISEARCH",
+            "NAMESPACE",
+            "QRESYNC",
+            "UTF8=ONLY",
+            "WITHIN",
+            "XLIST",
+          ],
+          folders: [
+            { name: "INBOX", delimiter: "/", flags: ["\\HasNoChildren"] },
+            { name: "Sent", delimiter: "/", flags: ["\\HasNoChildren"] },
+            { name: "Drafts", delimiter: "/", flags: ["\\HasNoChildren"] },
+            { name: "Trash", delimiter: "/", flags: ["\\HasNoChildren"] },
+            { name: "Archive", delimiter: "/", flags: ["\\HasNoChildren"] },
+            { name: "Spam", delimiter: "/", flags: ["\\HasNoChildren"] },
+          ],
+          flags: [
+            "\\Seen",
+            "\\Answered",
+            "\\Flagged",
+            "\\Deleted",
+            "\\Draft",
+            "\\Recent",
+            "\\Forwarded",
+            "\\Archived",
+            "\\Spam",
+          ],
+        },
+      });
+    } catch (error: any) {
+      console.error("Get email client capabilities error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get email client capabilities",
         error: error.message,
       });
     }

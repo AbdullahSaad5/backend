@@ -25,3 +25,4 @@ export {
 } from "./task.validation";
 export { heroSliderValidation, heroSliderStatusValidation } from "./hero-slider.validation";
 export { featuredCategoryValidation } from "./featured-category.validation";
+export { teamValidation } from "./team.validation";

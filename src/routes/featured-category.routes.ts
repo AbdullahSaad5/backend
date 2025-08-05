@@ -30,6 +30,9 @@ export const featuredCategory = (router: Router) => {
   // Get all featured categories
   router.get("/", featuredCategoryController.getCategories);
 
+  // Get active categories only
+  router.get("/active", featuredCategoryController.getActiveCategories);
+
   // Update a featured category
   router.put(
     "/:id",

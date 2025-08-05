@@ -23,6 +23,7 @@ export interface IComplaint extends Document {
     resolvedAt?: Date;
   }];
   isEscalated: boolean;
+  escalatedAt?: Date;
   userId?: string;
 }
 export type complaintModel = Model<IComplaint>;

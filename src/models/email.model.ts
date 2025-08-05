@@ -6,6 +6,7 @@ const EmailSchema = new Schema<IEmail>(
   {
     messageId: { type: String, required: true },
     threadId: { type: String },
+    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount" }, // Reference to email account
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
     type: {
       type: String,
@@ -57,6 +58,10 @@ const EmailSchema = new Schema<IEmail>(
     processedAt: { type: Date },
     sentAt: { type: Date },
     readAt: { type: Date },
+    repliedAt: { type: Date },
+    forwardedAt: { type: Date },
+    archivedAt: { type: Date },
+    spamMarkedAt: { type: Date },
     isRead: { type: Boolean, default: false },
     isReplied: { type: Boolean, default: false },
     isForwarded: { type: Boolean, default: false },
@@ -78,9 +83,15 @@ const EmailSchema = new Schema<IEmail>(
 );
 
 EmailSchema.index({ messageId: 1 }, { unique: true });
+EmailSchema.index({ threadId: 1 });
 EmailSchema.index({ "from.email": 1 });
 EmailSchema.index({ "to.email": 1 });
 EmailSchema.index({ amazonOrderId: 1 });
 EmailSchema.index({ ebayItemId: 1 });
+EmailSchema.index({ subject: 1 });
+EmailSchema.index({ receivedAt: -1 });
+// Optimized indexes for thread processing
+EmailSchema.index({ messageId: 1, threadId: 1 });
+EmailSchema.index({ threadId: 1, receivedAt: -1 });
 
 export const EmailModel = models.Email || model<IEmail>("Email", EmailSchema);

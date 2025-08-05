@@ -68,68 +68,88 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     employeeId: {
       type: String,
       unique: true,
-      required: true,
+      // required: true,
       validate: {
         validator: validateEmployeeId,
-        message: "Employee ID must be in format: BMR-XXXXXX (where XXXXXX are 6 uppercase letters/numbers)",
+        message:
+          "Employee ID must be in format: BMR-XXXXXX (where XXXXXX are 6 uppercase letters/numbers)",
       },
     },
 
     // Profile Completion Fields
     // Personal Information
-    gender: { 
-      type: String, 
-      enum: ["Male", "Female", "Other"]
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
     },
     emergencyPhoneNumber: { type: String },
     dob: { type: Date },
-    
+
     // Geofencing Configuration
-    geofencingRadius: { 
-      type: Number, 
-      min: 100, 
-      max: 1000, 
-      default: 500
+    geofencingRadius: {
+      type: Number,
+      min: 100,
+      max: 1000,
+      default: 500,
     },
-    geofencingAttendanceEnabled: { 
-      type: Boolean, 
-      default: false
+    geofencingAttendanceEnabled: {
+      type: Boolean,
+      default: false,
     },
-    
+
     // Foreign User Information
-    isForeignUser: { 
-      type: Boolean, 
-      default: false
+    isForeignUser: {
+      type: Boolean,
+      default: false,
     },
     countryOfIssue: { type: String },
     passportNumber: { type: String },
     passportExpiryDate: { type: Date },
-    passportDocument: { type: fileSchema, _id: false },
+    passportDocument: {
+      url: { type: String },
+      type: { type: String },
+      name: { type: String },
+    },
     visaNumber: { type: String },
     visaExpiryDate: { type: Date },
-    visaDocument: { type: fileSchema, _id: false },
-    
+    visaDocument: {
+      url: { type: String },
+      type: { type: String },
+      name: { type: String },
+    },
+
     // Employment Information
     jobTitle: { type: String },
     employmentStartDate: { type: Date },
-    niNumber: { 
-      type: String, 
+    niNumber: {
+      type: String,
       validate: {
         validator: validateNINumber,
-        message: "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)"
-      }
+        message:
+          "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)",
+      },
     },
-    
+    taxId: {
+      type: String,
+    },
+
+    // Banking Details
+    bankName: { type: String },
+    bankBranch: { type: String },
+    accountName: { type: String },
+    accountNumber: { type: String },
+    sortCode: { type: String },
+
     // Profile Completion Status
-    profileCompleted: { 
-      type: Boolean, 
-      default: false
+    profileCompleted: {
+      type: Boolean,
+      default: false,
     },
-    profileCompletionPercentage: { 
-      type: Number, 
-      min: 0, 
-      max: 100, 
-      default: 0
+    profileCompletionPercentage: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
     },
   },
   { timestamps: true }
