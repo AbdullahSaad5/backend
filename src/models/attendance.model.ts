@@ -21,4 +21,5 @@ const attendanceSchema = new Schema<IAttendance>({
   updatedAt: { type: Date, default: Date.now },
 });
 
+attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
 export const Attendance = model<IAttendance>("Attendance", attendanceSchema);

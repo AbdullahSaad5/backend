@@ -51,7 +51,7 @@ const TicketSchema = new Schema<ITicket>(
         type: String,
         trim: true,
         required: function (this: ITicket) {
-          return this.status === "Closed";
+          return this.status === "Resolved";
         },
         minlength: [10, "Resolution must be at least 10 characters"],
       },
@@ -59,7 +59,7 @@ const TicketSchema = new Schema<ITicket>(
         type: Schema.Types.ObjectId,
         ref: "User",
         required: function (this: ITicket) {
-          return this.status === "Closed";
+          return this.status === "Resolved";
         },
       },
       closedAt: {
@@ -67,6 +67,10 @@ const TicketSchema = new Schema<ITicket>(
       }
     },
     isEscalated: {
+      type: Boolean,
+      default: false,
+    },
+    isManuallyEscalated: {
       type: Boolean,
       default: false,
     },

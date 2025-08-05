@@ -22,6 +22,7 @@ export interface ITicket extends Document {
     closedAt: Date;
   };
   isEscalated?: boolean;
+  isManuallyEscalated?: boolean;
   chatMessageId?: string;
 }
 
