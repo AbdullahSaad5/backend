@@ -16,6 +16,8 @@ const seedData = async () => {
       "MANAGE_USERS",
       "ADD_USERS_CATEGORY",
       "VIEW_USERS_CATEGORY",
+      "ADD_TEAMS",
+      "VIEW_TEAMS",
       "ADD_USERS",
       "VIEW_USERS",
 
@@ -121,6 +123,8 @@ const seedData = async () => {
       "MANAGE_USERS",
       // "ADD_USERS_CATEGORY",
       // "VIEW_USERS_CATEGORY",
+      "ADD_TEAMS",
+      "VIEW_TEAMS",
       "ADD_USERS",
       "VIEW_USERS",
 

@@ -687,6 +687,13 @@ export const userService = {
             select: "role description"
           }
         })
+        .populate({
+          path: "supervisorTeams.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
 
