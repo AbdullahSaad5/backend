@@ -660,6 +660,13 @@ export const userService = {
       // Pagination logic: apply skip and limit
       const users = await User.find(query)
         .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
 
