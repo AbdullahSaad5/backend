@@ -182,6 +182,7 @@ export const userValidation = {
       jobTitle: z.string().trim().optional(),
       employmentStartDate: z.string().optional(),
       niNumber: z.string().trim().optional(),
+      taxId: z.string().trim().optional(),
       
       // Foreign User Information
       isForeignUser: z.boolean().optional(),

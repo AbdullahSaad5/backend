@@ -355,6 +355,7 @@ const seedData = async () => {
     dob: "2024-12-16",
     signUpThrough: "Web",
     isEmailVerified: true,
+    employeeId: "BMR-SADM12",
     userType: userCategory._id, // Associate with the user category (Super Admin Role)
     additionalAccessRights: [],
     restrictedAccessRights: [],
@@ -369,7 +370,6 @@ const seedData = async () => {
   };
 
   // 3. Seed admin User
-
   const adminData = {
     _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
     firstName: "Hammad",
@@ -377,6 +377,7 @@ const seedData = async () => {
     email: "admin@gmail.com",
     password: hashedPassword, // Dynamically hashed password
     phoneNumber: "443452452344",
+    employeeId: "BMR-AD4G2K",
     dob: "2024-12-16",
     signUpThrough: "Web",
     isEmailVerified: true,
