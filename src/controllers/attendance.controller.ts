@@ -4,7 +4,6 @@ import { attendanceService } from "@/services/attendance.service";
 import { Shift } from "@/models/workshift.model";
 import { Workmode } from "@/models/workmode.model";
 import { LeaveRequest } from "@/models/leave-request.model";
-import { jwtVerify } from "@/utils/jwt.util";
 import { Types } from "mongoose";
 import { IContextRequest, IUserRequest } from "@/contracts/request.contract";
 export const attendanceController = {
@@ -271,4 +270,134 @@ export const attendanceController = {
       });
     }
   },
+  punchInCheckIn: async (req: Request, res: Response) => {
+    try {
+      const { employeeId } = req.params;
+      const { date, locationId, location } = req.body;
+
+      if (!employeeId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Employee ID is required",
+        });
+      }
+
+      if (!date) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Date is required",
+        });
+      }
+
+      if (!locationId || !Types.ObjectId.isValid(locationId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Location ID is required",
+        });
+      }
+
+      // Parse date and validate
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid date format",
+        });
+      }
+
+      // Validate location if provided
+      if (location) {
+        const { latitude, longitude } = location;
+        if (typeof latitude !== "number" || typeof longitude !== "number") {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message:
+              "Invalid location format. Latitude and longitude must be numbers",
+          });
+        }
+      }
+
+      const attendance = await attendanceService.punchInCheckIn(
+        employeeId,
+        parsedDate,
+        locationId,
+        location
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: attendance,
+      });
+    } catch (err: any) {
+      res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  },
+   punchInCheckout: async (req: Request, res: Response) => {
+    try {
+      const { employeeId } = req.params;
+      const { date, locationId, location } = req.body;
+
+      if (!employeeId) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Employee ID is required",
+        });
+      }
+
+      if (!date) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Date is required",
+        });
+      }
+
+      if (!locationId || !Types.ObjectId.isValid(locationId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Location ID is required",
+        });
+      }
+
+      // Parse date and validate
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid date format",
+        });
+      }
+
+      // Validate location if provided
+      if (location) {
+        const { latitude, longitude } = location;
+        if (typeof latitude !== "number" || typeof longitude !== "number") {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message:
+              "Invalid location format. Latitude and longitude must be numbers",
+          });
+        }
+      }
+
+      const attendance = await attendanceService.punchInCheckout(
+        employeeId,
+        parsedDate,
+        locationId,
+        location
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: attendance,
+      });
+    } catch (err: any) {
+      res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
 };

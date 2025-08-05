@@ -7,6 +7,7 @@ import { EmailDirection, EmailType, EmailStatus, EmailPriority } from "@/contrac
 import { MarketingCampaign, SMSMessage, NewsletterSubscriber } from "@/models/marketing.model";
 import { EmailThreadModel } from "@/models/email-thread.model";
 import { smsService } from "@/services/sms.service";
+import { EmailAccountModel } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
 import crypto from "crypto";
@@ -350,7 +351,6 @@ export const MailboxController = {
       const history = await EmailModel.find({ "to.email": userId })
         .populate("assignedTo")
         .populate("relatedOrderId")
-        .populate("relatedCustomerId")
         .exec();
       res.status(StatusCodes.OK).json({
         success: true,
@@ -557,8 +557,7 @@ export const MailboxController = {
         .skip(skip)
         .limit(Number(limit))
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       const total = await EmailThreadModel.countDocuments(filter);
 
@@ -616,8 +615,7 @@ export const MailboxController = {
       // Get thread information
       const thread = await EmailThreadModel.findOne({ threadId })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       if (!thread) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -630,8 +628,7 @@ export const MailboxController = {
       const emails = await EmailModel.find({ threadId })
         .sort({ receivedAt: 1, sentAt: 1 })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       // Mark emails as read if requested
       if (markAsRead === "true" && userEmail) {
@@ -732,8 +729,7 @@ export const MailboxController = {
 
       const thread = await EmailThreadModel.findOne({ threadId })
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       if (!thread) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -815,8 +811,7 @@ export const MailboxController = {
         .skip(skip)
         .limit(Number(limit))
         .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+        .populate("relatedOrderId");
 
       const total = await EmailModel.countDocuments(filter);
 
@@ -848,10 +843,7 @@ export const MailboxController = {
       const { id } = req.params;
       const { markAsRead = false } = req.query;
 
-      const email = await EmailModel.findById(id)
-        .populate("assignedTo", "name email")
-        .populate("relatedOrderId")
-        .populate("relatedCustomerId");
+      const email = await EmailModel.findById(id).populate("assignedTo", "name email").populate("relatedOrderId");
 
       if (!email) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -1475,11 +1467,121 @@ export const MailboxController = {
       });
     }
   },
+  // Create new email account
+  createEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const accountData = req.body;
+      const newAccount = await EmailAccountModel.create(accountData);
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        data: newAccount,
+      });
+    } catch (error: any) {
+      console.error("Create email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to create email account",
+        error: error.message,
+      });
+    }
+  },
 
+  // Get all email accounts
+  getEmailAccounts: async (req: Request, res: Response) => {
+    try {
+      const accounts = await EmailAccountModel.find();
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: accounts,
+      });
+    } catch (error: any) {
+      console.error("Get email accounts error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve email accounts",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get email account by ID
+  getEmailAccountById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const account = await EmailAccountModel.findById(id);
+      if (!account) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: account,
+      });
+    } catch (error: any) {
+      console.error("Get email account by ID error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to retrieve email account",
+        error: error.message,
+      });
+    }
+  },
+
+  // Update email account
+  updateEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateData = req.body;
+      const updatedAccount = await EmailAccountModel.findByIdAndUpdate(id, updateData, { new: true });
+      if (!updatedAccount) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: updatedAccount,
+      });
+    } catch (error: any) {
+      console.error("Update email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to update email account",
+        error: error.message,
+      });
+    }
+  },
+
+  // Delete email account
+  deleteEmailAccount: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const account = await EmailAccountModel.findByIdAndDelete(id);
+      if (!account) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Email account deleted",
+      });
+    } catch (error: any) {
+      console.error("Delete email account error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to delete email account",
+        error: error.message,
+      });
+    }
+  },
   // ====================
   // IMAP/POP3 PROTOCOL SUPPORT FOR EXTERNAL EMAIL CLIENTS
   // ====================
-
   // Get emails in IMAP format for external email clients
   getIMAPMessages: async (req: Request, res: Response) => {
     try {
@@ -1577,7 +1679,6 @@ export const MailboxController = {
       });
     }
   },
-
   // Update email flags in IMAP format
   updateIMAPFlags: async (req: Request, res: Response) => {
     try {
@@ -1703,7 +1804,6 @@ export const MailboxController = {
       });
     }
   },
-
   // Get email client capabilities
   getEmailClientCapabilities: async (req: Request, res: Response) => {
     try {

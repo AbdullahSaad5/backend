@@ -6,6 +6,7 @@ const EmailSchema = new Schema<IEmail>(
   {
     messageId: { type: String, required: true },
     threadId: { type: String },
+    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount" }, // Reference to email account
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
     type: {
       type: String,

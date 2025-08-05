@@ -10,37 +10,20 @@ export const attendance = (router: Router) => {
   router.post("/check-in", authGuard.isAuth, attendanceController.checkIn);
   router.post("/check-out", authGuard.isAuth, attendanceController.checkOut);
   router.get("/me", attendanceController.getOwnAttendance);
-  router.post(
-    "/geo-location",
-    authGuard.isAuth,
-    attendanceController.getGeoLocation
-  );
+  router.post("/geo-location", authGuard.isAuth, attendanceController.getGeoLocation);
 
   // Admin routes
   router.post("/admin/mark", adminRoleCheck, attendanceController.adminMark);
 
-  router.patch(
-    "/admin/:attendanceId",
-    authMiddleware,
-    adminRoleCheck,
-    attendanceController.updateAttendance
-  );
-  router.get(
-    "/admin/employee/:employeeId",
-    authMiddleware,
-    adminRoleCheck,
-    attendanceController.getEmployeeAttendance
-  );
-  router.get(
-    "/admin/all",
-    authMiddleware,
-    adminRoleCheck,
-    attendanceController.getAllForDate
-  );
+  router.patch("/admin/:attendanceId", authMiddleware, adminRoleCheck, attendanceController.updateAttendance);
+  router.get("/admin/employee/:employeeId", authMiddleware, adminRoleCheck, attendanceController.getEmployeeAttendance);
+  router.get("/admin/all", authMiddleware, adminRoleCheck, attendanceController.getAllForDate);
 
   // Location routes
-  router.get("/locations", authMiddleware, locationController.getAllLocations);
+  router.get("/locations", locationController.getAllLocations);
   router.get("/punch-in/:employeeId", attendanceController.punchIn);
+  router.post("/punch-in/check-in/:employeeId", attendanceController.punchInCheckIn);
+  router.post("/punch-in/check-out/:employeeId", attendanceController.punchInCheckout);
 
   router.post(
     "/locations",
@@ -58,10 +41,5 @@ export const attendance = (router: Router) => {
     locationController.updateLocation
   );
 
-  router.delete(
-    "/locations/:locationId",
-    authMiddleware,
-    adminRoleCheck,
-    locationController.deleteLocation
-  );
+  router.delete("/locations/:locationId", authMiddleware, adminRoleCheck, locationController.deleteLocation);
 };
