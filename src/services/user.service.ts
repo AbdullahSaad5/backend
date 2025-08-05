@@ -83,6 +83,8 @@ export const userService = {
       phoneNumber,
       dob,
       teamIds,
+      isSupervisor,
+      supervisorTeamIds,
     } = data;
 
     const hashedPassword = await createHash(password);
@@ -110,6 +112,22 @@ export const userService = {
       }
     }
 
+    // Process supervisor teams
+    const supervisorTeams = [];
+    if (isSupervisor && supervisorTeamIds && supervisorTeamIds.length > 0) {
+      for (let i = 0; i < supervisorTeamIds.length; i++) {
+        supervisorTeams.push({
+          teamId: new Types.ObjectId(supervisorTeamIds[i]),
+          assignedAt: new Date(),
+        });
+      }
+    }
+
+    // Validation: If user is supervisor, they must have at least one supervisor team
+    if (isSupervisor && (!supervisorTeamIds || supervisorTeamIds.length === 0)) {
+      throw new Error("Supervisor must be assigned to at least one team");
+    }
+
     const newUser = new User({
       firstName,
       lastName,
@@ -123,6 +141,8 @@ export const userService = {
       supplierKey, // Ensure supplierKey is set
       employeeId, // Add the generated Employee ID
       teamAssignments, // Add team assignments
+      isSupervisor: isSupervisor || false, // Add supervisor status
+      supervisorTeams, // Add supervisor teams
     });
 
     return await newUser.save();
