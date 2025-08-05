@@ -959,4 +959,132 @@ export const listingService = {
       });
     }
   },
+
+  // Get all Website listings
+  getWebsiteListings: async (filters: any = {}) => {
+    try {
+      const {
+        searchQuery = "",
+        status,
+        listingType,
+        productCategory,
+        startDate,
+        endDate,
+        isBlocked,
+        page = 1,
+        limit = 10,
+      } = filters;
+
+      const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+      const limitNumber = parseInt(limit, 10) || 10;
+      const skip = (pageNumber - 1) * limitNumber;
+
+      const query: any = {
+        publishToWebsite: true, // Only get listings published to website
+      };
+
+      // Handle isBlocked filter - only apply default if not explicitly provided
+      if (isBlocked !== undefined) {
+        query.isBlocked = isBlocked;
+      } else {
+        // Default to non-blocked listings only if no explicit isBlocked filter
+        query.isBlocked = false;
+      }
+
+      if (searchQuery) {
+        // Base search fields
+        query.$or = [
+          {
+            "productInfo.item_name.value": {
+              $regex: searchQuery,
+              $options: "i",
+            },
+          },
+          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
+          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
+        ];
+
+        // Search productCategory and productSupplier in parallel
+        const [productCategories] = await Promise.all([
+          ProductCategory.find({
+            name: { $regex: searchQuery, $options: "i" },
+          }).select("_id"),
+        ]);
+
+        // Add ObjectId-based search conditions
+        query.$or.push({
+          "productInfo.productCategory": {
+            $in: productCategories.map((c) => c._id),
+          },
+        });
+      }
+
+      if (status && ["draft", "published"].includes(status)) {
+        query.status = status;
+      }
+
+      if (listingType && ["product", "part", "bundle"].includes(listingType)) {
+        query.listingType = listingType;
+      }
+
+      // Filter by ProductCategory if provided
+      if (productCategory) {
+        // Validate if it's a valid MongoDB ObjectId
+        if (mongoose.isValidObjectId(productCategory)) {
+          query["productInfo.productCategory"] = new mongoose.Types.ObjectId(productCategory);
+        } else {
+          // If it's not a valid ObjectId, search by category name
+          const categoryIds = await ProductCategory.find({
+            name: { $regex: productCategory, $options: "i" },
+          }).select("_id");
+          
+          if (categoryIds.length > 0) {
+            query["productInfo.productCategory"] = {
+              $in: categoryIds.map((c) => c._id),
+            };
+          } else {
+            // If no matching categories found, return empty result
+            query["productInfo.productCategory"] = null;
+          }
+        }
+      }
+
+      if (startDate || endDate) {
+        const dateFilter: any = {};
+        if (startDate && !isNaN(Date.parse(startDate))) {
+          dateFilter.$gte = new Date(startDate);
+        }
+        if (endDate && !isNaN(Date.parse(endDate))) {
+          dateFilter.$lte = new Date(endDate);
+        }
+        if (Object.keys(dateFilter).length > 0) {
+          query.createdAt = dateFilter;
+        }
+      }
+
+      console.log("Website listings query:", JSON.stringify(query, null, 2));
+
+      const listings = await Listing.find(query)
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("selectedStockId")
+        .skip(skip)
+        .limit(limitNumber);
+
+      const totalListings = await Listing.countDocuments(query);
+
+      return {
+        listings,
+        pagination: {
+          totalListings,
+          currentPage: pageNumber,
+          totalPages: Math.ceil(totalListings / limitNumber),
+          perPage: limitNumber,
+        },
+      };
+    } catch (error) {
+      console.error("Error fetching Website listings:", error);
+      throw new Error("Error fetching Website listings");
+    }
+  },
 };

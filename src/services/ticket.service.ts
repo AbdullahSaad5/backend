@@ -126,7 +126,7 @@ export const ticketService = {
 
     const ticket = await TicketModel.findById(ticketId);
     if (!ticket) throw new Error('Ticket not found');
-    if (ticket.status === 'Closed') throw new Error('Ticket already closed');
+    if (ticket.status === 'Resolved') throw new Error('Ticket already resolved');
 
     const resolution: IResolution = {
       description,
@@ -137,7 +137,7 @@ export const ticketService = {
     const updatedTicket = await TicketModel.findByIdAndUpdate(
       ticketId,
       {
-        status: 'Closed',
+        status: 'Resolved',
         resolution
       },
       { new: true, runValidators: true }

@@ -31,6 +31,9 @@ export interface IUser extends Document {
   isBlocked: boolean;
   additionalDocuments: [IFile];
   // isSupplier: boolean;
+  
+  // Employee ID - unique 6-character alphanumeric identifier
+  employeeId: string;
 
   // Profile Completion Fields
   // Personal Information
@@ -55,6 +58,14 @@ export interface IUser extends Document {
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
+  taxId?: string;
+  
+  // Banking Details
+  bankName?: string;
+  bankBranch?: string;
+  accountName?: string;
+  accountNumber?: string;
+  sortCode?: string;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -103,6 +114,14 @@ export type ProfileCompletionPayload = {
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
+  taxId?: string;
+  
+  // Banking Details
+  bankName?: string;
+  bankBranch?: string;
+  accountName?: string;
+  accountNumber?: string;
+  sortCode?: string;
 };
 
 export interface IUserMethods {

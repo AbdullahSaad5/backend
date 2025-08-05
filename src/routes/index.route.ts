@@ -64,6 +64,9 @@ import { heroSlider } from "./hero-slider.routes";
 import { featuredCategory } from "./featured-category.routes";
 import { marketing } from "./marketing.route";
 import { mailbox } from "./mailbox.route";
+import { Forum } from "./forum.route";
+import { ForumTopic } from "./forum-topic.route";
+import { team } from "./team.route";
 
 const router: Router = Router();
 
@@ -134,6 +137,9 @@ const routes: {
   featuredCategory,
   marketing,
   mailbox,
+  Forum,
+  ForumTopic,
+  team,
 };
 
 // Loop through all routes and pass the router to each route

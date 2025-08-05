@@ -31,6 +31,9 @@ export const listing = (router: Router) => {
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
+  // Fetch all Website listings
+  router.get("/website", listingController.getWebsiteListings);
+
   
   // Update a draft listing by ID (subsequent steps)
   router.patch(
