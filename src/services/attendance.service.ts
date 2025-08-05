@@ -74,7 +74,12 @@ export const attendanceService = {
     }
   },
   // Employee self check-in
-  checkIn: async (employeeId: string, shiftId: string, workModeId: string, checkIn: Date) => {
+  checkIn: async (
+    employeeId: string,
+    shiftId: string,
+    workModeId: string,
+    checkIn: Date
+  ) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     // Removed isEmployee check as requested
@@ -150,13 +155,25 @@ export const attendanceService = {
   },
 
   // Admin: update attendance record
-  updateAttendance: async (attendanceId: string, update: Partial<IAttendance>) => {
-    const attendance = await Attendance.findByIdAndUpdate(attendanceId, update, { new: true });
+  updateAttendance: async (
+    attendanceId: string,
+    update: Partial<IAttendance>
+  ) => {
+    const attendance = await Attendance.findByIdAndUpdate(
+      attendanceId,
+      update,
+      { new: true }
+    );
     return attendance;
   },
 
   // Get attendance for employee (self or admin)
-  getAttendance: async (employeeId: string, startDate?: Date, endDate?: Date, status?: string) => {
+  getAttendance: async (
+    employeeId: string,
+    startDate?: Date,
+    endDate?: Date,
+    status?: string
+  ) => {
     const query: any = { employeeId };
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
@@ -205,7 +222,9 @@ export const attendanceService = {
 
     // If status is leave, only process leave records
     if (status === "leave") {
-      const results = await Promise.all(attendance.map(async (record) => await getLeaveInfo(record)));
+      const results = await Promise.all(
+        attendance.map(async (record) => await getLeaveInfo(record))
+      );
       return results;
     }
 
@@ -281,27 +300,44 @@ export const attendanceService = {
   },
 
   // Helper: Haversine formula to calculate distance in meters
-  haversineDistance: (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  haversineDistance: (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number => {
     const toRad = (value: number) => (value * Math.PI) / 180;
     const R = 6371000; // Radius of Earth in meters
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   },
 
   // Admin: geo location attendance mark
-  geoLocationAttendanceMark: async (userId: string, latitude: number, longitude: number) => {
+  geoLocationAttendanceMark: async (
+    userId: string,
+    latitude: number,
+    longitude: number
+  ) => {
     const address = await Address.findOne({ userId: userId });
     if (!address) {
       throw new Error("Address not found");
     }
     console.log("address.latitude : ", address);
 
-    if (!address.latitude || !address.longitude || address.latitude === 0 || address.longitude === 0) {
+    if (
+      !address.latitude ||
+      !address.longitude ||
+      address.latitude === 0 ||
+      address.longitude === 0
+    ) {
       throw new Error("Latitude and longitude for employee not found in db");
     }
     console.log("address.latitude : ", address.latitude);
@@ -309,10 +345,17 @@ export const attendanceService = {
     console.log("latitude : ", latitude);
     console.log("longitude : ", longitude);
 
-    const distance = attendanceService.haversineDistance(address.latitude, address.longitude, latitude, longitude);
+    const distance = attendanceService.haversineDistance(
+      address.latitude,
+      address.longitude,
+      latitude,
+      longitude
+    );
 
     if (distance > 500) {
-      throw new Error(`You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`);
+      throw new Error(
+        `You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`
+      );
     }
 
     // Mark attendance (check-in) if within 500m
@@ -341,26 +384,90 @@ export const attendanceService = {
     return attendance;
   },
 
-  punchInCheckIn: async (employeeId: string, userId: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let attendance = await Attendance.findOne({ employeeId, date: today });
-    if (!attendance) {
-      attendance = await Attendance.create({
-        employeeId,
-        date: today,
-        checkIn: new Date(),
-        status: "present",
-      });
-    } else {
-      if (attendance.checkIn) {
-        throw new Error("You have already checked in today.");
+  // Get userId from employeeId
+  getUserIdFromEmployeeId: async (employeeId: string) => {
+    try {
+      const user = await User.findOne({ employeeId });
+      if (!user) {
+        throw new Error("Employee not found");
       }
-      attendance.checkIn = new Date();
-      attendance.status = "present";
-      await attendance.save();
+      return user._id;
+    } catch (error: any) {
+      throw new Error(`Failed to get user ID: ${error.message}`);
     }
-    return attendance;
+  },
+
+  punchInCheckIn: async (
+    employeeId: string,
+    date: Date,
+    location?: { latitude: number; longitude: number }
+  ) => {
+    try {
+      // Get userId from employeeId
+      const userId =
+        await attendanceService.getUserIdFromEmployeeId(employeeId);
+
+      // Check if user exists and is active
+      const user = await User.findById(userId);
+      if (!user || user.isBlocked) {
+        throw new Error("User is not active or has been blocked");
+      }
+
+      // Set date to midnight for consistent comparison
+      const attendanceDate = new Date(date);
+      attendanceDate.setHours(0, 0, 0, 0);
+
+      // Check for existing attendance
+      let attendance = await Attendance.findOne({
+        employeeId: userId,
+        date: attendanceDate,
+      });
+
+      // Check if geofencing is enabled for the user
+      if (user.geofencingAttendanceEnabled && location) {
+        // Get user's registered address
+        const address = await Address.findOne({ userId: userId });
+        if (!address || !address.latitude || !address.longitude) {
+          throw new Error("User's registered location not found");
+        }
+
+        // Calculate distance
+        const distance = attendanceService.haversineDistance(
+          address.latitude,
+          address.longitude,
+          location.latitude,
+          location.longitude
+        );
+
+        // Check if user is within allowed radius
+        if (distance > (user.geofencingRadius || 500)) {
+          throw new Error(
+            `You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`
+          );
+        }
+      }
+
+      if (!attendance) {
+        // Create new attendance record
+        attendance = await Attendance.create({
+          employeeId: userId,
+          date: attendanceDate,
+          checkIn: date,
+          status: "present",
+        });
+      } else {
+        if (attendance.checkIn) {
+          throw new Error("You have already checked in today.");
+        }
+        attendance.checkIn = date;
+        attendance.status = "present";
+        await attendance.save();
+      }
+
+      return attendance;
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
   },
 };
 

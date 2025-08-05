@@ -1,7 +1,5 @@
 import { Request, Response } from "express";
 import { IContextRequest } from "@/contracts/request.contract";
-import { Shift } from "@/models/workshift.model";
-import { Workmode } from "@/models/workmode.model";
 import { locationService } from "@/services/location.service";
 import { Types } from "mongoose";
 import { StatusCodes } from "http-status-codes";
