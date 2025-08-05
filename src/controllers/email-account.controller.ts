@@ -4,6 +4,8 @@ import { EmailOAuthService } from "@/services/emailOAuth.service";
 import { EmailProviderService } from "@/config/emailProviders";
 import { EmailAccountConfigService } from "@/services/email-account-config.service";
 import { logger } from "@/utils/logger.util";
+import { jwtVerify } from "@/utils/jwt.util";
+import { authService } from "@/services/user-auth.service";
 
 export class EmailAccountController {
   // Get all email providers
@@ -61,13 +63,15 @@ export class EmailAccountController {
         success: true,
         data: {
           emailAddress,
-          detectedProvider: detectedProvider ? {
-            name: detectedProvider.name,
-            type: detectedProvider.type,
-            note: detectedProvider.note,
-          } : null,
+          detectedProvider: detectedProvider
+            ? {
+                name: detectedProvider.name,
+                type: detectedProvider.type,
+                note: detectedProvider.note,
+              }
+            : null,
           defaultConfig,
-          isOAuthSupported: detectedProvider?.type === 'oauth',
+          isOAuthSupported: detectedProvider?.type === "oauth",
         },
       });
     } catch (error: any) {
@@ -84,14 +88,18 @@ export class EmailAccountController {
   static async initiateGoogleOAuth(req: Request, res: Response) {
     try {
       const { emailAddress, accountName, isPrimary = false } = req.body;
-      const userId = (req as any).user?.id || req.body.userId;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const oauthUrl = EmailOAuthService.generateGoogleOAuthUrl(userId, emailAddress, accountName, isPrimary);
 
@@ -148,14 +156,18 @@ export class EmailAccountController {
   static async initiateOutlookOAuth(req: Request, res: Response) {
     try {
       const { emailAddress, accountName, isPrimary = false } = req.body;
-      const userId = (req as any).user?.id || req.body.userId;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const oauthUrl = EmailOAuthService.generateOutlookOAuthUrl(userId, emailAddress, accountName, isPrimary);
 
@@ -211,20 +223,24 @@ export class EmailAccountController {
   // Create manual email account
   static async createManualAccount(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id || req.body.userId;
       const accountData = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       // Auto-detect provider configuration if not provided
       if (accountData.emailAddress && (!accountData.incomingServer?.host || !accountData.outgoingServer?.host)) {
         const defaultConfig = EmailProviderService.getDefaultConfigForEmail(accountData.emailAddress);
-        
+
         // Merge user data with defaults
         accountData.accountType = accountData.accountType || defaultConfig.accountType;
         accountData.incomingServer = {
@@ -286,14 +302,18 @@ export class EmailAccountController {
   // Get user's email accounts
   static async getUserAccounts(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id || req.params.userId;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const accounts = await EmailAccountModel.find({ userId }).sort({ createdAt: -1 });
 
@@ -315,14 +335,18 @@ export class EmailAccountController {
   static async testConnection(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const userId = (req as any).user?.id;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
@@ -352,15 +376,19 @@ export class EmailAccountController {
   static async updateAccount(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const userId = (req as any).user?.id;
       const updateData = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
@@ -402,14 +430,18 @@ export class EmailAccountController {
   static async deleteAccount(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const userId = (req as any).user?.id;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
@@ -439,14 +471,18 @@ export class EmailAccountController {
   static async refreshTokens(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const userId = (req as any).user?.id;
+      const token = req.headers.authorization?.replace("Bearer ", "");
 
-      if (!userId) {
-        return res.status(400).json({
+      if (!token) {
+        return res.status(401).json({
           success: false,
-          message: "User ID is required",
+          message: "Authorization token required",
         });
       }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
 
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
