@@ -65,7 +65,8 @@ import { featuredCategory } from "./featured-category.routes";
 import { marketing } from "./marketing.route";
 import { mailbox } from "./mailbox.route";
 import { Forum } from "./forum.route";
-import { ForumTopic } from "./forum-topic.route";import { team } from "./team.route";
+import { ForumTopic } from "./forum-topic.route";
+import { team } from "./team.route";
 
 const router: Router = Router();
 
@@ -137,7 +138,7 @@ const routes: {
   marketing,
   mailbox,
   Forum,
-  ForumTopic
+  ForumTopic,
   team,
 };
 
