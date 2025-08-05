@@ -54,6 +54,7 @@ export interface IEmail {
   id: Types.ObjectId;
   messageId: string;
   threadId?: string;
+  accountId: Types.ObjectId; // Reference to email account
   direction: EmailDirection;
   type: EmailType;
   status: EmailStatus;
@@ -70,7 +71,10 @@ export interface IEmail {
   cc?: IEmailAddress[];
   bcc?: IEmailAddress[];
   replyTo?: IEmailAddress;
-
+  repliedAt?: Date;
+  forwardedAt?: Date;
+  archivedAt?: Date;
+  spamMarkedAt?: Date;
   // Metadata
   headers?: IEmailHeader[];
   attachments?: IEmailAttachment[];
