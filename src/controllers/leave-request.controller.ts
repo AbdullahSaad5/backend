@@ -50,8 +50,20 @@ export const leaveRequestController = {
   // Admin: get all leave requests
   getAllLeaveRequests: async (req: Request, res: Response) => {
     try {
-      console.log("getAllLeaveRequests", req);
-      const leaveRequests = await leaveRequestService.getLeaveRequests();
+      // Extract pagination parameters from query string
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
+      const search = req.query.search as string;
+
+      // Add filter based on query parameters
+      const filter: Record<string, any> = {};
+      
+      // Add search functionality if search parameter is provided
+      if (search) {
+        filter.search = search;
+      }
+
+      const leaveRequests = await leaveRequestService.getLeaveRequests(filter, page, limit);
       res.status(200).json(leaveRequests);
     } catch (err: any) {
       res.status(400).json({ message: err.message });
@@ -71,11 +83,15 @@ export const leaveRequestController = {
   },
 
   getUserLeaveRequests: async (req: Request, res: Response) => {
-    console.log("getUserLeaveRequests", req);
     try {
       const user = req.context?.user;
       if (!user || !user.id) return res.status(401).json({ message: "Unauthorized" });
-      const leaveRequests = await leaveRequestService.getUserLeaveRequests(user.id);
+
+      // Extract pagination parameters from query string
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
+
+      const leaveRequests = await leaveRequestService.getUserLeaveRequests(user.id, page, limit);
       res.status(200).json(leaveRequests);
     } catch (err: any) {
       res.status(400).json({ message: err.message });

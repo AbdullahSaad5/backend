@@ -7,6 +7,12 @@ export interface IFile {
   name?: string;
 }
 
+export interface ITeamAssignment {
+  teamId: Types.ObjectId;
+  priority: number; // 1 = primary, 2 = secondary, etc.
+  assignedAt: Date;
+}
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -30,6 +36,8 @@ export interface IUser extends Document {
   resetPasswordExpires?: number;
   isBlocked: boolean;
   additionalDocuments: [IFile];
+  // Team assignments
+  teamAssignments: ITeamAssignment[];
   // isSupplier: boolean;
   
   // Employee ID - unique 6-character alphanumeric identifier
@@ -84,7 +92,8 @@ export type UserCreatePayload = Pick<
   | "restrictedAccessRights"
 > & { 
   dob?: string;
-  address: Partial<IUserAddress> 
+  address: Partial<IUserAddress>;
+  teamIds?: string[]; // Array of team IDs in priority order
 };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
