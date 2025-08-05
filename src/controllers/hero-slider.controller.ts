@@ -55,6 +55,25 @@ export const heroSliderController = {
     }
   },
 
+  // Get active slides only
+  getActiveSlides: async (_req: Request, res: Response) => {
+    try {
+      const slides = await heroSliderService.getActiveSlides();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Fetched active hero slider slides successfully",
+        data: slides,
+      });
+    } catch (error) {
+      console.error("Error fetching active hero slider slides:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to fetch active slides",
+        data: null,
+      });
+    }
+  },
+
   // Update a slide
   updateSlide: async (req: Request, res: Response) => {
     try {
