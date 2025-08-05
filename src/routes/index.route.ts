@@ -64,7 +64,8 @@ import { heroSlider } from "./hero-slider.routes";
 import { featuredCategory } from "./featured-category.routes";
 import { marketing } from "./marketing.route";
 import { mailbox } from "./mailbox.route";
-
+import { Forum } from "./forum.route";
+import { ForumTopic } from "./forum-topic.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -134,6 +135,8 @@ const routes: {
   featuredCategory,
   marketing,
   mailbox,
+  Forum,
+  ForumTopic
 };
 
 // Loop through all routes and pass the router to each route
