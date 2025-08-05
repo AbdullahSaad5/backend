@@ -44,9 +44,26 @@ export const userService = {
   },
   findUserById: async (id: string, select?: string) => {
     if (select) {
-      return await User.findById(id).populate("userType").select(select);
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
+        .select(select);
     } else {
-      return await User.findById(id).populate("userType");
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        });
     }
   },
 
@@ -66,6 +83,8 @@ export const userService = {
       phoneNumber,
       dob,
       teamIds,
+      isSupervisor,
+      supervisorTeamIds,
     } = data;
 
     const hashedPassword = await createHash(password);
@@ -93,6 +112,22 @@ export const userService = {
       }
     }
 
+    // Process supervisor teams
+    const supervisorTeams = [];
+    if (isSupervisor && supervisorTeamIds && supervisorTeamIds.length > 0) {
+      for (let i = 0; i < supervisorTeamIds.length; i++) {
+        supervisorTeams.push({
+          teamId: new Types.ObjectId(supervisorTeamIds[i]),
+          assignedAt: new Date(),
+        });
+      }
+    }
+
+    // Validation: If user is supervisor, they must have at least one supervisor team
+    if (isSupervisor && (!supervisorTeamIds || supervisorTeamIds.length === 0)) {
+      throw new Error("Supervisor must be assigned to at least one team");
+    }
+
     const newUser = new User({
       firstName,
       lastName,
@@ -106,6 +141,8 @@ export const userService = {
       supplierKey, // Ensure supplierKey is set
       employeeId, // Add the generated Employee ID
       teamAssignments, // Add team assignments
+      isSupervisor: isSupervisor || false, // Add supervisor status
+      supervisorTeams, // Add supervisor teams
     });
 
     return await newUser.save();
@@ -643,6 +680,20 @@ export const userService = {
       // Pagination logic: apply skip and limit
       const users = await User.find(query)
         .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
+        .populate({
+          path: "supervisorTeams.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
 
