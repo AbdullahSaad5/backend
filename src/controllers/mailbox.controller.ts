@@ -10,6 +10,7 @@ import { smsService } from "@/services/sms.service";
 import { EmailAccountModel } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
+import { emailAccountConfigService } from "@/services/email-account-config.service";
 import crypto from "crypto";
 
 // Helper function to verify SES signature (optional but recommended)
@@ -1471,10 +1472,45 @@ export const MailboxController = {
   createEmailAccount: async (req: Request, res: Response) => {
     try {
       const accountData = req.body;
+
+      // Validate account data
+      const validation = emailAccountConfigService.validateEmailAccount(accountData);
+      if (!validation.isValid) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid account configuration",
+          errors: validation.errors,
+        });
+      }
+
+      // Encrypt passwords before saving
+      if (accountData.incomingServer?.password) {
+        accountData.incomingServer.password = emailAccountConfigService.encryptPassword(
+          accountData.incomingServer.password
+        );
+      }
+      if (accountData.outgoingServer?.password) {
+        accountData.outgoingServer.password = emailAccountConfigService.encryptPassword(
+          accountData.outgoingServer.password
+        );
+      }
+
+      // Create account
       const newAccount = await EmailAccountModel.create(accountData);
+
+      // Test connections after creation
+      const connectionResults = await emailAccountConfigService.testConnections(newAccount);
+
+      logger.info(`Email account created: ${newAccount.emailAddress}`, {
+        accountId: newAccount._id,
+        smtpConnectionSuccess: connectionResults.smtp.success,
+        imapConnectionSuccess: connectionResults.imap.success,
+      });
+
       res.status(StatusCodes.CREATED).json({
         success: true,
         data: newAccount,
+        connectionTests: connectionResults,
       });
     } catch (error: any) {
       console.error("Create email account error:", error);

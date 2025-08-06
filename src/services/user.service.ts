@@ -44,9 +44,26 @@ export const userService = {
   },
   findUserById: async (id: string, select?: string) => {
     if (select) {
-      return await User.findById(id).populate("userType").select(select);
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
+        .select(select);
     } else {
-      return await User.findById(id).populate("userType");
+      return await User.findById(id)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        });
     }
   },
 
@@ -65,6 +82,9 @@ export const userService = {
       restrictedAccessRights,
       phoneNumber,
       dob,
+      teamIds,
+      isSupervisor,
+      supervisorTeamIds,
     } = data;
 
     const hashedPassword = await createHash(password);
@@ -80,6 +100,34 @@ export const userService = {
     // Generate unique Employee ID
     const employeeId = await generateUniqueEmployeeId();
 
+    // Process team assignments
+    const teamAssignments = [];
+    if (teamIds && teamIds.length > 0) {
+      for (let i = 0; i < teamIds.length; i++) {
+        teamAssignments.push({
+          teamId: new Types.ObjectId(teamIds[i]),
+          priority: i + 1, // First selected = priority 1 (primary), second = priority 2, etc.
+          assignedAt: new Date(),
+        });
+      }
+    }
+
+    // Process supervisor teams
+    const supervisorTeams = [];
+    if (isSupervisor && supervisorTeamIds && supervisorTeamIds.length > 0) {
+      for (let i = 0; i < supervisorTeamIds.length; i++) {
+        supervisorTeams.push({
+          teamId: new Types.ObjectId(supervisorTeamIds[i]),
+          assignedAt: new Date(),
+        });
+      }
+    }
+
+    // Validation: If user is supervisor, they must have at least one supervisor team
+    if (isSupervisor && (!supervisorTeamIds || supervisorTeamIds.length === 0)) {
+      throw new Error("Supervisor must be assigned to at least one team");
+    }
+
     const newUser = new User({
       firstName,
       lastName,
@@ -92,6 +140,9 @@ export const userService = {
       dob,
       supplierKey, // Ensure supplierKey is set
       employeeId, // Add the generated Employee ID
+      teamAssignments, // Add team assignments
+      isSupervisor: isSupervisor || false, // Add supervisor status
+      supervisorTeams, // Add supervisor teams
     });
 
     return await newUser.save();
@@ -629,6 +680,20 @@ export const userService = {
       // Pagination logic: apply skip and limit
       const users = await User.find(query)
         .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
+        .populate({
+          path: "supervisorTeams.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        })
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
 
@@ -647,6 +712,88 @@ export const userService = {
     } catch (error) {
       console.error("Error during search and filter:", error);
       throw new Error("Error during search and filter");
+    }
+  },
+
+  // Team Assignment Methods
+  assignTeamsToUser: async (userId: string, teamIds: string[]) => {
+    try {
+      const teamAssignments = teamIds.map((teamId, index) => ({
+        teamId: new Types.ObjectId(teamId),
+        priority: index + 1,
+        assignedAt: new Date(),
+      }));
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { teamAssignments },
+        { new: true }
+      ).populate("userType").populate("teamAssignments.teamId");
+
+      return updatedUser;
+    } catch (error) {
+      console.error("Error assigning teams to user:", error);
+      throw error;
+    }
+  },
+
+  getUserWithTeams: async (userId: string) => {
+    try {
+      const user = await User.findById(userId)
+        .populate("userType")
+        .populate({
+          path: "teamAssignments.teamId",
+          populate: {
+            path: "userCategoryId",
+            select: "role description"
+          }
+        });
+
+      return user;
+    } catch (error) {
+      console.error("Error fetching user with teams:", error);
+      throw error;
+    }
+  },
+
+  getUsersByTeam: async (teamId: string) => {
+    try {
+      const users = await User.find({
+        "teamAssignments.teamId": new Types.ObjectId(teamId)
+      })
+      .populate("userType")
+      .populate("teamAssignments.teamId")
+      .sort({ "teamAssignments.priority": 1 });
+
+      return users;
+    } catch (error) {
+      console.error("Error fetching users by team:", error);
+      throw error;
+    }
+  },
+
+  removeTeamFromUser: async (userId: string, teamId: string) => {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Remove the team assignment
+      user.teamAssignments = user.teamAssignments.filter(
+        (assignment) => assignment.teamId.toString() !== teamId
+      );
+
+      // Reorder priorities
+      user.teamAssignments.forEach((assignment, index) => {
+        assignment.priority = index + 1;
+      });
+
+      await user.save();
+      return await userService.getUserWithTeams(userId);
+    } catch (error) {
+      console.error("Error removing team from user:", error);
+      throw error;
     }
   },
 };

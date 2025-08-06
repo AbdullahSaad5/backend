@@ -10,13 +10,13 @@ export const team = (router: Router) => {
   router.get("/", teamController.getAllTeams);
 
   // Get teams by category
-  router.get("/category/:categoryId", teamValidation.validateId, teamController.getTeamsByCategory);
+  router.get("/category/:categoryId",  teamController.getTeamsByCategory);
 
   // Get specific team by ID
-  router.get("/:id", teamValidation.validateId, teamController.getTeamById);
+  router.get("/:id",  teamController.getTeamById);
 
   // Update team
-  router.patch("/:id", teamValidation.validateId, teamValidation.updateTeam, teamController.updateTeam);
+  router.patch("/:id",  teamValidation.updateTeam, teamController.updateTeam);
 
   // Delete team
   router.delete("/:id", teamValidation.validateId, teamController.deleteTeam);

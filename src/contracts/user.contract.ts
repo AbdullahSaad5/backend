@@ -7,6 +7,17 @@ export interface IFile {
   name?: string;
 }
 
+export interface ITeamAssignment {
+  teamId: Types.ObjectId;
+  priority: number; // 1 = primary, 2 = secondary, etc.
+  assignedAt: Date;
+}
+
+export interface ISupervisorTeam {
+  teamId: Types.ObjectId;
+  assignedAt: Date;
+}
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -30,7 +41,12 @@ export interface IUser extends Document {
   resetPasswordExpires?: number;
   isBlocked: boolean;
   additionalDocuments: [IFile];
-  // isSupplier: boolean;
+  // Team assignments
+  teamAssignments: ITeamAssignment[];
+  
+  // Supervisor Configuration
+  isSupervisor: boolean;
+  supervisorTeams: ISupervisorTeam[];
   
   // Employee ID - unique 6-character alphanumeric identifier
   employeeId: string;
@@ -84,7 +100,10 @@ export type UserCreatePayload = Pick<
   | "restrictedAccessRights"
 > & { 
   dob?: string;
-  address: Partial<IUserAddress> 
+  address: Partial<IUserAddress>;
+  teamIds?: string[]; // Array of team IDs in priority order
+  isSupervisor?: boolean; // Whether user is a supervisor
+  supervisorTeamIds?: string[]; // Array of team IDs this user supervises
 };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;

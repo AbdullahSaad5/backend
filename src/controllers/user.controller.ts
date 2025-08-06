@@ -195,11 +195,24 @@ export const userController = {
         updateData.password = await createHash(updateData.password);
       }
 
+      // Handle team assignments if provided
+      let teamIdsToAssign: string[] = [];
+      if (updateData.teamIds && Array.isArray(updateData.teamIds)) {
+        teamIdsToAssign = [...updateData.teamIds];
+        // Remove teamIds from updateData as it will be handled separately
+        delete updateData.teamIds;
+      }
+
       const updatedUser = await userService.updateById(userId, updateData);
       if (!updatedUser) {
         return res
           .status(StatusCodes.NOT_FOUND)
           .json({ message: "User not found" });
+      }
+
+      // Update team assignments if provided
+      if (teamIdsToAssign.length > 0) {
+        await userService.assignTeamsToUser(userId, teamIdsToAssign);
       }
       // console.log("user.email : " , updateData.email , updatedUser.email)
       // if(updateData.email !== updatedUser.email){
@@ -787,6 +800,83 @@ export const userController = {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .json({ message: "Error getting profile completion status" });
+    }
+  },
+
+  assignTeams: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const { teams } = req.body;
+
+      if (!Array.isArray(teams)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          message: "Teams must be provided as an array of IDs",
+        });
+      }
+
+      const updatedUser = await userService.assignTeamsToUser(userId, teams);
+      if (!updatedUser) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "User not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "Teams assigned successfully",
+        user: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error assigning teams:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error assigning teams",
+      });
+    }
+  },
+
+  getUserWithTeams: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const user = await userService.getUserWithTeams(userId);
+
+      if (!user) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "User not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "User with teams retrieved successfully",
+        data: user,
+      });
+    } catch (error) {
+      console.error("Error fetching user with teams:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error fetching user with teams",
+      });
+    }
+  },
+
+  removeTeam: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.userId;
+      const teamId = req.params.teamId;
+
+      const updatedUser = await userService.removeTeamFromUser(userId, teamId);
+      if (!updatedUser) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          message: "User or team not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        message: "Team removed successfully",
+        user: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error removing team from user:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        message: "Error removing team from user",
+      });
     }
   },
 };
