@@ -49,17 +49,17 @@ export const productCategoryController = {
   },
 
   getAllCategory: async (req: Request, res: Response) => {
+    const { isPart, isBlocked } = req.query;
+    const filter = { isPart, isBlocked };
     try {
-      const categories = await productCategoryService.getAllCategory();
+      const categories = await productCategoryService.getAllCategory(filter);
       res.status(StatusCodes.OK).json({ success: true, data: categories });
     } catch (error) {
       console.error("View Categories Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          success: false,
-          message: "Error getting all product categories",
-        });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting all product categories",
+      });
     }
   },
 
@@ -124,13 +124,11 @@ export const productCategoryController = {
     try {
       const { id } = req.params;
       const result = await productCategoryService.deleteCategory(id);
-      res
-        .status(StatusCodes.OK)
-        .json({
-          success: true,
-          message: "Category deleted successfully",
-          deletedUser: result,
-        });
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Category deleted successfully",
+        deletedUser: result,
+      });
     } catch (error) {
       console.error("Delete Category Error:", error);
       res
@@ -152,12 +150,10 @@ export const productCategoryController = {
       });
     } catch (error) {
       console.error("Toggle Block Category Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({
-          success: false,
-          message: "Error updating product category status",
-        });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating product category status",
+      });
     }
   },
 };
