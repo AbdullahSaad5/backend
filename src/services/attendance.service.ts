@@ -294,27 +294,132 @@ export const attendanceService = {
 
   // Admin: geo location attendance mark
   geoLocationAttendanceMark: async (userId: string, latitude: number, longitude: number) => {
-    const address = await Address.findOne({ userId: userId });
-    if (!address) {
-      throw new Error("Address not found");
-    }
-    console.log("address.latitude : ", address);
+    // Find user's work mode
+    const userObjectId = new Types.ObjectId(userId);
+    const userWorkMode = await Workmode.findOne({ employees: { $in: [userObjectId] } });
 
-    if (!address.latitude || !address.longitude || address.latitude === 0 || address.longitude === 0) {
-      throw new Error("Latitude and longitude for employee not found in db");
-    }
-    console.log("address.latitude : ", address.latitude);
-    console.log("address.longitude : ", address.longitude);
-    console.log("latitude : ", latitude);
-    console.log("longitude : ", longitude);
-
-    const distance = attendanceService.haversineDistance(address.latitude, address.longitude, latitude, longitude);
-
-    if (distance > 500) {
-      throw new Error(`You are too far from the registered location. Distance: ${distance.toFixed(2)} meters.`);
+    if (!userWorkMode) {
+      throw new Error("Work mode not found for the employee");
     }
 
-    // Mark attendance (check-in) if within 500m
+    let isWithinAllowedDistance = false;
+    let distanceMessage = "";
+
+    // Check if work mode is "Onsite"
+    if (userWorkMode.modeName === "Onsite") {
+      // For onsite employees, check against all active locations
+      const locations = await Location.find({ isActive: true });
+
+      if (!locations || locations.length === 0) {
+        throw new Error("No active office locations found");
+      }
+
+      // Check distance against all locations
+      let closestDistance = Number.MAX_VALUE;
+      let closestLocation = null;
+
+      for (const location of locations) {
+        if (!location.latitude || !location.longitude || !location.radius) {
+          continue;
+        }
+
+        const distance = attendanceService.haversineDistance(
+          location.latitude,
+          location.longitude,
+          latitude,
+          longitude
+        );
+
+        console.log(
+          `Distance from ${location.name}: ${distance.toFixed(2)} meters (allowed: ${location.radius} meters)`
+        );
+
+        if (distance <= location.radius) {
+          isWithinAllowedDistance = true;
+          closestDistance = distance;
+          closestLocation = location;
+          break; // Found a valid location, no need to check others
+        }
+
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestLocation = location;
+        }
+      }
+
+      if (!isWithinAllowedDistance && closestLocation) {
+        distanceMessage = `You are too far from the nearest office location (${closestLocation.name}). Distance: ${closestDistance.toFixed(2)} meters. Maximum allowed distance: ${closestLocation.radius} meters.`;
+      }
+    } else {
+      // For remote/hybrid employees, check against their registered addresses
+      // Handle multiple addresses case - find all addresses for the user
+      // Only consider active addresses (not soft deleted)
+      const addresses = await Address.find({
+        userId: userId,
+        isActive: { $ne: false }, // Get addresses where isActive is true or not specified
+      });
+
+      if (!addresses || addresses.length === 0) {
+        throw new Error("No active addresses found for this employee");
+      }
+
+      // Check distance against all registered addresses
+      let closestDistance = Number.MAX_VALUE;
+      let closestAddress = null;
+      let anyValidAddressFound = false; // Track if we've found any valid address coordinates
+      const allowedDistance = 500; // For personal addresses, use default 500m radius
+
+      for (const address of addresses) {
+        if (!address.latitude || !address.longitude || address.latitude === 0 || address.longitude === 0) {
+          // Skip addresses without valid coordinates
+          continue;
+        }
+
+        anyValidAddressFound = true; // At least one address with valid coordinates was found
+
+        console.log(`Checking address: ${address._id}`);
+        console.log("address.latitude : ", address.latitude);
+        console.log("address.longitude : ", address.longitude);
+
+        const distance = attendanceService.haversineDistance(address.latitude, address.longitude, latitude, longitude);
+
+        console.log(
+          `Distance from address ${address._id}: ${distance.toFixed(2)} meters (allowed: ${allowedDistance} meters)`
+        );
+
+        if (distance <= allowedDistance) {
+          // If within allowed distance of any address, mark as successful and exit loop
+          isWithinAllowedDistance = true;
+          console.log(`Found valid address within range: ${address._id}, distance: ${distance.toFixed(2)} meters`);
+          break; // Exit loop as we found a valid address
+        }
+
+        // Keep track of closest address for error message
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestAddress = address;
+        }
+      }
+
+      // If no address had valid coordinates
+      if (!anyValidAddressFound) {
+        throw new Error("No valid address coordinates found for this employee");
+      }
+
+      // If not within allowed distance of any address
+      if (!isWithinAllowedDistance) {
+        distanceMessage = `You are too far from any of your registered locations. Closest distance: ${closestDistance.toFixed(2)} meters. Maximum allowed distance: ${allowedDistance} meters.`;
+      }
+
+      console.log("latitude : ", latitude);
+      console.log("longitude : ", longitude);
+    }
+
+    if (!isWithinAllowedDistance) {
+      throw new Error(distanceMessage);
+    }
+
+    // Mark attendance (check-in) if within allowed distance
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const employeeObjectId = new Types.ObjectId(userId);
@@ -328,6 +433,7 @@ export const attendanceService = {
         date: today,
         checkIn: new Date(),
         status: "present",
+        workModeId: userWorkMode._id,
       });
     } else {
       if (attendance.checkIn) {
