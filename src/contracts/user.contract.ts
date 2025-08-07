@@ -76,6 +76,10 @@ export interface IUser extends Document {
   niNumber?: string;
   taxId?: string;
   
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -128,6 +132,11 @@ export type ProfileCompletionPayload = {
   employmentStartDate?: string;
   niNumber?: string;
   taxId?: string;
+  
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
 };
 
 export interface IUserMethods {

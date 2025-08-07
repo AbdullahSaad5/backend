@@ -162,6 +162,24 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       type: String,
     },
 
+    // Annual Leave Configuration
+    annualLeaveEntitlement: {
+      type: Number,
+      min: 0,
+      max: 365,
+      default: 20, // Default 20 days per year
+    },
+    annualLeaveCarriedForward: {
+      type: Number,
+      min: 0,
+      max: 365,
+      default: 0,
+    },
+    annualLeaveYear: {
+      type: Number,
+      default: () => new Date().getFullYear(),
+    },
+
     // Profile Completion Status
     profileCompleted: {
       type: Boolean,

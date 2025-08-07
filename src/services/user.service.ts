@@ -257,8 +257,8 @@ export const userService = {
         if (!user) return 0;
       }
 
-      // Base fields that apply to all users (10 fields)
-      const baseFields = 10;
+      // Base fields that apply to all users (13 fields)
+      const baseFields = 13;
       // Foreign user specific fields (3 fields)
       const foreignFields = 3;
 
@@ -283,6 +283,11 @@ export const userService = {
       if (user.employmentStartDate) completedFields++;
       if (user.niNumber) completedFields++;
       if (user.taxId) completedFields++;
+
+      // Annual Leave Configuration (3 fields)
+      if (user.annualLeaveEntitlement !== undefined) completedFields++;
+      if (user.annualLeaveCarriedForward !== undefined) completedFields++;
+      if (user.annualLeaveYear !== undefined) completedFields++;
 
       // Foreign User Information (3 fields) - only count if isForeignUser is true
       if (user.isForeignUser) {
@@ -368,6 +373,11 @@ export const userService = {
         missingFields.push("Employment Start Date");
       if (!user.niNumber) missingFields.push("NI Number");
       if (!user.taxId) missingFields.push("Tax ID");
+
+      // Annual Leave Configuration
+      if (user.annualLeaveEntitlement === undefined) missingFields.push("Annual Leave Entitlement");
+      if (user.annualLeaveCarriedForward === undefined) missingFields.push("Annual Leave Carried Forward");
+      if (user.annualLeaveYear === undefined) missingFields.push("Annual Leave Year");
 
       // Foreign User Information
       if (user.isForeignUser) {

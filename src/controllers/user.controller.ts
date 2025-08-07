@@ -747,7 +747,10 @@ export const userController = {
         profileData.jobTitle &&
         profileData.employmentStartDate &&
         profileData.niNumber &&
-        profileData.taxId;
+        profileData.taxId &&
+        profileData.annualLeaveEntitlement !== undefined &&
+        profileData.annualLeaveCarriedForward !== undefined &&
+        profileData.annualLeaveYear !== undefined;
 
       res.status(StatusCodes.OK).json({
         message: isCompleteSubmission
