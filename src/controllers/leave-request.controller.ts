@@ -57,7 +57,7 @@ export const leaveRequestController = {
 
       // Add filter based on query parameters
       const filter: Record<string, any> = {};
-      
+
       // Add search functionality if search parameter is provided
       if (search) {
         filter.search = search;

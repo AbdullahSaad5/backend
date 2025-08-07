@@ -1,6 +1,7 @@
 import { featuredCategoryValidation } from "@/validations/featured-category.validation";
 import { featuredCategory } from "./../routes/featured-category.routes";
 import { heroSliderValidation } from "@/validations/hero-slider.validation";
+import { AnnouncementBarValidation } from "@/validations/announcement-bar.validation";
 export { userValidation } from "./user.validation";
 export { userCategoryValidation } from "./user-category.validation";
 export { authValidation } from "./user-auth.validation";
@@ -15,7 +16,11 @@ export { orderValidation } from "./order.validation";
 export { cartValidation } from "./cart.validation";
 export { variationValidation } from "./variation.validation";
 export { faqsValidation } from "./faqs.validation";
-export { createLeadValidation, updateLeadValidation, updateLeadStatusValidation } from "./lead.validation";
+export {
+  createLeadValidation,
+  updateLeadValidation,
+  updateLeadStatusValidation,
+} from "./lead.validation";
 export {
   createTaskSchema,
   updateTaskSchema,
@@ -23,6 +28,14 @@ export {
   updateTaskPrioritySchema,
   updateTaskAssigneesSchema,
 } from "./task.validation";
-export { heroSliderValidation, heroSliderStatusValidation } from "./hero-slider.validation";
+export {
+  heroSliderValidation,
+  heroSliderStatusValidation,
+} from "./hero-slider.validation";
 export { featuredCategoryValidation } from "./featured-category.validation";
+export {
+  featuredSaleValidation,
+  featuredSaleStatusValidation,
+} from "./featured-sale.validation";
 export { teamValidation } from "./team.validation";
+export { AnnouncementBarValidation } from "./announcement-bar.validation";
