@@ -24,7 +24,7 @@ export interface OAuthTokenResponse {
 export class EmailOAuthService {
   private static readonly ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "default_encryption_key_change_in_production";
   private static readonly REDIRECT_URI =
-    process.env.OAUTH_REDIRECT_URI || "http://localhost:5000/api/email-accounts/oauth";
+    process.env.OAUTH_REDIRECT_URI || "http://localhost:5000/api/email-account/oauth";
 
   // Validate environment configuration
   private static validateEnvironment(): void {
@@ -212,7 +212,61 @@ export class EmailOAuthService {
         return { success: false, error: "Email address not found" };
       }
 
-      // ... (rest of your code to create/update email account) ...
+      // Create or update email account
+      const accountData: Partial<IEmailAccount> = {
+        userId: oauthState.userId,
+        accountName: oauthState.accountName || `Gmail (${emailAddress})`,
+        emailAddress,
+        displayName: userInfo.name || emailAddress,
+        accountType: "gmail",
+        isActive: true,
+        isPrimary: oauthState.isPrimary || false,
+        incomingServer: {
+          host: provider.incomingServer.host,
+          port: provider.incomingServer.port,
+          security: provider.incomingServer.security,
+          username: emailAddress,
+          password: this.encryptData("oauth"),
+        },
+        outgoingServer: {
+          host: provider.outgoingServer.host,
+          port: provider.outgoingServer.port,
+          security: provider.outgoingServer.security,
+          username: emailAddress,
+          password: this.encryptData("oauth"),
+          requiresAuth: provider.outgoingServer.requiresAuth,
+        },
+        oauth: {
+          provider: "gmail",
+          clientId: provider.oauth.clientId,
+          clientSecret: this.encryptData(provider.oauth.clientSecret),
+          refreshToken: tokens.refresh_token ? this.encryptData(tokens.refresh_token) : undefined,
+          accessToken: this.encryptData(tokens.access_token),
+          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+        },
+        status: "active",
+        connectionStatus: "disconnected",
+      };
+
+      // Check if account already exists
+      const existingAccount = await EmailAccountModel.findOne({
+        userId: oauthState.userId,
+        emailAddress,
+      });
+
+      let account: IEmailAccount;
+      if (existingAccount) {
+        // Update existing account
+        account = (await EmailAccountModel.findByIdAndUpdate(existingAccount._id, accountData, {
+          new: true,
+        })) as IEmailAccount;
+      } else {
+        // Create new account
+        account = await EmailAccountModel.create(accountData);
+      }
+
+      logger.info(`Google OAuth account created/updated: ${emailAddress}`);
+      return { success: true, account };
     } catch (error: any) {
       logger.error("Google OAuth callback overall error:", error);
       return { success: false, error: error.message };
