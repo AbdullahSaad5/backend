@@ -12,3 +12,4 @@ const CategorySchema = new Schema<ICategory, ICategoryModel>({
 }, { timestamps: true });
 
 export const CategoryModel = model<ICategory>("ForumCategory", CategorySchema);
+
