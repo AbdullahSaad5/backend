@@ -27,8 +27,8 @@ export const productCategoryService = {
     return newProductCategory.save();
   },
 
-  getAllCategory: () => {
-    return ProductCategory.find();
+  getAllCategory: (filter: any) => {
+    return ProductCategory.find(filter);
   },
 
   getById: (id: string) => {
@@ -48,7 +48,11 @@ export const productCategoryService = {
   },
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
-    const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isBlocked }, { new: true });
+    const updatedCategory = await ProductCategory.findByIdAndUpdate(
+      id,
+      { isBlocked },
+      { new: true }
+    );
     if (!updatedCategory) {
       throw new Error("Category not found");
     }
