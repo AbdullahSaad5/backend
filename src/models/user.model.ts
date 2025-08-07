@@ -162,13 +162,6 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       type: String,
     },
 
-    // Banking Details
-    bankName: { type: String },
-    bankBranch: { type: String },
-    accountName: { type: String },
-    accountNumber: { type: String },
-    sortCode: { type: String },
-
     // Profile Completion Status
     profileCompleted: {
       type: Boolean,

@@ -225,11 +225,6 @@ export const userService = {
       if (updateData.passportNumber === "")
         updateData.passportNumber = undefined;
       if (updateData.visaNumber === "") updateData.visaNumber = undefined;
-      if (updateData.bankName === "") updateData.bankName = undefined;
-      if (updateData.bankBranch === "") updateData.bankBranch = undefined;
-      if (updateData.accountName === "") updateData.accountName = undefined;
-      if (updateData.sortCode === "") updateData.sortCode = undefined;
-      if (updateData.accountNumber === "") updateData.accountNumber = undefined;
 
       // If user is not foreign user, clear all foreign user related fields
       if (updateData.isForeignUser === false) {
@@ -262,8 +257,8 @@ export const userService = {
         if (!user) return 0;
       }
 
-      // Base fields that apply to all users (14 fields)
-      const baseFields = 15;
+      // Base fields that apply to all users (10 fields)
+      const baseFields = 10;
       // Foreign user specific fields (3 fields)
       const foreignFields = 3;
 
@@ -288,13 +283,6 @@ export const userService = {
       if (user.employmentStartDate) completedFields++;
       if (user.niNumber) completedFields++;
       if (user.taxId) completedFields++;
-
-      // Banking Details (5 fields)
-      if (user.bankName) completedFields++;
-      if (user.bankBranch) completedFields++;
-      if (user.accountName) completedFields++;
-      if (user.sortCode) completedFields++;
-      if (user.accountNumber) completedFields++;
 
       // Foreign User Information (3 fields) - only count if isForeignUser is true
       if (user.isForeignUser) {
@@ -380,13 +368,6 @@ export const userService = {
         missingFields.push("Employment Start Date");
       if (!user.niNumber) missingFields.push("NI Number");
       if (!user.taxId) missingFields.push("Tax ID");
-
-      // Banking Details
-      if (!user.bankName) missingFields.push("Bank Name");
-      if (!user.bankBranch) missingFields.push("Bank Branch");
-      if (!user.accountName) missingFields.push("Account Name");
-      if (!user.accountNumber) missingFields.push("Account Number");
-      if (!user.sortCode) missingFields.push("Sort Code");
 
       // Foreign User Information
       if (user.isForeignUser) {

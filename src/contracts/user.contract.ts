@@ -76,12 +76,6 @@ export interface IUser extends Document {
   niNumber?: string;
   taxId?: string;
   
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -134,13 +128,6 @@ export type ProfileCompletionPayload = {
   employmentStartDate?: string;
   niNumber?: string;
   taxId?: string;
-  
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
 };
 
 export interface IUserMethods {
