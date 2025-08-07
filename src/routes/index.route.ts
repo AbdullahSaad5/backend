@@ -62,12 +62,14 @@ import { lead } from "./lead.route";
 import { task } from "./task.route";
 import { heroSlider } from "./hero-slider.routes";
 import { featuredCategory } from "./featured-category.routes";
+import { featuredSale } from "./featured-sale.routes";
 import { marketing } from "./marketing.route";
 import { mailbox } from "./mailbox.route";
 import { Forum } from "./forum.route";
 import { ForumTopic } from "./forum-topic.route";
 import { team } from "./team.route";
 import { emailAccount } from "./email-account.route";
+import { announcementBar } from "./announcement-bar.routes";
 import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 
@@ -139,15 +141,17 @@ const routes: {
   task,
   heroSlider,
   featuredCategory,
+  featuredSale,
   marketing,
   mailbox,
   Forum,
   ForumTopic,
   team,
   emailAccount,
+  announcementBar,
   emailClient,
   documentation,
-  ForumCategory
+  ForumCategory,
 };
 
 // Loop through all routes and pass the router to each route
