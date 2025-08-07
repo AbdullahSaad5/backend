@@ -73,6 +73,7 @@ import { announcementBar } from "./announcement-bar.routes";
 import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
+import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
 
 import { ForumCategory } from "./forum-category.route";
 const router: Router = Router();
@@ -154,6 +155,7 @@ const routes: {
   documentation,
   ForumCategory,
   orderTaskTypes,
+  productTypeWorkflows,
 };
 
 // Loop through all routes and pass the router to each route
