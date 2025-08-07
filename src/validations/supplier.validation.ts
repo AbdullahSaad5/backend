@@ -42,7 +42,7 @@ export const supplierValidation = {
       email: z.string().trim().min(3, "Email is required").regex(REGEX.EMAIL, "Invalid email format"),
       password: z.string().regex(REGEX.PASSWORD, " password: (A-Z) (a-z) (0-9) (one charcter) (between 8-20)"),
       phoneNumber: z.string().trim().min(3, "Phone number is required"),
-      address: z.array(addressSchema).min(1, "At least one address is required").optional(),
+      address: z.array(addressSchema).optional(),
       documents: z.array(documentSchema).optional(),
       //   userType: objectId, // Reference to UserCategory
       // supplierCategory: objectId,
