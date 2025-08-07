@@ -5,7 +5,11 @@ import { validateRequest, validateParams } from "@/middlewares/validation.middle
 import { emailAccountValidation } from "@/validations/email-account.validation";
 
 export const emailAccount = (router: Router) => {
-  // Apply authentication to all email account routes
+  // OAuth callback routes (no auth required as they come from external providers)
+  router.get("/oauth/google/callback", EmailAccountController.handleGoogleCallback);
+  router.get("/oauth/outlook/callback", EmailAccountController.handleOutlookCallback);
+
+  // Apply authentication to all other email account routes
   router.use(authGuard.isAuth);
 
   // Get email providers
@@ -23,13 +27,11 @@ export const emailAccount = (router: Router) => {
     // validateRequest(emailAccountValidation.initiateOAuth),
     EmailAccountController.initiateGoogleOAuth
   );
-  router.get("/oauth/google/callback", EmailAccountController.handleGoogleCallback);
   router.post(
     "/oauth/outlook",
     // validateRequest(emailAccountValidation.initiateOAuth),
     EmailAccountController.initiateOutlookOAuth
   );
-  router.get("/oauth/outlook/callback", EmailAccountController.handleOutlookCallback);
 
   // Manual account creation
   router.post(

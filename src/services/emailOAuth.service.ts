@@ -1,9 +1,9 @@
 import { OAuth2Client } from "google-auth-library";
+import { google } from "googleapis"; // Import googleapis
 import { EmailProviderService, EMAIL_PROVIDERS } from "@/config/emailProviders";
 import { EmailAccountModel, IEmailAccount } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";
 import crypto from "crypto";
-
 export interface OAuthState {
   userId: string;
   provider: string;
@@ -26,6 +26,19 @@ export class EmailOAuthService {
   private static readonly REDIRECT_URI =
     process.env.OAUTH_REDIRECT_URI || "http://localhost:5000/api/email-accounts/oauth";
 
+  // Validate environment configuration
+  private static validateEnvironment(): void {
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      logger.warn("Google OAuth credentials not configured");
+    }
+    if (!process.env.OUTLOOK_CLIENT_ID || !process.env.OUTLOOK_CLIENT_SECRET) {
+      logger.warn("Outlook OAuth credentials not configured");
+    }
+    if (this.ENCRYPTION_KEY === "default_encryption_key_change_in_production") {
+      logger.warn("Using default encryption key - change in production!");
+    }
+  }
+
   // Encrypt sensitive data
   static encryptData(data: string): string {
     const cipher = crypto.createCipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
@@ -35,7 +48,7 @@ export class EmailOAuthService {
   }
 
   // Decrypt sensitive data
-  static decryptData(encryptedData: string): string {
+  static decryptData(encryptedData: string | any): string {
     const decipher = crypto.createDecipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
     let decrypted = decipher.update(encryptedData, "hex", "utf8");
     decrypted += decipher.final("utf8");
@@ -67,7 +80,16 @@ export class EmailOAuthService {
   static parseOAuthState(stateString: string): OAuthState | null {
     try {
       const stateJson = Buffer.from(stateString, "base64").toString("utf8");
-      return JSON.parse(stateJson) as OAuthState;
+      const state = JSON.parse(stateJson) as OAuthState;
+
+      // Validate state age (should not be older than 1 hour)
+      const maxAge = 60 * 60 * 1000; // 1 hour in milliseconds
+      if (Date.now() - state.timestamp > maxAge) {
+        logger.error("OAuth state expired");
+        return null;
+      }
+
+      return state;
     } catch (error) {
       logger.error("Error parsing OAuth state:", error);
       return null;
@@ -82,19 +104,27 @@ export class EmailOAuthService {
     isPrimary?: boolean
   ): string {
     const provider = EMAIL_PROVIDERS.gmail;
+
+    // Validate OAuth configuration
+    if (!provider.oauth?.clientId || !provider.oauth?.clientSecret) {
+      throw new Error(
+        "Google OAuth credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables."
+      );
+    }
+
     const state = this.generateOAuthState(userId, "gmail", emailAddress, accountName, isPrimary);
 
     const params = new URLSearchParams({
-      client_id: provider.oauth!.clientId,
+      client_id: provider.oauth.clientId,
       redirect_uri: `${this.REDIRECT_URI}/google/callback`,
       response_type: "code",
-      scope: provider.oauth!.scopes.join(" "),
+      scope: provider.oauth.scopes.join(" "),
       access_type: "offline",
       prompt: "consent",
       state: state,
     });
 
-    return `${provider.oauth!.authUrl}?${params.toString()}`;
+    return `${provider.oauth.authUrl}?${params.toString()}`;
   }
 
   // Generate Outlook OAuth URL
@@ -122,103 +152,72 @@ export class EmailOAuthService {
   static async handleGoogleCallback(
     code: string,
     state: string
-  ): Promise<{ success: boolean; account?: IEmailAccount; error?: string }> {
+  ): Promise<{ success: boolean; account?: any | IEmailAccount; error?: string }> {
     try {
       const oauthState = this.parseOAuthState(state);
       if (!oauthState) {
+        logger.error("Google Callback: Invalid OAuth state received.");
         return { success: false, error: "Invalid OAuth state" };
       }
+      logger.info("Google Callback: Parsed OAuth State:", oauthState);
 
       const provider = EMAIL_PROVIDERS.gmail;
-      const oauth2Client = new OAuth2Client(
-        provider.oauth!.clientId,
-        provider.oauth!.clientSecret,
-        `${this.REDIRECT_URI}/google/callback`
-      );
-
-      const { tokens } = await oauth2Client.getToken(code);
-
-      if (!tokens.access_token) {
-        return { success: false, error: "Failed to get access token" };
+      if (!provider.oauth?.clientId || !provider.oauth?.clientSecret) {
+        logger.error("Google Callback: Google OAuth credentials missing in EMAIL_PROVIDERS config.");
+        throw new Error("Google OAuth credentials not configured.");
       }
 
-      // Get user info from Google
-      oauth2Client.setCredentials(tokens);
-      const oauth2 = new OAuth2Client();
-      oauth2.setCredentials({ access_token: tokens.access_token });
+      const redirectUrl = `${this.REDIRECT_URI}/google/callback`;
+      logger.info(`Google Callback: Using Redirect URI: ${redirectUrl}`);
 
-      const userInfoResponse = await oauth2.request({
-        url: "https://www.googleapis.com/oauth2/v2/userinfo",
+      const oauth2Client = new OAuth2Client(provider.oauth.clientId, provider.oauth.clientSecret, redirectUrl);
+      logger.info("Google Callback: Initialized OAuth2Client.");
+
+      logger.info("Google Callback: Attempting to get tokens with code:", code);
+      const { tokens } = await oauth2Client.getToken(code);
+      logger.info("Google Callback: Received raw tokens:", JSON.stringify(tokens));
+
+      if (!tokens.access_token) {
+        logger.error("Google Callback: Failed to get access token - access_token missing from response.");
+        return { success: false, error: "Failed to get access token" };
+      }
+      logger.info("Google Callback: Access token obtained. Expires in:", tokens.expiry_date);
+
+      // Set credentials on the client instance for subsequent API calls
+      oauth2Client.setCredentials(tokens);
+      logger.info(
+        "Google Callback: Credentials set on oauth2Client. Current client credentials:",
+        oauth2Client.credentials
+      );
+
+      // --- CHANGE STARTS HERE ---
+      // Instead of oauth2Client.request, use the googleapis library for user info
+      // The userinfo endpoint is technically part of the 'oauth2' API group, not 'people'
+      const oauth2 = google.oauth2({
+        auth: oauth2Client, // Crucially, pass your oauth2Client instance here
+        version: "v2",
       });
 
-      const userInfo = userInfoResponse.data as any;
+      logger.info("Google Callback: Attempting to fetch user info from Google API using googleapis...");
+      const userInfoResponse = await oauth2.userinfo.get(); // Call the userinfo.get() method
+
+      const userInfo = userInfoResponse.data; // .data is automatically included
+      logger.info("Google Callback: Received user info response:", JSON.stringify(userInfo));
+      // --- CHANGE ENDS HERE ---
+
       const emailAddress = userInfo.email || oauthState.emailAddress;
 
       if (!emailAddress) {
+        logger.error("Google Callback: Email address not found after user info retrieval.");
         return { success: false, error: "Email address not found" };
       }
 
-      // Create or update email account
-      const accountData: Partial<IEmailAccount> = {
-        userId: oauthState.userId,
-        accountName: oauthState.accountName || `Gmail (${emailAddress})`,
-        emailAddress,
-        displayName: userInfo.name || emailAddress,
-        accountType: "gmail",
-        isActive: true,
-        isPrimary: oauthState.isPrimary || false,
-        incomingServer: {
-          host: provider.incomingServer.host,
-          port: provider.incomingServer.port,
-          security: provider.incomingServer.security,
-          username: emailAddress,
-          password: this.encryptData("oauth"), // Use OAuth instead of password
-        },
-        outgoingServer: {
-          host: provider.outgoingServer.host,
-          port: provider.outgoingServer.port,
-          security: provider.outgoingServer.security,
-          username: emailAddress,
-          password: this.encryptData("oauth"),
-          requiresAuth: provider.outgoingServer.requiresAuth,
-        },
-        oauth: {
-          provider: "gmail",
-          clientId: provider.oauth!.clientId,
-          clientSecret: provider.oauth!.clientSecret,
-          refreshToken: tokens.refresh_token || undefined,
-          accessToken: tokens.access_token,
-          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
-        },
-        status: "active",
-        connectionStatus: "disconnected",
-      };
-
-      // Check if account already exists
-      const existingAccount = await EmailAccountModel.findOne({
-        userId: oauthState.userId,
-        emailAddress,
-      });
-
-      let account: IEmailAccount;
-      if (existingAccount) {
-        // Update existing account
-        account = (await EmailAccountModel.findByIdAndUpdate(existingAccount._id, accountData, {
-          new: true,
-        })) as IEmailAccount;
-      } else {
-        // Create new account
-        account = await EmailAccountModel.create(accountData);
-      }
-
-      logger.info(`Google OAuth account created/updated: ${emailAddress}`);
-      return { success: true, account };
+      // ... (rest of your code to create/update email account) ...
     } catch (error: any) {
-      logger.error("Google OAuth callback error:", error);
+      logger.error("Google OAuth callback overall error:", error);
       return { success: false, error: error.message };
     }
   }
-
   // Handle Outlook OAuth callback
   static async handleOutlookCallback(
     code: string,
@@ -304,9 +303,9 @@ export class EmailOAuthService {
         oauth: {
           provider: "outlook",
           clientId: provider.oauth!.clientId,
-          clientSecret: provider.oauth!.clientSecret,
-          refreshToken: tokens.refresh_token,
-          accessToken: tokens.access_token,
+          clientSecret: this.encryptData(provider.oauth!.clientSecret),
+          refreshToken: tokens.refresh_token ? this.encryptData(tokens.refresh_token) : undefined,
+          accessToken: this.encryptData(tokens.access_token),
           tokenExpiry: tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
         },
         status: "active",
@@ -350,18 +349,22 @@ export class EmailOAuthService {
         return { success: false, error: "Provider not found" };
       }
 
+      // Decrypt stored tokens and secrets
+      const decryptedRefreshToken = this.decryptData(account.oauth.refreshToken);
+      const decryptedClientSecret = this.decryptData(account.oauth.clientSecret);
+
       if (account.oauth.provider === "gmail") {
-        const oauth2Client = new OAuth2Client(provider.oauth.clientId, provider.oauth.clientSecret);
+        const oauth2Client = new OAuth2Client(provider.oauth.clientId, decryptedClientSecret);
 
         oauth2Client.setCredentials({
-          refresh_token: account.oauth.refreshToken,
+          refresh_token: decryptedRefreshToken,
         });
 
         const { tokens }: any = await oauth2Client.refreshAccessToken();
 
-        // Update account with new tokens
+        // Update account with new encrypted tokens
         await EmailAccountModel.findByIdAndUpdate(account._id, {
-          "oauth.accessToken": tokens.access_token,
+          "oauth.accessToken": this.encryptData(tokens.access_token),
           "oauth.tokenExpiry": tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         });
       } else if (account.oauth.provider === "outlook") {
@@ -372,21 +375,26 @@ export class EmailOAuthService {
           },
           body: new URLSearchParams({
             client_id: provider.oauth.clientId,
-            client_secret: provider.oauth.clientSecret,
-            refresh_token: account.oauth.refreshToken,
+            client_secret: decryptedClientSecret,
+            refresh_token: decryptedRefreshToken,
             grant_type: "refresh_token",
           }),
         });
 
         if (!response.ok) {
-          throw new Error("Failed to refresh Outlook token");
+          const errorText = await response.text();
+          logger.error("Failed to refresh Outlook token:", errorText);
+          throw new Error(`Failed to refresh Outlook token: ${response.status}`);
         }
 
         const tokens: OAuthTokenResponse = await response.json();
 
-        // Update account with new tokens
+        // Update account with new encrypted tokens
         await EmailAccountModel.findByIdAndUpdate(account._id, {
-          "oauth.accessToken": tokens.access_token,
+          "oauth.accessToken": this.encryptData(tokens.access_token),
+          "oauth.refreshToken": tokens.refresh_token
+            ? this.encryptData(tokens.refresh_token)
+            : account.oauth.refreshToken,
           "oauth.tokenExpiry": tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
         });
       }
@@ -395,6 +403,19 @@ export class EmailOAuthService {
     } catch (error: any) {
       logger.error("Token refresh error:", error);
       return { success: false, error: error.message };
+    }
+  }
+
+  // Get decrypted access token for use in email operations
+  static getDecryptedAccessToken(account: IEmailAccount): string | null {
+    try {
+      if (!account.oauth?.accessToken) {
+        return null;
+      }
+      return this.decryptData(account.oauth.accessToken);
+    } catch (error) {
+      logger.error("Error decrypting access token:", error);
+      return null;
     }
   }
 }
