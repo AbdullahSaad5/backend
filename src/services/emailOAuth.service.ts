@@ -190,20 +190,15 @@ export class EmailOAuthService {
         oauth2Client.credentials
       );
 
-      // --- CHANGE STARTS HERE ---
-      // Instead of oauth2Client.request, use the googleapis library for user info
-      // The userinfo endpoint is technically part of the 'oauth2' API group, not 'people'
-      const oauth2 = google.oauth2({
-        auth: oauth2Client, // Crucially, pass your oauth2Client instance here
-        version: "v2",
+      // Get user info using OAuth2Client directly
+      logger.info("Google Callback: Attempting to fetch user info from Google API...");
+      const userInfoResponse = await oauth2Client.request({
+        url: "https://www.googleapis.com/oauth2/v2/userinfo",
+        method: "GET",
       });
 
-      logger.info("Google Callback: Attempting to fetch user info from Google API using googleapis...");
-      const userInfoResponse = await oauth2.userinfo.get(); // Call the userinfo.get() method
-
-      const userInfo = userInfoResponse.data; // .data is automatically included
+      const userInfo = userInfoResponse.data as { email: string; name?: string };
       logger.info("Google Callback: Received user info response:", JSON.stringify(userInfo));
-      // --- CHANGE ENDS HERE ---
 
       const emailAddress = userInfo.email || oauthState.emailAddress;
 
