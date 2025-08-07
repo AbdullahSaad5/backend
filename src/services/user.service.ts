@@ -252,13 +252,13 @@ export const userService = {
         if (!user) return 0;
       }
 
-      // Base fields that apply to all users (12 fields)
-      const baseFields = 12;
-      // Right to work specific fields (3 fields)
-      const rightToWorkFields = 3;
+      // Base fields that apply to all users (11 fields - moved NI Number to documents)
+      const baseFields = 11;
+      // Documents and Right to work specific fields (4 fields - including NI Number)
+      const documentsFields = 4;
 
       // Calculate total fields based on user type
-      const totalFields = baseFields + rightToWorkFields;
+      const totalFields = baseFields + documentsFields;
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -271,17 +271,17 @@ export const userService = {
       if (user.geofencingRadius !== undefined) completedFields++;
       if (user.geofencingAttendanceEnabled !== undefined) completedFields++;
 
-      // Employment Information (3 fields)
+      // Employment Information (2 fields - removed NI Number)
       if (user.jobTitle) completedFields++;
       if (user.employmentStartDate) completedFields++;
-      if (user.niNumber) completedFields++;
 
       // Annual Leave Configuration (3 fields)
       if (user.annualLeaveEntitlement !== undefined) completedFields++;
       if (user.annualLeaveCarriedForward !== undefined) completedFields++;
       if (user.annualLeaveYear !== undefined) completedFields++;
 
-      // Right to Work Information (3 fields)
+      // Documents and Right to Work Information (4 fields - including NI Number)
+      if (user.niNumber) completedFields++;
       if (user.passportNumber && user.passportExpiryDate) completedFields++;
       if (user.employmentDocuments && user.employmentDocuments.length > 0) completedFields++;
       if (user.rightToWorkType === "visa_holder" && user.visaNumber && user.visaExpiryDate) {
@@ -359,14 +359,14 @@ export const userService = {
       if (!user.jobTitle) missingFields.push("Job Title");
       if (!user.employmentStartDate)
         missingFields.push("Employment Start Date");
-      if (!user.niNumber) missingFields.push("NI Number");
 
       // Annual Leave Configuration
       if (user.annualLeaveEntitlement === undefined) missingFields.push("Annual Leave Entitlement");
       if (user.annualLeaveCarriedForward === undefined) missingFields.push("Annual Leave Carried Forward");
       if (user.annualLeaveYear === undefined) missingFields.push("Annual Leave Year");
 
-      // Right to Work Information
+      // Documents and Right to Work Information
+      if (!user.niNumber) missingFields.push("NI Number");
       if (!user.passportNumber || !user.passportExpiryDate) {
         missingFields.push("Passport Information");
       }
