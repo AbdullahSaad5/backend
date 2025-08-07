@@ -20,13 +20,13 @@ export const emailAccount = (router: Router) => {
   // OAuth endpoints
   router.post(
     "/oauth/google",
-    validateRequest(emailAccountValidation.initiateOAuth),
+    // validateRequest(emailAccountValidation.initiateOAuth),
     EmailAccountController.initiateGoogleOAuth
   );
   router.get("/oauth/google/callback", EmailAccountController.handleGoogleCallback);
   router.post(
     "/oauth/outlook",
-    validateRequest(emailAccountValidation.initiateOAuth),
+    // validateRequest(emailAccountValidation.initiateOAuth),
     EmailAccountController.initiateOutlookOAuth
   );
   router.get("/oauth/outlook/callback", EmailAccountController.handleOutlookCallback);
