@@ -27,7 +27,10 @@ export const productCategoryService = {
     return newProductCategory.save();
   },
 
-  getAllCategory: (filter: any) => {
+  getAllCategory: () => {
+    return ProductCategory.find();
+  },
+  getAllCategoryWeb: (filter: any) => {
     return ProductCategory.find(filter);
   },
 
@@ -48,11 +51,7 @@ export const productCategoryService = {
   },
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
-    const updatedCategory = await ProductCategory.findByIdAndUpdate(
-      id,
-      { isBlocked },
-      { new: true }
-    );
+    const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isBlocked }, { new: true });
     if (!updatedCategory) {
       throw new Error("Category not found");
     }
