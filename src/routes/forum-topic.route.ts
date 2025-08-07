@@ -31,5 +31,10 @@ export const ForumTopic = (router: Router) => {
       ForumTopicController.getForumTopicById
     );
 
+    router.get (
+      "/category/:id",
+      ForumTopicController.getForumTopicsByCategoryId
+    )
+
 
 };
