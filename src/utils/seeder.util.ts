@@ -442,9 +442,8 @@ const seedData = async () => {
 export default seedData;
 
 async function seedIntegrationTokens() {
-  // Helper to safely parse number values
-  const asNumber = (v?: string) => (v != null && v !== "" ? Number(v) : undefined);
   const asBoolean = (v?: string, dflt?: boolean) => (v === "true" ? true : v === "false" ? false : dflt);
+  const nowMs = Date.now();
 
   const candidates: Array<{
     provider: "ebay" | "amazon";
@@ -464,10 +463,10 @@ async function seedIntegrationTokens() {
       useClient: asBoolean(process.env.EBAY_USE_CLIENT, true),
       access_token: process.env.EBAY_ACCESS_TOKEN,
       refresh_token: process.env.EBAY_REFRESH_TOKEN,
-      token_type: process.env.EBAY_TOKEN_TYPE,
-      expires_in: asNumber(process.env.EBAY_EXPIRES_IN),
-      refresh_token_expires_in: asNumber(process.env.EBAY_REFRESH_TOKEN_EXPIRES_IN),
-      generated_at: asNumber(process.env.EBAY_GENERATED_AT),
+      token_type: "User Access Token",
+      expires_in: 7200,
+      refresh_token_expires_in: 47304000,
+      generated_at: nowMs,
     },
     // eBay SANDBOX
     {
@@ -476,10 +475,10 @@ async function seedIntegrationTokens() {
       useClient: asBoolean(process.env.EBAY_SANDBOX_USE_CLIENT, false),
       access_token: process.env.EBAY_SANDBOX_ACCESS_TOKEN,
       refresh_token: process.env.EBAY_SANDBOX_REFRESH_TOKEN,
-      token_type: process.env.EBAY_SANDBOX_TOKEN_TYPE,
-      expires_in: asNumber(process.env.EBAY_SANDBOX_EXPIRES_IN),
-      refresh_token_expires_in: asNumber(process.env.EBAY_SANDBOX_REFRESH_TOKEN_EXPIRES_IN),
-      generated_at: asNumber(process.env.EBAY_SANDBOX_GENERATED_AT),
+      token_type: "User Access Token",
+      expires_in: 7200,
+      refresh_token_expires_in: 47304000,
+      generated_at: nowMs,
     },
     // Amazon PRODUCTION
     {
@@ -488,9 +487,9 @@ async function seedIntegrationTokens() {
       useClient: asBoolean(process.env.AMAZON_PROD_USE_CLIENT, true),
       access_token: process.env.AMAZON_PROD_ACCESS_TOKEN,
       refresh_token: process.env.AMAZON_PROD_REFRESH_TOKEN,
-      token_type: process.env.AMAZON_PROD_TOKEN_TYPE,
-      expires_in: asNumber(process.env.AMAZON_PROD_EXPIRES_IN),
-      generated_at: asNumber(process.env.AMAZON_PROD_GENERATED_AT),
+      token_type: "bearer",
+      expires_in: 3600,
+      generated_at: nowMs,
     },
     // Amazon SANDBOX
     {
@@ -499,9 +498,9 @@ async function seedIntegrationTokens() {
       useClient: asBoolean(process.env.AMAZON_SANDBOX_USE_CLIENT, false),
       access_token: process.env.AMAZON_SANDBOX_ACCESS_TOKEN,
       refresh_token: process.env.AMAZON_SANDBOX_REFRESH_TOKEN,
-      token_type: process.env.AMAZON_SANDBOX_TOKEN_TYPE,
-      expires_in: asNumber(process.env.AMAZON_SANDBOX_EXPIRES_IN),
-      generated_at: asNumber(process.env.AMAZON_SANDBOX_GENERATED_AT),
+      token_type: "bearer",
+      expires_in: 3600,
+      generated_at: nowMs,
     },
   ];
 
