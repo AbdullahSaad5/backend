@@ -7,7 +7,7 @@ export const supplier = (router: Router) => {
   // route for create new supplier
   router.post(
     "/",
-    supplierValidation.addSupplier,
+    // supplierValidation.addSupplier,
     supplierController.addSupplier
   );
   router.get("/stats", supplierController.getSupplierStats);
