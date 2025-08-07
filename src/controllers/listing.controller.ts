@@ -1016,6 +1016,50 @@ export const listingController = {
       });
     }
   },
+  toggleIsFeatured: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isFeatured } = req.body;
+
+      console.log("toggleIsFeatured - Request received:", { id, isFeatured, body: req.body });
+
+      if (typeof isFeatured !== "boolean") {
+        console.log("toggleIsFeatured - Invalid boolean value:", isFeatured);
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "isFeatured must be a boolean value",
+        });
+      }
+
+      console.log("toggleIsFeatured - Calling service with:", { id, isFeatured });
+      const updatedListing = await listingService.toggleIsFeatured(id, isFeatured);
+
+      if (!updatedListing) {
+        console.log("toggleIsFeatured - Listing not found for ID:", id);
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Listing not found",
+        });
+      }
+
+      console.log("toggleIsFeatured - Success, updated listing:", { 
+        id: updatedListing._id, 
+        isFeatured: updatedListing.isFeatured 
+      });
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Listing ${isFeatured ? "is" : "is not"} featured now`,
+        data: updatedListing,
+      });
+    } catch (error: any) {
+      console.error("toggleIsFeatured - Error:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error toggling listing featured status",
+      });
+    }
+  },
   getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();

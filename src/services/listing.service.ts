@@ -388,6 +388,30 @@ export const listingService = {
       throw new Error("Failed to toggle listing template status");
     }
   },
+  toggleIsFeatured: async (id: string, isFeatured: boolean) => {
+    try {
+      console.log("toggleIsFeatured service - Starting with:", { id, isFeatured });
+      
+      const updatedListing = await Listing.findByIdAndUpdate(id, { isFeatured }, { new: true });
+      
+      console.log("toggleIsFeatured service - Database update result:", updatedListing);
+      
+      if (!updatedListing) {
+        console.log("toggleIsFeatured service - Listing not found for ID:", id);
+        throw new Error("Listing not found");
+      }
+      
+      console.log("toggleIsFeatured service - Success, returning:", { 
+        id: updatedListing._id, 
+        isFeatured: updatedListing.isFeatured 
+      });
+      
+      return updatedListing;
+    } catch (error) {
+      console.error("toggleIsFeatured service - Error:", error);
+      throw new Error("Failed to toggle listing featured status");
+    }
+  },
   // New API for fetching listing stats (separate service logic)
   getListingStats: async () => {
     try {
