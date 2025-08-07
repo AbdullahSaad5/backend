@@ -143,13 +143,18 @@ export class EmailAccountController {
         });
       }
 
-      // Redirect to frontend with success
-      const redirectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/email-accounts/success?provider=gmail&email=${result.account?.emailAddress}`;
-      res.redirect(redirectUrl);
+      // Return JSON response for frontend to handle
+      res.json({
+        success: true,
+        data: result.account,
+        message: "Email account connected successfully",
+      });
     } catch (error: any) {
       logger.error("Error handling Google OAuth callback:", error);
-      const redirectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/email-accounts/error?provider=gmail&error=${encodeURIComponent(error.message)}`;
-      res.redirect(redirectUrl);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to complete OAuth flow",
+      });
     }
   }
 
@@ -212,13 +217,18 @@ export class EmailAccountController {
         });
       }
 
-      // Redirect to frontend with success
-      const redirectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/email-accounts/success?provider=outlook&email=${result.account?.emailAddress}`;
-      res.redirect(redirectUrl);
+      // Return JSON response for frontend to handle
+      res.json({
+        success: true,
+        data: result.account,
+        message: "Email account connected successfully",
+      });
     } catch (error: any) {
       logger.error("Error handling Outlook OAuth callback:", error);
-      const redirectUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/email-accounts/error?provider=outlook&error=${encodeURIComponent(error.message)}`;
-      res.redirect(redirectUrl);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to complete OAuth flow",
+      });
     }
   }
 
