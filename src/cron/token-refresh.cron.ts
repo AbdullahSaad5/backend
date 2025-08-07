@@ -20,5 +20,5 @@ export const tokenRefreshCron = () => {
     }
   });
 
-  console.log("📅 Token refresh cron job scheduled (every 5 minutes)");
+  // console.log("📅 Token refresh cron job scheduled (every 5 minutes)");
 };
