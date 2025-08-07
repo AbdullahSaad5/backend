@@ -204,6 +204,7 @@ interface IPlatformListingInfo {
 // Full Listing Interface
 interface IListing {
   isBlocked: boolean; // Common details for all platforms
+  isFeatured: boolean; // Featured status for website listings
   platformDetails: {
     amazon?: IAmazonPlatformDetails; // Amazon-specific details
     ebay?: IEbayPlatformDetails; // eBay-specific details
