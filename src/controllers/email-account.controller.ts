@@ -88,18 +88,21 @@ export class EmailAccountController {
   static async initiateGoogleOAuth(req: Request, res: Response) {
     try {
       const { emailAddress, accountName, isPrimary = false } = req.body;
-      const token = req.headers.authorization?.replace("Bearer ", "");
+      let userId = (req as any).user?.id || req.body.userId;
 
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: "Authorization token required",
-        });
+      // Fallback: extract from JWT if not present
+      if (!userId && req.headers.authorization) {
+        const token = req.headers.authorization.replace(/^Bearer /, "");
+        const decoded = jwtVerify(token); // Use your JWT verify util
+        userId = decoded.id?.toString();
       }
 
-      const decoded = jwtVerify(token);
-      const userId = decoded.id.toString();
-      const user = await authService.findUserById(userId);
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+      }
 
       const oauthUrl = EmailOAuthService.generateGoogleOAuthUrl(userId, emailAddress, accountName, isPrimary);
 
@@ -107,8 +110,6 @@ export class EmailAccountController {
         success: true,
         data: {
           oauthUrl,
-          provider: "gmail",
-          isPrimary,
         },
       });
     } catch (error: any) {
@@ -156,18 +157,21 @@ export class EmailAccountController {
   static async initiateOutlookOAuth(req: Request, res: Response) {
     try {
       const { emailAddress, accountName, isPrimary = false } = req.body;
-      const token = req.headers.authorization?.replace("Bearer ", "");
+      let userId = (req as any).user?.id || req.body.userId;
 
-      if (!token) {
-        return res.status(401).json({
-          success: false,
-          message: "Authorization token required",
-        });
+      // Fallback: extract from JWT if not present
+      if (!userId && req.headers.authorization) {
+        const token = req.headers.authorization.replace(/^Bearer /, "");
+        const decoded = jwtVerify(token); // Use your JWT verify util
+        userId = decoded.id?.toString();
       }
 
-      const decoded = jwtVerify(token);
-      const userId = decoded.id.toString();
-      const user = await authService.findUserById(userId);
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: "User ID is required",
+        });
+      }
 
       const oauthUrl = EmailOAuthService.generateOutlookOAuthUrl(userId, emailAddress, accountName, isPrimary);
 
@@ -175,8 +179,6 @@ export class EmailAccountController {
         success: true,
         data: {
           oauthUrl,
-          provider: "outlook",
-          isPrimary,
         },
       });
     } catch (error: any) {
