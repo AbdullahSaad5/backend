@@ -158,9 +158,7 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
           "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)",
       },
     },
-    taxId: {
-      type: String,
-    },
+
 
     // Annual Leave Configuration
     annualLeaveEntitlement: {

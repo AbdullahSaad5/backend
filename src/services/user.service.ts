@@ -217,7 +217,6 @@ export const userService = {
       if (updateData.employmentStartDate === "")
         updateData.employmentStartDate = undefined;
       if (updateData.niNumber === "") updateData.niNumber = undefined;
-      if (updateData.taxId === "") updateData.taxId = undefined;
       if (updateData.emergencyPhoneNumber === "")
         updateData.emergencyPhoneNumber = undefined;
       if (updateData.countryOfIssue === "")
@@ -257,8 +256,8 @@ export const userService = {
         if (!user) return 0;
       }
 
-      // Base fields that apply to all users (13 fields)
-      const baseFields = 13;
+      // Base fields that apply to all users (12 fields)
+      const baseFields = 12;
       // Foreign user specific fields (3 fields)
       const foreignFields = 3;
 
@@ -278,11 +277,10 @@ export const userService = {
       if (user.geofencingRadius !== undefined) completedFields++;
       if (user.geofencingAttendanceEnabled !== undefined) completedFields++;
 
-      // Employment Information (4 fields)
+      // Employment Information (3 fields)
       if (user.jobTitle) completedFields++;
       if (user.employmentStartDate) completedFields++;
       if (user.niNumber) completedFields++;
-      if (user.taxId) completedFields++;
 
       // Annual Leave Configuration (3 fields)
       if (user.annualLeaveEntitlement !== undefined) completedFields++;
@@ -372,7 +370,6 @@ export const userService = {
       if (!user.employmentStartDate)
         missingFields.push("Employment Start Date");
       if (!user.niNumber) missingFields.push("NI Number");
-      if (!user.taxId) missingFields.push("Tax ID");
 
       // Annual Leave Configuration
       if (user.annualLeaveEntitlement === undefined) missingFields.push("Annual Leave Entitlement");

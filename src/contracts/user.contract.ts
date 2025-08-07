@@ -74,7 +74,6 @@ export interface IUser extends Document {
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
-  taxId?: string;
   
   // Annual Leave Configuration
   annualLeaveEntitlement?: number;
@@ -131,7 +130,6 @@ export type ProfileCompletionPayload = {
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
-  taxId?: string;
   
   // Annual Leave Configuration
   annualLeaveEntitlement?: number;

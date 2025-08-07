@@ -747,7 +747,6 @@ export const userController = {
         profileData.jobTitle &&
         profileData.employmentStartDate &&
         profileData.niNumber &&
-        profileData.taxId &&
         profileData.annualLeaveEntitlement !== undefined &&
         profileData.annualLeaveCarriedForward !== undefined &&
         profileData.annualLeaveYear !== undefined;
