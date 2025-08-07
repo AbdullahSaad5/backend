@@ -24,7 +24,7 @@ export interface OAuthTokenResponse {
 export class EmailOAuthService {
   private static readonly ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "default_encryption_key_change_in_production";
   private static readonly REDIRECT_URI =
-    process.env.OAUTH_REDIRECT_URI || "http://localhost:3000/api/email-accounts/oauth";
+    process.env.OAUTH_REDIRECT_URI || "http://localhost:5000/api/email-accounts/oauth";
 
   // Encrypt sensitive data
   static encryptData(data: string): string {
