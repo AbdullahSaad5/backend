@@ -2,9 +2,12 @@ import { User, UserCategory } from "@/models";
 import mongoose from "mongoose";
 import { createHash } from "./hash.util";
 import dotenv from "dotenv";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
 dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
+  // 0. Seed Integration Tokens (optional via environment variables)
+  await seedIntegrationTokens();
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
     _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
@@ -218,10 +221,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every(
-        (permission, index) =>
-          permission === superAdminCategoryData.permissions[index]
-      )
+      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
@@ -238,10 +238,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every(
-        (permission, index) =>
-          permission === adminCategoryData.permissions[index]
-      )
+      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
@@ -335,10 +332,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every(
-        (permission, index) =>
-          permission === supplierCategoryData.permissions[index]
-      )
+      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
@@ -371,8 +365,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
 
   // 3. Seed admin User
@@ -396,8 +389,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   let superAdmin = await User.findOne({ email: superAdminData.email });
 
@@ -448,3 +440,90 @@ const seedData = async () => {
 
 // Export the seeder function for use in other files
 export default seedData;
+
+async function seedIntegrationTokens() {
+  // Helper to safely parse number values
+  const asNumber = (v?: string) => (v != null && v !== "" ? Number(v) : undefined);
+  const asBoolean = (v?: string, dflt?: boolean) => (v === "true" ? true : v === "false" ? false : dflt);
+
+  const candidates: Array<{
+    provider: "ebay" | "amazon";
+    environment: "PRODUCTION" | "SANDBOX";
+    useClient: boolean | undefined;
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    refresh_token_expires_in?: number;
+    generated_at?: number;
+  }> = [
+    // eBay PRODUCTION
+    {
+      provider: "ebay",
+      environment: "PRODUCTION",
+      useClient: asBoolean(process.env.EBAY_USE_CLIENT, true),
+      access_token: process.env.EBAY_ACCESS_TOKEN,
+      refresh_token: process.env.EBAY_REFRESH_TOKEN,
+      token_type: process.env.EBAY_TOKEN_TYPE,
+      expires_in: asNumber(process.env.EBAY_EXPIRES_IN),
+      refresh_token_expires_in: asNumber(process.env.EBAY_REFRESH_TOKEN_EXPIRES_IN),
+      generated_at: asNumber(process.env.EBAY_GENERATED_AT),
+    },
+    // eBay SANDBOX
+    {
+      provider: "ebay",
+      environment: "SANDBOX",
+      useClient: asBoolean(process.env.EBAY_SANDBOX_USE_CLIENT, false),
+      access_token: process.env.EBAY_SANDBOX_ACCESS_TOKEN,
+      refresh_token: process.env.EBAY_SANDBOX_REFRESH_TOKEN,
+      token_type: process.env.EBAY_SANDBOX_TOKEN_TYPE,
+      expires_in: asNumber(process.env.EBAY_SANDBOX_EXPIRES_IN),
+      refresh_token_expires_in: asNumber(process.env.EBAY_SANDBOX_REFRESH_TOKEN_EXPIRES_IN),
+      generated_at: asNumber(process.env.EBAY_SANDBOX_GENERATED_AT),
+    },
+    // Amazon PRODUCTION
+    {
+      provider: "amazon",
+      environment: "PRODUCTION",
+      useClient: asBoolean(process.env.AMAZON_PROD_USE_CLIENT, true),
+      access_token: process.env.AMAZON_PROD_ACCESS_TOKEN,
+      refresh_token: process.env.AMAZON_PROD_REFRESH_TOKEN,
+      token_type: process.env.AMAZON_PROD_TOKEN_TYPE,
+      expires_in: asNumber(process.env.AMAZON_PROD_EXPIRES_IN),
+      generated_at: asNumber(process.env.AMAZON_PROD_GENERATED_AT),
+    },
+    // Amazon SANDBOX
+    {
+      provider: "amazon",
+      environment: "SANDBOX",
+      useClient: asBoolean(process.env.AMAZON_SANDBOX_USE_CLIENT, false),
+      access_token: process.env.AMAZON_SANDBOX_ACCESS_TOKEN,
+      refresh_token: process.env.AMAZON_SANDBOX_REFRESH_TOKEN,
+      token_type: process.env.AMAZON_SANDBOX_TOKEN_TYPE,
+      expires_in: asNumber(process.env.AMAZON_SANDBOX_EXPIRES_IN),
+      generated_at: asNumber(process.env.AMAZON_SANDBOX_GENERATED_AT),
+    },
+  ];
+
+  for (const c of candidates) {
+    // Only seed entries that have core fields present
+    if (!c.access_token || !c.expires_in || !c.generated_at) continue;
+
+    await IntegrationTokenModel.updateOne(
+      { provider: c.provider, environment: c.environment, useClient: c.useClient },
+      {
+        $set: {
+          access_token: c.access_token,
+          refresh_token: c.refresh_token,
+          token_type: c.token_type,
+          expires_in: c.expires_in,
+          refresh_token_expires_in: c.refresh_token_expires_in,
+          generated_at: c.generated_at,
+        },
+      },
+      { upsert: true }
+    );
+  }
+
+  console.log("Integration tokens seeding complete (env-driven, if provided).");
+}
