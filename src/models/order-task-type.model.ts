@@ -35,6 +35,11 @@ const TaskTypeSchema = new Schema<IOrderTaskType>(
       ref: "UserCategory",
       default: null,
     },
+    defaultAssignedTeam: {
+      type: Schema.Types.ObjectId,
+      ref: "Team",
+      default: null,
+    },
     isAutomated: { type: Boolean, default: false },
     automationTriggerType: {
       type: String,

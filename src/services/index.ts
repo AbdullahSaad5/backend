@@ -35,3 +35,4 @@ export { heroSliderService } from "./hero-slider.service";
 export { featuredCategoryService } from "./featured-category.service";
 export { emailService } from "./email.service";
 export { teamService } from "./team.service";
+export { productTypeWorkflowService } from "./product-type-workflow.service";

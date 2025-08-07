@@ -18,6 +18,7 @@ export interface IOrderTaskType extends Document {
   relevantConditions: (ProductCondition | "All")[];
   isOrderLevel: boolean;
   defaultAssignedRole: Types.ObjectId;
+  defaultAssignedTeam: Types.ObjectId;
   isAutomated: boolean;
   automationTriggerType: AutomationTriggerType;
   taskCategory: TaskCategory;
@@ -38,6 +39,7 @@ export interface IOrderTaskTypeCreatePayload {
   isAutomated?: boolean;
   automationTriggerType?: AutomationTriggerType;
   taskCategory?: TaskCategory;
+  defaultAssignedTeam?: Types.ObjectId;
 }
 
 export type IOrderTaskTypeUpdatePayload = Partial<IOrderTaskTypeCreatePayload>;

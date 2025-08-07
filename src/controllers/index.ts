@@ -36,3 +36,4 @@ export { heroSliderController } from "./hero-slider.controller";
 export { marketingController } from "./marketing.controller";
 export { featuredCategoryController } from "./featured-category.controller";
 export { teamController } from "./team.controller";
+export { productTypeWorkflowController } from "./product-type-workflow.controller";
