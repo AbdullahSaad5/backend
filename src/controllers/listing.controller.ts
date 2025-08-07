@@ -1301,6 +1301,7 @@ export const listingController = {
         startDate,
         endDate,
         isBlocked,
+        isFeatured,
         page = "1",
         limit = "10",
       } = req.query;
@@ -1319,6 +1320,7 @@ export const listingController = {
         startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
         endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined,
+        isFeatured: isFeatured === "true" ? true : isFeatured === "false" ? false : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1),
         limit: parseInt(limit as string, 10) || 10,
       };
@@ -1331,7 +1333,7 @@ export const listingController = {
       // Return the results
       res.status(200).json({
         success: true,
-        message: "Website listings fetched successfully",
+        message: "Products fetched successfully",
         data: result,
       });
     } catch (error: any) {
@@ -1339,6 +1341,44 @@ export const listingController = {
       res.status(500).json({
         success: false,
         message: error.message || "Error fetching Website listings",
+      });
+    }
+  },
+
+  // Get single Website product by ID
+  getWebsiteProductById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      // Validate ID
+      if (!mongoose.isValidObjectId(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid product ID",
+        });
+      }
+
+      // Call the service to get the website product
+      const result = await listingService.getWebsiteProductById(id);
+
+      if (!result) {
+        return res.status(404).json({
+          success: false,
+          message: "Product not found or not published to website",
+        });
+      }
+
+      // Return the result
+      res.status(200).json({
+        success: true,
+        message: "Product fetched successfully",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching Website product:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Error fetching Website product",
       });
     }
   },

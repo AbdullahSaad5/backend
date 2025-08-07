@@ -1,10 +1,51 @@
+import { IOrderTaskTypeCreatePayload } from "@/contracts/order-task-type.contract";
+import { ICombinedRequest, IUserRequest } from "@/contracts/request.contract";
 import { orderTaskTypeService } from "@/services/order-task-type.service";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { Types } from "mongoose";
 
 export const orderTaskTypeController = {
-  createOrderTaskType: async (req: Request, res: Response) => {
+  createOrderTaskType: async (req: ICombinedRequest<IUserRequest, IOrderTaskTypeCreatePayload>, res: Response) => {
+    //     automationTriggerType
+    // :
+    // "MANUAL"
+    // defaultAssignedRole
+    // :
+    // "6765436750a73c088f09f551"
+    // defaultAssignedTeam
+    // :
+    // "6891123e9695821cf281be7b"
+    // defaultEstimatedTimeMinutes
+    // :
+    // 30
+    // defaultPriority
+    // :
+    // 2
+    // description
+    // :
+    // "KJAGSKLAJLGKJAG"
+    // isAutomated
+    // :
+    // true
+    // isOrderLevel
+    // :
+    // true
+    // name
+    // :
+    // "AKLSKAJSGK"
+    // relevantCategories
+    // :
+    // ["6870e106483be08a95a53426"]
+    // relevantConditions
+    // :
+    // ["collectible_like_new"]
+    // requiredSkills
+    // :
+    // ["test", "testtet"]
+    // taskCategory
+    // :
+
     try {
       const {
         name,
@@ -15,13 +56,18 @@ export const orderTaskTypeController = {
         relevantCategories,
         relevantConditions,
         isOrderLevel,
+        defaultAssignedRole,
+        isAutomated,
+        automationTriggerType,
+        taskCategory,
+        defaultAssignedTeam,
       } = req.body;
 
       // Convert relevantCategories array to ObjectIds if present
       let processedRelevantCategories = relevantCategories;
       if (relevantCategories && Array.isArray(relevantCategories)) {
-        processedRelevantCategories = relevantCategories.map((category: string) =>
-          category === "All" ? "All" : new Types.ObjectId(category)
+        processedRelevantCategories = relevantCategories.map((category) =>
+          category.toString() === "All" ? "All" : new Types.ObjectId(category.toString())
         );
       }
 
@@ -34,6 +80,11 @@ export const orderTaskTypeController = {
         relevantCategories: processedRelevantCategories,
         relevantConditions,
         isOrderLevel,
+        defaultAssignedRole,
+        isAutomated,
+        automationTriggerType,
+        taskCategory,
+        defaultAssignedTeam,
       });
 
       res.status(StatusCodes.CREATED).json({

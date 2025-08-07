@@ -37,3 +37,4 @@ export { featuredSaleService } from "./featured-sale.service";
 export { emailService } from "./email.service";
 export { teamService } from "./team.service";
 export { announcementBarService } from "./announcement-bar.service";
+export { productTypeWorkflowService } from "./product-type-workflow.service";

@@ -995,6 +995,7 @@ export const listingService = {
         startDate,
         endDate,
         isBlocked,
+        isFeatured,
         page = 1,
         limit = 10,
       } = filters;
@@ -1051,6 +1052,10 @@ export const listingService = {
         query.listingType = listingType;
       }
 
+      if (isFeatured !== undefined) {
+        query.isFeatured = isFeatured;
+      }
+
       // Filter by ProductCategory if provided
       if (productCategory) {
         // Validate if it's a valid MongoDB ObjectId
@@ -1097,11 +1102,81 @@ export const listingService = {
 
       const totalListings = await Listing.countDocuments(query);
 
+      // Helper function to safely extract first value from marketplace arrays
+      const getFirstValue = (array: any[], field: string) => {
+        return array?.[0]?.[field] || "";
+      };
+
+      // Transform listings to desired format
+      const transformedProducts = listings.map((listing: any) => {
+              // Extract item name from the first marketplace entry
+      const itemName = getFirstValue((listing as any).productInfo?.item_name, 'value');
+      
+      // Extract brand from the first marketplace entry
+      const brand = getFirstValue((listing as any).productInfo?.brand, 'value');
+      
+      // Extract description from the first marketplace entry
+      const description = getFirstValue((listing as any).productInfo?.product_description, 'value');
+      
+      // Extract condition from the first marketplace entry
+      const condition = getFirstValue((listing as any).productInfo?.condition_type, 'value');
+      
+      // Extract marketplace and language from the first entry
+      const marketplace = getFirstValue((listing as any).productInfo?.item_name, 'marketplace_id');
+      const language = getFirstValue((listing as any).productInfo?.item_name, 'language_tag');
+        
+        // Clean up condition value (remove marketplace prefix if present)
+        const cleanCondition = condition.replace(/^refurbished_/, '');
+
+        return {
+          id: listing._id,
+          sku: (listing as any).productInfo?.sku || "",
+          name: itemName,
+          brand: brand,
+          category: (listing as any).productInfo?.productCategory ? {
+            id: (listing as any).productInfo.productCategory._id,
+            name: (listing as any).productInfo.productCategory.name || "",
+            description: (listing as any).productInfo.productCategory.description || "",
+            image: (listing as any).productInfo.productCategory.image || "",
+            tags: (listing as any).productInfo.productCategory.tags || []
+          } : null,
+          description: description,
+          condition: cleanCondition,
+          pricing: {
+            costPrice: (listing as any).selectedStockId?.costPricePerUnit || 0,
+            purchasePrice: (listing as any).selectedStockId?.purchasePricePerUnit || 0,
+            vat: (listing as any).prodPricing?.vat || 0,
+            currency: "GBP" // Default currency
+          },
+          stock: {
+            available: (listing as any).selectedStockId?.usableUnits || 0,
+            threshold: (listing as any).stockThreshold || 0,
+            inStock: ((listing as any).selectedStockId?.usableUnits || 0) > 0
+          },
+          media: {
+            images: (listing as any).prodMedia?.images || [],
+            videos: (listing as any).prodMedia?.videos || [],
+            offerImages: (listing as any).prodMedia?.offerImages || []
+          },
+          platforms: {
+            website: (listing as any).publishToWebsite || false,
+            ebay: (listing as any).publishToEbay || false,
+            amazon: (listing as any).publishToAmazon || false
+          },
+          status: (listing as any).status,
+          marketplace: marketplace,
+          language: language,
+          createdAt: (listing as any).createdAt,
+          updatedAt: (listing as any).updatedAt,
+          isFeatured: (listing as any).isFeatured || false
+        };
+      });
+
       return {
-        listings,
+        products: transformedProducts,
         pagination: {
-          totalListings,
-          currentPage: pageNumber,
+          total: totalListings,
+          page: pageNumber,
           totalPages: Math.ceil(totalListings / limitNumber),
           perPage: limitNumber,
         },
@@ -1109,6 +1184,101 @@ export const listingService = {
     } catch (error) {
       console.error("Error fetching Website listings:", error);
       throw new Error("Error fetching Website listings");
+    }
+  },
+
+  // Get single Website product by ID
+  getWebsiteProductById: async (id: string) => {
+    try {
+      // Validate ID
+      if (!mongoose.isValidObjectId(id)) {
+        throw new Error("Invalid product ID");
+      }
+
+      const query = {
+        _id: new mongoose.Types.ObjectId(id),
+        publishToWebsite: true, // Only get listings published to website
+        isBlocked: false, // Only non-blocked listings
+      };
+
+      const listing: any = await Listing.findOne(query)
+        .populate("productInfo.productCategory")
+        .populate("productInfo.productSupplier")
+        .populate("selectedStockId");
+
+      if (!listing) {
+        return null;
+      }
+
+      // Helper function to safely extract first value from marketplace arrays
+      const getFirstValue = (array: any[], field: string) => {
+        return array?.[0]?.[field] || "";
+      };
+
+      // Extract item name from the first marketplace entry
+      const itemName = getFirstValue((listing as any).productInfo?.item_name, 'value');
+      
+      // Extract brand from the first marketplace entry
+      const brand = getFirstValue((listing as any).productInfo?.brand, 'value');
+      
+      // Extract description from the first marketplace entry
+      const description = getFirstValue((listing as any).productInfo?.product_description, 'value');
+      
+      // Extract condition from the first marketplace entry
+      const condition = getFirstValue((listing as any).productInfo?.condition_type, 'value');
+      
+      // Extract marketplace and language from the first entry
+      const marketplace = getFirstValue((listing as any).productInfo?.item_name, 'marketplace_id');
+      const language = getFirstValue((listing as any).productInfo?.item_name, 'language_tag');
+      
+      // Clean up condition value (remove marketplace prefix if present)
+      const cleanCondition = condition.replace(/^refurbished_/, '');
+
+      return {
+        id: listing._id,
+        sku: listing.productInfo?.sku || "",
+        name: itemName,
+        brand: brand,
+        category: listing.productInfo?.productCategory ? {
+          id: listing.productInfo.productCategory._id,
+          name: listing.productInfo.productCategory.name || "",
+          description: listing.productInfo.productCategory.description || "",
+          image: listing.productInfo.productCategory.image || "",
+          tags: listing.productInfo.productCategory.tags || []
+        } : null,
+        description: description,
+        condition: cleanCondition,
+        pricing: {
+          costPrice: listing.selectedStockId?.costPricePerUnit || 0,
+          purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
+          vat: listing.prodPricing?.vat || 0,
+          currency: "GBP" // Default currency
+        },
+        stock: {
+          available: listing.selectedStockId?.usableUnits || 0,
+          threshold: listing.stockThreshold || 0,
+          inStock: (listing.selectedStockId?.usableUnits || 0) > 0
+        },
+        media: {
+          images: listing.prodMedia?.images || [],
+          videos: listing.prodMedia?.videos || [],
+          offerImages: listing.prodMedia?.offerImages || []
+        },
+        platforms: {
+          website: listing.publishToWebsite || false,
+          ebay: listing.publishToEbay || false,
+          amazon: listing.publishToAmazon || false
+        },
+        status: listing.status,
+        marketplace: marketplace,
+        language: language,
+        createdAt: listing.createdAt,
+        updatedAt: listing.updatedAt,
+        isFeatured: listing.isFeatured || false
+      };
+    } catch (error) {
+      console.error("Error fetching Website product:", error);
+      throw new Error("Error fetching Website product");
     }
   },
 };
