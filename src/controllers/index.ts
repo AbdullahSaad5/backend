@@ -31,6 +31,7 @@ export { workmodeController } from "./workmode.controller";
 export { attendanceController } from "./attendance.controller";
 export { leaveRequestController } from "./leave-request.controller";
 export { taskController } from "./task.controller";
+export { orderTaskTypeController } from "./order-task-type.controller";
 export { heroSliderController } from "./hero-slider.controller";
 export { marketingController } from "./marketing.controller";
 export { featuredCategoryController } from "./featured-category.controller";
