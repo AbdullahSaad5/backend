@@ -6,10 +6,7 @@ export const announcementBarService = {
   createAnnouncementBar: async (data: Partial<IAnnouncementBar>): Promise<IAnnouncementBar> => {
     // If setting this announcement as active, deactivate all others
     if (data.isActive) {
-      await AnnouncementBarModel.updateMany(
-        { isActive: true },
-        { isActive: false }
-      );
+      await AnnouncementBarModel.updateMany({ isActive: true }, { isActive: false });
     }
     const announcementBar = await AnnouncementBarModel.create(data);
     return announcementBar;
@@ -29,10 +26,7 @@ export const announcementBarService = {
   updateAnnouncementBar: async (id: string, data: Partial<IAnnouncementBar>): Promise<IAnnouncementBar | null> => {
     // If setting this announcement as active, deactivate all others
     if (data.isActive) {
-      await AnnouncementBarModel.updateMany(
-        { _id: { $ne: id }, isActive: true },
-        { isActive: false }
-      );
+      await AnnouncementBarModel.updateMany({ _id: { $ne: id }, isActive: true }, { isActive: false });
     }
     return AnnouncementBarModel.findByIdAndUpdate(id, data, { new: true });
   },

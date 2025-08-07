@@ -8,12 +8,12 @@ export const announcementBarController = {
     try {
       // If this announcement bar is being set as active, provide a more specific message
       const isBeingSetActive = req.body.isActive === true;
-      
+
       const announcementBar = await announcementBarService.createAnnouncementBar(req.body);
-      
+
       return res.status(StatusCodes.CREATED).json({
         success: true,
-        message: isBeingSetActive 
+        message: isBeingSetActive
           ? "Announcement bar created successfully and set as active (all other announcements were deactivated)"
           : "Announcement bar created successfully",
         data: announcementBar,
@@ -72,9 +72,9 @@ export const announcementBarController = {
       const { id } = req.params;
       // Check if this update is setting the announcement bar to active
       const isBeingSetActive = req.body.isActive === true;
-      
+
       const updated = await announcementBarService.updateAnnouncementBar(id, req.body);
-      
+
       if (!updated) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
@@ -82,10 +82,10 @@ export const announcementBarController = {
           data: null,
         });
       }
-      
+
       return res.status(StatusCodes.OK).json({
         success: true,
-        message: isBeingSetActive 
+        message: isBeingSetActive
           ? "Announcement bar updated and set as active (all other announcements were deactivated)"
           : "Announcement bar updated successfully",
         data: updated,

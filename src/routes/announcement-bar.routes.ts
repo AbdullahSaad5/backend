@@ -5,22 +5,17 @@ import { authGuard } from "@/guards";
 
 export const announcementBar = (router: Router) => {
   // Admin routes (protected with authentication)
-  router.post(
-    "/", 
-    authGuard.isAuth,
-    AnnouncementBarValidation.create, 
-    announcementBarController.createAnnouncementBar
-  );
-  
+  router.post("/", authGuard.isAuth, AnnouncementBarValidation.create, announcementBarController.createAnnouncementBar);
+
   router.get("/all", authGuard.isAuth, announcementBarController.getAnnouncementBars);
-  
+
   router.patch(
-    "/:id", 
+    "/:id",
     authGuard.isAuth,
-    AnnouncementBarValidation.update, 
+    AnnouncementBarValidation.update,
     announcementBarController.updateAnnouncementBar
   );
-  
+
   router.delete("/:id", authGuard.isAuth, announcementBarController.deleteAnnouncementBar);
 
   // Public route (available to all users)
