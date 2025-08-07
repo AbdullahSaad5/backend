@@ -48,11 +48,11 @@ export const productCategoryController = {
     }
   },
 
-  getAllCategory: async (req: Request, res: Response) => {
+  getAllCategoryWeb: async (req: Request, res: Response) => {
     const { isPart, isBlocked } = req.query;
     const filter = { isPart, isBlocked };
     try {
-      const categories = await productCategoryService.getAllCategory(filter);
+      const categories = await productCategoryService.getAllCategoryWeb(filter);
       res.status(StatusCodes.OK).json({ success: true, data: categories });
     } catch (error) {
       console.error("View Categories Error:", error);
@@ -63,19 +63,28 @@ export const productCategoryController = {
     }
   },
 
+  getAllCategory: async (req: Request, res: Response) => {
+    try {
+      const categories = await productCategoryService.getAllCategory();
+      res.status(StatusCodes.OK).json({ success: true, data: categories });
+    } catch (error) {
+      console.error("View Categories Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting all product categories",
+      });
+    }
+  },
   getSpecificCategory: async (req: Request, res: Response) => {
     try {
       const id = req.params.id;
       const result = await productCategoryService.getById(id);
       //   console.log(result);
-      if (!result)
-        return res.status(404).json({ message: "Category not found" });
+      if (!result) return res.status(404).json({ message: "Category not found" });
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error) {
       console.error("View Category Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting product category" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting product category" });
     }
   },
 

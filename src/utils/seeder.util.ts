@@ -38,6 +38,8 @@ const seedData = async () => {
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
 
+      "ORDER_PIPELINE",
+
       "MANAGE_BUNDLES",
       "ADD_BUNDLES",
       "VIEW_BUNDLES",
