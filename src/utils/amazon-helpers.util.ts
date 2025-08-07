@@ -1,6 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 import dotenv from "dotenv";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
 
 // Configure dotenv to use .env file
 dotenv.config({ path: `.env.${process.env.AMAZON_TOKEN_ENV || "dev"}` });
@@ -76,30 +77,17 @@ const { useClient } = getAmazonCredentials();
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
-    const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-    const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
-
-    let credentialsText;
-    try {
-      if (useClient) {
-        console.log("🔑 [AMZ CLIENT] Reading client token file");
-        credentialsText = fs.readFileSync("amazon_tokens_client.json", "utf-8");
-      } else {
-        console.log("🔑 [AMZ SANDBOX] Reading sandbox token file");
-        credentialsText = fs.readFileSync(tokenFile, "utf-8");
-      }
-    } catch (readError) {
-      console.error("❌ Error reading token file:", readError);
+    const envVal = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
+    const tokenDoc = await IntegrationTokenModel.findOne({
+      provider: "amazon",
+      environment: envVal,
+      useClient: useClient ? true : false,
+    }).lean();
+    if (!tokenDoc) {
+      console.error("❌ No Amazon token found in DB for", envVal);
       return null;
     }
-
-    let credentials;
-    try {
-      credentials = JSON.parse(credentialsText);
-    } catch (jsonError) {
-      console.error("❌ Error parsing Amazon token JSON:", jsonError);
-      return null;
-    }
+    const credentials: any = tokenDoc;
 
     const { access_token, generated_at, expires_in, refresh_token } = credentials;
 
@@ -117,20 +105,19 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       console.warn("⚠️ Amazon access token is expired or about to expire. Refreshing...");
 
       // Refresh token
-      const newToken = await refreshAmazonAccessToken(env);
+      const newToken = await refreshAmazonAccessToken(envVal);
       if (newToken?.access_token) {
-        // Update token file with new values
-        credentials.access_token = newToken.access_token;
-        credentials.generated_at = Date.now(); // Set the new generated_at
-        credentials.refresh_token = newToken.refresh_token; // Update refresh token if available
-
-        try {
-          // Save the updated token back to the file
-          fs.writeFileSync(tokenFile, JSON.stringify(credentials, null, 2), "utf-8");
-          console.log("✅ Amazon token refreshed and saved.");
-        } catch (writeError) {
-          console.error("❌ Error saving the refreshed token:", writeError);
-        }
+        await IntegrationTokenModel.updateOne(
+          { provider: "amazon", environment: envVal, useClient: useClient ? true : false },
+          {
+            $set: {
+              access_token: newToken.access_token,
+              refresh_token: newToken.refresh_token,
+              generated_at: Date.now(),
+            },
+          }
+        );
+        console.log("✅ Amazon token refreshed and saved in DB.");
 
         return newToken.access_token;
       } else {
@@ -139,7 +126,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       }
     }
 
-    console.log(`✅ [${env}] Amazon access token is valid.`);
+    console.log(`✅ [${envVal}] Amazon access token is valid.`);
     return access_token;
   } catch (error) {
     console.error("❌ Unexpected error reading Amazon token:", error);
@@ -149,10 +136,12 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 
 export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") => {
   const { clientId, clientSecret } = getAmazonCredentials();
-
-  const tokenFile = env === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
-  const credentialsText = fs.readFileSync(tokenFile, "utf-8");
-  const credentials = JSON.parse(credentialsText);
+  const tokenDoc = await IntegrationTokenModel.findOne({
+    provider: "amazon",
+    environment: env,
+    useClient: useClient ? true : false,
+  });
+  const credentials: any = tokenDoc as any;
 
   if (!credentials.refresh_token) {
     console.error("❌ No refresh token found in credentials");
@@ -174,20 +163,11 @@ export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") =>
   });
 
   const newToken: AmazonToken = response.data;
-
-  fs.writeFileSync(
-    tokenFile,
-    JSON.stringify(
-      {
-        ...credentials,
-        ...newToken,
-        generated_at: Date.now(),
-      },
-      null,
-      2
-    )
+  await IntegrationTokenModel.updateOne(
+    { provider: "amazon", environment: env, useClient: useClient ? true : false },
+    { $set: { ...newToken, generated_at: Date.now() } },
+    { upsert: true }
   );
-
   return newToken;
 };
 
@@ -284,9 +264,11 @@ export const initializeAmazonCredentials = async (code: string, type: AmazonEnvi
     });
 
     const token: AmazonToken = response.data;
-    const tokenFile = type === "PRODUCTION" ? "amazon_tokens_client.json" : "amazon_tokens_sandbox.json";
-
-    fs.writeFileSync(tokenFile, JSON.stringify({ ...token, generated_at: Date.now() }, null, 2));
+    await IntegrationTokenModel.updateOne(
+      { provider: "amazon", environment: type, useClient: useClient ? true : false },
+      { $set: { ...token, generated_at: Date.now() } },
+      { upsert: true }
+    );
 
     return token;
   } catch (error) {

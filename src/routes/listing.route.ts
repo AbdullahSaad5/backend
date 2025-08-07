@@ -33,6 +33,9 @@ export const listing = (router: Router) => {
 
   // Fetch all Website listings
   router.get("/website", listingController.getWebsiteListings);
+  
+  // Fetch single Website product by ID
+  router.get("/website/:id", listingValidation.validateId, listingController.getWebsiteProductById);
 
   
   // Update a draft listing by ID (subsequent steps)

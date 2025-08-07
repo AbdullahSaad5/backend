@@ -17,7 +17,7 @@ export interface IProductTypeWorkflow extends Document {
   description?: string;
   appliesToCategory: Types.ObjectId;
   appliesToCondition: ProductCondition;
-  appliesToOrderType: (typeof ENUMS.APPLIES_TO_ORDER_TYPE)[number];
+  appliesToOrderType?: (typeof ENUMS.APPLIES_TO_ORDER_TYPE)[number];
   steps: IWorkflowStep[];
   isActive: boolean;
   createdAt: Date;
@@ -31,6 +31,7 @@ export interface IProductTypeWorkflowCreatePayload {
   appliesToCondition?: ProductCondition;
   steps: IWorkflowStep[];
   isActive?: boolean;
+  appliesToOrderType?: (typeof ENUMS.APPLIES_TO_ORDER_TYPE)[number];
 }
 
 export type IProductTypeWorkflowUpdatePayload = Partial<IProductTypeWorkflowCreatePayload>;

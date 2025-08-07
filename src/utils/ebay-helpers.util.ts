@@ -1,6 +1,7 @@
 import EbayAuthToken from "ebay-oauth-nodejs-client";
 import fs from "fs";
 import dotenv from "dotenv";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
 
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
@@ -61,30 +62,18 @@ export const getStoredEbayAccessToken = async () => {
     const useClient =
       process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
 
-    let credentialsText;
-    try {
-      if (useClient === "true") {
-        console.log("🔑 [EBAY CLIENT] Reading client token file");
-        credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
-      } else {
-        console.log(" [EBAY SANDBOX] Reading sandbox token file");
-        credentialsText = fs.readFileSync(
-          type === "production" ? "ebay_tokens_client.json" : "ebay_tokens_sandbox.json",
-          "utf-8"
-        );
-      }
-    } catch (readError) {
-      console.error("❌ Error reading token file:", readError);
+    // Read from DB instead of filesystem
+    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+    const tokenDoc = await IntegrationTokenModel.findOne({
+      provider: "ebay",
+      environment: env,
+      useClient: useClient === "true" ? true : false,
+    }).lean();
+    if (!tokenDoc) {
+      console.error("❌ No eBay token found in DB for", env, "useClient:", useClient);
       return null;
     }
-
-    let credentials;
-    try {
-      credentials = JSON.parse(credentialsText);
-    } catch (jsonError) {
-      console.error("❌ Error parsing token JSON:", jsonError);
-      return null;
-    }
+    const credentials: any = tokenDoc;
 
     const { access_token, generated_at, expires_in } = credentials;
 
@@ -145,21 +134,14 @@ export const getNormalAccessToken = async (type: "production" | "sandbox") => {
 
 // Add required scopes for your use case
 export const refreshEbayAccessToken = async (type: "production" | "sandbox", useClient: "true" | "false") => {
-  // Read the ebay_tokens.json file and parse the content
-  let credentialsText;
-  if (useClient === "true") {
-    console.log("🔑 [CLIENT] Reading client token file");
-    credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
-  } else {
-    if (type === "production") {
-      console.log("🔵 [PRODUCTION] Reading production token file");
-      credentialsText = fs.readFileSync("ebay_tokens_client.json", "utf-8");
-    } else {
-      console.log("🟣 [SANDBOX] Reading sandbox token file");
-      credentialsText = fs.readFileSync("ebay_tokens_sandbox.json", "utf-8");
-    }
-  }
-  const credentials = JSON.parse(credentialsText);
+  // Read token from DB
+  const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+  const tokenDoc = await IntegrationTokenModel.findOne({
+    provider: "ebay",
+    environment: env,
+    useClient: useClient === "true" ? true : false,
+  });
+  const credentials: any = tokenDoc as any;
 
   // Check if the credentials are present
   if (!credentials) {
@@ -217,29 +199,13 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
     return null;
   }
 
-  // Parse the new token and update the ebay_tokens.json file
+  // Parse the new token and update DB
   const parsedToken: EbayToken = JSON.parse(token);
-  if (useClient === "true") {
-    console.log("🔑 [CLIENT] Writing client token to file");
-    fs.writeFileSync(
-      "ebay_tokens_client.json",
-      JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
-    );
-  } else {
-    if (type === "production") {
-      console.log("🔵 [PRODUCTION] Writing production token to file");
-      fs.writeFileSync(
-        "ebay_tokens_client.json",
-        JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
-      );
-    } else {
-      console.log("🟣 [SANDBOX] Writing sandbox token to file");
-      fs.writeFileSync(
-        "ebay_tokens_sandbox.json",
-        JSON.stringify({ ...credentials, ...parsedToken, generated_at: Date.now() }, null, 2)
-      );
-    }
-  }
+  await IntegrationTokenModel.updateOne(
+    { provider: "ebay", environment: env, useClient: useClient === "true" ? true : false },
+    { $set: { ...parsedToken, generated_at: Date.now() } },
+    { upsert: true }
+  );
   return parsedToken;
 };
 
@@ -262,26 +228,21 @@ export const exchangeCodeForAccessToken = async (
     const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
     const parsedToken: EbayToken = JSON.parse(token);
 
-    // Store in a file
-    if (useClient === "true") {
-      console.log("🔑 [CLIENT] Writing client token to file");
-      fs.writeFileSync(
-        "ebay_tokens_client.json",
-        JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
-      );
-    } else {
-      console.log("🔵 [PRODUCTION] Writing production token to file");
-      fs.writeFileSync(
-        "ebay_tokens_client.json",
-        JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2)
-      );
-    }
+    // Store in DB
+    await IntegrationTokenModel.updateOne(
+      { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false },
+      { $set: { ...parsedToken, generated_at: Date.now() } },
+      { upsert: true }
+    );
     return parsedToken;
   } else {
     const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
     const parsedToken: EbayToken = JSON.parse(token);
-    console.log("🟣 [SANDBOX] Writing sandbox token to file");
-    fs.writeFileSync("ebay_tokens_sandbox.json", JSON.stringify({ ...parsedToken, generated_at: Date.now() }, null, 2));
+    await IntegrationTokenModel.updateOne(
+      { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false },
+      { $set: { ...parsedToken, generated_at: Date.now() } },
+      { upsert: true }
+    );
     return parsedToken;
   }
 };
