@@ -225,15 +225,11 @@ export const userService = {
         updateData.passportNumber = undefined;
       if (updateData.visaNumber === "") updateData.visaNumber = undefined;
 
-      // If user is not foreign user, clear all foreign user related fields
-      if (updateData.isForeignUser === false) {
+      // Clear visa-related fields if user is British National/ILR
+      if (updateData.rightToWorkType === "british_national_ilr") {
         updateData.countryOfIssue = undefined;
-        updateData.passportNumber = undefined;
-        updateData.passportExpiryDate = undefined;
-        updateData.passportDocument = undefined;
         updateData.visaNumber = undefined;
         updateData.visaExpiryDate = undefined;
-        updateData.visaDocument = undefined;
       }
 
       const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
@@ -258,13 +254,11 @@ export const userService = {
 
       // Base fields that apply to all users (12 fields)
       const baseFields = 12;
-      // Foreign user specific fields (3 fields)
-      const foreignFields = 3;
+      // Right to work specific fields (3 fields)
+      const rightToWorkFields = 3;
 
       // Calculate total fields based on user type
-      const totalFields = user.isForeignUser
-        ? baseFields + foreignFields
-        : baseFields;
+      const totalFields = baseFields + rightToWorkFields;
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -287,17 +281,13 @@ export const userService = {
       if (user.annualLeaveCarriedForward !== undefined) completedFields++;
       if (user.annualLeaveYear !== undefined) completedFields++;
 
-      // Foreign User Information (3 fields) - only count if isForeignUser is true
-      if (user.isForeignUser) {
-        if (user.countryOfIssue) completedFields++;
-        if (
-          user.passportNumber &&
-          user.passportExpiryDate &&
-          user.passportDocument
-        )
-          completedFields++;
-        if (user.visaNumber && user.visaExpiryDate && user.visaDocument)
-          completedFields++;
+      // Right to Work Information (3 fields)
+      if (user.passportNumber && user.passportExpiryDate) completedFields++;
+      if (user.employmentDocuments && user.employmentDocuments.length > 0) completedFields++;
+      if (user.rightToWorkType === "visa_holder" && user.visaNumber && user.visaExpiryDate) {
+        completedFields++;
+      } else if (user.rightToWorkType === "british_national_ilr") {
+        completedFields++;
       }
       // Note: If not foreign user, we don't add these fields to either completed or total
 
@@ -376,17 +366,16 @@ export const userService = {
       if (user.annualLeaveCarriedForward === undefined) missingFields.push("Annual Leave Carried Forward");
       if (user.annualLeaveYear === undefined) missingFields.push("Annual Leave Year");
 
-      // Foreign User Information
-      if (user.isForeignUser) {
+      // Right to Work Information
+      if (!user.passportNumber || !user.passportExpiryDate) {
+        missingFields.push("Passport Information");
+      }
+      if (!user.employmentDocuments || user.employmentDocuments.length === 0) {
+        missingFields.push("Employment Documents");
+      }
+      if (user.rightToWorkType === "visa_holder") {
         if (!user.countryOfIssue) missingFields.push("Country of Issue");
-        if (
-          !user.passportNumber ||
-          !user.passportExpiryDate ||
-          !user.passportDocument
-        ) {
-          missingFields.push("Passport Information");
-        }
-        if (!user.visaNumber || !user.visaExpiryDate || !user.visaDocument) {
+        if (!user.visaNumber || !user.visaExpiryDate) {
           missingFields.push("Visa Information");
         }
       }

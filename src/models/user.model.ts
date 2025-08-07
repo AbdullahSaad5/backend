@@ -126,26 +126,23 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
       default: false,
     },
 
-    // Foreign User Information
-    isForeignUser: {
-      type: Boolean,
-      default: false,
+    // Right to Work Information
+    rightToWorkType: {
+      type: String,
+      enum: ["british_national_ilr", "visa_holder"],
+      default: "british_national_ilr",
     },
     countryOfIssue: { type: String },
     passportNumber: { type: String },
     passportExpiryDate: { type: Date },
-    passportDocument: {
-      url: { type: String },
-      type: { type: String },
-      name: { type: String },
-    },
     visaNumber: { type: String },
     visaExpiryDate: { type: Date },
-    visaDocument: {
+    employmentDocuments: [{
       url: { type: String },
       type: { type: String },
       name: { type: String },
-    },
+      documentType: { type: String }, // passport, visa, ni, etc.
+    }],
 
     // Employment Information
     jobTitle: { type: String },
