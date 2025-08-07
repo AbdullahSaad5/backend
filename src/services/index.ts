@@ -35,3 +35,4 @@ export { featuredCategoryService } from "./featured-category.service";
 export { featuredSaleService } from "./featured-sale.service";
 export { emailService } from "./email.service";
 export { teamService } from "./team.service";
+export { announcementBarService } from "./announcement-bar.service";

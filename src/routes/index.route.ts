@@ -69,6 +69,7 @@ import { Forum } from "./forum.route";
 import { ForumTopic } from "./forum-topic.route";
 import { team } from "./team.route";
 import { emailAccount } from "./email-account.route";
+import { announcementBar } from "./announcement-bar.routes";
 import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 
@@ -147,6 +148,7 @@ const routes: {
   ForumTopic,
   team,
   emailAccount,
+  announcementBar,
   emailClient,
   documentation,
   ForumCategory,
