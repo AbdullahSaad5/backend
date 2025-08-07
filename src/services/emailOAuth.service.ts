@@ -190,17 +190,24 @@ export class EmailOAuthService {
         oauth2Client.credentials
       );
 
-      // Get user info using OAuth2Client directly
-      logger.info("Google Callback: Attempting to fetch user info from Google API...");
-      const userInfoResponse = await oauth2Client.request({
-        url: "https://www.googleapis.com/oauth2/v2/userinfo",
-        method: "GET",
+      // Get user info using Google People API
+      logger.info("Google Callback: Attempting to fetch user info from Google People API...");
+      const people = google.people({
+        auth: oauth2Client,
+        version: "v1",
       });
 
-      const userInfo = userInfoResponse.data as { email: string; name?: string };
+      const userInfoResponse = await people.people.get({
+        resourceName: "people/me",
+        personFields: "emailAddresses,names",
+      });
+
+      const userInfo = userInfoResponse.data;
       logger.info("Google Callback: Received user info response:", JSON.stringify(userInfo));
 
-      const emailAddress = userInfo.email || oauthState.emailAddress;
+      // Extract email from People API response
+      const emailAddress = userInfo.emailAddresses?.[0]?.value || oauthState.emailAddress;
+      const displayName = userInfo.names?.[0]?.displayName || emailAddress;
 
       if (!emailAddress) {
         logger.error("Google Callback: Email address not found after user info retrieval.");
@@ -212,7 +219,7 @@ export class EmailOAuthService {
         userId: oauthState.userId,
         accountName: oauthState.accountName || `Gmail (${emailAddress})`,
         emailAddress,
-        displayName: userInfo.name || emailAddress,
+        displayName: displayName,
         accountType: "gmail",
         isActive: true,
         isPrimary: oauthState.isPrimary || false,
