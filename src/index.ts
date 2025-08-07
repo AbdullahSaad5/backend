@@ -12,6 +12,7 @@ import { requestLogger } from "./middlewares/requestLogger.middleware";
 import { initCron } from "./cron";
 import { ApiDocumentation } from "./utils/api-documentation.util";
 import { documentationConfig } from "./config/documentation.config";
+import { migrateTokensFromFiles } from "./utils/token-migration.util";
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -29,6 +30,9 @@ seedData()
   .catch((error) => {
     console.error("Error seeding database:", error);
   });
+
+// One-time migration of token JSON files into DB (no-op if already present)
+migrateTokensFromFiles().catch((e) => console.error("Token migration failed:", e));
 
 app.options("*", corsMiddleware);
 
@@ -54,10 +58,7 @@ app.use(
 );
 
 // Serve static files for profile documents
-app.use(
-  "/uploads/profile-documents",
-  express.static(path.join(__dirname, "../uploads/profile-documents"))
-);
+app.use("/uploads/profile-documents", express.static(path.join(__dirname, "../uploads/profile-documents")));
 
 // Add the new route to show the welcome message
 app.get("/", (req, res) => {
