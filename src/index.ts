@@ -54,10 +54,7 @@ app.use(
 );
 
 // Serve static files for profile documents
-app.use(
-  "/uploads/profile-documents",
-  express.static(path.join(__dirname, "../uploads/profile-documents"))
-);
+app.use("/uploads/profile-documents", express.static(path.join(__dirname, "../uploads/profile-documents")));
 
 // Add the new route to show the welcome message
 app.get("/", (req, res) => {

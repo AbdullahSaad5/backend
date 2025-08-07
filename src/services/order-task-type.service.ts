@@ -9,15 +9,24 @@ export const orderTaskTypeService = {
   },
 
   getAllOrderTaskTypes: () => {
-    return OrderTaskType.find().populate("relevantCategories", "name");
+    return OrderTaskType.find()
+      .populate("relevantCategories", "name")
+      .populate("defaultAssignedRole", "role")
+      .populate("defaultAssignedTeam", "name");
   },
 
   getOrderTaskTypeById: (id: string) => {
-    return OrderTaskType.findById(id).populate("relevantCategories", "name");
+    return OrderTaskType.findById(id)
+      .populate("relevantCategories", "name")
+      .populate("defaultAssignedRole", "role")
+      .populate("defaultAssignedTeam", "name");
   },
 
   getOrderTaskTypeByTaskTypeId: (taskTypeId: string) => {
-    return OrderTaskType.findOne({ taskTypeId }).populate("relevantCategories", "name");
+    return OrderTaskType.findOne({ taskTypeId })
+      .populate("relevantCategories", "name")
+      .populate("defaultAssignedRole", "role")
+      .populate("defaultAssignedTeam", "name");
   },
 
   updateOrderTaskType: (id: string, data: IOrderTaskTypeUpdatePayload) => {

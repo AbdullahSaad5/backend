@@ -68,6 +68,8 @@ export const COMMON_EMAIL_PROVIDERS: Record<string, EmailProviderConfig> = {
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/gmail.modify",
+        "https://www.googleapis.com/auth/userinfo.email",
+        "https://www.googleapis.com/auth/userinfo.profile",
       ],
       authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
       tokenUrl: "https://oauth2.googleapis.com/token",
@@ -322,7 +324,7 @@ export class EmailProviderService {
 
   // New method to detect provider from email address
   static detectProviderFromEmail(emailAddress: string): EmailProviderConfig | null {
-    const domain = emailAddress.split('@')[1]?.toLowerCase();
+    const domain = emailAddress.split("@")[1]?.toLowerCase();
     if (!domain) return null;
 
     // Check for exact domain match
@@ -332,7 +334,7 @@ export class EmailProviderService {
 
     // Check for partial domain matches (e.g., *.gmail.com)
     for (const [key, config] of Object.entries(COMMON_EMAIL_PROVIDERS)) {
-      if (key.includes('*') && domain.endsWith(key.replace('*', ''))) {
+      if (key.includes("*") && domain.endsWith(key.replace("*", ""))) {
         return config;
       }
     }
@@ -345,7 +347,7 @@ export class EmailProviderService {
     const detected = this.detectProviderFromEmail(emailAddress);
     if (detected) {
       return {
-        accountType: detected.type === 'oauth' ? 'gmail' : 'imap',
+        accountType: detected.type === "oauth" ? "gmail" : "imap",
         incomingServer: detected.incomingServer,
         outgoingServer: detected.outgoingServer,
         settings: {
@@ -357,16 +359,16 @@ export class EmailProviderService {
 
     // Return generic defaults for unknown domains
     return {
-      accountType: 'imap',
+      accountType: "imap",
       incomingServer: {
-        host: '',
+        host: "",
         port: 993,
-        security: 'ssl',
+        security: "ssl",
       },
       outgoingServer: {
-        host: '',
+        host: "",
         port: 587,
-        security: 'tls',
+        security: "tls",
         requiresAuth: true,
       },
       settings: {
