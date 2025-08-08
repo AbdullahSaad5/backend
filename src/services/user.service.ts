@@ -97,8 +97,11 @@ export const userService = {
       supplierKey = await generateUniqueSupplierKey(firstName, lastName);
     }
 
-    // Generate unique Employee ID
-    const employeeId = await generateUniqueEmployeeId();
+    // Generate unique Employee ID for non-customer categories
+    let employeeId: string | undefined = undefined;
+    if (!userCategory || userCategory.role.toLowerCase() !== "customer") {
+      employeeId = await generateUniqueEmployeeId();
+    }
 
     // Process team assignments
     const teamAssignments = [];
@@ -139,7 +142,7 @@ export const userService = {
       phoneNumber,
       dob,
       supplierKey, // Ensure supplierKey is set
-      employeeId, // Add the generated Employee ID
+      ...(employeeId ? { employeeId } : {}), // Add the generated Employee ID only for non-customer
       teamAssignments, // Add team assignments
       isSupervisor: isSupervisor || false, // Add supervisor status
       supervisorTeams, // Add supervisor teams
