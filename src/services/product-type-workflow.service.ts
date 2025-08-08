@@ -36,7 +36,6 @@ export const productTypeWorkflowService = {
       })
       .populate({
         path: "steps.taskTypeId",
-        select: "name description estimatedTimeMinutes defaultPriority defaultAssignedRole",
       })
       .populate({
         path: "steps.overrideDefaultAssignedRole",
