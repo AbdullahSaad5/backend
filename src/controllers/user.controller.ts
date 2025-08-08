@@ -130,7 +130,7 @@ export const userController = {
         const password = req.body.password; // Assuming the password is passed in the request body
         const emailContent = `
         <p>Dear ${newUser.firstName || "User"},</p>
-        <p>Your account has been created by Build-My-Rig admin. Below are your login credentials:</p>
+        <p>Your ${userCategory?.role || "Account"} account has been created by Build-My-Rig admin. Below are your login credentials:</p>
         ${newUser.employeeId ? `<p><strong>Employee ID:</strong> ${newUser.employeeId}</p>` : ""}
         <p><strong>Email:</strong> ${newUser.email}</p>
         <p><strong>Password:</strong> ${password}</p>
