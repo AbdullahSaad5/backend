@@ -60,28 +60,24 @@ export interface IUser extends Document {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: Date;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: Date;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
-  taxId?: string;
   
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -119,28 +115,24 @@ export type ProfileCompletionPayload = {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: string;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: string;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
-  taxId?: string;
   
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
 };
 
 export interface IUserMethods {

@@ -13,8 +13,23 @@ export const ForumCategory = (router: Router) => {
   router.get(
     "/",
     CategoryController.getAllCategories
-  )
+  );
 
+  router.put (
+    "/:id",
+     CategoryController.updateCategory
+  );
+
+
+  router.get(
+    "/:id",
+     CategoryController.getCategoryById
+  );
+
+ router.delete(
+    "/:id",
+     CategoryController.deleteCategory
+  );
 
 
 };
