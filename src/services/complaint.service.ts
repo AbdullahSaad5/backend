@@ -14,6 +14,7 @@ export const complaintService = {
       category?: string;
       title?: string;
       details?: string;
+      orderNumber?: string;
       attachedFiles?: string;
     }
   ) => {
