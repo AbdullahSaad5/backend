@@ -67,6 +67,8 @@ import { mailbox } from "./mailbox.route";
 import { Forum } from "./forum.route";
 import { ForumTopic } from "./forum-topic.route";
 import { ForumCategory } from "./forum-category.route";
+import { Comment } from "./comment.route";
+
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -138,7 +140,8 @@ const routes: {
   mailbox,
   Forum,
   ForumTopic,
-  ForumCategory
+  ForumCategory,
+  Comment,
 };
 
 // Loop through all routes and pass the router to each route
