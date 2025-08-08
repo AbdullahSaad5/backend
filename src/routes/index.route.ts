@@ -69,6 +69,7 @@ import { ForumTopic } from "./forum-topic.route";
 import { team } from "./team.route";
 import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
 import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
+import { orderRoutes as orders } from "./order.route";
 
 const router: Router = Router();
 
@@ -111,7 +112,7 @@ const routes: {
   customPolicy,
   returnPolicy,
   bundle,
-  orderRoutes,
+  orders,
   cartRoutes,
   fulfillmentPolicy,
   paymentPolicy,
