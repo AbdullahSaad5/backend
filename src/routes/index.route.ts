@@ -75,6 +75,7 @@ import { documentation } from "./documentation.route";
 import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
 import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
 import { orderRoutes as orders } from "./order.route";
+import { globalPayrollSettings } from "./global-payroll-settings.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
@@ -161,6 +162,7 @@ const routes: {
   documentation,
   orderTaskTypes,
   productTypeWorkflows,
+  globalPayrollSettings,
 };
 
 // Loop through all routes and pass the router to each route
