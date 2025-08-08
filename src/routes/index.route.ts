@@ -74,6 +74,7 @@ import { emailClient } from "./email-client.route";
 import { documentation } from "./documentation.route";
 import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
 import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
+import { orderRoutes as orders } from "./order.route";
 
 import { ForumCategory } from "./forum-category.route";
 const router: Router = Router();
@@ -117,7 +118,7 @@ const routes: {
   customPolicy,
   returnPolicy,
   bundle,
-  orderRoutes,
+  orders,
   cartRoutes,
   fulfillmentPolicy,
   paymentPolicy,
