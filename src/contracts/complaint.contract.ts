@@ -4,6 +4,7 @@ export interface IComplaint extends Document {
   category: string;
   title: string;
   details: string;
+  orderNumber?: string;
   attachedFiles?: string[];
   notes?: [{
     image?:string[],
