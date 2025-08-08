@@ -6,12 +6,12 @@ export interface IEmailAccount {
   accountName: string; // Display name for the account
   emailAddress: string; // The actual email address
   displayName?: string; // Display name for outgoing emails
-  
+
   // Account type and configuration
   accountType: "imap" | "pop3" | "exchange" | "gmail" | "outlook" | "custom";
   isActive: boolean;
   isPrimary: boolean; // One primary account per user
-  
+
   // Server configuration
   incomingServer: {
     host: string;
@@ -20,7 +20,7 @@ export interface IEmailAccount {
     username: string;
     password: string; // Should be encrypted in production
   };
-  
+
   outgoingServer: {
     host: string;
     port: number;
@@ -29,7 +29,7 @@ export interface IEmailAccount {
     password: string; // Should be encrypted in production
     requiresAuth: boolean;
   };
-  
+
   // OAuth configuration (for Gmail, Outlook, etc.)
   oauth?: {
     provider: "gmail" | "outlook" | "yahoo";
@@ -39,7 +39,7 @@ export interface IEmailAccount {
     accessToken?: string;
     tokenExpiry?: Date;
   };
-  
+
   // Account settings
   settings: {
     checkInterval: number; // Minutes between email checks
@@ -49,7 +49,7 @@ export interface IEmailAccount {
     leaveOnServer: boolean; // For POP3
     syncFolders: string[]; // Folders to sync
   };
-  
+
   // Account statistics
   stats: {
     totalEmails: number;
@@ -58,12 +58,12 @@ export interface IEmailAccount {
     lastErrorAt?: Date;
     lastError?: string;
   };
-  
+
   // Account status
   status: "active" | "inactive" | "error" | "syncing";
   lastTestedAt?: Date;
   connectionStatus: "connected" | "disconnected" | "error";
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,7 +74,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
     accountName: { type: String, required: true },
     emailAddress: { type: String, required: true, lowercase: true },
     displayName: { type: String },
-    
+
     accountType: {
       type: String,
       enum: ["imap", "pop3", "exchange", "gmail", "outlook", "custom"],
@@ -82,7 +82,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
     },
     isActive: { type: Boolean, default: true },
     isPrimary: { type: Boolean, default: false },
-    
+
     incomingServer: {
       host: { type: String, required: true },
       port: { type: Number, required: true },
@@ -90,7 +90,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
       username: { type: String, required: true },
       password: { type: String, required: true }, // Encrypt in production
     },
-    
+
     outgoingServer: {
       host: { type: String, required: true },
       port: { type: Number, required: true },
@@ -99,7 +99,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
       password: { type: String, required: true }, // Encrypt in production
       requiresAuth: { type: Boolean, default: true },
     },
-    
+
     oauth: {
       provider: { type: String, enum: ["gmail", "outlook", "yahoo"] },
       clientId: { type: String },
@@ -108,7 +108,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
       accessToken: { type: String },
       tokenExpiry: { type: Date },
     },
-    
+
     settings: {
       checkInterval: { type: Number, default: 15 }, // 15 minutes
       autoDownload: { type: Boolean, default: true },
@@ -117,7 +117,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
       leaveOnServer: { type: Boolean, default: true },
       syncFolders: [{ type: String, default: ["INBOX"] }],
     },
-    
+
     stats: {
       totalEmails: { type: Number, default: 0 },
       unreadEmails: { type: Number, default: 0 },
@@ -125,7 +125,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>(
       lastErrorAt: { type: Date },
       lastError: { type: String },
     },
-    
+
     status: {
       type: String,
       enum: ["active", "inactive", "error", "syncing"],

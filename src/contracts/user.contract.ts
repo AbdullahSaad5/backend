@@ -13,6 +13,11 @@ export interface ITeamAssignment {
   assignedAt: Date;
 }
 
+export interface ISupervisorTeam {
+  teamId: Types.ObjectId;
+  assignedAt: Date;
+}
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -38,7 +43,10 @@ export interface IUser extends Document {
   additionalDocuments: [IFile];
   // Team assignments
   teamAssignments: ITeamAssignment[];
-  // isSupplier: boolean;
+  
+  // Supervisor Configuration
+  isSupervisor: boolean;
+  supervisorTeams: ISupervisorTeam[];
   
   // Employee ID - unique 6-character alphanumeric identifier
   employeeId: string;
@@ -52,28 +60,24 @@ export interface IUser extends Document {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: Date;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: Date;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
-  taxId?: string;
   
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -94,6 +98,8 @@ export type UserCreatePayload = Pick<
   dob?: string;
   address: Partial<IUserAddress>;
   teamIds?: string[]; // Array of team IDs in priority order
+  isSupervisor?: boolean; // Whether user is a supervisor
+  supervisorTeamIds?: string[]; // Array of team IDs this user supervises
 };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
@@ -109,28 +115,24 @@ export type ProfileCompletionPayload = {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: string;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: string;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
-  taxId?: string;
   
-  // Banking Details
-  bankName?: string;
-  bankBranch?: string;
-  accountName?: string;
-  accountNumber?: string;
-  sortCode?: string;
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
 };
 
 export interface IUserMethods {

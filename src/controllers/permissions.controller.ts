@@ -11,7 +11,7 @@ export const permissionsController = {
         },
         userManagement: {
           parent: "MANAGE_USERS",
-          children: ["ADD_USERS_CATEGORY", "VIEW_USERS_CATEGORY", "ADD_USERS", "VIEW_USERS"],
+          children: ["ADD_USERS_CATEGORY", "VIEW_USERS_CATEGORY", "ADD_TEAMS", "VIEW_TEAMS" , "ADD_USERS", "VIEW_USERS"],
         },
         supplierManagement: {
           parent: "MANAGE_SUPPLIERS",
@@ -39,6 +39,12 @@ export const permissionsController = {
             "ADD_BUNDLES",
             "VIEW_BUNDLES",
           ],
+        },
+        orderManagement: {
+          parent: "ORDER_PIPELINE",
+          // children: [
+          
+          // ],
         },
         // discountAndTaxes: {
         //   parent: "MANAGE_TAXES_AND_DISCOUNTS",

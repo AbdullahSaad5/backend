@@ -2,9 +2,14 @@ import { User, UserCategory } from "@/models";
 import mongoose from "mongoose";
 import { createHash } from "./hash.util";
 import dotenv from "dotenv";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
+import { cleanupTokenCollections } from "./cleanup-tokens.util";
 dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
+  // 0. Clean up existing tokens and seed Integration Tokens (optional via environment variables)
+  await cleanupTokenCollections();
+  await seedIntegrationTokens();
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
     _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
@@ -16,6 +21,8 @@ const seedData = async () => {
       "MANAGE_USERS",
       "ADD_USERS_CATEGORY",
       "VIEW_USERS_CATEGORY",
+      "ADD_TEAMS",
+      "VIEW_TEAMS",
       "ADD_USERS",
       "VIEW_USERS",
 
@@ -35,6 +42,8 @@ const seedData = async () => {
       "VIEW_LISTING",
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
+
+      "ORDER_PIPELINE",
 
       "MANAGE_BUNDLES",
       "ADD_BUNDLES",
@@ -121,6 +130,8 @@ const seedData = async () => {
       "MANAGE_USERS",
       // "ADD_USERS_CATEGORY",
       // "VIEW_USERS_CATEGORY",
+      "ADD_TEAMS",
+      "VIEW_TEAMS",
       "ADD_USERS",
       "VIEW_USERS",
 
@@ -212,10 +223,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every(
-        (permission, index) =>
-          permission === superAdminCategoryData.permissions[index]
-      )
+      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
@@ -232,10 +240,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every(
-        (permission, index) =>
-          permission === adminCategoryData.permissions[index]
-      )
+      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
@@ -329,10 +334,7 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (
       supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every(
-        (permission, index) =>
-          permission === supplierCategoryData.permissions[index]
-      )
+      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
@@ -365,8 +367,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
 
   // 3. Seed admin User
@@ -390,8 +391,7 @@ const seedData = async () => {
       "https://firebasestorage.googleapis.com/v0/b/axiom-528ab.appspot.com/o/uploads%2FPatient%20copy.jpg?alt=media&token=dc44e792-4c79-4e89-8572-b118ff9bb5b8",
     additionalDocuments: [],
     resetPasswordExpires: 1741744977042,
-    resetPasswordToken:
-      "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
+    resetPasswordToken: "0293e6db588243c00bd765ffc71e396300a248d7c1b46aec2f911338999d5720",
   };
   let superAdmin = await User.findOne({ email: superAdminData.email });
 
@@ -442,3 +442,89 @@ const seedData = async () => {
 
 // Export the seeder function for use in other files
 export default seedData;
+
+async function seedIntegrationTokens() {
+  const asBoolean = (v?: string, dflt?: boolean) => (v === "true" ? true : v === "false" ? false : dflt);
+  const nowMs = Date.now();
+
+  const candidates: Array<{
+    provider: "ebay" | "amazon";
+    environment: "PRODUCTION" | "SANDBOX";
+    useClient: boolean | undefined;
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+    refresh_token_expires_in?: number;
+    generated_at?: number;
+  }> = [
+    // eBay PRODUCTION - Application Token Only
+    {
+      provider: "ebay",
+      environment: "PRODUCTION",
+      useClient: false, // Always use application tokens for taxonomy APIs
+      access_token: process.env.EBAY_ACCESS_TOKEN,
+      refresh_token: process.env.EBAY_REFRESH_TOKEN,
+      token_type: "Application Access Token",
+      expires_in: 7200,
+      refresh_token_expires_in: 47304000,
+      generated_at: nowMs,
+    },
+    // eBay SANDBOX - Application Token Only
+    {
+      provider: "ebay",
+      environment: "SANDBOX",
+      useClient: false, // Always use application tokens for taxonomy APIs
+      access_token: process.env.EBAY_SANDBOX_ACCESS_TOKEN,
+      refresh_token: process.env.EBAY_SANDBOX_REFRESH_TOKEN,
+      token_type: "Application Access Token",
+      expires_in: 7200,
+      refresh_token_expires_in: 47304000,
+      generated_at: nowMs,
+    },
+    // Amazon PRODUCTION - Application Token Only
+    {
+      provider: "amazon",
+      environment: "PRODUCTION",
+      useClient: false, // Always use application tokens
+      access_token: process.env.AMAZON_PROD_ACCESS_TOKEN,
+      refresh_token: process.env.AMAZON_PROD_REFRESH_TOKEN,
+      token_type: "bearer",
+      expires_in: 3600,
+      generated_at: nowMs,
+    },
+    // Amazon SANDBOX - Application Token Only
+    {
+      provider: "amazon",
+      environment: "SANDBOX",
+      useClient: false, // Always use application tokens
+      access_token: process.env.AMAZON_SANDBOX_ACCESS_TOKEN,
+      refresh_token: process.env.AMAZON_SANDBOX_REFRESH_TOKEN,
+      token_type: "bearer",
+      expires_in: 3600,
+      generated_at: nowMs,
+    },
+  ];
+
+  for (const c of candidates) {
+    // Only seed entries that have core fields present
+    if (!c.access_token || !c.expires_in || !c.generated_at) continue;
+
+    await IntegrationTokenModel.updateOne(
+      { provider: c.provider, environment: c.environment, useClient: c.useClient },
+      {
+        $set: {
+          access_token: c.access_token,
+          refresh_token: c.refresh_token,
+          token_type: c.token_type,
+          expires_in: c.expires_in,
+          refresh_token_expires_in: c.refresh_token_expires_in,
+          generated_at: c.generated_at,
+        },
+      },
+      { upsert: true }
+    );
+  }
+
+  console.log("Integration tokens seeding complete (env-driven, if provided).");
+}
