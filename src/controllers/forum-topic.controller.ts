@@ -50,7 +50,7 @@ export const ForumTopicController = {
   // Get all forum topics
   getAllForumTopics: async (req: Request, res: Response) => {
     try {
-      const forumTopics = await ForumTopic.find().sort({ createdAt: -1 });
+      const forumTopics = await ForumTopic.find().populate('category','name').sort({ createdAt: -1 });
       res.status(StatusCodes.OK).json({
         success: true,
         data: forumTopics
@@ -67,8 +67,14 @@ export const ForumTopicController = {
 
   // Get a single forum topic by ID
   getForumTopicById: async (req: Request, res: Response) => {
+    // console.log(req.params.id, 123);
+
     try {
-      const forumTopic = await ForumTopic.findById(req.params.id);
+      // const forumTopic = await ForumTopic.find({category:req.params.id}).populate('category','name');
+      const forumTopic = await ForumTopic
+      .findById(req.params.id)
+      .populate('category', 'name');
+      // console.log(forumTopic, 123);
 
       if (!forumTopic) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -91,12 +97,43 @@ export const ForumTopicController = {
       });
     }
   },
+   //Topic by category
+  getForumTopicsByCategoryId: async (req: Request, res: Response) => {
+  try {
+    const forumTopics = await ForumTopic
+      .find({ category: req.params.id })
+      .populate('category', 'name');
+
+    if (!forumTopics || forumTopics.length === 0) {
+      return res.status(StatusCodes.NOT_FOUND).json({
+        success: false,
+        message: "No forum topics found for this category",
+        issueMessage: "No forum topics found for this category"
+      });
+    }
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: forumTopics
+    });
+  } catch (error) {
+    console.error("Error fetching forum topics by category:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Error fetching forum topics",
+      issueMessage: "Error fetching forum topics"
+    });
+  }
+},
+
 
   // Update a forum topic
   updateForumTopic: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      console.log(id, 111111111)
       const { topic, category, content } = req.body;
+      console.log(topic, category, content ,2222222)
 
       const updatedForumTopic = await ForumTopic.findByIdAndUpdate(
         id,
@@ -109,6 +146,7 @@ export const ForumTopicController = {
       );
 
       if (!updatedForumTopic) {
+
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Forum topic not found",

@@ -30,6 +30,9 @@ export const productCategoryService = {
   getAllCategory: () => {
     return ProductCategory.find();
   },
+  getAllCategoryWeb: (filter: any) => {
+    return ProductCategory.find(filter);
+  },
 
   getById: (id: string) => {
     return ProductCategory.findById(id);

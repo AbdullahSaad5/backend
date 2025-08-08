@@ -48,7 +48,7 @@ export const ForumController = {
   // Get all forum posts
   getAllForums: async (req: Request, res: Response) => {
     try {
-      const forums = await Forum.find().sort({ createdAt: -1 });
+      const forums = await Forum.find().populate('category','name').sort({ createdAt: -1 });
       res.status(StatusCodes.OK).json({
         success: true,
         data: forums

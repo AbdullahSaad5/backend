@@ -14,7 +14,7 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
 import { IParamsRequest } from "@/contracts/request.contract";
-const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+const type: any = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
 const useClient =
   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
 const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
@@ -22,7 +22,7 @@ export const ebayListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
       // const type = req.query.type as "production" | "sandbox";
-      const credentials = await getNormalAccessToken(type);
+      const credentials = await getNormalAccessToken();
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
     } catch (error) {
       console.log(error);

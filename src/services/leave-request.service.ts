@@ -17,7 +17,7 @@ export const leaveRequestService = {
 
   getLeaveRequests: async (filter: any = {}, page: number = 1, limit: number = 5) => {
     const skip = (page - 1) * limit;
-    
+
     // Handle search functionality
     if (filter.search) {
       // Set up the aggregate query with a lookup to search in user fields
@@ -27,23 +27,23 @@ export const leaveRequestService = {
             from: "users",
             localField: "userId",
             foreignField: "_id",
-            as: "userInfo"
-          }
+            as: "userInfo",
+          },
         },
         {
-          $unwind: "$userInfo"  // Unwind the userInfo array to access fields
+          $unwind: "$userInfo", // Unwind the userInfo array to access fields
         },
         {
           $match: {
             $or: [
-              { "reason": { $regex: filter.search, $options: "i" } },
+              { reason: { $regex: filter.search, $options: "i" } },
               { "userInfo.firstName": { $regex: filter.search, $options: "i" } },
               { "userInfo.lastName": { $regex: filter.search, $options: "i" } },
-              { "userInfo.email": { $regex: filter.search, $options: "i" } }
-            ]
-          }
+              { "userInfo.email": { $regex: filter.search, $options: "i" } },
+            ],
+          },
         },
-        { 
+        {
           $project: {
             _id: 1,
             date: 1,
@@ -57,15 +57,15 @@ export const leaveRequestService = {
               _id: "$userInfo._id",
               firstName: "$userInfo.firstName",
               lastName: "$userInfo.lastName",
-              email: "$userInfo.email"
-            }
-          }
+              email: "$userInfo.email",
+            },
+          },
         },
         { $sort: { date: -1 } },
         { $skip: skip },
-        { $limit: limit }
+        { $limit: limit },
       ]);
-      
+
       // Count total matching documents
       const totalCount = await LeaveRequest.aggregate([
         {
@@ -73,27 +73,27 @@ export const leaveRequestService = {
             from: "users",
             localField: "userId",
             foreignField: "_id",
-            as: "userInfo"
-          }
+            as: "userInfo",
+          },
         },
         {
-          $unwind: "$userInfo"  // Unwind the userInfo array to access fields
+          $unwind: "$userInfo", // Unwind the userInfo array to access fields
         },
         {
           $match: {
             $or: [
-              { "reason": { $regex: filter.search, $options: "i" } },
+              { reason: { $regex: filter.search, $options: "i" } },
               { "userInfo.firstName": { $regex: filter.search, $options: "i" } },
               { "userInfo.lastName": { $regex: filter.search, $options: "i" } },
-              { "userInfo.email": { $regex: filter.search, $options: "i" } }
-            ]
-          }
+              { "userInfo.email": { $regex: filter.search, $options: "i" } },
+            ],
+          },
         },
-        { $count: "total" }
+        { $count: "total" },
       ]);
-      
+
       const total = totalCount.length > 0 ? totalCount[0].total : 0;
-      
+
       return {
         results: leaveRequests,
         pagination: {
