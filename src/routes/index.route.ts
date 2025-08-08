@@ -77,6 +77,8 @@ import { productTypeWorkflow as productTypeWorkflows } from "./product-type-work
 import { orderRoutes as orders } from "./order.route";
 
 import { ForumCategory } from "./forum-category.route";
+import { Comment } from "./comment.route";
+
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -149,12 +151,14 @@ const routes: {
   mailbox,
   Forum,
   ForumTopic,
+
+  ForumCategory,
+  Comment,
   team,
   emailAccount,
   announcementBar,
   emailClient,
   documentation,
-  ForumCategory,
   orderTaskTypes,
   productTypeWorkflows,
 };
