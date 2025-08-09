@@ -1,10 +1,5 @@
 import { Address, User, UserCategory } from "@/models";
-import {
-  IUser,
-  UserCreatePayload,
-  UserUpdatePayload,
-  ProfileCompletionPayload,
-} from "@/contracts/user.contract";
+import { IUser, UserCreatePayload, UserUpdatePayload, ProfileCompletionPayload } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
 import { Types } from "mongoose";
@@ -20,9 +15,7 @@ const generateUniqueEmployeeId = async (): Promise<string> => {
     // Generate a 6-character alphanumeric string
     let randomPart = "";
     for (let i = 0; i < 6; i++) {
-      randomPart += characters.charAt(
-        Math.floor(Math.random() * characters.length)
-      );
+      randomPart += characters.charAt(Math.floor(Math.random() * characters.length));
     }
 
     // Add BMR- prefix
@@ -42,6 +35,9 @@ export const userService = {
   getAllUsers: async () => {
     return await User.find().populate("userType");
   },
+  getUsersByRole: async (role: string) => {
+    return await User.find({ userType: role }).populate("userType");
+  },
   findUserById: async (id: string, select?: string) => {
     if (select) {
       return await User.findById(id)
@@ -50,8 +46,8 @@ export const userService = {
           path: "teamAssignments.teamId",
           populate: {
             path: "userCategoryId",
-            select: "role description"
-          }
+            select: "role description",
+          },
         })
         .select(select);
     } else {
@@ -61,8 +57,8 @@ export const userService = {
           path: "teamAssignments.teamId",
           populate: {
             path: "userCategoryId",
-            select: "role description"
-          }
+            select: "role description",
+          },
         });
     }
   },
@@ -169,11 +165,7 @@ export const userService = {
   },
 
   toggleBlock: (id: string, isBlocked: boolean) => {
-    const updateUser = User.findByIdAndUpdate(
-      id,
-      { isBlocked: isBlocked },
-      { new: true }
-    );
+    const updateUser = User.findByIdAndUpdate(id, { isBlocked: isBlocked }, { new: true });
     if (!updateUser) {
       throw new Error("User not found");
     }
@@ -181,10 +173,7 @@ export const userService = {
   },
 
   // Profile Completion Methods
-  updateProfileCompletion: async (
-    userId: string,
-    profileData: ProfileCompletionPayload
-  ) => {
+  updateProfileCompletion: async (userId: string, profileData: ProfileCompletionPayload) => {
     try {
       // Convert date strings to Date objects if provided
       const updateData: any = { ...profileData };
@@ -192,9 +181,7 @@ export const userService = {
       console.log("updateData last and agaonn : ", updateData);
 
       if (profileData.passportExpiryDate) {
-        updateData.passportExpiryDate = new Date(
-          profileData.passportExpiryDate
-        );
+        updateData.passportExpiryDate = new Date(profileData.passportExpiryDate);
       }
 
       if (profileData.visaExpiryDate) {
@@ -202,9 +189,7 @@ export const userService = {
       }
 
       if (profileData.employmentStartDate) {
-        updateData.employmentStartDate = new Date(
-          profileData.employmentStartDate
-        );
+        updateData.employmentStartDate = new Date(profileData.employmentStartDate);
       }
 
       if (profileData.dob) {
@@ -214,15 +199,11 @@ export const userService = {
       // Handle empty strings - convert to null/undefined for optional fields
       if (updateData.gender === "") updateData.gender = undefined;
       if (updateData.jobTitle === "") updateData.jobTitle = undefined;
-      if (updateData.employmentStartDate === "")
-        updateData.employmentStartDate = undefined;
+      if (updateData.employmentStartDate === "") updateData.employmentStartDate = undefined;
       if (updateData.niNumber === "") updateData.niNumber = undefined;
-      if (updateData.emergencyPhoneNumber === "")
-        updateData.emergencyPhoneNumber = undefined;
-      if (updateData.countryOfIssue === "")
-        updateData.countryOfIssue = undefined;
-      if (updateData.passportNumber === "")
-        updateData.passportNumber = undefined;
+      if (updateData.emergencyPhoneNumber === "") updateData.emergencyPhoneNumber = undefined;
+      if (updateData.countryOfIssue === "") updateData.countryOfIssue = undefined;
+      if (updateData.passportNumber === "") updateData.passportNumber = undefined;
       if (updateData.visaNumber === "") updateData.visaNumber = undefined;
 
       // Clear visa-related fields if user is British National/ILR
@@ -303,10 +284,7 @@ export const userService = {
       const user = await User.findById(userId);
       if (!user) return null;
 
-      const completionPercentage = await userService.calculateProfileCompletion(
-        userId,
-        user.toObject()
-      );
+      const completionPercentage = await userService.calculateProfileCompletion(userId, user.toObject());
 
       const profileCompleted = completionPercentage === 100;
 
@@ -320,10 +298,7 @@ export const userService = {
       return {
         profileCompleted: profileCompleted || false,
         profileCompletionPercentage: completionPercentage,
-        missingFields: await userService.getMissingProfileFields(
-          userId,
-          user.toObject()
-        ),
+        missingFields: await userService.getMissingProfileFields(userId, user.toObject()),
       };
     } catch (error) {
       console.error("Error getting profile completion status:", error);
@@ -344,21 +319,17 @@ export const userService = {
 
       // Personal Information
       if (!user.gender) missingFields.push("Gender");
-      if (!user.emergencyPhoneNumber)
-        missingFields.push("Emergency Phone Number");
+      if (!user.emergencyPhoneNumber) missingFields.push("Emergency Phone Number");
       if (!user.profileImage) missingFields.push("Profile Image");
       if (!user.dob) missingFields.push("Date of Birth");
 
       // Geofencing Configuration
-      if (user.geofencingRadius === undefined)
-        missingFields.push("Geofencing Radius");
-      if (user.geofencingAttendanceEnabled === undefined)
-        missingFields.push("Geofencing Attendance");
+      if (user.geofencingRadius === undefined) missingFields.push("Geofencing Radius");
+      if (user.geofencingAttendanceEnabled === undefined) missingFields.push("Geofencing Attendance");
 
       // Employment Information
       if (!user.jobTitle) missingFields.push("Job Title");
-      if (!user.employmentStartDate)
-        missingFields.push("Employment Start Date");
+      if (!user.employmentStartDate) missingFields.push("Employment Start Date");
 
       // Annual Leave Configuration
       if (user.annualLeaveEntitlement === undefined) missingFields.push("Annual Leave Entitlement");
@@ -402,10 +373,7 @@ export const userService = {
 
     // If this is set as default, make sure no other address is default for this user
     if (isDefault) {
-      await Address.updateMany(
-        { userId, isActive: true },
-        { isDefault: false }
-      );
+      await Address.updateMany({ userId, isActive: true }, { isDefault: false });
     }
 
     const newAddress = new Address({
@@ -431,10 +399,7 @@ export const userService = {
         ...addresses[i],
         isDefault: i === 0, // Make first address default
       };
-      const createdAddress = await userService.createAddress(
-        addressData,
-        userId
-      );
+      const createdAddress = await userService.createAddress(addressData, userId);
       createdAddresses.push(createdAddress);
     }
     return createdAddresses;
@@ -459,11 +424,7 @@ export const userService = {
   },
 
   softDeleteAddress: async (addressId: string) => {
-    return Address.findByIdAndUpdate(
-      addressId,
-      { isActive: false },
-      { new: true }
-    );
+    return Address.findByIdAndUpdate(addressId, { isActive: false }, { new: true });
   },
 
   setDefaultAddress: async (addressId: string, userId: string) => {
@@ -471,18 +432,10 @@ export const userService = {
     await Address.updateMany({ userId, isActive: true }, { isDefault: false });
 
     // Then set the specified address as default
-    return Address.findByIdAndUpdate(
-      addressId,
-      { isDefault: true },
-      { new: true }
-    );
+    return Address.findByIdAndUpdate(addressId, { isDefault: true }, { new: true });
   },
 
-  updatePermission: (
-    additionalAccessRights: string[],
-    restrictedAccessRights: string[],
-    id: string
-  ) => {
+  updatePermission: (additionalAccessRights: string[], restrictedAccessRights: string[], id: string) => {
     console.log("id : ", id);
     console.log("additionalAccessRights : ", additionalAccessRights);
     console.log("restrictedAccessRights : ", restrictedAccessRights);
@@ -603,10 +556,7 @@ export const userService = {
         if (categoryIds.length > 0) {
           // Filter out excluded categories from search results
           const allowedCategoryIds = categoryIds.filter(
-            (id) =>
-              !excludedUserTypeIds.some(
-                (excludedId) => excludedId.toString() === id.toString()
-              )
+            (id) => !excludedUserTypeIds.some((excludedId) => excludedId.toString() === id.toString())
           );
           if (allowedCategoryIds.length > 0) {
             query.$or.push({ userType: { $in: allowedCategoryIds } });
@@ -627,10 +577,7 @@ export const userService = {
           if (query.userType && query.userType.$nin) {
             // We have excluded roles, so we need to ensure the selected userType is not in the excluded list
             // and also match the specific userType
-            query.$and = [
-              { userType: { $nin: excludedUserTypeIds } },
-              { userType: userCategory._id },
-            ];
+            query.$and = [{ userType: { $nin: excludedUserTypeIds } }, { userType: userCategory._id }];
             delete query.userType;
           } else {
             query.userType = userCategory._id;
@@ -661,15 +608,15 @@ export const userService = {
           path: "teamAssignments.teamId",
           populate: {
             path: "userCategoryId",
-            select: "role description"
-          }
+            select: "role description",
+          },
         })
         .populate({
           path: "supervisorTeams.teamId",
           populate: {
             path: "userCategoryId",
-            select: "role description"
-          }
+            select: "role description",
+          },
         })
         .skip(skip) // Correct application of skip
         .limit(limitNumber); // Correct application of limit
@@ -701,11 +648,9 @@ export const userService = {
         assignedAt: new Date(),
       }));
 
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        { teamAssignments },
-        { new: true }
-      ).populate("userType").populate("teamAssignments.teamId");
+      const updatedUser = await User.findByIdAndUpdate(userId, { teamAssignments }, { new: true })
+        .populate("userType")
+        .populate("teamAssignments.teamId");
 
       return updatedUser;
     } catch (error) {
@@ -722,8 +667,8 @@ export const userService = {
           path: "teamAssignments.teamId",
           populate: {
             path: "userCategoryId",
-            select: "role description"
-          }
+            select: "role description",
+          },
         });
 
       return user;
@@ -736,11 +681,11 @@ export const userService = {
   getUsersByTeam: async (teamId: string) => {
     try {
       const users = await User.find({
-        "teamAssignments.teamId": new Types.ObjectId(teamId)
+        "teamAssignments.teamId": new Types.ObjectId(teamId),
       })
-      .populate("userType")
-      .populate("teamAssignments.teamId")
-      .sort({ "teamAssignments.priority": 1 });
+        .populate("userType")
+        .populate("teamAssignments.teamId")
+        .sort({ "teamAssignments.priority": 1 });
 
       return users;
     } catch (error) {
@@ -757,9 +702,7 @@ export const userService = {
       }
 
       // Remove the team assignment
-      user.teamAssignments = user.teamAssignments.filter(
-        (assignment) => assignment.teamId.toString() !== teamId
-      );
+      user.teamAssignments = user.teamAssignments.filter((assignment) => assignment.teamId.toString() !== teamId);
 
       // Reorder priorities
       user.teamAssignments.forEach((assignment, index) => {
@@ -775,10 +718,7 @@ export const userService = {
   },
 };
 
-export async function generateUniqueSupplierKey(
-  firstName: string,
-  lastName: string
-): Promise<string> {
+export async function generateUniqueSupplierKey(firstName: string, lastName: string): Promise<string> {
   let baseKey = `${toUpper(firstName)}_${toUpper(lastName)}`;
   let uniqueKey = baseKey;
   let counter = 1;
