@@ -3,10 +3,12 @@ import mongoose from "mongoose";
 import { createHash } from "./hash.util";
 import dotenv from "dotenv";
 import { IntegrationTokenModel } from "@/models/integration-token.model";
+import { cleanupTokenCollections } from "./cleanup-tokens.util";
 dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
-  // 0. Seed Integration Tokens (optional via environment variables)
+  // 0. Clean up existing tokens and seed Integration Tokens (optional via environment variables)
+  await cleanupTokenCollections();
   await seedIntegrationTokens();
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
@@ -456,46 +458,46 @@ async function seedIntegrationTokens() {
     refresh_token_expires_in?: number;
     generated_at?: number;
   }> = [
-    // eBay PRODUCTION
+    // eBay PRODUCTION - Application Token Only
     {
       provider: "ebay",
       environment: "PRODUCTION",
-      useClient: asBoolean(process.env.EBAY_USE_CLIENT, true),
+      useClient: false, // Always use application tokens for taxonomy APIs
       access_token: process.env.EBAY_ACCESS_TOKEN,
       refresh_token: process.env.EBAY_REFRESH_TOKEN,
-      token_type: "User Access Token",
+      token_type: "Application Access Token",
       expires_in: 7200,
       refresh_token_expires_in: 47304000,
       generated_at: nowMs,
     },
-    // eBay SANDBOX
+    // eBay SANDBOX - Application Token Only
     {
       provider: "ebay",
       environment: "SANDBOX",
-      useClient: asBoolean(process.env.EBAY_SANDBOX_USE_CLIENT, false),
+      useClient: false, // Always use application tokens for taxonomy APIs
       access_token: process.env.EBAY_SANDBOX_ACCESS_TOKEN,
       refresh_token: process.env.EBAY_SANDBOX_REFRESH_TOKEN,
-      token_type: "User Access Token",
+      token_type: "Application Access Token",
       expires_in: 7200,
       refresh_token_expires_in: 47304000,
       generated_at: nowMs,
     },
-    // Amazon PRODUCTION
+    // Amazon PRODUCTION - Application Token Only
     {
       provider: "amazon",
       environment: "PRODUCTION",
-      useClient: asBoolean(process.env.AMAZON_PROD_USE_CLIENT, true),
+      useClient: false, // Always use application tokens
       access_token: process.env.AMAZON_PROD_ACCESS_TOKEN,
       refresh_token: process.env.AMAZON_PROD_REFRESH_TOKEN,
       token_type: "bearer",
       expires_in: 3600,
       generated_at: nowMs,
     },
-    // Amazon SANDBOX
+    // Amazon SANDBOX - Application Token Only
     {
       provider: "amazon",
       environment: "SANDBOX",
-      useClient: asBoolean(process.env.AMAZON_SANDBOX_USE_CLIENT, false),
+      useClient: false, // Always use application tokens
       access_token: process.env.AMAZON_SANDBOX_ACCESS_TOKEN,
       refresh_token: process.env.AMAZON_SANDBOX_REFRESH_TOKEN,
       token_type: "bearer",

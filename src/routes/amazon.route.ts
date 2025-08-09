@@ -1,6 +1,10 @@
 import { amazonListingService } from "@/services";
 import { listingController } from "@/controllers";
 import { Router } from "express";
+import { Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
+import { ReasonPhrases } from "http-status-codes";
+import { getAmazonApplicationAuthToken } from "@/utils/amazon-helpers.util";
 
 export const amazon = (router: Router) => {
   // Authentication routes
@@ -24,6 +28,35 @@ export const amazon = (router: Router) => {
   router.get("/get-item-from-amazon/:listingId", listingController.getItemFromAmazon);
   router.get("/get-all-items-from-amazon", listingController.getAllItemsFromAmazon);
   router.get("/check-amazon-submission-status/:submissionId", listingController.checkAmazonSubmissionStatus);
+
+  // Add this new endpoint for getting application tokens
+  router.get("/application-token", async (req: Request, res: Response) => {
+    try {
+      const credentials = await getAmazonApplicationAuthToken();
+
+      if (!credentials) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+          error: "Failed to get application token",
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: credentials,
+      });
+    } catch (error) {
+      console.error("Error getting application token:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get application token",
+        details: error,
+      });
+    }
+  });
 
   // Additional routes can be added here as needed
   // For example:

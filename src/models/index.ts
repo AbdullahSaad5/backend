@@ -22,4 +22,5 @@ export { Log } from "./log.model";
 export { Gtin } from "./gtin.model";
 export { TaskModel } from "./task.model";
 export { Team } from "./team.model";
+export { Order } from "./order.model";
 export { default as FeaturedSale } from "./featured-sale.model";
