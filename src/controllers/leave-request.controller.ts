@@ -55,12 +55,32 @@ export const leaveRequestController = {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 5;
       const search = req.query.search as string;
 
+      // 🔧 FIX: Extract all filter parameters
+      const status = req.query.status as string;
+      const isPaid = req.query.isPaid as string;
+      const leaveType = req.query.leaveType as string;
+
       // Add filter based on query parameters
       const filter: Record<string, any> = {};
 
       // Add search functionality if search parameter is provided
       if (search) {
         filter.search = search;
+      }
+
+      // 🔧 FIX: Add status filter
+      if (status) {
+        filter.status = status;
+      }
+
+      // 🔧 FIX: Add payment filter
+      if (isPaid !== undefined) {
+        filter.isPaid = isPaid === "true";
+      }
+
+      // 🔧 FIX: Add leave type filter
+      if (leaveType) {
+        filter.leaveType = leaveType;
       }
 
       const leaveRequests = await leaveRequestService.getLeaveRequests(filter, page, limit);

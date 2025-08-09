@@ -6,6 +6,151 @@ import { Location } from "@/models/location.model";
 import { Shift } from "@/models/workshift.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 import { Workmode } from "@/models/workmode.model";
+// Helper function to calculate overtime for a record
+function calculateOvertime(record: any) {
+  try {
+    if (record.status !== "present" || !record.checkIn || !record.checkOut || !record.shiftId) {
+      return {
+        ...record,
+        overtimeMinutes: 0,
+        earlyMinutes: 0,
+        lateMinutes: 0,
+        normalHoursMinutes: 0,
+      };
+    }
+
+    const shift = record.shiftId as any;
+    if (!shift || !shift.startTime || !shift.endTime) {
+      return {
+        ...record,
+        overtimeMinutes: 0,
+        earlyMinutes: 0,
+        lateMinutes: 0,
+        normalHoursMinutes: 0,
+      };
+    }
+
+    // Parse shift times
+    const [startHour, startMinute] = shift.startTime.split(":").map(Number);
+    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+
+    // Create Date objects for shift start and end times
+    const shiftDate = new Date(record.date);
+    const shiftStartTime = new Date(shiftDate);
+    shiftStartTime.setHours(startHour, startMinute, 0, 0);
+
+    const shiftEndTime = new Date(shiftDate);
+    shiftEndTime.setHours(endHour, endMinute, 0, 0);
+
+    // Handle cases where end time is on the next day
+    if (endHour < startHour || (endHour === startHour && endMinute < startMinute)) {
+      shiftEndTime.setDate(shiftEndTime.getDate() + 1);
+    }
+
+    // Calculate shift duration in minutes
+    const shiftDurationMinutes = Math.floor((shiftEndTime.getTime() - shiftStartTime.getTime()) / (1000 * 60));
+
+    // Get break time in minutes
+    let breakMinutes = 0;
+    if (shift.hasBreak && shift.breakStartTime && shift.breakEndTime) {
+      const [breakStartHour, breakStartMinute] = shift.breakStartTime.split(":").map(Number);
+      const [breakEndHour, breakEndMinute] = shift.breakEndTime.split(":").map(Number);
+
+      const breakStartTime = new Date(shiftDate);
+      breakStartTime.setHours(breakStartHour, breakStartMinute, 0, 0);
+
+      const breakEndTime = new Date(shiftDate);
+      breakEndTime.setHours(breakEndHour, breakEndMinute, 0, 0);
+
+      // Handle cases where break end time is on the next day
+      if (breakEndHour < breakStartHour || (breakEndHour === breakStartHour && breakEndMinute < breakStartMinute)) {
+        breakEndTime.setDate(breakEndTime.getDate() + 1);
+      }
+
+      breakMinutes = Math.floor((breakEndTime.getTime() - breakStartTime.getTime()) / (1000 * 60));
+    }
+
+    // Calculate early check-in minutes (limited to 1 hour before shift)
+    let earlyMinutes = 0;
+    const oneHourBeforeShift = new Date(shiftStartTime);
+    oneHourBeforeShift.setHours(oneHourBeforeShift.getHours() - 1);
+
+    if (record.checkIn < shiftStartTime && record.checkIn >= oneHourBeforeShift) {
+      earlyMinutes = Math.floor((shiftStartTime.getTime() - record.checkIn.getTime()) / (1000 * 60));
+    }
+
+    // Calculate late check-in minutes
+    let lateMinutes = 0;
+    if (record.checkIn > shiftStartTime) {
+      lateMinutes = Math.floor((record.checkIn.getTime() - shiftStartTime.getTime()) / (1000 * 60));
+    }
+
+    // Calculate late check-out minutes
+    let lateCheckoutMinutes = 0;
+    if (record.checkOut > shiftEndTime) {
+      lateCheckoutMinutes = Math.floor((record.checkOut.getTime() - shiftEndTime.getTime()) / (1000 * 60));
+    }
+
+    // Calculate actual worked minutes (excluding breaks if applicable)
+    const totalWorkedMinutes = Math.floor((record.checkOut.getTime() - record.checkIn.getTime()) / (1000 * 60));
+
+    // Adjust normal working hours by removing break time
+    const adjustedShiftDuration = shiftDurationMinutes - breakMinutes;
+
+    // Calculate overtime minutes based on the rules
+    let overtimeMinutes = 0;
+    let normalHoursMinutes = 0;
+
+    if (lateMinutes > 0) {
+      // For late check-ins, first calculate actual time worked
+      normalHoursMinutes = Math.min(totalWorkedMinutes, adjustedShiftDuration);
+
+      // Employee must first complete their normal hours
+      // Normal hours are the full shift duration (they need to make up for being late)
+      const requiredWorkMinutes = adjustedShiftDuration + lateMinutes;
+
+      if (totalWorkedMinutes > requiredWorkMinutes) {
+        // If they worked more than required (shift + late time), the rest is overtime
+        overtimeMinutes = totalWorkedMinutes - requiredWorkMinutes;
+      } else {
+        // They didn't work enough extra time to qualify for overtime
+        overtimeMinutes = 0;
+      }
+    } else {
+      // For on-time or early check-ins
+      normalHoursMinutes = adjustedShiftDuration;
+
+      // For early check-ins, count early time as overtime
+      // For all employees, count time after shift end as overtime
+      overtimeMinutes = earlyMinutes + lateCheckoutMinutes;
+    }
+
+    // Only count overtime if it's at least 25 minutes
+    const finalOvertimeMinutes = overtimeMinutes >= 25 ? overtimeMinutes : 0;
+
+    return {
+      ...record,
+      overtimeMinutes: finalOvertimeMinutes,
+      earlyMinutes,
+      lateMinutes,
+      normalHoursMinutes,
+      shiftDurationMinutes,
+      breakMinutes,
+      totalWorkedMinutes,
+    };
+  } catch (error) {
+    console.error("Error calculating overtime:", error);
+    return {
+      ...record,
+      overtimeMinutes: 0,
+      earlyMinutes: 0,
+      lateMinutes: 0,
+      normalHoursMinutes: 0,
+      error: "Failed to calculate overtime",
+    };
+  }
+}
+
 export const attendanceService = {
   // Get employee punch-in details by employee ID
   getPunchInDetails: async (employeeId: string) => {
@@ -198,7 +343,7 @@ export const attendanceService = {
       });
 
       return {
-        ...record.toObject(),
+        ...record,
         isPaid: leaveRequest?.isPaid || false,
       };
     };
@@ -222,64 +367,239 @@ export const attendanceService = {
   },
 
   // Admin: get all employees' attendance for a date
+  // Option 1: Aggregation Pipeline (Recommended - Single Database Query)
   getAllForDate: async (startDate?: Date, endDate?: Date) => {
     try {
+      console.time("getAllForDate");
       const query: any = {};
       if (startDate && endDate) {
-        query.date = { $gte: startDate, $lte: endDate };
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        query.date = { $gte: start, $lte: end };
       }
 
-      const attendance = await Attendance.find(query)
-        .populate({
-          path: "shiftId",
-          select: "hasBreak breakStartTime breakEndTime",
-        })
-        .sort({ date: -1 });
-
-      // Add leave payment information for records with leave status
-      const results = await Promise.all(
-        attendance.map(async (record) => {
-          if (record.status === "leave") {
-            // Convert both dates to local midnight for comparison
-            const attendanceDate = new Date(record.date);
-            // Get the local date parts
-            const year = attendanceDate.getFullYear();
-            const month = attendanceDate.getMonth();
-            const day = attendanceDate.getDate();
-
-            // Create start and end of the day in local time
-            const startOfDay = new Date(year, month, day, 0, 0, 0);
-            const endOfDay = new Date(year, month, day, 23, 59, 59, 999);
-
-            const leaveRequest = await LeaveRequest.findOne({
-              userId: record.employeeId,
-              status: "approved",
-              date: {
-                $gte: startOfDay,
-                $lte: endOfDay,
+      // Use aggregation pipeline for better performance with fewer database round trips
+      const pipeline: any[] = [
+        { $match: query },
+        { $sort: { date: -1 as 1 | -1 } },
+        {
+          $lookup: {
+            from: "shifts", // Replace with actual shift collection name
+            localField: "shiftId",
+            foreignField: "_id",
+            as: "shift",
+            pipeline: [
+              {
+                $project: {
+                  startTime: 1,
+                  endTime: 1,
+                  hasBreak: 1,
+                  breakStartTime: 1,
+                  breakEndTime: 1,
+                },
               },
-            }).lean();
+            ],
+          },
+        },
+        {
+          $lookup: {
+            from: "leaverequests", // Replace with actual leave request collection name
+            let: {
+              empId: "$employeeId",
+              attendanceDate: {
+                $dateToString: {
+                  format: "%Y-%m-%d",
+                  date: "$date",
+                },
+              },
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ["$userId", "$$empId"] },
+                      { $eq: ["$status", "approved"] },
+                      {
+                        $eq: [
+                          {
+                            $dateToString: {
+                              format: "%Y-%m-%d",
+                              date: "$date",
+                            },
+                          },
+                          "$$attendanceDate",
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $project: {
+                  isPaid: 1,
+                },
+              },
+            ],
+            as: "leaveRequest",
+          },
+        },
+        {
+          $addFields: {
+            shiftId: { $arrayElemAt: ["$shift", 0] },
+            isPaid: {
+              $cond: {
+                if: { $and: [{ $eq: ["$status", "leave"] }, { $gt: [{ $size: "$leaveRequest" }, 0] }] },
+                then: { $ifNull: [{ $arrayElemAt: ["$leaveRequest.isPaid", 0] }, false] },
+                else: false,
+              },
+            },
+          },
+        },
+        {
+          $project: {
+            shift: 0,
+            leaveRequest: 0,
+          },
+        },
+      ];
 
-            console.log("Leave request found:", {
-              employeeId: record.employeeId,
-              date: attendanceDate,
-              leaveRequest: leaveRequest,
-            });
+      const attendance = await Attendance.aggregate(pipeline);
 
-            return {
-              ...record.toObject(),
-              isPaid: leaveRequest?.isPaid || false,
-            };
-          }
-          return record;
-        })
-      );
+      // Process records efficiently
+      const results = attendance.map((record) => {
+        const result = {
+          ...record,
+          overtimeMinutes: 0,
+          earlyMinutes: 0,
+          lateMinutes: 0,
+        };
+
+        if (record.status === "present" && record.checkIn && record.checkOut && record.shiftId) {
+          Object.assign(result, calculateOvertime(record));
+        }
+
+        return result;
+      });
+
+      console.timeEnd("getAllForDate");
       return results;
     } catch (err: any) {
+      console.error("Error in getAllForDate:", err);
       throw new Error(err.message);
     }
   },
 
+  // Option 2: Optimized Version of Your Original Approach
+  getAllForDateOptimized: async (startDate?: Date, endDate?: Date) => {
+    try {
+      console.time("getAllForDate");
+      const query: any = {};
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        query.date = { $gte: start, $lte: end };
+      }
+
+      // Get attendance with minimal projection to reduce data transfer
+      const attendance = await Attendance.find(query, {
+        employeeId: 1,
+        date: 1,
+        status: 1,
+        checkIn: 1,
+        checkOut: 1,
+        shiftId: 1,
+      })
+        .populate({
+          path: "shiftId",
+          select: "startTime endTime hasBreak breakStartTime breakEndTime",
+        })
+        .sort({ date: -1 })
+        .lean();
+
+      // Early return if no records
+      if (!attendance.length) {
+        console.timeEnd("getAllForDate");
+        return [];
+      }
+
+      // Batch process leave records more efficiently
+      const leaveRecords = attendance.filter((record) => record.status === "leave");
+      let leaveRequestsMap = new Map();
+
+      if (leaveRecords.length > 0) {
+        // Use Set for unique values and more efficient date handling
+        const uniqueUserIds = [...new Set(leaveRecords.map((record) => record.employeeId.toString()))];
+
+        // Calculate date range more efficiently
+        const dates = leaveRecords.map((record) => new Date(record.date).setHours(0, 0, 0, 0));
+        const minDate = new Date(Math.min(...dates));
+        const maxDate = new Date(Math.max(...dates));
+        maxDate.setHours(23, 59, 59, 999);
+
+        // Single optimized query with projection
+        const leaveRequests = await LeaveRequest.find(
+          {
+            userId: { $in: uniqueUserIds },
+            status: "approved",
+            date: { $gte: minDate, $lte: maxDate },
+          },
+          {
+            userId: 1,
+            date: 1,
+            isPaid: 1,
+          }
+        ).lean();
+
+        // Build lookup map more efficiently
+        leaveRequests.forEach((request) => {
+          const dateStr = new Date(request.date).toISOString().split("T")[0];
+          const key = `${request.userId.toString()}_${dateStr}`;
+          leaveRequestsMap.set(key, request);
+        });
+      }
+
+      // Process results with pre-allocated array
+      const results = new Array(attendance.length);
+
+      for (let i = 0; i < attendance.length; i++) {
+        const record = attendance[i];
+
+        if (record.status === "leave") {
+          const dateStr = new Date(record.date).toISOString().split("T")[0];
+          const key = `${record.employeeId.toString()}_${dateStr}`;
+          const leaveRequest = leaveRequestsMap.get(key);
+
+          results[i] = {
+            ...record,
+            isPaid: leaveRequest?.isPaid || false,
+            overtimeMinutes: 0,
+            earlyMinutes: 0,
+            lateMinutes: 0,
+          };
+        } else if (record.status === "present" && record.checkIn && record.checkOut && record.shiftId) {
+          results[i] = calculateOvertime(record);
+        } else {
+          results[i] = {
+            ...record,
+            overtimeMinutes: 0,
+            earlyMinutes: 0,
+            lateMinutes: 0,
+          };
+        }
+      }
+
+      console.timeEnd("getAllForDate");
+      return results;
+    } catch (err: any) {
+      console.error("Error in getAllForDate:", err);
+      throw new Error(err.message);
+    }
+  },
   haversineDistance: (lat1: number, lon1: number, lat2: number, lon2: number): number => {
     const toRad = (value: number) => (value * Math.PI) / 180;
     const R = 6371000; // Radius of Earth in meters
