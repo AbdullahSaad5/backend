@@ -4,12 +4,29 @@ import { createHash } from "./hash.util";
 import dotenv from "dotenv";
 import { IntegrationTokenModel } from "@/models/integration-token.model";
 import { cleanupTokenCollections } from "./cleanup-tokens.util";
+import { TokenInitializationService } from "@/services/token-initialization.service";
 dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
-  // 0. Clean up existing tokens and seed Integration Tokens (optional via environment variables)
+  // 0. Clean up existing tokens and initialize them properly
   await cleanupTokenCollections();
-  await seedIntegrationTokens();
+
+  // Initialize tokens using the new service if environment variables are available
+  try {
+    console.log("🔧 Attempting to initialize tokens from credentials...");
+    const envValidation = TokenInitializationService.validateEnvironmentVariables();
+
+    if (envValidation.valid) {
+      await TokenInitializationService.initializeAllTokens();
+      console.log("✅ Tokens initialized from credentials");
+    } else {
+      console.log("⚠️ Some environment variables missing, falling back to seeder...");
+      await seedIntegrationTokens();
+    }
+  } catch (error) {
+    console.log("⚠️ Token initialization failed, falling back to seeder...");
+    await seedIntegrationTokens();
+  }
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
     _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
