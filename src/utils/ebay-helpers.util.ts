@@ -8,6 +8,28 @@ dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
 
 type EbayEnvironment = "SANDBOX" | "PRODUCTION";
 
+// Helper function to get eBay environment from EBAY_TOKEN_ENV
+const getEbayEnvironment = (): "PRODUCTION" | "SANDBOX" => {
+  return process.env.EBAY_TOKEN_ENV === "sandbox" ? "SANDBOX" : "PRODUCTION";
+};
+
+// Validation function for eBay credentials
+const validateEbayCredentials = (type: "production" | "sandbox") => {
+  const requiredVars =
+    type === "production"
+      ? ["EBAY_CLIENT_ID", "EBAY_CLIENT_SECRET", "EBAY_REDIRECT_URI"]
+      : ["EBAY_CLIENT_ID_SANDBOX", "EBAY_CLIENT_SECRET_SANDBOX", "EBAY_REDIRECT_URI_SANDBOX"];
+
+  const missing = requiredVars.filter((varName) => !process.env[varName]);
+
+  if (missing.length > 0) {
+    console.error(`❌ Missing eBay ${type} environment variables: ${missing.join(", ")}`);
+    return false;
+  }
+
+  return true;
+};
+
 type EbayAuthTokenOptions = {
   clientId: string;
   clientSecret: string;
@@ -36,22 +58,33 @@ const scopes = [
   // Add other required scopes
 ];
 
-// Create a new instance of EbayAuthToken to be used for generating access token
-const ebayAuthToken = new EbayAuthToken({
-  clientId: process.env.EBAY_CLIENT_ID!,
-  clientSecret: process.env.EBAY_CLIENT_SECRET!,
-  redirectUri: process.env.EBAY_REDIRECT_URI!,
-  baseUrl: "api.ebay.com",
-  env: "PRODUCTION",
-});
+// Create eBay auth token instances with validation
+const createEbayAuthToken = (type: "production" | "sandbox") => {
+  if (!validateEbayCredentials(type)) {
+    return null;
+  }
 
-const ebayAuthTokenSandbox = new EbayAuthToken({
-  clientId: process.env.EBAY_CLIENT_ID_SANDBOX!,
-  clientSecret: process.env.EBAY_CLIENT_SECRET_SANDBOX!,
-  redirectUri: process.env.EBAY_REDIRECT_URI_SANDBOX!,
-  baseUrl: "api.sandbox.ebay.com",
-  env: "SANDBOX",
-});
+  if (type === "production") {
+    return new EbayAuthToken({
+      clientId: process.env.EBAY_CLIENT_ID!,
+      clientSecret: process.env.EBAY_CLIENT_SECRET!,
+      redirectUri: process.env.EBAY_REDIRECT_URI!,
+      baseUrl: "api.ebay.com",
+      env: "PRODUCTION",
+    });
+  } else {
+    return new EbayAuthToken({
+      clientId: process.env.EBAY_CLIENT_ID_SANDBOX!,
+      clientSecret: process.env.EBAY_CLIENT_SECRET_SANDBOX!,
+      redirectUri: process.env.EBAY_REDIRECT_URI_SANDBOX!,
+      baseUrl: "api.sandbox.ebay.com",
+      env: "SANDBOX",
+    });
+  }
+};
+
+const ebayAuthToken: any = createEbayAuthToken("production");
+const ebayAuthTokenSandbox: any = createEbayAuthToken("sandbox");
 
 // Options for generating user authorization URL
 const options: EbayAuthOptions = { prompt: "consent" };
@@ -61,33 +94,40 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
   try {
     console.log(`🔐 Getting eBay application token for ${type}...`);
 
+    // Validate credentials before attempting to get token
+    if (!validateEbayCredentials(type)) {
+      console.error(`❌ Invalid eBay ${type} credentials. Please check your environment variables.`);
+      return null;
+    }
+
     // Get the new access token using client credentials
     let token;
     if (type === "production") {
+      if (!ebayAuthToken) {
+        console.error("❌ eBay production auth token instance not initialized");
+        return null;
+      }
       console.log("🔵 [PRODUCTION] Getting application token for production");
       token = await ebayAuthToken.getApplicationToken("PRODUCTION");
     } else {
+      if (!ebayAuthTokenSandbox) {
+        console.error("❌ eBay sandbox auth token instance not initialized");
+        return null;
+      }
       console.log("🟣 [SANDBOX] Getting application token for sandbox");
       token = await ebayAuthTokenSandbox.getApplicationToken("SANDBOX");
     }
 
     if (!token) {
-      console.log("Failed to get new access token");
+      console.error(`❌ Failed to get new eBay ${type} access token. Please verify your credentials.`);
       return null;
     }
 
-    console.log("📦 Raw token response:", token);
 
     // Parse the new token
     const parsedToken: EbayToken = JSON.parse(token);
 
-    console.log("🔍 Parsed token structure:", {
-      hasAccessToken: !!parsedToken.access_token,
-      hasRefreshToken: !!parsedToken.refresh_token,
-      hasExpiresIn: !!parsedToken.expires_in,
-      accessTokenLength: parsedToken.access_token?.length || 0,
-      expiresIn: parsedToken.expires_in,
-    });
+
 
     // Store in DB
     const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
@@ -121,13 +161,19 @@ export const getStoredEbayAccessToken = async () => {
     if (!tokenDoc) {
       console.log(`❌ No eBay application token found in DB for ${env}. Getting application token...`);
 
+      // Validate credentials before attempting to get token
+      if (!validateEbayCredentials(type)) {
+        console.error(`❌ Invalid eBay ${type} credentials. Cannot get application token.`);
+        return null;
+      }
+
       // Get application token and store in DB
       const appToken = await getApplicationAuthToken(type);
       if (appToken?.access_token) {
         console.log("✅ Application token obtained and stored. Using it...");
         return appToken.access_token;
       } else {
-        console.error("❌ Failed to get application token");
+        console.error("❌ Failed to get application token. Please verify your eBay credentials.");
         return null;
       }
     }
