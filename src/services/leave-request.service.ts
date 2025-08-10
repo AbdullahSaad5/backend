@@ -18,6 +18,22 @@ export const leaveRequestService = {
   getLeaveRequests: async (filter: any = {}, page: number = 1, limit: number = 5) => {
     const skip = (page - 1) * limit;
 
+    // 🔧 FIX: Build database filter object (separate from search)
+    const dbFilter: Record<string, any> = {};
+
+    // Add non-search filters to database filter
+    if (filter.status) {
+      dbFilter.status = filter.status;
+    }
+
+    if (filter.isPaid !== undefined) {
+      dbFilter.isPaid = filter.isPaid;
+    }
+
+    if (filter.leaveType) {
+      dbFilter.leaveType = filter.leaveType;
+    }
+
     // Handle search functionality
     if (filter.search) {
       // Set up the aggregate query with a lookup to search in user fields
@@ -35,6 +51,8 @@ export const leaveRequestService = {
         },
         {
           $match: {
+            // 🔧 FIX: Apply both search AND other filters
+            ...dbFilter, // Apply status, isPaid, leaveType filters
             $or: [
               { reason: { $regex: filter.search, $options: "i" } },
               { "userInfo.firstName": { $regex: filter.search, $options: "i" } },
@@ -66,7 +84,7 @@ export const leaveRequestService = {
         { $limit: limit },
       ]);
 
-      // Count total matching documents
+      // Count total matching documents with same filters
       const totalCount = await LeaveRequest.aggregate([
         {
           $lookup: {
@@ -81,6 +99,8 @@ export const leaveRequestService = {
         },
         {
           $match: {
+            // 🔧 FIX: Apply both search AND other filters for count
+            ...dbFilter, // Apply status, isPaid, leaveType filters
             $or: [
               { reason: { $regex: filter.search, $options: "i" } },
               { "userInfo.firstName": { $regex: filter.search, $options: "i" } },
@@ -104,14 +124,14 @@ export const leaveRequestService = {
         },
       };
     } else {
-      // Use the original approach for non-search queries
+      // 🔧 FIX: Use dbFilter instead of the original filter for non-search queries
       const [results, total] = await Promise.all([
-        LeaveRequest.find(filter)
+        LeaveRequest.find(dbFilter) // Use dbFilter here
           .populate("userId", "firstName lastName email")
           .sort({ date: -1 })
           .skip(skip)
           .limit(limit),
-        LeaveRequest.countDocuments(filter),
+        LeaveRequest.countDocuments(dbFilter), // Use dbFilter here too
       ]);
 
       return {
@@ -148,7 +168,7 @@ export const leaveRequestService = {
 
     const [results, total] = await Promise.all([
       LeaveRequest.find({ userId })
-        .populate("userId", "firstName lastName email")
+        .populate("userId", "firstName lastName email isPaid")
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit),

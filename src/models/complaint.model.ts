@@ -34,6 +34,18 @@ const complaintSchema = new Schema<IComplaint>({
     required: [true, "Details are required"],
     trim: true,
   },
+  orderNumber: {
+    type: String,
+    trim: true,
+    maxlength: [20, "Order number cannot exceed 20 characters"],
+    validate: {
+      validator: function(value: string) {
+        if (!value) return true; // Allow empty values since it's optional
+        return /^[a-zA-Z0-9\-_]*$/.test(value);
+      },
+      message: "Order number can only contain letters, numbers, hyphens, and underscores"
+    }
+  },
   attachedFiles: {
     type: [String],
     validate: {

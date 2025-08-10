@@ -24,6 +24,11 @@ type AmazonAuthOptions = {
   mwsAuthToken: string;
 };
 
+// Helper function to get Amazon environment consistently
+const getAmazonEnvironment = (): "PRODUCTION" | "SANDBOX" => {
+  return process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
+};
+
 // Amazon API endpoints
 const AMAZON_ENDPOINTS = {
   PRODUCTION: {
@@ -35,12 +40,32 @@ const AMAZON_ENDPOINTS = {
     sellingPartner: "https://sandbox.sellingpartnerapi-eu.amazon.com",
   },
 };
-const env = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-const sellingPartnerEndpoint = AMAZON_ENDPOINTS[env].sellingPartner;
 
-`${sellingPartnerEndpoint}/some/api/path`;
+const sellingPartnerEndpoint = AMAZON_ENDPOINTS[getAmazonEnvironment()].sellingPartner;
+
+// Validation function for Amazon credentials
+const validateAmazonCredentials = () => {
+  const envType = process.env.AMAZON_TOKEN_ENV;
+  const requiredVars =
+    envType === "sandbox"
+      ? ["AMAZON_CLIENT_ID_SANDBOX", "AMAZON_CLIENT_SECRET_SANDBOX"]
+      : ["SELLING_PARTNER_APP_CLIENT_ID_PROD", "SELLING_PARTNER_APP_CLIENT_SECRET_PROD"];
+
+  const missing = requiredVars.filter((varName) => !process.env[varName]);
+
+  if (missing.length > 0) {
+    console.error(`❌ Missing Amazon ${envType || "production"} environment variables: ${missing.join(", ")}`);
+    return false;
+  }
+
+  return true;
+};
 
 export const getAmazonCredentials = () => {
+  if (!validateAmazonCredentials()) {
+    return null;
+  }
+
   if (process.env.AMAZON_TOKEN_ENV === "sandbox") {
     return {
       clientId: process.env.AMAZON_CLIENT_ID_SANDBOX!,
@@ -48,7 +73,7 @@ export const getAmazonCredentials = () => {
       redirectUri: "https://sandbox.sellingpartnerapi-eu.amazon.com",
       marketplaceId: "A1F83G8C2ARO7P",
       sellerId: "A21DY98JS1BBQC",
-      useClient: false,
+      useClient: false, // Always use application tokens
     };
   }
   // default to production
@@ -58,35 +83,120 @@ export const getAmazonCredentials = () => {
     redirectUri: "https://sellingpartnerapi-eu.amazon.com",
     marketplaceId: "A1F83G8C2ARO7P",
     sellerId: "ALTKAQGINRXND",
-    useClient: true,
+    useClient: false, // Always use application tokens
   };
 };
 
 // Required scopes for Amazon Selling Partner API
-const SCOPES = [
-  "sellingpartnerapi::notifications",
-  "sellingpartnerapi::migration",
-  "sellingpartnerapi::catalog",
-  "sellingpartnerapi::inventory",
-  "sellingpartnerapi::orders",
-  "sellingpartnerapi::reports",
-  "sellingpartnerapi::finances",
-];
-const { useClient } = getAmazonCredentials();
-//TODO: fix i to correectly refresh the token after every five minutes, not on each requeust
+// Amazon SP-API requires scope parameter for client credentials grant
+// The correct scope format is: sellingpartnerapi::notifications
+const SCOPES = ["sellingpartnerapi::notifications"];
+
+// Sandbox-specific scopes that might be required
+const SANDBOX_SCOPES = ["sellingpartnerapi::sandbox", "sellingpartnerapi::migration"];
+
+// Function to get Amazon application token and store in DB
+export const getAmazonApplicationAuthToken = async () => {
+  try {
+    console.log("🔐 Getting Amazon application token...");
+
+    // Validate credentials before attempting to get token
+    if (!validateAmazonCredentials()) {
+      console.error("❌ Invalid Amazon credentials. Please check your environment variables.");
+      return null;
+    }
+
+    const credentials = getAmazonCredentials();
+    if (!credentials) {
+      console.error("❌ Failed to get Amazon credentials");
+      return null;
+    }
+
+    const envVal = getAmazonEnvironment();
+
+    // Get application token using client credentials
+    const params = new URLSearchParams();
+    params.append("grant_type", "client_credentials");
+
+    // Amazon SP-API scope handling - sandbox works without scope for most endpoints
+    if (envVal === "PRODUCTION") {
+      params.append("scope", SCOPES.join(" "));
+    } else {
+      // Sandbox works without scope parameter for most SP-API endpoints
+      // Only add version=beta for draft applications
+      params.append("version", "beta");
+      console.log("🔍 Attempting sandbox authentication without scope (as per GitHub issue #278)...");
+    }
+
+    const response = await axios.post(AMAZON_ENDPOINTS[envVal].auth, params.toString(), {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      auth: {
+        username: credentials.clientId,
+        password: credentials.clientSecret,
+      },
+    });
+
+    const tokenData = response.data;
+
+    // Store in DB
+    await IntegrationTokenModel.updateOne(
+      { provider: "amazon", environment: envVal, useClient: false }, // Always use application tokens
+      {
+        $set: {
+          access_token: tokenData.access_token,
+          token_type: tokenData.token_type,
+          expires_in: tokenData.expires_in,
+          generated_at: Date.now(),
+        },
+      },
+      { upsert: true }
+    );
+
+    console.log(`✅ Amazon application token stored in DB for ${envVal}`);
+    return tokenData;
+  } catch (error: any) {
+    console.error("❌ Failed to get Amazon application token:", error.message);
+    if (error.response?.data) {
+      console.error(`❌ Amazon API Error:`, error.response.data);
+    }
+    return null;
+  }
+};
+
+//TODO: fix i to correctly refresh the token after every five minutes, not on each requeust
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
-    const envVal = process.env.AMAZON_TOKEN_ENV === "production" ? "PRODUCTION" : "SANDBOX";
+    const envVal = getAmazonEnvironment();
     const tokenDoc = await IntegrationTokenModel.findOne({
       provider: "amazon",
       environment: envVal,
-      useClient: useClient ? true : false,
+      useClient: false,
     }).lean();
+
+    // If no token found in DB, get application token automatically
     if (!tokenDoc) {
-      console.error("❌ No Amazon token found in DB for", envVal);
-      return null;
+      console.log(`❌ No Amazon token found in DB for ${envVal}. Getting application token...`);
+
+      // Validate credentials before attempting to get token
+      if (!validateAmazonCredentials()) {
+        console.error(`❌ Invalid Amazon credentials. Cannot get application token.`);
+        return null;
+      }
+
+      // Get application token and store in DB
+      const appToken = await getAmazonApplicationAuthToken();
+      if (appToken?.access_token) {
+        console.log("✅ Application token obtained and stored. Using it...");
+        return appToken.access_token;
+      } else {
+        console.error("❌ Failed to get application token. Please verify your Amazon credentials.");
+        return null;
+      }
     }
+
     const credentials: any = tokenDoc;
 
     const { access_token, generated_at, expires_in, refresh_token } = credentials;
@@ -108,7 +218,7 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       const newToken = await refreshAmazonAccessToken(envVal);
       if (newToken?.access_token) {
         await IntegrationTokenModel.updateOne(
-          { provider: "amazon", environment: envVal, useClient: useClient ? true : false },
+          { provider: "amazon", environment: envVal, useClient: false },
           {
             $set: {
               access_token: newToken.access_token,
@@ -126,6 +236,72 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       }
     }
 
+    // Test the token with a simple API call to validate it
+    const testUrl =
+      envVal === "PRODUCTION"
+        ? "https://sellingpartnerapi-na.amazon.com/catalog/v0/items"
+        : "https://sandbox.sellingpartnerapi-eu.amazon.com/catalog/v0/items";
+
+    try {
+      const testResponse = await axios.get(testUrl, {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          Accept: "application/json",
+        },
+        params: {
+          identifiers: "test",
+          identifiersType: "ASIN",
+          marketplaceIds: "A1F83G8C2ARO7P",
+        },
+      });
+
+      // If token is invalid (401), get a new one
+      if (testResponse.status === 401) {
+        console.log("🔄 Amazon token is invalid, getting new application token...");
+
+        // Clear the invalid token from DB
+        await IntegrationTokenModel.deleteOne({
+          provider: "amazon",
+          environment: envVal,
+          useClient: false,
+        });
+
+        // Get new application token
+        const newToken = await getAmazonApplicationAuthToken();
+        if (newToken?.access_token) {
+          console.log("✅ New Amazon application token obtained and stored.");
+          return newToken.access_token;
+        } else {
+          console.error("❌ Failed to get new Amazon application token");
+          return null;
+        }
+      }
+    } catch (error: any) {
+      // If it's a 401 error, handle it the same way
+      if (error.response?.status === 401) {
+        console.log("🔄 Amazon token is invalid, getting new application token...");
+
+        // Clear the invalid token from DB
+        await IntegrationTokenModel.deleteOne({
+          provider: "amazon",
+          environment: envVal,
+          useClient: false,
+        });
+
+        // Get new application token
+        const newToken = await getAmazonApplicationAuthToken();
+        if (newToken?.access_token) {
+          console.log("✅ New Amazon application token obtained and stored.");
+          return newToken.access_token;
+        } else {
+          console.error("❌ Failed to get new Amazon application token");
+          return null;
+        }
+      } else {
+        console.warn("⚠️ Could not validate Amazon token, using existing token:", error.message);
+      }
+    }
+
     console.log(`✅ [${envVal}] Amazon access token is valid.`);
     return access_token;
   } catch (error) {
@@ -135,22 +311,34 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
 };
 
 export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") => {
-  const { clientId, clientSecret } = getAmazonCredentials();
+  // Validate credentials before attempting refresh
+  if (!validateAmazonCredentials()) {
+    console.error("❌ Invalid Amazon credentials. Cannot refresh token.");
+    return null;
+  }
+
+  const credentials = getAmazonCredentials();
+  if (!credentials) {
+    console.error("❌ Failed to get Amazon credentials for refresh");
+    return null;
+  }
+
+  const { clientId, clientSecret } = credentials;
   const tokenDoc = await IntegrationTokenModel.findOne({
     provider: "amazon",
     environment: env,
-    useClient: useClient ? true : false,
+    useClient: false,
   });
-  const credentials: any = tokenDoc as any;
+  const tokenCredentials: any = tokenDoc as any;
 
-  if (!credentials.refresh_token) {
+  if (!tokenCredentials?.refresh_token) {
     console.error("❌ No refresh token found in credentials");
     return null;
   }
 
   const params = new URLSearchParams();
   params.append("grant_type", "refresh_token");
-  params.append("refresh_token", credentials.refresh_token);
+  params.append("refresh_token", tokenCredentials.refresh_token);
   params.append("client_id", clientId);
   params.append("client_secret", clientSecret);
 
@@ -164,7 +352,7 @@ export const refreshAmazonAccessToken = async (env: "PRODUCTION" | "SANDBOX") =>
 
   const newToken: AmazonToken = response.data;
   await IntegrationTokenModel.updateOne(
-    { provider: "amazon", environment: env, useClient: useClient ? true : false },
+    { provider: "amazon", environment: env, useClient: false },
     { $set: { ...newToken, generated_at: Date.now() } },
     { upsert: true }
   );
@@ -251,7 +439,7 @@ export const initializeAmazonCredentials = async (code: string, type: AmazonEnvi
     // params.append("client_secret", process.env.AMAZON_CLIENT_SECRET!);
     // params.append("redirect_uri", process.env.AMAZON_REDIRECT_URI!);
 
-    const { clientId, clientSecret } = getAmazonCredentials();
+    const { clientId, clientSecret }: any = getAmazonCredentials();
     params.append("client_id", clientId);
     params.append("client_secret", clientSecret);
 
@@ -265,7 +453,7 @@ export const initializeAmazonCredentials = async (code: string, type: AmazonEnvi
 
     const token: AmazonToken = response.data;
     await IntegrationTokenModel.updateOne(
-      { provider: "amazon", environment: type, useClient: useClient ? true : false },
+      { provider: "amazon", environment: type, useClient: false },
       { $set: { ...token, generated_at: Date.now() } },
       { upsert: true }
     );

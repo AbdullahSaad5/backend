@@ -21,5 +21,16 @@ const attendanceSchema = new Schema<IAttendance>({
   updatedAt: { type: Date, default: Date.now },
 });
 
+// Existing unique index (keep this)
 attendanceSchema.index({ employeeId: 1, date: 1 }, { unique: true });
+
+// Additional performance indexes for your getAllForDate query
+attendanceSchema.index({ date: 1 }); // For date range queries
+attendanceSchema.index({ status: 1, date: 1 }); // For filtering by status and date
+attendanceSchema.index({ date: -1 }); // For sorting by date descending (your default sort)
+
+// Optional: Compound index for your specific query pattern
+// This covers the most common query: date range + sorting + status filtering
+attendanceSchema.index({ date: -1, status: 1 });
+
 export const Attendance = model<IAttendance>("Attendance", attendanceSchema);

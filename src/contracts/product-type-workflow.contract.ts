@@ -9,6 +9,7 @@ interface IWorkflowStep {
   overrideEstimatedTimeMinutes?: number;
   overridePriority?: 1 | 2 | 3;
   overrideDefaultAssignedRole?: "Technician" | "Customer Service" | "Admin";
+  dependsOnSteps?: string[];
 }
 
 export interface IProductTypeWorkflow extends Document {
