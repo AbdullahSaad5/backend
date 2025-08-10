@@ -76,6 +76,7 @@ import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
 import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
 import { orderRoutes as orders } from "./order.route";
 import { globalPayrollSettings } from "./global-payroll-settings.route";
+import tokenManagement from "./token-management.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
@@ -83,6 +84,7 @@ import { Comment } from "./comment.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+router.use("/tokens", tokenManagement);
 
 const routes: {
   [key: string]: (router: Router) => void;
