@@ -123,11 +123,8 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
       return null;
     }
 
-
     // Parse the new token
     const parsedToken: EbayToken = JSON.parse(token);
-
-
 
     // Store in DB
     const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
@@ -147,7 +144,10 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
 
 export const getStoredEbayAccessToken = async () => {
   try {
-    const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+    const type =
+      process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+        ? process.env.EBAY_TOKEN_ENV
+        : "production";
 
     // Read from DB instead of filesystem
     const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
