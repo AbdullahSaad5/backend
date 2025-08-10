@@ -92,6 +92,9 @@ export const getAmazonCredentials = () => {
 // The correct scope format is: sellingpartnerapi::notifications
 const SCOPES = ["sellingpartnerapi::notifications"];
 
+// Sandbox-specific scopes that might be required
+const SANDBOX_SCOPES = ["sellingpartnerapi::sandbox", "sellingpartnerapi::migration"];
+
 // Function to get Amazon application token and store in DB
 export const getAmazonApplicationAuthToken = async () => {
   try {
@@ -114,7 +117,16 @@ export const getAmazonApplicationAuthToken = async () => {
     // Get application token using client credentials
     const params = new URLSearchParams();
     params.append("grant_type", "client_credentials");
-    params.append("scope", SCOPES.join(" "));
+
+    // Amazon SP-API scope handling - sandbox works without scope for most endpoints
+    if (envVal === "PRODUCTION") {
+      params.append("scope", SCOPES.join(" "));
+    } else {
+      // Sandbox works without scope parameter for most SP-API endpoints
+      // Only add version=beta for draft applications
+      params.append("version", "beta");
+      console.log("🔍 Attempting sandbox authentication without scope (as per GitHub issue #278)...");
+    }
 
     const response = await axios.post(AMAZON_ENDPOINTS[envVal].auth, params.toString(), {
       headers: {
@@ -153,7 +165,7 @@ export const getAmazonApplicationAuthToken = async () => {
   }
 };
 
-//TODO: fix i to correectly refresh the token after every five minutes, not on each requeust
+//TODO: fix i to correctly refresh the token after every five minutes, not on each requeust
 export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
   try {
     // Determine environment type strictly
