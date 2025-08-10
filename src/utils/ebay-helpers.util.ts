@@ -183,14 +183,6 @@ export const getStoredEbayAccessToken = async () => {
     const { access_token, generated_at, expires_in } = credentials;
 
     // Add detailed logging to debug the token structure
-    console.log("🔍 Token document structure:", {
-      hasAccessToken: !!access_token,
-      hasGeneratedAt: !!generated_at,
-      hasExpiresIn: !!expires_in,
-      generatedAtType: typeof generated_at,
-      expiresInType: typeof expires_in,
-      accessTokenLength: access_token?.length || 0,
-    });
 
     if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
       console.error("❌ Invalid or missing token fields. Clearing invalid token and getting new one...");
