@@ -58,7 +58,7 @@ export interface IEmail {
   direction: EmailDirection;
   type: EmailType;
   status: EmailStatus;
-  priority: EmailPriority;
+  priority: any | EmailPriority;
 
   // Email content
   subject: string;
