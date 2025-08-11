@@ -5,16 +5,17 @@ export const userCategoryService = {
     return UserCategory.find();
   },
 
-  createCategory: (role: string, description: string, permissions: [string]) => {
+  createCategory: (role: string, description: string, permissions: [string], categoryType: string) => {
     const newCategory = new UserCategory({
       role,
       description,
       permissions,
+      categoryType,
     });
     return newCategory.save();
   },
 
-  editCategory: (id: string, data: { role?: string; description?: string; permissions?: [string] }) => {
+  editCategory: (id: string, data: { role?: string; description?: string; permissions?: [string]; categoryType?: string }) => {
     return UserCategory.findByIdAndUpdate(id, data, { new: true });
   },
 

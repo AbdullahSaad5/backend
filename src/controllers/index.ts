@@ -37,5 +37,5 @@ export { marketingController } from "./marketing.controller";
 export { featuredCategoryController } from "./featured-category.controller";
 export { featuredSaleController } from "./featured-sale.controller";
 export { teamController } from "./team.controller";
-export { announcementBarController } from "./announcement-bar.controller";
 export { productTypeWorkflowController } from "./product-type-workflow.controller";
+export { announcementBarController } from "./announcement-bar.controller";

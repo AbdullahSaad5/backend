@@ -25,4 +25,13 @@ const leaveRequestSchema = new Schema<ILeaveRequest>({
   updatedAt: { type: Date, default: Date.now },
 });
 
+// Performance indexes for getAllForDate optimization
+// This is the most critical index for your query - it covers userId + date + status lookups
+leaveRequestSchema.index({ userId: 1, date: 1, status: 1 });
+
+// Additional useful indexes for common query patterns
+leaveRequestSchema.index({ status: 1, date: 1 }); // For filtering approved/pending requests by date range
+leaveRequestSchema.index({ userId: 1, status: 1 }); // For user-specific status queries
+leaveRequestSchema.index({ date: 1 }); // For date range queries
+
 export const LeaveRequest = model<ILeaveRequest>("LeaveRequest", leaveRequestSchema);

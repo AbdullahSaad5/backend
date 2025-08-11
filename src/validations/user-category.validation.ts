@@ -16,6 +16,10 @@ export const userCategoryValidation = {
       role: z.string().min(1, "User Category role is required"), // userType is required
       description: z.string().optional(), // description is optional
       permissions: z.array(z.string()).min(1, "At least one permission is required"), // permissions array must have at least one string
+      categoryType: z.enum(["admin", "super admin", "customer", "supplier", "other"], {
+        required_error: "Category type is required",
+        invalid_type_error: "Category type must be a valid value",
+      }),
     });
     try {
       const validatedData = schema.parse(req.body);
@@ -45,6 +49,7 @@ export const userCategoryValidation = {
       role: z.string().min(3, "User type is required").optional(),
       description: z.string().optional().optional(),
       permissions: z.array(z.string()).min(1, "At least one permission is required").optional(),
+      categoryType: z.enum(["admin", "super admin", "customer", "supplier", "other"]).optional(),
     });
     try {
       const validatedData = schema.parse(req.body);
