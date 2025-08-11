@@ -85,4 +85,15 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.syncAccountEmails
   );
+  router.get(
+    "/accounts/:accountId/debug",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.getAccountEmailCount
+  );
+
+  router.post(
+    "/accounts/:accountId/refresh-token",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.refreshAccountToken
+  );
 };
