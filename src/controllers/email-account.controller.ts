@@ -864,13 +864,11 @@ export class EmailAccountController {
       });
 
       if (!token) {
-
         return res.status(401).json({
           success: false,
           message: "Authorization token required",
         });
       }
-
 
       const decoded = jwtVerify(token);
       const userId = decoded.id.toString();
