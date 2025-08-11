@@ -46,6 +46,16 @@ const complaintSchema = new Schema<IComplaint>({
       message: "Order number can only contain letters, numbers, hyphens, and underscores"
     }
   },
+  platform: {
+    type: String,
+    trim: true,
+    maxlength: [50, "Platform name cannot exceed 50 characters"],
+  },
+  orderStatus: {
+    type: String,
+    enum: ["Fulfilled", "Not Fulfilled"],
+    default: "Not Fulfilled",
+  },
   attachedFiles: {
     type: [String],
     validate: {

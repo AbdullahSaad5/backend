@@ -6,7 +6,7 @@ export const ticketService = {
   createTicket: (
     title: string,
     client: string,
-    assignedTo: Types.ObjectId | undefined,
+    assignedTo: Types.ObjectId[] | undefined,
     createDate: Date,
     dueDate: Date,
     status: "Open" | "In Progress" | "Closed" | "Resolved",
@@ -14,12 +14,16 @@ export const ticketService = {
     role: Types.ObjectId,
     description: string,
     isEscalated?: boolean,
-    chatMessageId?: string
+    chatMessageId?: string,
+    images?: string[],
+    platform?: string,
+    orderReference?: string,
+    orderStatus?: "Fulfilled" | "Not Fulfilled"
   ) => {
     const newTicket = new TicketModel({
       title,
       client,
-      assignedTo,
+      assignedTo: assignedTo || [],
       createDate,
       dueDate,
       status,
@@ -28,6 +32,10 @@ export const ticketService = {
       description,
       isEscalated: isEscalated || false,
       chatMessageId: chatMessageId || null,
+      images: images || [],
+      platform,
+      orderReference,
+      orderStatus,
     });
     return newTicket.save();
   },
@@ -37,13 +45,17 @@ export const ticketService = {
     data: {
       title?: string;
       client?: string;
-      assignedTo?: Types.ObjectId;
+      assignedTo?: Types.ObjectId[];
       createDate?: Date;
       dueDate?: Date;
       status?: "Open" | "In Progress" | "Closed" | "Resolved";
       priority?: "Low" | "Medium" | "High" | "Urgent";
       role?: Types.ObjectId;
       description?: string;
+      images?: string[];
+      platform?: string;
+      orderReference?: string;
+      orderStatus?: "Fulfilled" | "Not Fulfilled";
     }
   ) => {
     return TicketModel.findByIdAndUpdate(id, data, { new: true })
@@ -203,6 +215,30 @@ export const ticketService = {
       .populate('resolution.resolvedBy', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to update resolution');
+    return updatedTicket;
+  },
+
+  addImagesToTicket: async (ticketId: string, imageUrls: string[]): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId)) {
+      throw new Error("Invalid ticket ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+
+    // Add new images to existing ones
+    const updatedImages = [...(ticket.images || []), ...imageUrls];
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { images: updatedImages },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to add images to ticket');
     return updatedTicket;
   }
 };

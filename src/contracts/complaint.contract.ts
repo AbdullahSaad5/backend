@@ -5,6 +5,8 @@ export interface IComplaint extends Document {
   title: string;
   details: string;
   orderNumber?: string;
+  platform?: string;
+  orderStatus?: "Fulfilled" | "Not Fulfilled";
   attachedFiles?: string[];
   notes?: [{
     image?:string[],

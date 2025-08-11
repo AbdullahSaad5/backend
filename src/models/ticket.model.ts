@@ -19,8 +19,9 @@ const TicketSchema = new Schema<ITicket>(
       required: true,
     },
     assignedTo: {
-      type: Schema.Types.ObjectId,
+      type: [Schema.Types.ObjectId],
       ref: "User",
+      default: [],
     },
     createDate: {
       type: Date,
@@ -77,6 +78,23 @@ const TicketSchema = new Schema<ITicket>(
     chatMessageId: {
       type: String,
       default: null,
+    },
+    // New fields
+    images: {
+      type: [String],
+      default: [],
+    },
+    platform: {
+      type: String,
+      trim: true,
+    },
+    orderReference: {
+      type: String,
+      trim: true,
+    },
+    orderStatus: {
+      type: String,
+      enum: ["Fulfilled", "Not Fulfilled"],
     },
   },
   {
