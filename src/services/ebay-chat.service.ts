@@ -8,7 +8,10 @@ import {
 } from "@/contracts/ebay-chat.contract";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 
-const type = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+const type =
+  process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+    ? process.env.EBAY_TOKEN_ENV
+    : "production";
 const ebayRestUrl = type === "production" ? "https://api.ebay.com" : "https://api.sandbox.ebay.com";
 
 export const EbayChatService: IEbayChatService = {

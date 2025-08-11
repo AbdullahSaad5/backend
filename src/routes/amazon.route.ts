@@ -4,7 +4,7 @@ import { Router } from "express";
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ReasonPhrases } from "http-status-codes";
-import { getAmazonApplicationAuthToken } from "@/utils/amazon-helpers.util";
+import { getAmazonAccessToken } from "@/utils/amazon-helpers.util";
 
 export const amazon = (router: Router) => {
   // Authentication routes
@@ -32,7 +32,7 @@ export const amazon = (router: Router) => {
   // Add this new endpoint for getting application tokens
   router.get("/application-token", async (req: Request, res: Response) => {
     try {
-      const credentials = await getAmazonApplicationAuthToken();
+      const credentials = await getAmazonAccessToken();
 
       if (!credentials) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({

@@ -14,7 +14,10 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
 import { IParamsRequest } from "@/contracts/request.contract";
-const type: any = process.env.TYPE === "production" || process.env.TYPE === "sandbox" ? process.env.TYPE : "production";
+const type: any =
+  process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+    ? process.env.EBAY_TOKEN_ENV
+    : "production";
 const useClient =
   process.env.USE_CLIENT === "true" || process.env.USE_CLIENT === "false" ? process.env.USE_CLIENT : "true";
 const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";

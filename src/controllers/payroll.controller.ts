@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { payrollService } from "@/services/payroll.service";
+import { globalPayrollSettingsService } from "@/services/global-payroll-settings.service";
 import { Types } from "mongoose";
 import { PayrollType, PayrollDocument } from "@/contracts/payroll.contract";
 
@@ -18,7 +19,22 @@ export const payrollController = {
         });
       }
 
-      const payroll = await payrollService.createPayroll(req.body);
+      // Get active global payroll settings and apply them if no allowances/deductions are provided
+      let payrollData = { ...req.body };
+      
+      if ((!req.body.allowances || req.body.allowances.length === 0) && 
+          (!req.body.deductions || req.body.deductions.length === 0)) {
+        const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+        
+        if (activeGlobalSettings.length > 0) {
+          // Use the first active global settings
+          const globalSettings = activeGlobalSettings[0];
+          payrollData.allowances = globalSettings.allowances || [];
+          payrollData.deductions = globalSettings.deductions || [];
+        }
+      }
+
+      const payroll = await payrollService.createPayroll(payrollData);
       res.status(201).json({
         success: true,
         data: payroll,
@@ -81,14 +97,27 @@ export const payrollController = {
           }
         );
       } else {
+        // Get active global payroll settings for new payrolls
+        let actualAllowances = updateData.actualAllowances || [];
+        let actualDeductions = updateData.actualDeductions || [];
+        
+        if (actualAllowances.length === 0 && actualDeductions.length === 0) {
+          const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+          if (activeGlobalSettings.length > 0) {
+            const globalSettings = activeGlobalSettings[0];
+            actualAllowances = globalSettings.allowances || [];
+            actualDeductions = globalSettings.deductions || [];
+          }
+        }
+
         const actualPayload = {
           userId: new Types.ObjectId(userId),
           payrollType: PayrollType.ACTUAL,
           contractType: updateData.contactType,
           baseSalary: updateData.actualBaseSalary,
           hourlyRate: updateData.actualHourlyRate,
-          allowances: updateData.actualAllowances || [],
-          deductions: updateData.actualDeductions || [],
+          allowances: actualAllowances,
+          deductions: actualDeductions,
           category:
             (existingGovernment as any)?.category || new Types.ObjectId(),
         };
@@ -116,6 +145,23 @@ export const payrollController = {
           }
         );
       } else {
+        // Get active global payroll settings for new government payrolls
+        let governmentAllowances = updateData.sameAllowancesDeductions
+          ? updateData.actualAllowances || []
+          : updateData.governmentAllowances || [];
+        let governmentDeductions = updateData.sameAllowancesDeductions
+          ? updateData.actualDeductions || []
+          : updateData.governmentDeductions || [];
+        
+        if (governmentAllowances.length === 0 && governmentDeductions.length === 0) {
+          const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+          if (activeGlobalSettings.length > 0) {
+            const globalSettings = activeGlobalSettings[0];
+            governmentAllowances = globalSettings.allowances || [];
+            governmentDeductions = globalSettings.deductions || [];
+          }
+        }
+
         const governmentPayload = {
           userId: new Types.ObjectId(userId),
           payrollType: PayrollType.GOVERNMENT,
@@ -124,12 +170,8 @@ export const payrollController = {
             updateData.governmentBaseSalary || updateData.actualBaseSalary,
           hourlyRate:
             updateData.governmentHourlyRate || updateData.actualHourlyRate,
-          allowances: updateData.sameAllowancesDeductions
-            ? updateData.actualAllowances || []
-            : updateData.governmentAllowances || [],
-          deductions: updateData.sameAllowancesDeductions
-            ? updateData.actualDeductions || []
-            : updateData.governmentDeductions || [],
+          allowances: governmentAllowances,
+          deductions: governmentDeductions,
           category: (existingActual as any)?.category || new Types.ObjectId(),
         };
         governmentPayroll = await payrollService.createPayroll(
