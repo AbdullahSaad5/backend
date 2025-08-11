@@ -83,17 +83,20 @@ export const getAmazonCredentials = () => {
     redirectUri: "https://sellingpartnerapi-eu.amazon.com",
     marketplaceId: "A1F83G8C2ARO7P",
     sellerId: "ALTKAQGINRXND",
-    useClient: false, // Always use application tokens
+    useClient: true, // Always use application tokens
   };
 };
 
 // Required scopes for Amazon Selling Partner API
 // Amazon SP-API requires scope parameter for client credentials grant
 // The correct scope format is: sellingpartnerapi::notifications
-const SCOPES = ["sellingpartnerapi::notifications"];
+const SCOPES = [
+  "sellingpartnerapi::notifications",
+  "sellingpartnerapi::catalog",
+  "sellingpartnerapi::product",
+  "sellingpartnerapi::orders",
+];
 
-// Sandbox-specific scopes that might be required
-const SANDBOX_SCOPES = ["sellingpartnerapi::sandbox", "sellingpartnerapi::migration"];
 
 // Function to get Amazon application token and store in DB
 export const getAmazonApplicationAuthToken = async () => {

@@ -14,7 +14,11 @@ import { Listing } from "@/models";
 import { AmazonSchemaParser } from "@/utils/amazonSchemaParser.util";
 
 const type = process.env.AMAZON_ENV === "production" ? "PRODUCTION" : "SANDBOX";
-const { marketplaceId, sellerId, redirectUri } = getAmazonCredentials();
+const credentials = getAmazonCredentials();
+if (!credentials) {
+  throw new Error("Failed to get Amazon credentials");
+}
+const { marketplaceId, sellerId, redirectUri } = credentials;
 export const amazonListingService = {
   getApplicationAuthToken: async (req: Request, res: Response) => {
     try {
