@@ -8,6 +8,7 @@ import { simpleParser } from "mailparser";
 import { google } from "googleapis";
 import { Client } from "@microsoft/microsoft-graph-client";
 import crypto from "crypto";
+import { IEmail } from "@/contracts/mailbox.contract";
 
 export interface FetchedEmail {
   messageId: string;
@@ -17,6 +18,7 @@ export interface FetchedEmail {
   to: { email: string; name?: string }[];
   cc?: { email: string; name?: string }[];
   bcc?: { email: string; name?: string }[];
+  replyTo?: { email: string; name?: string };
   date: Date;
   textContent?: string;
   htmlContent?: string;
@@ -25,6 +27,10 @@ export interface FetchedEmail {
   isRead: boolean;
   uid?: number;
   flags?: string[];
+  // Threading headers (RFC 2822 standard)
+  inReplyTo?: string;
+  references?: string[];
+  parentMessageId?: string;
 }
 
 export interface EmailFetchResult {
@@ -718,33 +724,48 @@ export class EmailFetchingService {
           continue; // Skip if already exists
         }
 
-        // Create thread if needed
-        const threadId = await this.ensureThreadExists(email, emailAccount);
-
-        // Create email document
-        const emailDoc = new EmailModel({
+        // Use the new threading service to find or create thread
+        const { EmailThreadingService } = await import("@/services/email-threading.service");
+        // Prepare email data for threading service
+        const emailData: Partial<any | IEmail> = {
           messageId: email.messageId,
-          threadId,
+          threadId: email.threadId,
           accountId: emailAccount._id,
           direction: "inbound",
           type: "general",
           status: "received",
           subject: email.subject,
+          normalizedSubject: this.normalizeSubject(email.subject),
           textContent: email.textContent,
           htmlContent: email.htmlContent,
           from: email.from,
           to: email.to,
           cc: email.cc,
           bcc: email.bcc,
+          replyTo: email.replyTo,
           headers: email.headers,
           attachments: email.attachments,
           receivedAt: email.date,
           isRead: email.isRead,
           readAt: email.isRead ? new Date() : undefined,
-        });
+          // Threading headers
+          inReplyTo: email.inReplyTo,
+          references: email.references,
+          parentMessageId: email.parentMessageId,
+          folder: "INBOX",
+        };
 
+        // Find or create thread using the threading service
+        const threadId = await EmailThreadingService.findOrCreateThread(emailData as IEmail);
+
+        // Update email data with thread ID
+        emailData.threadId = threadId;
+
+        // Create email document
+        const emailDoc = new EmailModel(emailData);
         await emailDoc.save();
-        logger.debug(`Stored email: ${email.subject}`);
+
+        logger.debug(`Stored email: ${email.subject} in thread: ${threadId}`);
       } catch (error: any) {
         logger.error(`Error storing email ${email.messageId}:`, error);
       }
@@ -752,56 +773,14 @@ export class EmailFetchingService {
   }
 
   /**
-   * Ensure thread exists and return thread ID
+   * Normalize email subject by removing common prefixes
    */
-  private static async ensureThreadExists(email: FetchedEmail, emailAccount: IEmailAccount): Promise<string> {
-    let threadId = email.threadId;
-
-    if (!threadId) {
-      // Generate thread ID from subject
-      const normalizedSubject = email.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-      threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${crypto.randomUUID().slice(0, 8)}`;
-    }
-
-    // Check if thread exists
-    let thread = await EmailThreadModel.findOne({ threadId });
-
-    if (!thread) {
-      // Create new thread
-      const participants = [email.from, ...email.to];
-      if (email.cc) participants.push(...email.cc);
-
-      thread = new EmailThreadModel({
-        threadId,
-        subject: email.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim(),
-        participants: participants.filter(
-          (p, index, self) => index === self.findIndex((participant) => participant.email === p.email)
-        ),
-        messageCount: 1,
-        lastMessageAt: email.date,
-        status: "active",
-      });
-
-      await thread.save();
-    } else {
-      // Update existing thread
-      thread.messageCount += 1;
-      thread.lastMessageAt = email.date;
-
-      // Add new participants if any
-      const newParticipants = [email.from, ...email.to];
-      if (email.cc) newParticipants.push(...email.cc);
-
-      newParticipants.forEach((participant) => {
-        if (!thread!.participants.some((p: any) => p.email === participant.email)) {
-          thread!.participants.push(participant);
-        }
-      });
-
-      await thread.save();
-    }
-
-    return threadId;
+  private static normalizeSubject(subject: string): string {
+    return subject
+      .replace(/^(Re:|Fwd?:|RE:|FWD?:|FW:|fw:)\s*/gi, "") // Remove Re:/Fwd: prefixes
+      .replace(/^\[.*?\]\s*/g, "") // Remove [tag] prefixes
+      .trim()
+      .toLowerCase();
   }
 
   // Helper methods
@@ -860,23 +839,38 @@ export class EmailFetchingService {
     const headers = msg.payload?.headers || [];
     const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value;
 
+    // Extract threading headers (RFC 2822 standard)
+    const messageId = getHeader("Message-ID") || msg.id;
+    const inReplyTo = getHeader("In-Reply-To");
+    const references = getHeader("References");
+    const referencesArray = references ? references.split(/\s+/).filter(Boolean) : [];
+
+    // Parse addresses
+    const from = this.parseSingleAddress(getHeader("From"));
+    const to = this.parseAddressHeader(getHeader("To"));
+    const cc = this.parseAddressHeader(getHeader("Cc"));
+    const bcc = this.parseAddressHeader(getHeader("Bcc"));
+    const replyTo = this.parseSingleAddress(getHeader("Reply-To"));
+
     return {
       messageId: msg.id!,
-      threadId: msg.threadId,
+      threadId: msg.threadId, // Gmail's native thread ID
       subject: getHeader("Subject") || "(No Subject)",
-      from: {
-        email: getHeader("From")?.match(/<(.+)>/)?.[1] || getHeader("From") || "",
-        name: getHeader("From")
-          ?.match(/^(.+)<.+>$/)?.[1]
-          ?.trim(),
-      },
-      to: this.parseAddressHeader(getHeader("To")),
-      cc: this.parseAddressHeader(getHeader("Cc")),
+      from: from || { email: "", name: "" },
+      to: to,
+      cc: cc,
+      bcc: bcc,
+      replyTo: replyTo || undefined,
       date: new Date(parseInt(msg.internalDate!)),
       textContent: this.extractTextFromGmailPayload(msg.payload),
       htmlContent: this.extractHtmlFromGmailPayload(msg.payload),
       isRead: !msg.labelIds?.includes("UNREAD"),
       headers: headers.map((h: any) => ({ name: h.name, value: h.value })),
+      // Threading headers
+      inReplyTo: inReplyTo,
+      references: referencesArray,
+      parentMessageId:
+        inReplyTo || (referencesArray.length > 0 ? referencesArray[referencesArray.length - 1] : undefined),
     };
   }
 
@@ -930,6 +924,21 @@ export class EmailFetchingService {
     }
 
     return addresses;
+  }
+
+  private static parseSingleAddress(header?: string): { email: string; name?: string } | null {
+    if (!header) return null;
+
+    const trimmed = header.trim();
+    const match = trimmed.match(/^(.+)<(.+)>$/) || trimmed.match(/^(.+)$/);
+
+    if (match) {
+      const email = match[2] || match[1];
+      const name = match[2] ? match[1].trim().replace(/"/g, "") : undefined;
+      return { email: email.trim(), name };
+    }
+
+    return null;
   }
 
   private static extractTextFromGmailPayload(payload: any): string | undefined {
