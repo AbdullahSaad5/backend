@@ -1121,7 +1121,7 @@ export const inventoryService = {
     };
 
     // Cache the result
-    await setCacheWithTTL(cacheKey, JSON.stringify(result), 300);
+    await setCacheWithTTL(cacheKey, result, 300);
 
     return {
       fromCache: false,
