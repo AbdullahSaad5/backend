@@ -439,26 +439,62 @@ const determineEmailCategory = (fromEmail, subject, textContent, htmlContent) =>
   const fromLower = fromEmail.toLowerCase();
   const subjectLower = subject.toLowerCase();
 
+  // Map to frontend tab categories
   if (fromLower.includes("amazon") || content.includes("amazon") || subjectLower.includes("amazon")) {
-    return "amazon";
+    return "primary"; // Amazon emails go to primary tab
   }
   if (fromLower.includes("ebay") || content.includes("ebay") || subjectLower.includes("ebay")) {
-    return "ebay";
+    return "primary"; // eBay emails go to primary tab
   }
   if (subjectLower.includes("support") || subjectLower.includes("help") || fromLower.includes("support")) {
-    return "support";
+    return "primary"; // Support emails go to primary tab
   }
   if (subjectLower.includes("order") || content.includes("order confirmation")) {
-    return "order";
+    return "primary"; // Order emails go to primary tab
   }
   if (subjectLower.includes("invoice") || content.includes("invoice")) {
-    return "invoice";
+    return "primary"; // Invoice emails go to primary tab
   }
-  if (subjectLower.includes("newsletter") || subjectLower.includes("marketing")) {
-    return "marketing";
+  if (
+    subjectLower.includes("newsletter") ||
+    subjectLower.includes("marketing") ||
+    subjectLower.includes("promotion") ||
+    subjectLower.includes("offer") ||
+    subjectLower.includes("sale") ||
+    content.includes("unsubscribe")
+  ) {
+    return "promotions"; // Marketing emails go to promotions tab
   }
 
-  return "general";
+  // Social media domains
+  if (
+    fromLower.includes("facebook") ||
+    fromLower.includes("twitter") ||
+    fromLower.includes("instagram") ||
+    fromLower.includes("linkedin") ||
+    fromLower.includes("youtube") ||
+    fromLower.includes("tiktok")
+  ) {
+    return "social"; // Social media emails go to social tab
+  }
+
+  // System updates and notifications
+  if (
+    subjectLower.includes("notification") ||
+    subjectLower.includes("alert") ||
+    subjectLower.includes("system") ||
+    subjectLower.includes("update") ||
+    subjectLower.includes("maintenance") ||
+    subjectLower.includes("security") ||
+    fromLower.includes("noreply") ||
+    fromLower.includes("no-reply") ||
+    fromLower.includes("system") ||
+    fromLower.includes("admin")
+  ) {
+    return "updates"; // System emails go to updates tab
+  }
+
+  return "primary"; // Default to primary tab instead of "general"
 };
 
 // Function to generate tags based on email content
