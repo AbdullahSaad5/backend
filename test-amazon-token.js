@@ -1,10 +1,10 @@
-const { getAmazonApplicationAuthToken } = require("./dist/utils/amazon-helpers.util");
+const { getAmazonAccessToken } = require("./dist/utils/amazon-helpers.util");
 
 async function testAmazonToken() {
   console.log("🧪 Testing Amazon token initialization...");
 
   try {
-    const token = await getAmazonApplicationAuthToken();
+    const token = await getAmazonAccessToken();
     if (token) {
       console.log("✅ Success! Token obtained:", {
         access_token: token.access_token ? token.access_token.substring(0, 20) + "..." : "null",
