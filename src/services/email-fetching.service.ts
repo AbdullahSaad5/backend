@@ -49,34 +49,60 @@ export class EmailFetchingService {
    */
   private static async refreshGmailToken(emailAccount: IEmailAccount): Promise<IEmailAccount> {
     try {
+      console.log("🔄 REFRESHING GMAIL TOKEN");
+      console.log("Refresh token details:", {
+        hasRefreshToken: !!emailAccount.oauth?.refreshToken,
+        refreshTokenLength: emailAccount.oauth?.refreshToken?.length,
+        accountEmail: emailAccount.emailAddress,
+      });
+
       if (!emailAccount.oauth?.refreshToken) {
+        console.log("❌ No refresh token available");
         throw new Error("No refresh token available");
       }
 
+      console.log("🔑 Creating OAuth2 client for refresh");
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
         process.env.GOOGLE_CLIENT_SECRET,
         process.env.GOOGLE_REDIRECT_URI
       );
 
+      // Decrypt refresh token before using it
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
+
       oauth2Client.setCredentials({
-        refresh_token: emailAccount.oauth.refreshToken,
+        refresh_token: decryptedRefreshToken,
       });
 
+      console.log("🔄 Calling Google API to refresh token...");
       // Get new access token
       const { credentials } = await oauth2Client.refreshAccessToken();
 
+      console.log("✅ Token refresh response:", {
+        hasAccessToken: !!credentials.access_token,
+        accessTokenLength: credentials.access_token?.length,
+        hasExpiryDate: !!credentials.expiry_date,
+        expiryDate: credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : null,
+      });
+
       if (!credentials.access_token) {
+        console.log("❌ No access token in refresh response");
         throw new Error("Failed to refresh access token");
       }
 
-      // Update account with new token
+      console.log("💾 Updating account with new token...");
+      // Encrypt the new access token before saving
+      const encryptedAccessToken = EmailOAuthService.encryptData(credentials.access_token);
+
+      // Update account with new encrypted token
       const updatedAccount = await EmailAccountModel.findByIdAndUpdate(
         emailAccount._id,
         {
           $set: {
-            "oauth.accessToken": credentials.access_token,
-            "oauth.tokenExpiresAt": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+            "oauth.accessToken": encryptedAccessToken,
+            "oauth.tokenExpiry": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
             connectionStatus: "connected",
             "stats.lastError": null,
           },
@@ -85,9 +111,11 @@ export class EmailFetchingService {
       );
 
       if (!updatedAccount) {
+        console.log("❌ Failed to update account in database");
         throw new Error("Failed to update account with new token");
       }
 
+      console.log("✅ Token refresh complete");
       logger.info(`Successfully refreshed Gmail token for account: ${emailAccount.emailAddress}`);
       return updatedAccount;
     } catch (error: any) {
@@ -113,10 +141,28 @@ export class EmailFetchingService {
     options: EmailFetchOptions = {}
   ): Promise<EmailFetchResult> {
     try {
+      console.log("🚀 STARTING EMAIL FETCH");
+      console.log("Account:", {
+        id: emailAccount._id,
+        email: emailAccount.emailAddress,
+        type: emailAccount.accountType,
+        connectionStatus: emailAccount.connectionStatus,
+        isActive: emailAccount.isActive,
+        status: emailAccount.status,
+        hasOAuth: !!emailAccount.oauth,
+        oauthProvider: emailAccount.oauth?.provider,
+        hasAccessToken: !!emailAccount.oauth?.accessToken,
+        hasRefreshToken: !!emailAccount.oauth?.refreshToken,
+        lastError: emailAccount.stats?.lastError,
+      });
+      console.log("Options:", options);
+
       logger.info(`Starting email fetch for account: ${emailAccount.emailAddress}`);
 
       // Check account status
       if (!emailAccount.isActive || emailAccount.status === "error") {
+        console.log("❌ Account is not active or has error status");
+        console.log("isActive:", emailAccount.isActive, "status:", emailAccount.status);
         throw new Error(`Email account is not active or has errors`);
       }
 
@@ -125,9 +171,12 @@ export class EmailFetchingService {
       // Route to appropriate fetching method based on account type
       switch (emailAccount.accountType) {
         case "gmail":
+          console.log("📧 Gmail account detected");
           if (emailAccount.oauth) {
+            console.log("🔐 Using Gmail API with OAuth");
             result = await this.fetchFromGmailAPI(emailAccount, options);
           } else {
+            console.log("📨 Using IMAP for Gmail");
             result = await this.fetchFromIMAP(emailAccount, options);
           }
           break;
@@ -148,17 +197,29 @@ export class EmailFetchingService {
           break;
       }
 
+      console.log("💾 Storing emails in database...");
       // Store fetched emails in database
       if (result.success && result.emails.length > 0) {
         await this.storeEmailsInDatabase(result.emails, emailAccount);
+        console.log("✅ Emails stored successfully");
+      } else {
+        console.log("ℹ️ No emails to store");
       }
 
       // Update account stats
+      console.log("📊 Updating account stats...");
       await this.updateAccountStats(emailAccount, result);
+
+      console.log("🎉 EMAIL FETCH COMPLETE:", {
+        totalEmails: result.emails.length,
+        newEmails: result.newCount,
+        success: result.success,
+      });
 
       logger.info(`Email fetch completed for ${emailAccount.emailAddress}: ${result.newCount} new emails`);
       return result;
     } catch (error: any) {
+      console.log("💥 EMAIL FETCH FAILED:", error.message);
       logger.error(`Error fetching emails for account ${emailAccount.emailAddress}:`, error);
 
       // Update account with error status
@@ -275,7 +336,7 @@ export class EmailFetchingService {
 
                 msg.once("end", async () => {
                   try {
-                    const parsed = await simpleParser(body);
+                    const parsed: any = await simpleParser(body);
 
                     const email: FetchedEmail = {
                       messageId: parsed.messageId || `${emailAccount._id}_${emailData.uid}`,
@@ -388,9 +449,28 @@ export class EmailFetchingService {
     let currentAccount = emailAccount;
 
     try {
+      console.log("🔐 GMAIL API FETCH START");
+      console.log("OAuth details:", {
+        hasAccessToken: !!currentAccount.oauth?.accessToken,
+        hasRefreshToken: !!currentAccount.oauth?.refreshToken,
+        accessTokenLength: currentAccount.oauth?.accessToken?.length,
+        refreshTokenLength: currentAccount.oauth?.refreshToken?.length,
+        provider: currentAccount.oauth?.provider,
+      });
+
       if (!currentAccount.oauth?.accessToken) {
+        console.log("❌ No OAuth access token available");
         throw new Error("Gmail OAuth access token not available");
       }
+
+      console.log("🔑 Creating OAuth2 client");
+      console.log("Environment variables:", {
+        hasClientId: !!process.env.GOOGLE_CLIENT_ID,
+        hasClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+        hasRedirectUri: !!process.env.GOOGLE_REDIRECT_URI,
+        clientIdLength: process.env.GOOGLE_CLIENT_ID?.length,
+        clientSecretLength: process.env.GOOGLE_CLIENT_SECRET?.length,
+      });
 
       const oauth2Client = new google.auth.OAuth2(
         process.env.GOOGLE_CLIENT_ID,
@@ -398,11 +478,23 @@ export class EmailFetchingService {
         process.env.GOOGLE_REDIRECT_URI
       );
 
+      // Decrypt tokens before using them
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const decryptedAccessToken = EmailOAuthService.getDecryptedAccessToken(currentAccount);
+      const decryptedRefreshToken = currentAccount.oauth.refreshToken
+        ? EmailOAuthService.decryptData(currentAccount.oauth.refreshToken)
+        : undefined;
+
+      if (!decryptedAccessToken) {
+        throw new Error("Failed to decrypt access token");
+      }
+
       oauth2Client.setCredentials({
-        access_token: currentAccount.oauth.accessToken,
-        refresh_token: currentAccount.oauth.refreshToken,
+        access_token: decryptedAccessToken,
+        refresh_token: decryptedRefreshToken,
       });
 
+      console.log("📧 Creating Gmail API client");
       const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
       // Build query for Gmail API
@@ -415,14 +507,29 @@ export class EmailFetchingService {
         query += `in:${options.folder.toLowerCase()} `;
       }
 
+      console.log("🔍 Gmail API query:", {
+        query: query.trim() || "all emails",
+        maxResults: options.limit || 50,
+        folder: options.folder || "INBOX",
+        since: options.since?.toISOString(),
+      });
+
       // List messages
+      console.log("📬 Calling Gmail API messages.list");
       const listResponse = await gmail.users.messages.list({
         userId: "me",
         q: query.trim(),
         maxResults: options.limit || 50,
       });
 
+      console.log("📨 Gmail API response:", {
+        totalMessages: listResponse.data.messages?.length || 0,
+        resultSizeEstimate: listResponse.data.resultSizeEstimate,
+        nextPageToken: !!listResponse.data.nextPageToken,
+      });
+
       if (!listResponse.data.messages || listResponse.data.messages.length === 0) {
+        console.log("📭 No messages found");
         return {
           success: true,
           emails: [],
@@ -432,9 +539,11 @@ export class EmailFetchingService {
       }
 
       // Fetch detailed message data
+      console.log("📥 Fetching detailed message data");
       const emails: FetchedEmail[] = [];
-      const messagePromises = listResponse.data.messages.map(async (message: any) => {
+      const messagePromises = listResponse.data.messages.map(async (message: any, index: number) => {
         try {
+          console.log(`📧 Fetching message ${index + 1}/${listResponse.data.messages!.length}: ${message.id}`);
           const messageResponse = await gmail.users.messages.get({
             userId: "me",
             id: message.id!,
@@ -443,16 +552,34 @@ export class EmailFetchingService {
 
           const msg = messageResponse.data;
           const headers = msg.payload?.headers || [];
+          console.log(`✅ Message ${message.id} fetched, parsing...`);
 
-          return this.parseGmailMessage(msg, emailAccount);
+          const parsedEmail = this.parseGmailMessage(msg, emailAccount);
+          console.log(`✅ Message ${message.id} parsed:`, {
+            subject: parsedEmail.subject,
+            from: parsedEmail.from?.email,
+            date: parsedEmail.date,
+            hasBody: !!(parsedEmail.textContent || parsedEmail.htmlContent),
+          });
+
+          return parsedEmail;
         } catch (error: any) {
+          console.log(`❌ Error fetching Gmail message ${message.id}:`, error.message);
           logger.error(`Error fetching Gmail message ${message.id}:`, error);
           return null;
         }
       });
 
+      console.log("⏳ Waiting for all messages to be processed...");
       const fetchedMessages = await Promise.all(messagePromises);
       const validEmails = fetchedMessages.filter((email) => email !== null) as FetchedEmail[];
+
+      console.log("📊 Gmail API fetch complete:", {
+        totalFetched: fetchedMessages.length,
+        validEmails: validEmails.length,
+        failedEmails: fetchedMessages.length - validEmails.length,
+        unreadCount: validEmails.filter((e) => !e.isRead).length,
+      });
 
       return {
         success: true,
@@ -461,6 +588,13 @@ export class EmailFetchingService {
         newCount: validEmails.filter((e) => !e.isRead).length,
       };
     } catch (error: any) {
+      console.log("❌ GMAIL API ERROR:", {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        statusText: error.statusText,
+        stack: error.stack?.split("\n")[0],
+      });
       logger.error("Gmail API fetch error:", error);
 
       // Check if it's an authentication error
@@ -469,18 +603,22 @@ export class EmailFetchingService {
         error.message?.includes("invalid_grant") ||
         error.message?.includes("Invalid credentials")
       ) {
+        console.log("🔄 Authentication error detected, attempting token refresh...");
         logger.warn(
           `Gmail authentication error for account ${currentAccount.emailAddress}, attempting token refresh...`
         );
 
         try {
           // Attempt to refresh the token
+          console.log("🔑 Refreshing OAuth token...");
           currentAccount = await this.refreshGmailToken(currentAccount);
+          console.log("✅ Token refresh successful, retrying fetch...");
 
           // Retry the operation with refreshed token
           logger.info(`Token refreshed successfully, retrying Gmail fetch for ${currentAccount.emailAddress}`);
           return await this.fetchFromGmailAPI(currentAccount, options);
         } catch (refreshError: any) {
+          console.log("❌ Token refresh failed:", refreshError.message);
           logger.error(`Token refresh failed for account ${currentAccount.emailAddress}:`, refreshError);
 
           // Update account status to reflect the authentication failure
@@ -496,6 +634,7 @@ export class EmailFetchingService {
       }
 
       // Update account with the error
+      console.log("💾 Updating account with error status");
       await EmailAccountModel.findByIdAndUpdate(currentAccount._id, {
         $set: {
           connectionStatus: "error",
@@ -520,10 +659,8 @@ export class EmailFetchingService {
       }
 
       const graphClient = Client.init({
-        authProvider: {
-          getAccessToken: async () => {
-            return emailAccount.oauth!.accessToken!;
-          },
+        authProvider: (done) => {
+          done(null, emailAccount.oauth!.accessToken!);
         },
       });
 
@@ -682,7 +819,7 @@ export class EmailFetchingService {
   }
 
   private static buildSearchCriteria(options: EmailFetchOptions): any[] {
-    const criteria = ["ALL"];
+    const criteria: any = ["ALL"];
 
     if (options.since) {
       criteria.push(["SINCE", options.since]);
