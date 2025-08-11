@@ -6,7 +6,7 @@ export interface IEmailAccount {
   accountName: string; // Display name for the account
   emailAddress: string; // The actual email address
   displayName?: string; // Display name for outgoing emails
-
+  save?: any;
   // Account type and configuration
   accountType: "imap" | "pop3" | "exchange" | "gmail" | "outlook" | "custom";
   isActive: boolean;
@@ -153,10 +153,7 @@ EmailAccountSchema.index({ status: 1, isActive: 1 });
 EmailAccountSchema.pre("save", async function (next) {
   if (this.isPrimary && this.isModified("isPrimary")) {
     // Remove primary flag from other accounts of the same user
-    await EmailAccountModel.updateMany(
-      { userId: this.userId, _id: { $ne: this._id } },
-      { $set: { isPrimary: false } }
-    );
+    await EmailAccountModel.updateMany({ userId: this.userId, _id: { $ne: this._id } }, { $set: { isPrimary: false } });
   }
   next();
 });

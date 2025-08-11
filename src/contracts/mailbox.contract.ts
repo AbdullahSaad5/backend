@@ -62,6 +62,7 @@ export interface IEmail {
 
   // Email content
   subject: string;
+  normalizedSubject?: string; // Subject without Re:/Fwd: prefixes
   textContent?: string;
   htmlContent?: string;
 
@@ -71,54 +72,62 @@ export interface IEmail {
   cc?: IEmailAddress[];
   bcc?: IEmailAddress[];
   replyTo?: IEmailAddress;
-  repliedAt?: Date;
-  forwardedAt?: Date;
-  archivedAt?: Date;
-  spamMarkedAt?: Date;
-  // Metadata
+
+  // Threading headers (RFC 2822 standard)
+  inReplyTo?: string; // Message-ID this email is replying to
+  references?: string[]; // Chain of message IDs in conversation
+  parentMessageId?: string; // Direct parent message ID
+
+  // Headers and attachments
   headers?: IEmailHeader[];
   attachments?: IEmailAttachment[];
 
-  // Amazon specific fields
+  // Platform-specific fields
   amazonOrderId?: string;
   amazonBuyerId?: string;
   amazonMarketplace?: string;
   amazonASIN?: string;
-
-  // eBay specific fields
   ebayItemId?: string;
   ebayTransactionId?: string;
   ebayBuyerId?: string;
 
-  // Processing info
+  // Timestamps
   receivedAt: Date;
   processedAt?: Date;
   sentAt?: Date;
   readAt?: Date;
+  repliedAt?: Date;
+  forwardedAt?: Date;
+  archivedAt?: Date;
+  spamMarkedAt?: Date;
 
-  // Response tracking
+  // Email flags and status
   isRead: boolean;
   isReplied: boolean;
   isForwarded: boolean;
   isArchived: boolean;
   isSpam: boolean;
+  isStarred?: boolean;
 
-  // Tags and categories
+  // Labels and categorization
   tags?: string[];
   category?: string;
   labels?: string[];
+  folder?: string;
 
-  // User assignment
+  // Assignment and relationships
   assignedTo?: Types.ObjectId;
   assignedAt?: Date;
-
-  // Related entities
   relatedOrderId?: Types.ObjectId;
   relatedCustomerId?: Types.ObjectId;
   relatedTicketId?: Types.ObjectId;
 
-  // Raw email data for debugging
+  // Raw data for debugging
   rawEmailData?: any;
+
+  // Thread metadata
+  threadPosition?: number; // Position in thread (0 = first email)
+  threadDepth?: number; // Depth in conversation tree
 
   // Timestamps
   createdAt: Date;
@@ -128,15 +137,37 @@ export interface IEmail {
 export interface IEmailThread {
   id: Types.ObjectId;
   threadId: string;
+  accountId: Types.ObjectId; // Reference to email account
   subject: string;
+  normalizedSubject: string; // Subject without Re:/Fwd: prefixes
   participants: IEmailAddress[];
   messageCount: number;
+  unreadCount: number;
+  firstMessageAt: Date;
   lastMessageAt: Date;
-  status: "active" | "closed" | "archived";
+  status: "active" | "closed" | "archived" | "spam";
+  folder?: string;
   tags?: string[];
+  labels?: string[];
+  category?: string;
+
+  // Thread metadata
+  threadType?: "conversation" | "notification" | "marketing" | "system";
+  isStarred?: boolean;
+  isPinned?: boolean;
+
+  // Assignment and relationships
   assignedTo?: Types.ObjectId;
+  assignedAt?: Date;
   relatedOrderId?: Types.ObjectId;
   relatedCustomerId?: Types.ObjectId;
+  relatedTicketId?: Types.ObjectId;
+
+  // Thread statistics
+  totalSize?: number;
+  hasAttachments?: boolean;
+  lastActivity?: Date;
+
   createdAt: Date;
   updatedAt: Date;
 }
