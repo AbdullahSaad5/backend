@@ -291,6 +291,72 @@ export class EmailThreadingService {
   }
 
   /**
+   * Determine email category for frontend tabs
+   */
+  static determineEmailCategory(email: IEmail): string {
+    const subject = email.subject.toLowerCase();
+    const fromEmail = email.from.email.toLowerCase();
+    const content = (email.textContent || email.htmlContent || "").toLowerCase();
+
+    // Map to frontend tab categories
+    if (fromEmail.includes("amazon") || subject.includes("amazon") || content.includes("amazon")) {
+      return "primary";
+    }
+    if (fromEmail.includes("ebay") || subject.includes("ebay") || content.includes("ebay")) {
+      return "primary";
+    }
+    if (subject.includes("support") || subject.includes("help") || fromEmail.includes("support")) {
+      return "primary";
+    }
+    if (subject.includes("order") || content.includes("order confirmation")) {
+      return "primary";
+    }
+    if (subject.includes("invoice") || content.includes("invoice")) {
+      return "primary";
+    }
+    if (
+      subject.includes("newsletter") ||
+      subject.includes("marketing") ||
+      subject.includes("promotion") ||
+      subject.includes("offer") ||
+      subject.includes("sale") ||
+      content.includes("unsubscribe")
+    ) {
+      return "promotions";
+    }
+
+    // Social media domains
+    if (
+      fromEmail.includes("facebook") ||
+      fromEmail.includes("twitter") ||
+      fromEmail.includes("instagram") ||
+      fromEmail.includes("linkedin") ||
+      fromEmail.includes("youtube") ||
+      fromEmail.includes("tiktok")
+    ) {
+      return "social";
+    }
+
+    // System updates and notifications
+    if (
+      subject.includes("notification") ||
+      subject.includes("alert") ||
+      subject.includes("system") ||
+      subject.includes("update") ||
+      subject.includes("maintenance") ||
+      subject.includes("security") ||
+      fromEmail.includes("noreply") ||
+      fromEmail.includes("email") ||
+      fromEmail.includes("system") ||
+      fromEmail.includes("admin")
+    ) {
+      return "updates";
+    }
+
+    return "primary"; // Default to primary tab
+  }
+
+  /**
    * Get thread statistics for an account
    */
   static async getThreadStats(accountId: string): Promise<{
