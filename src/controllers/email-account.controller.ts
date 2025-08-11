@@ -781,6 +781,70 @@ export class EmailAccountController {
     }
   }
 
+  // Debug endpoint to check account email count
+  static async getAccountEmailCount(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { EmailModel } = await import("@/models/email.model");
+      const { EmailThreadModel } = await import("@/models/email-thread.model");
+
+      const emailCount = await EmailModel.countDocuments({ accountId: account._id });
+      const threadCount = await EmailThreadModel.countDocuments();
+
+      // Get sample emails
+      const sampleEmails = await EmailModel.find({ accountId: account._id })
+        .limit(5)
+        .select("subject from threadId receivedAt")
+        .sort({ receivedAt: -1 });
+
+      res.json({
+        success: true,
+        data: {
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+            accountType: account.accountType,
+            connectionStatus: account.connectionStatus,
+            stats: account.stats,
+          },
+          emailCount,
+          threadCount,
+          sampleEmails,
+          hasOAuth: !!account.oauth,
+          oauthProvider: account.oauth?.provider,
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error getting account email count:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get email count",
+        error: error.message,
+      });
+    }
+  }
+
   // Sync account emails (fetch new emails)
   static async syncAccountEmails(req: Request, res: Response) {
     try {
@@ -839,6 +903,109 @@ export class EmailAccountController {
       res.status(500).json({
         success: false,
         message: "Failed to sync emails",
+        error: error.message,
+      });
+    }
+  }
+
+  static async refreshAccountToken(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Find the account
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Check if account has OAuth
+      if (!account.oauth) {
+        return res.status(400).json({
+          success: false,
+          message: "Account does not use OAuth authentication",
+        });
+      }
+
+      // Import and use the token refresh method
+      const { EmailFetchingService } = await import("../services/email-fetching.service");
+
+      // Attempt to refresh token (we need to make the method public)
+      let updatedAccount;
+      if (account.accountType === "gmail") {
+        // Call the refresh method directly
+        const oauth2Client = new (await import("googleapis")).google.auth.OAuth2(
+          process.env.GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_CLIENT_SECRET,
+          process.env.GOOGLE_REDIRECT_URI
+        );
+
+        oauth2Client.setCredentials({
+          refresh_token: account.oauth.refreshToken,
+        });
+
+        const { credentials } = await oauth2Client.refreshAccessToken();
+
+        if (!credentials.access_token) {
+          throw new Error("Failed to refresh access token");
+        }
+
+        // Update account with new token
+        updatedAccount = await EmailAccountModel.findByIdAndUpdate(
+          account._id,
+          {
+            $set: {
+              "oauth.accessToken": credentials.access_token,
+              "oauth.tokenExpiresAt": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+              connectionStatus: "connected",
+              "stats.lastError": null,
+            },
+          },
+          { new: true }
+        );
+
+        logger.info(`Successfully refreshed Gmail token for account: ${account.emailAddress}`);
+      } else {
+        throw new Error("Token refresh not supported for this account type");
+      }
+
+      return res.json({
+        success: true,
+        message: "Token refreshed successfully",
+        data: {
+          accountId: updatedAccount._id,
+          connectionStatus: updatedAccount.connectionStatus,
+          lastError: updatedAccount.stats?.lastError,
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error refreshing account token:", error);
+
+      // Update account with error status
+      const { accountId } = req.params;
+      await EmailAccountModel.findByIdAndUpdate(accountId, {
+        $set: {
+          connectionStatus: "error",
+          "stats.lastError": `Token refresh failed: ${error.message}`,
+        },
+      });
+
+      return res.status(500).json({
+        success: false,
+        message: "Failed to refresh token",
         error: error.message,
       });
     }
