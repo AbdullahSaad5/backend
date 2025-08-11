@@ -42,18 +42,44 @@ export const amazonListingService = {
         return res.status(400).json({ error: "Missing productType parameter" });
       }
 
-      const spApiUrl = `https://sellingpartnerapi-eu.amazon.com/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=A1F83G8C2ARO7P`;
+      // Use the same endpoint configuration as other Amazon functions
+      const spApiUrl = `${redirectUri}/definitions/2020-09-01/productTypes/${productType}?marketplaceIds=${marketplaceId}`;
+
+      console.log(`🔍 Schema endpoint: ${spApiUrl}`);
+      console.log(`🔍 Using marketplace ID: ${marketplaceId}`);
+      console.log(`🔍 Using redirect URI: ${redirectUri}`);
 
       const accessToken = await getStoredAmazonAccessToken();
 
       // Fetch SP API product type schema metadata
+      console.log(`🔍 Making request to: ${spApiUrl}`);
+      console.log(`🔍 Headers:`, {
+        Authorization: `Bearer ${accessToken ? accessToken.substring(0, 20) + "..." : "NO_TOKEN"}`,
+        "x-amz-access-token": accessToken ? "PRESENT" : "MISSING",
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      });
+
       const spApiResponse = await fetch(spApiUrl, {
         method: "GET",
-        headers: { "x-amz-access-token": accessToken ?? "", "Content-Type": "application/json" },
+        headers: {
+          Authorization: `Bearer ${accessToken ?? ""}`,
+          "x-amz-access-token": accessToken ?? "",
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       });
 
       if (!spApiResponse.ok) {
-        return res.status(spApiResponse.status).json({ error: "Failed to fetch product type schema" });
+        const errorText = await spApiResponse.text();
+        console.error(`❌ Schema API error: ${spApiResponse.status} ${spApiResponse.statusText}`);
+        console.error(`❌ Error body: ${errorText}`);
+        return res.status(spApiResponse.status).json({
+          error: "Failed to fetch product type schema",
+          status: spApiResponse.status,
+          statusText: spApiResponse.statusText,
+          details: errorText,
+        });
       }
 
       const spApiData = await spApiResponse.json();
