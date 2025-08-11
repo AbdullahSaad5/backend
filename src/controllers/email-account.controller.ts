@@ -533,4 +533,314 @@ export class EmailAccountController {
       });
     }
   }
+
+  // Fetch emails from specific account
+  static async fetchAccountEmails(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { folder = "INBOX", limit = 50, since, markAsRead = false, includeBody = true } = req.query;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+
+      const options = {
+        folder: folder as string,
+        limit: parseInt(limit as string),
+        since: since ? new Date(since as string) : undefined,
+        markAsRead: markAsRead === "true",
+        includeBody: includeBody === "true",
+      };
+
+      const result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+
+      res.json({
+        success: result.success,
+        data: {
+          emails: result.emails,
+          totalCount: result.totalCount,
+          newCount: result.newCount,
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+          },
+        },
+        error: result.error,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching account emails:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch emails",
+        error: error.message,
+      });
+    }
+  }
+
+  // Get stored emails for account with thread grouping
+  static async getAccountEmailsWithThreads(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { folder = "INBOX", limit = 50, offset = 0, threadView = true, unreadOnly = false } = req.query;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Build email filter
+      const emailFilter: any = { accountId: account._id };
+
+      if (unreadOnly === "true") {
+        emailFilter.isRead = false;
+      }
+
+      if (threadView === "true") {
+        // Get threads with email counts
+        const { EmailThreadModel } = await import("@/models/email-thread.model");
+        const { EmailModel } = await import("@/models/email.model");
+
+        const threads = await EmailThreadModel.aggregate([
+          {
+            $lookup: {
+              from: "emails",
+              localField: "threadId",
+              foreignField: "threadId",
+              as: "emails",
+              pipeline: [
+                { $match: emailFilter },
+                { $sort: { receivedAt: -1 } },
+                { $limit: 10 }, // Limit emails per thread for performance
+              ],
+            },
+          },
+          {
+            $match: {
+              "emails.0": { $exists: true }, // Only threads with matching emails
+            },
+          },
+          {
+            $addFields: {
+              unreadCount: {
+                $size: {
+                  $filter: {
+                    input: "$emails",
+                    cond: { $eq: ["$$this.isRead", false] },
+                  },
+                },
+              },
+              latestEmail: { $arrayElemAt: ["$emails", 0] },
+            },
+          },
+          { $sort: { lastMessageAt: -1 } },
+          { $skip: parseInt(offset as string) },
+          { $limit: parseInt(limit as string) },
+        ]);
+
+        res.json({
+          success: true,
+          data: {
+            threads,
+            account: {
+              id: account._id,
+              emailAddress: account.emailAddress,
+              accountName: account.accountName,
+            },
+            viewMode: "threads",
+          },
+        });
+      } else {
+        // Get individual emails
+        const { EmailModel } = await import("@/models/email.model");
+
+        const emails = await EmailModel.find(emailFilter)
+          .sort({ receivedAt: -1 })
+          .skip(parseInt(offset as string))
+          .limit(parseInt(limit as string))
+          .populate("accountId", "emailAddress accountName");
+
+        const totalCount = await EmailModel.countDocuments(emailFilter);
+
+        res.json({
+          success: true,
+          data: {
+            emails,
+            totalCount,
+            account: {
+              id: account._id,
+              emailAddress: account.emailAddress,
+              accountName: account.accountName,
+            },
+            viewMode: "emails",
+          },
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error getting account emails with threads:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get emails",
+        error: error.message,
+      });
+    }
+  }
+
+  // Get specific thread details
+  static async getThreadDetails(req: Request, res: Response) {
+    try {
+      const { accountId, threadId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { EmailThreadModel } = await import("@/models/email-thread.model");
+      const { EmailModel } = await import("@/models/email.model");
+
+      // Get thread info
+      const thread = await EmailThreadModel.findOne({ threadId });
+      if (!thread) {
+        return res.status(404).json({
+          success: false,
+          message: "Thread not found",
+        });
+      }
+
+      // Get all emails in thread for this account
+      const emails = await EmailModel.find({
+        threadId,
+        accountId: account._id,
+      }).sort({ receivedAt: 1 }); // Chronological order for thread view
+
+      res.json({
+        success: true,
+        data: {
+          thread,
+          emails,
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+          },
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error getting thread details:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get thread details",
+        error: error.message,
+      });
+    }
+  }
+
+  // Sync account emails (fetch new emails)
+  static async syncAccountEmails(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Update status to syncing
+      account.status = "syncing";
+      await account.save();
+
+      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+
+      // Fetch emails since last sync
+      const options = {
+        since: account.stats.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours if no previous sync
+        includeBody: true,
+      };
+
+      const result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+
+      res.json({
+        success: result.success,
+        data: {
+          newEmailsCount: result.newCount,
+          totalProcessed: result.emails.length,
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+            lastSyncAt: account.stats.lastSyncAt,
+          },
+        },
+        message: result.success ? `Successfully synced ${result.newCount} new emails` : "Sync failed",
+        error: result.error,
+      });
+    } catch (error: any) {
+      logger.error("Error syncing account emails:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to sync emails",
+        error: error.message,
+      });
+    }
+  }
 }
