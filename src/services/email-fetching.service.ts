@@ -1,4 +1,4 @@
-import { IEmailAccount } from "@/models/email-account.model";
+import { IEmailAccount, EmailAccountModel } from "@/models/email-account.model";
 import { EmailModel } from "@/models/email.model";
 import { EmailThreadModel } from "@/models/email-thread.model";
 import { EmailAccountConfigService } from "./email-account-config.service";
@@ -44,6 +44,67 @@ export interface EmailFetchOptions {
 }
 
 export class EmailFetchingService {
+  /**
+   * Refresh OAuth token for Gmail account
+   */
+  private static async refreshGmailToken(emailAccount: IEmailAccount): Promise<IEmailAccount> {
+    try {
+      if (!emailAccount.oauth?.refreshToken) {
+        throw new Error("No refresh token available");
+      }
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials({
+        refresh_token: emailAccount.oauth.refreshToken,
+      });
+
+      // Get new access token
+      const { credentials } = await oauth2Client.refreshAccessToken();
+
+      if (!credentials.access_token) {
+        throw new Error("Failed to refresh access token");
+      }
+
+      // Update account with new token
+      const updatedAccount = await EmailAccountModel.findByIdAndUpdate(
+        emailAccount._id,
+        {
+          $set: {
+            "oauth.accessToken": credentials.access_token,
+            "oauth.tokenExpiresAt": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+            connectionStatus: "connected",
+            "stats.lastError": null,
+          },
+        },
+        { new: true }
+      );
+
+      if (!updatedAccount) {
+        throw new Error("Failed to update account with new token");
+      }
+
+      logger.info(`Successfully refreshed Gmail token for account: ${emailAccount.emailAddress}`);
+      return updatedAccount;
+    } catch (error: any) {
+      logger.error(`Failed to refresh Gmail token for account ${emailAccount.emailAddress}:`, error);
+
+      // Update account with error status
+      await EmailAccountModel.findByIdAndUpdate(emailAccount._id, {
+        $set: {
+          connectionStatus: "error",
+          "stats.lastError": `Token refresh failed: ${error.message}`,
+        },
+      });
+
+      throw error;
+    }
+  }
+
   /**
    * Main method to fetch emails from any configured account
    */
@@ -324,15 +385,22 @@ export class EmailFetchingService {
     emailAccount: IEmailAccount,
     options: EmailFetchOptions
   ): Promise<EmailFetchResult> {
+    let currentAccount = emailAccount;
+
     try {
-      if (!emailAccount.oauth?.accessToken) {
+      if (!currentAccount.oauth?.accessToken) {
         throw new Error("Gmail OAuth access token not available");
       }
 
-      const oauth2Client = new google.auth.OAuth2();
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
       oauth2Client.setCredentials({
-        access_token: emailAccount.oauth.accessToken,
-        refresh_token: emailAccount.oauth.refreshToken,
+        access_token: currentAccount.oauth.accessToken,
+        refresh_token: currentAccount.oauth.refreshToken,
       });
 
       const gmail = google.gmail({ version: "v1", auth: oauth2Client });
@@ -394,6 +462,47 @@ export class EmailFetchingService {
       };
     } catch (error: any) {
       logger.error("Gmail API fetch error:", error);
+
+      // Check if it's an authentication error
+      if (
+        error.code === 401 ||
+        error.message?.includes("invalid_grant") ||
+        error.message?.includes("Invalid credentials")
+      ) {
+        logger.warn(
+          `Gmail authentication error for account ${currentAccount.emailAddress}, attempting token refresh...`
+        );
+
+        try {
+          // Attempt to refresh the token
+          currentAccount = await this.refreshGmailToken(currentAccount);
+
+          // Retry the operation with refreshed token
+          logger.info(`Token refreshed successfully, retrying Gmail fetch for ${currentAccount.emailAddress}`);
+          return await this.fetchFromGmailAPI(currentAccount, options);
+        } catch (refreshError: any) {
+          logger.error(`Token refresh failed for account ${currentAccount.emailAddress}:`, refreshError);
+
+          // Update account status to reflect the authentication failure
+          await EmailAccountModel.findByIdAndUpdate(currentAccount._id, {
+            $set: {
+              connectionStatus: "error",
+              "stats.lastError": `Authentication failed: ${refreshError.message}. Please re-authenticate this account.`,
+            },
+          });
+
+          throw new Error(`Gmail authentication failed: ${refreshError.message}. Please re-authenticate this account.`);
+        }
+      }
+
+      // Update account with the error
+      await EmailAccountModel.findByIdAndUpdate(currentAccount._id, {
+        $set: {
+          connectionStatus: "error",
+          "stats.lastError": error.message,
+        },
+      });
+
       throw error;
     }
   }
