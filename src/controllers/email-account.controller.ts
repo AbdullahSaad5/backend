@@ -128,33 +128,35 @@ export class EmailAccountController {
       const { code, state } = req.query;
 
       if (!code || !state) {
-        return res.status(400).json({
-          success: false,
-          message: "Authorization code and state are required",
-        });
+        // Redirect to frontend with error
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        return res.redirect(
+          `${frontendUrl}/marketing-and-comms-management/Email/oauth/google/callback?error=missing_params&message=Authorization code and state are required`
+        );
       }
 
       const result = await EmailOAuthService.handleGoogleCallback(code as string, state as string);
 
       if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: result.error,
-        });
+        // Redirect to frontend with error
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        return res.redirect(
+          `${frontendUrl}/marketing-and-comms-management/Email/oauth/google/callback?error=oauth_failed&message=${encodeURIComponent(result.error || "Failed to complete OAuth flow")}`
+        );
       }
 
-      // Return JSON response for frontend to handle
-      res.json({
-        success: true,
-        data: result.account,
-        message: "Email account connected successfully",
-      });
+      // Redirect to frontend with success
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(
+        `${frontendUrl}/marketing-and-comms-management/Email/oauth/google/callback?success=true&message=Email account connected successfully`
+      );
     } catch (error: any) {
       logger.error("Error handling Google OAuth callback:", error);
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to complete OAuth flow",
-      });
+      // Redirect to frontend with error
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(
+        `${frontendUrl}/marketing-and-comms-management/Email/oauth/google/callback?error=server_error&message=${encodeURIComponent(error.message || "Failed to complete OAuth flow")}`
+      );
     }
   }
 
@@ -202,33 +204,35 @@ export class EmailAccountController {
       const { code, state } = req.query;
 
       if (!code || !state) {
-        return res.status(400).json({
-          success: false,
-          message: "Authorization code and state are required",
-        });
+        // Redirect to frontend with error
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        return res.redirect(
+          `${frontendUrl}/marketing-and-comms-management/Email/oauth/outlook/callback?error=missing_params&message=Authorization code and state are required`
+        );
       }
 
       const result = await EmailOAuthService.handleOutlookCallback(code as string, state as string);
 
       if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: result.error,
-        });
+        // Redirect to frontend with error
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        return res.redirect(
+          `${frontendUrl}/marketing-and-comms-management/Email/oauth/outlook/callback?error=oauth_failed&message=${encodeURIComponent(result.error || "Failed to complete OAuth flow")}`
+        );
       }
 
-      // Return JSON response for frontend to handle
-      res.json({
-        success: true,
-        data: result.account,
-        message: "Email account connected successfully",
-      });
+      // Redirect to frontend with success
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(
+        `${frontendUrl}/marketing-and-comms-management/Email/oauth/outlook/callback?success=true&message=Email account connected successfully`
+      );
     } catch (error: any) {
       logger.error("Error handling Outlook OAuth callback:", error);
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to complete OAuth flow",
-      });
+      // Redirect to frontend with error
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(
+        `${frontendUrl}/marketing-and-comms-management/Email/oauth/outlook/callback?error=server_error&message=${encodeURIComponent(error.message || "Failed to complete OAuth flow")}`
+      );
     }
   }
 
@@ -848,19 +852,28 @@ export class EmailAccountController {
   // Sync account emails (fetch new emails)
   static async syncAccountEmails(req: Request, res: Response) {
     try {
+      console.log("🔄 SYNC EMAILS REQUEST");
       const { accountId } = req.params;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
+      console.log("Request details:", {
+        accountId,
+        hasToken: !!token,
+        tokenLength: token?.length,
+        headers: Object.keys(req.headers),
+      });
+
       if (!token) {
+
         return res.status(401).json({
           success: false,
           message: "Authorization token required",
         });
       }
 
+
       const decoded = jwtVerify(token);
       const userId = decoded.id.toString();
-
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
         return res.status(404).json({
@@ -880,14 +893,27 @@ export class EmailAccountController {
         since: account.stats.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours if no previous sync
         includeBody: true,
       };
+      console.log("Options:", {
+        since: options.since.toISOString(),
+        includeBody: options.includeBody,
+        lastSyncAt: account.stats.lastSyncAt?.toISOString(),
+      });
 
+      console.log("🚀 Starting email fetch service...");
       const result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+
+      console.log("📤 Sending response:", {
+        success: result.success,
+        newEmails: result.newCount,
+        totalEmails: result.emails?.length || 0,
+        hasError: !!result.error,
+      });
 
       res.json({
         success: result.success,
         data: {
           newEmailsCount: result.newCount,
-          totalProcessed: result.emails.length,
+          totalProcessed: result.emails?.length || 0,
           account: {
             id: account._id,
             emailAddress: account.emailAddress,
@@ -943,44 +969,22 @@ export class EmailAccountController {
       // Import and use the token refresh method
       const { EmailFetchingService } = await import("../services/email-fetching.service");
 
-      // Attempt to refresh token (we need to make the method public)
-      let updatedAccount;
-      if (account.accountType === "gmail") {
-        // Call the refresh method directly
-        const oauth2Client = new (await import("googleapis")).google.auth.OAuth2(
-          process.env.GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_CLIENT_SECRET,
-          process.env.GOOGLE_REDIRECT_URI
-        );
+      // Attempt to refresh token using the EmailOAuthService
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
 
-        oauth2Client.setCredentials({
-          refresh_token: account.oauth.refreshToken,
-        });
+      const refreshResult = await EmailOAuthService.refreshTokens(account);
 
-        const { credentials } = await oauth2Client.refreshAccessToken();
-
-        if (!credentials.access_token) {
-          throw new Error("Failed to refresh access token");
-        }
-
-        // Update account with new token
-        updatedAccount = await EmailAccountModel.findByIdAndUpdate(
-          account._id,
-          {
-            $set: {
-              "oauth.accessToken": credentials.access_token,
-              "oauth.tokenExpiresAt": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
-              connectionStatus: "connected",
-              "stats.lastError": null,
-            },
-          },
-          { new: true }
-        );
-
-        logger.info(`Successfully refreshed Gmail token for account: ${account.emailAddress}`);
-      } else {
-        throw new Error("Token refresh not supported for this account type");
+      if (!refreshResult.success) {
+        throw new Error(refreshResult.error || "Failed to refresh token");
       }
+      // Get the updated account
+      const updatedAccount = await EmailAccountModel.findById(account._id);
+
+      if (!updatedAccount) {
+        throw new Error("Failed to retrieve updated account");
+      }
+
+      logger.info(`Successfully refreshed token for account: ${account.emailAddress}`);
 
       return res.json({
         success: true,
@@ -992,21 +996,42 @@ export class EmailAccountController {
         },
       });
     } catch (error: any) {
+      console.log("❌ TOKEN REFRESH ERROR:", {
+        message: error.message,
+        code: error.code,
+        status: error.status,
+        cause: error.cause,
+      });
+
       logger.error("Error refreshing account token:", error);
 
       // Update account with error status
       const { accountId } = req.params;
+
+      let errorMessage = "Token refresh failed";
+      let userMessage = "Failed to refresh token";
+
+      // Handle specific OAuth errors
+      if (error.message?.includes("invalid_grant") || error.code === 400) {
+        errorMessage = "Refresh token expired or revoked. Please re-authenticate this account.";
+        userMessage = "Your Gmail refresh token has expired or been revoked. Please re-authenticate your account.";
+      } else if (error.message?.includes("invalid_client")) {
+        errorMessage = "OAuth client configuration error.";
+        userMessage = "There's a configuration issue with the OAuth client.";
+      }
+
       await EmailAccountModel.findByIdAndUpdate(accountId, {
         $set: {
           connectionStatus: "error",
-          "stats.lastError": `Token refresh failed: ${error.message}`,
+          "stats.lastError": errorMessage,
         },
       });
 
-      return res.status(500).json({
+      return res.status(400).json({
         success: false,
-        message: "Failed to refresh token",
-        error: error.message,
+        message: userMessage,
+        error: errorMessage,
+        requiresReAuth: error.message?.includes("invalid_grant") || error.code === 400,
       });
     }
   }
