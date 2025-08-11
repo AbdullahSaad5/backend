@@ -63,12 +63,16 @@ export const ticketService = {
       .populate('assignedTo', 'firstName lastName');
   },
 
-  deleteTicket: (id: string) => {
-    const ticket = TicketModel.findByIdAndDelete(id);
+  deleteTicket: async (id: string) => {
+    // Get the ticket to check if it exists
+    const ticket = await TicketModel.findById(id);
     if (!ticket) {
       throw new Error("Ticket not found");
     }
-    return ticket;
+
+    // Delete the ticket
+    const deletedTicket = await TicketModel.findByIdAndDelete(id);
+    return deletedTicket;
   },
 
   getAllTicket: () => {
