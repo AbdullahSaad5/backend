@@ -63,4 +63,37 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.refreshTokens
   );
+
+  // Email fetching and management routes
+  router.post(
+    "/accounts/:accountId/fetch-emails",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.fetchAccountEmails
+  );
+  router.get(
+    "/accounts/:accountId/emails",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.getAccountEmailsWithThreads
+  );
+  router.get(
+    "/accounts/:accountId/threads/:threadId",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.getThreadDetails
+  );
+  router.post(
+    "/accounts/:accountId/sync",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.syncAccountEmails
+  );
+  router.get(
+    "/accounts/:accountId/debug",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.getAccountEmailCount
+  );
+
+  router.post(
+    "/accounts/:accountId/refresh-token",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.refreshAccountToken
+  );
 };

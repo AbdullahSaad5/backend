@@ -71,10 +71,10 @@ class EmailProcessor {
       const mail = sesNotification.mail;
       const headers = mail.headers;
       const commonHeaders = mail.commonHeaders;
-      
+
       // Fast thread ID extraction - no DB queries
       const threadId = this.extractThreadId(headers, commonHeaders.subject, commonHeaders.from[0]);
-      
+
       // Build minimal email object for fast insertion
       const email = {
         messageId: mail.messageId,
@@ -87,9 +87,9 @@ class EmailProcessor {
         textContent: "", // Skip content parsing for speed
         htmlContent: "",
         from: { email: commonHeaders.from[0] || "" },
-        to: (commonHeaders.to || []).map(email => ({ email })),
-        cc: (commonHeaders.cc || []).map(email => ({ email })),
-        bcc: (commonHeaders.bcc || []).map(email => ({ email })),
+        to: (commonHeaders.to || []).map((email) => ({ email })),
+        cc: (commonHeaders.cc || []).map((email) => ({ email })),
+        bcc: (commonHeaders.bcc || []).map((email) => ({ email })),
         headers,
         attachments: [],
         receivedAt: new Date(mail.timestamp),
@@ -102,7 +102,7 @@ class EmailProcessor {
         category: "general",
         rawEmailData: { sesNotification, processingTimestamp: new Date().toISOString() },
       };
-      
+
       // Single DB operation - fast insert without duplicate check for speed
       const savedEmail = await email_model_1.EmailModel.create(email);
       console.log("✅ Email saved:", savedEmail._id);
@@ -188,16 +188,16 @@ class EmailProcessor {
     const messageIdHeader = headers.find((h) => h.name.toLowerCase() === "message-id");
     const inReplyToHeader = headers.find((h) => h.name.toLowerCase() === "in-reply-to");
     const referencesHeader = headers.find((h) => h.name.toLowerCase() === "references");
-    
+
     let threadId = null;
     let isReply = false;
-    
+
     // Check if this is a reply
     const subjectLower = subject ? subject.toLowerCase() : "";
     isReply = subjectLower.includes("re:") || inReplyToHeader || referencesHeader;
-    
+
     console.log("Email analysis - Subject:", subject, "IsReply:", isReply);
-    
+
     // If this is a reply, extract thread ID directly from headers
     if (isReply) {
       // First priority: References header (contains thread ID as first message ID)
@@ -210,7 +210,7 @@ class EmailProcessor {
         console.log("Using thread ID from References (first reference):", threadId);
         return threadId;
       }
-      
+
       // Second priority: In-Reply-To header (direct parent message ID = thread ID)
       if (inReplyToHeader) {
         const replyMatch = inReplyToHeader.value.match(/<(.+?)>/);
@@ -220,14 +220,14 @@ class EmailProcessor {
         return threadId;
       }
     }
-    
+
     // For new threads (not replies), use the current message ID as thread ID
     if (messageIdHeader) {
       threadId = messageIdHeader.value.replace(/[<>]/g, "").trim();
       console.log("Creating new thread with current message ID:", threadId);
       return threadId;
     }
-    
+
     // Fallback: generate a new UUID
     const fallbackThreadId = (0, uuid_1.v4)();
     console.log("Using fallback UUID as thread ID:", fallbackThreadId);
@@ -296,11 +296,29 @@ class EmailProcessor {
   }
   static categorizeEmail(mail) {
     const fromEmail = mail.commonHeaders.from[0]?.toLowerCase() || "";
-    if (fromEmail.includes("amazon")) return "amazon";
-    if (fromEmail.includes("ebay")) return "ebay";
-    if (fromEmail.includes("support")) return "support";
-    if (fromEmail.includes("noreply") || fromEmail.includes("no-reply")) return "automated";
-    return "general";
+    const subject = mail.commonHeaders.subject?.toLowerCase() || "";
+
+    if (fromEmail.includes("amazon")) return "primary";
+    if (fromEmail.includes("ebay")) return "primary";
+    if (fromEmail.includes("support")) return "primary";
+
+    // System updates and notifications
+    if (
+      subject.includes("notification") ||
+      subject.includes("alert") ||
+      subject.includes("system") ||
+      subject.includes("update") ||
+      subject.includes("maintenance") ||
+      subject.includes("security") ||
+      fromEmail.includes("noreply") ||
+      fromEmail.includes("no-reply") ||
+      fromEmail.includes("system") ||
+      fromEmail.includes("admin")
+    ) {
+      return "updates";
+    }
+
+    return "primary";
   }
   static extractAmazonOrderId(mail) {
     const subject = mail.commonHeaders.subject || "";
@@ -343,12 +361,12 @@ class EmailProcessor {
 
       // Determine email status flags for outbound emails
       const statusFlags = this.determineEmailStatusFlags(
-        { 
-          commonHeaders: { 
+        {
+          commonHeaders: {
             subject: emailData.subject || "",
-            from: [emailData.from?.email || ""]
+            from: [emailData.from?.email || ""],
           },
-          headers: emailData.headers || []
+          headers: emailData.headers || [],
         },
         emailData.textContent || "",
         emailData.htmlContent || ""
@@ -489,45 +507,41 @@ class EmailProcessor {
     const subjectLower = subject.toLowerCase();
     const content = (subject + " " + (textContent || "") + " " + (htmlContent || "")).toLowerCase();
     const headers = mail.headers || [];
-    
+
     // Check for reply indicators
-    const inReplyTo = headers.find(h => h.name.toLowerCase() === "in-reply-to")?.value;
-    const references = headers.find(h => h.name.toLowerCase() === "references")?.value;
-    const isReplied = subjectLower.includes("re:") || inReplyTo || references || content.includes("re:") || content.includes("reply");
-    
+    const inReplyTo = headers.find((h) => h.name.toLowerCase() === "in-reply-to")?.value;
+    const references = headers.find((h) => h.name.toLowerCase() === "references")?.value;
+    const isReplied =
+      subjectLower.includes("re:") || inReplyTo || references || content.includes("re:") || content.includes("reply");
+
     // Check for forward indicators
-    const isForwarded = subjectLower.includes("fw:") || 
-                       subjectLower.includes("fwd:") || 
-                       subjectLower.includes("forwarded") || 
-                       content.includes("fw:") || 
-                       content.includes("forwarded") || 
-                       content.includes("forward") ||
-                       content.includes("original message");
-    
+    const isForwarded =
+      subjectLower.includes("fw:") ||
+      subjectLower.includes("fwd:") ||
+      subjectLower.includes("forwarded") ||
+      content.includes("fw:") ||
+      content.includes("forwarded") ||
+      content.includes("forward") ||
+      content.includes("original message");
+
     // Check for spam indicators
-    const spamHeaders = [
-      "x-spam-status",
-      "x-spam-flag", 
-      "x-spam",
-      "x-spam-score",
-      "x-spam-level"
-    ];
-    
-    const spamHeader = headers.find(h => spamHeaders.includes(h.name.toLowerCase()));
-    const isSpam = subjectLower.includes("spam") || 
-                   content.includes("spam") ||
-                   (spamHeader && (
-                     spamHeader.value.toLowerCase().includes("yes") ||
-                     spamHeader.value.toLowerCase().includes("spam") ||
-                     (spamHeader.name.toLowerCase() === "x-spam-score" && parseInt(spamHeader.value) > 5)
-                   ));
-    
+    const spamHeaders = ["x-spam-status", "x-spam-flag", "x-spam", "x-spam-score", "x-spam-level"];
+
+    const spamHeader = headers.find((h) => spamHeaders.includes(h.name.toLowerCase()));
+    const isSpam =
+      subjectLower.includes("spam") ||
+      content.includes("spam") ||
+      (spamHeader &&
+        (spamHeader.value.toLowerCase().includes("yes") ||
+          spamHeader.value.toLowerCase().includes("spam") ||
+          (spamHeader.name.toLowerCase() === "x-spam-score" && parseInt(spamHeader.value) > 5)));
+
     // Check for read status (default to false for new emails)
     const isRead = false;
-    
+
     // Check for archived status (default to false for new emails)
     const isArchived = false;
-    
+
     console.log("Status flags analysis:");
     console.log("- Subject:", subject);
     console.log("- IsReply:", isReplied, "(Re: in subject or reply headers)");
@@ -535,13 +549,13 @@ class EmailProcessor {
     console.log("- IsSpam:", isSpam, "(Spam headers or content)");
     console.log("- IsRead:", isRead, "(Default false for new emails)");
     console.log("- IsArchived:", isArchived, "(Default false for new emails)");
-    
+
     return {
       isRead,
       isReplied,
       isForwarded,
       isArchived,
-      isSpam
+      isSpam,
     };
   }
 }

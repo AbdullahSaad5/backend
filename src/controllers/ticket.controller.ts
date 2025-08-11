@@ -20,13 +20,17 @@ export const tickerControler = {
         role,
         description,
         isEscalated,
-        chatMessageId
+        chatMessageId,
+        images,
+        platform,
+        orderReference,
+        orderStatus
       } = req.body;
 
       const newTicket = await ticketService.createTicket(
         title,
         client,
-        assignedTo ? new Types.ObjectId(assignedTo) : undefined,
+        assignedTo ? (Array.isArray(assignedTo) ? assignedTo.map(id => new Types.ObjectId(id)) : [new Types.ObjectId(assignedTo)]) : undefined,
         new Date(createDate),
         new Date(dueDate),
         status,
@@ -34,7 +38,11 @@ export const tickerControler = {
         new Types.ObjectId(role),
         description,
         isEscalated,
-        chatMessageId
+        chatMessageId,
+        images,
+        platform,
+        orderReference,
+        orderStatus
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -58,7 +66,9 @@ export const tickerControler = {
 
       // Convert string IDs to ObjectId if present
       if (updateData.assignedTo) {
-        updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
+        updateData.assignedTo = Array.isArray(updateData.assignedTo) 
+          ? updateData.assignedTo.map((id: string) => new Types.ObjectId(id))
+          : [new Types.ObjectId(updateData.assignedTo)];
       }
       if (updateData.role) {
         updateData.role = new Types.ObjectId(updateData.role);
@@ -335,6 +345,40 @@ export const tickerControler = {
       ).json({
         success: false,
         message: error.message || "Error updating resolution",
+      });
+    }
+  },
+
+  uploadImages: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      if (!req.files || req.files.length === 0) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "No images uploaded",
+        });
+      }
+
+      // Get the uploaded file URLs from DigitalOcean Spaces
+      const uploadedImages = (req.files as any[]).map(file => file.location);
+
+      // Update the ticket with the new image URLs
+      const updatedTicket = await ticketService.addImagesToTicket(id, uploadedImages);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Images uploaded successfully",
+        data: {
+          ticket: updatedTicket,
+          uploadedImages: uploadedImages
+        }
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error uploading images",
+        error: error.message
       });
     }
   }
