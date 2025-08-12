@@ -638,22 +638,33 @@ export class EmailFetchingService {
         unreadCount: validEmails.filter((e) => !e.isRead).length,
       });
 
+      const paginationData = usePagination
+        ? {
+            page: options.page!,
+            pageSize: options.pageSize!,
+            totalPages: Math.ceil(
+              (lastListResponse?.data.resultSizeEstimate || allMessages.length) / options.pageSize!
+            ),
+            hasNextPage: !!lastListResponse?.data.nextPageToken,
+            nextPageToken: lastListResponse?.data.nextPageToken,
+          }
+        : undefined;
+
+      console.log("📊 Pagination Debug:", {
+        usePagination,
+        requestedPage: options.page,
+        requestedPageSize: options.pageSize,
+        totalEmails: lastListResponse?.data.resultSizeEstimate || allMessages.length,
+        fetchedEmails: allMessages.length,
+        paginationData,
+      });
+
       return {
         success: true,
         emails: validEmails,
-        totalCount: allMessages.length,
+        totalCount: lastListResponse?.data.resultSizeEstimate || allMessages.length,
         newCount: validEmails.filter((e) => !e.isRead).length,
-        pagination: usePagination
-          ? {
-              page: options.page!,
-              pageSize: options.pageSize!,
-              totalPages: Math.ceil(
-                (lastListResponse?.data.resultSizeEstimate || allMessages.length) / options.pageSize!
-              ),
-              hasNextPage: !!lastListResponse?.data.nextPageToken,
-              nextPageToken: lastListResponse?.data.nextPageToken,
-            }
-          : undefined,
+        pagination: paginationData,
       };
     } catch (error: any) {
       console.log("❌ GMAIL API ERROR:", {
