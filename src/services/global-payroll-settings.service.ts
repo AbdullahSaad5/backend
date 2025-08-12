@@ -13,27 +13,19 @@ export const globalPayrollSettingsService = {
   getAllGlobalPayrollSettings: async (
     query: any = {}
   ): Promise<GlobalPayrollSettingsDocument[]> => {
-    return await GlobalPayrollSettings.find(query)
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email")
-      .sort({ createdAt: -1 });
+    return await GlobalPayrollSettings.find(query).sort({ createdAt: -1 });
   },
 
   getGlobalPayrollSettingsById: async (
     id: string
   ): Promise<GlobalPayrollSettingsDocument | null> => {
-    return await GlobalPayrollSettings.findById(id)
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email");
+    return await GlobalPayrollSettings.findById(id);
   },
 
   getActiveGlobalPayrollSettings: async (): Promise<
     GlobalPayrollSettingsDocument[]
   > => {
-    return await GlobalPayrollSettings.find()
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email")
-      .sort({ createdAt: -1 });
+    return await GlobalPayrollSettings.find().sort({ createdAt: -1 });
   },
 
   updateGlobalPayrollSettings: async (
@@ -44,9 +36,7 @@ export const globalPayrollSettingsService = {
       id,
       { ...data, updatedAt: new Date() },
       { new: true, runValidators: true }
-    )
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email");
+    );
   },
 
   deleteGlobalPayrollSettings: async (id: string): Promise<boolean> => {
@@ -57,8 +47,6 @@ export const globalPayrollSettingsService = {
   getGlobalPayrollSettingsByName: async (
     name: string
   ): Promise<GlobalPayrollSettingsDocument | null> => {
-    return await GlobalPayrollSettings.findOne({ name })
-      .populate("createdBy", "firstName lastName email")
-      .populate("updatedBy", "firstName lastName email");
+    return await GlobalPayrollSettings.findOne({ name });
   },
 };
