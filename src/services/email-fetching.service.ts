@@ -549,14 +549,14 @@ export class EmailFetchingService {
           ? 500
           : fetchOptions.limit || 50;
 
-      console.log("📊 Pagination settings:", {
-        usePagination,
-        page: fetchOptions.page,
-        pageSize: fetchOptions.pageSize,
-        maxPages,
-        maxResults,
-        fetchAll: fetchOptions.fetchAll,
-      });
+      // console.log("📊 Pagination settings:", {
+      //   usePagination,
+      //   page: fetchOptions.page,
+      //   pageSize: fetchOptions.pageSize,
+      //   maxPages,
+      //   maxResults,
+      //   fetchAll: fetchOptions.fetchAll,
+      // });
 
       do {
         pageCount++;
