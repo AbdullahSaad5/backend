@@ -1,16 +1,16 @@
 import { IStock } from "@/contracts/stock.contract";
 import mongoose, { Schema, Document } from "mongoose";
 
-const mediaSchema = {
+const mediaSchema = new Schema({
   id: { type: String },
   originalname: { type: String },
   encoding: { type: String },
   mimetype: { type: String },
   size: { type: Number },
   url: { type: String },
-  fileType: { type: String },
+  type: { type: String },
   filename: { type: String },
-};
+}, { _id: false });
 interface IStockModel extends IStock, Document {
   isVariation: boolean;
 }
@@ -88,7 +88,7 @@ const StockSchema = new Schema<IStockModel>(
         comment: { type: String, required: false },
       },
     ],
-    stockInvoice: { type: mediaSchema, _id: false },
+    stockInvoice: mediaSchema,
     batchNumber: { type: Number, min: 0 },
     receivedDate: { type: Date, required: true, default: Date.now },
     receivedBy: {

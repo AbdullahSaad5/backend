@@ -64,6 +64,14 @@ export const emailAccount = (router: Router) => {
     EmailAccountController.refreshTokens
   );
 
+  // Update account sync folders
+  router.patch(
+    "/:accountId/sync-folders",
+    validateParams(emailAccountValidation.accountId),
+    validateRequest(emailAccountValidation.updateSyncFolders),
+    EmailAccountController.updateSyncFolders
+  );
+
   // Email fetching and management routes
   router.post(
     "/accounts/:accountId/fetch-emails",
@@ -95,5 +103,12 @@ export const emailAccount = (router: Router) => {
     "/accounts/:accountId/refresh-token",
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.refreshAccountToken
+  );
+
+  // Re-authenticate existing account with expired tokens
+  router.post(
+    "/accounts/:accountId/re-authenticate",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.reAuthenticateExistingAccount
   );
 };
