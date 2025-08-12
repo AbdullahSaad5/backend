@@ -11,6 +11,7 @@ export const ticket = (router: Router) => {
   router.patch("/:id/status", tickerControler.toggleticketstatus);
   router.patch("/:id/priority", tickerControler.toggleprioritystatus);
   router.patch("/:id/role", tickerControler.toggleRole); // Changed from department to role
+  router.patch("/:id/assignment", tickerControler.updateAssignment); // New assignment endpoint
   router.post("/:ticketId/resolution", tickerControler.addResolution);       // Add resolution
   router.patch("/:ticketId/resolution", tickerControler.updateResolution);  // Update resolution
   router.delete("/:ticketId/resolution", tickerControler.deleteResolution);

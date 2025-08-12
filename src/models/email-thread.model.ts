@@ -6,93 +6,92 @@ const EmailThreadSchema = new Schema<IEmailThread>(
     threadId: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      // Removed unique constraint and index temporarily
     },
     accountId: {
       type: Schema.Types.ObjectId,
       ref: "EmailAccount",
       required: true,
-      index: true,
+      // Removed index temporarily
     },
     subject: {
       type: String,
       required: true,
       trim: true,
-      index: true,
+      // Removed index temporarily
     },
     normalizedSubject: {
       type: String,
       required: true,
       trim: true,
-      index: true,
+      // Removed index temporarily
     },
     participants: [
       {
-        email: { type: String, required: true, index: true },
+        email: { type: String, required: true },
         name: { type: String },
       },
     ],
     messageCount: {
       type: Number,
       default: 0,
-      index: true,
+      // Removed index temporarily
     },
     unreadCount: {
       type: Number,
       default: 0,
-      index: true,
+      // Removed index temporarily
     },
     firstMessageAt: {
       type: Date,
       required: true,
       default: Date.now,
-      index: true,
+      // Removed index temporarily
     },
     lastMessageAt: {
       type: Date,
       required: true,
       default: Date.now,
-      index: true,
+      // Removed index temporarily
     },
     status: {
       type: String,
       enum: ["active", "closed", "archived", "spam"],
       default: "active",
-      index: true,
+      // Removed index temporarily
     },
     folder: {
       type: String,
       default: "INBOX",
-      index: true,
+      // Removed index temporarily
     },
-    tags: [{ type: String, index: true }],
-    labels: [{ type: String, index: true }],
-    category: { type: String, index: true },
+    tags: [{ type: String }], // Removed index temporarily
+    labels: [{ type: String }], // Removed index temporarily
+    category: { type: String }, // Removed index temporarily
 
     // Thread metadata
     threadType: {
       type: String,
       enum: ["conversation", "notification", "marketing", "system"],
       default: "conversation",
-      index: true,
+      // Removed index temporarily
     },
     isStarred: {
       type: Boolean,
       default: false,
-      index: true,
+      // Removed index temporarily
     },
     isPinned: {
       type: Boolean,
       default: false,
-      index: true,
+      // Removed index temporarily
     },
 
     // Assignment and relationships
     assignedTo: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      index: true,
+      // Removed index temporarily
     },
     assignedAt: { type: Date },
     relatedOrderId: {
@@ -187,4 +186,3 @@ EmailThreadSchema.methods.updateStats = async function () {
 
 export const EmailThreadModel = models.EmailThread || model<IEmailThread>("EmailThread", EmailThreadSchema);
 export { IEmailThread };
-

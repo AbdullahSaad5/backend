@@ -27,6 +27,9 @@ export const complaint = (router: Router) => {
   );
   router.patch("/:id/priority", complaintController.toggleprioritystatus);
 
+  // Assignment endpoint
+  router.patch("/:id/assignment", complaintController.updateAssignment);
+
   // Resolve complaint
   router.patch("/:id/resolve", complaintController.resolveComplaint);
 

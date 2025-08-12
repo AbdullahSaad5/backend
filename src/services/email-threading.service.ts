@@ -197,10 +197,22 @@ export class EmailThreadingService {
       totalSize: (email.textContent?.length || 0) + (email.htmlContent?.length || 0),
     });
 
-    await thread.save();
-    logger.info(`Created new thread ${threadId} for email ${email.messageId}`);
-
-    return threadId;
+    try {
+      await thread.save();
+      logger.info(`Created new thread ${threadId} for email ${email.messageId}`);
+      return threadId;
+    } catch (error: any) {
+      // Handle duplicate key error
+      if (error.code === 11000 && error.keyPattern?.threadId) {
+        logger.warn(`Thread ${threadId} already exists, finding existing thread`);
+        const existingThread = await EmailThreadModel.findOne({ threadId });
+        if (existingThread) {
+          await this.updateThread(existingThread, email);
+          return existingThread.threadId;
+        }
+      }
+      throw error;
+    }
   }
 
   /**

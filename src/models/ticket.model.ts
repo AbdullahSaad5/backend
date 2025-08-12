@@ -33,7 +33,7 @@ const TicketSchema = new Schema<ITicket>(
     },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Closed", "Resolved"],
+      enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved"],
       default: "Open",
     },
     priority: {
@@ -67,6 +67,22 @@ const TicketSchema = new Schema<ITicket>(
         type: Date
       }
     },
+    // Timeline to track status changes
+    timeline: [{
+      status: {
+        type: String,
+        enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved"],
+        required: true
+      },
+      changedAt: {
+        type: Date,
+        default: Date.now
+      },
+      changedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+      }
+    }],
     isEscalated: {
       type: Boolean,
       default: false,
