@@ -1131,4 +1131,81 @@ export class EmailAccountController {
       });
     }
   }
+
+  // Re-authenticate existing account with expired tokens
+  static async reAuthenticateExistingAccount(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { provider } = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      if (!account.oauth) {
+        return res.status(400).json({
+          success: false,
+          message: "This account is not an OAuth account",
+        });
+      }
+
+      // Generate OAuth URL for re-authentication
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      let authUrl: string;
+      if (account.oauth.provider === "gmail") {
+        authUrl = EmailOAuthService.generateGoogleOAuthUrl(
+          userId,
+          account.emailAddress,
+          account.accountName,
+          account.isPrimary
+        );
+      } else if (account.oauth.provider === "outlook") {
+        authUrl = EmailOAuthService.generateOutlookOAuthUrl(
+          userId,
+          account.emailAddress,
+          account.accountName,
+          account.isPrimary
+        );
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Unsupported OAuth provider",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Re-authentication URL generated",
+        data: {
+          authUrl,
+          accountId: account._id,
+          emailAddress: account.emailAddress,
+          provider: account.oauth.provider,
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error generating re-authentication URL:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to generate re-authentication URL",
+        error: error.message,
+      });
+    }
+  }
 }
