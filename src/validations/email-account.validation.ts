@@ -81,4 +81,9 @@ export const emailAccountValidation = {
   detectProvider: Joi.object({
     emailAddress: Joi.string().email().required(),
   }),
+
+  // Update sync folders validation
+  updateSyncFolders: Joi.object({
+    syncFolders: Joi.array().items(Joi.string()).min(1).required(),
+  }),
 };
