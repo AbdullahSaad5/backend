@@ -615,16 +615,8 @@ export class EmailFetchingService {
 
           const msg = messageResponse.data;
           const headers = msg.payload?.headers || [];
-          // console.log(`✅ Message ${message.id} fetched, parsing...`);
 
           const parsedEmail = this.parseGmailMessage(msg, emailAccount);
-          // console.log(`✅ Message ${message.id} parsed:`, {
-          //   subject: parsedEmail.subject,
-          //   from: parsedEmail.from?.email,
-          //   date: parsedEmail.date,
-          //   hasBody: !!(parsedEmail.textContent || parsedEmail.htmlContent),
-          // });
-
           return parsedEmail;
         } catch (error: any) {
           console.log(`❌ Error fetching Gmail message ${message.id}:`, error.message);
@@ -941,18 +933,6 @@ export class EmailFetchingService {
     // Extract content
     const textContent = this.extractTextFromGmailPayload(msg.payload);
     const htmlContent = this.extractHtmlFromGmailPayload(msg.payload);
-
-    console.log(`📧 Gmail message content extracted:`, {
-      messageId: msg.id,
-      hasTextContent: !!textContent,
-      textContentLength: textContent?.length || 0,
-      hasHtmlContent: !!htmlContent,
-      htmlContentLength: htmlContent?.length || 0,
-      mimeType: msg.payload?.mimeType,
-      hasParts: !!msg.payload?.parts,
-      partsCount: msg.payload?.parts?.length || 0,
-    });
-
     return {
       messageId: msg.id!,
       threadId: msg.threadId, // Gmail's native thread ID
