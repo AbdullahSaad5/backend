@@ -908,15 +908,26 @@ export class EmailAccountController {
         includeBody: true,
         fetchAll: fetchAll === "true",
       };
-      console.log("Options:", {
-        since: options.since?.toISOString(),
-        includeBody: options.includeBody,
-        fetchAll: options.fetchAll,
-        lastSyncAt: account.stats.lastSyncAt?.toISOString(),
+      console.log("📧 Fetch options:", options);
+
+      // Use multi-folder sync if account has multiple folders configured
+      const syncFolders = account.settings?.syncFolders || ["INBOX"];
+      const useMultiFolderSync = syncFolders.length > 1;
+
+      console.log("📁 Sync configuration:", {
+        useMultiFolderSync,
+        syncFolders,
+        folderCount: syncFolders.length,
       });
 
-      console.log("🚀 Starting email fetch service...");
-      const result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+      let result;
+      if (useMultiFolderSync) {
+        console.log("🔄 Using multi-folder sync");
+        result = await EmailFetchingService.syncMultipleFolders(account, options);
+      } else {
+        console.log("📧 Using single folder sync (INBOX)");
+        result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+      }
 
       console.log("📤 Sending response:", {
         success: result.success,
@@ -1052,6 +1063,148 @@ export class EmailAccountController {
         message: userMessage,
         error: errorMessage,
         requiresReAuth: error.message?.includes("invalid_grant") || error.code === 400,
+      });
+    }
+  }
+
+  // Update account sync folders
+  static async updateSyncFolders(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { syncFolders } = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Validate sync folders
+      if (!Array.isArray(syncFolders) || syncFolders.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "syncFolders must be a non-empty array",
+        });
+      }
+
+      // Update account with new sync folders
+      account.settings = {
+        ...account.settings,
+        syncFolders: syncFolders,
+      };
+
+      await account.save();
+
+      console.log("📁 Updated sync folders for account:", {
+        accountId: account._id,
+        emailAddress: account.emailAddress,
+        syncFolders: syncFolders,
+      });
+
+      res.json({
+        success: true,
+        message: "Sync folders updated successfully",
+        data: {
+          accountId: account._id,
+          syncFolders: syncFolders,
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error updating sync folders:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update sync folders",
+        error: error.message,
+      });
+    }
+  }
+
+  // Re-authenticate existing account with expired tokens
+  static async reAuthenticateExistingAccount(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { provider } = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      if (!account.oauth) {
+        return res.status(400).json({
+          success: false,
+          message: "This account is not an OAuth account",
+        });
+      }
+
+      // Generate OAuth URL for re-authentication
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      let authUrl: string;
+      if (account.oauth.provider === "gmail") {
+        authUrl = EmailOAuthService.generateGoogleOAuthUrl(
+          userId,
+          account.emailAddress,
+          account.accountName,
+          account.isPrimary
+        );
+      } else if (account.oauth.provider === "outlook") {
+        authUrl = EmailOAuthService.generateOutlookOAuthUrl(
+          userId,
+          account.emailAddress,
+          account.accountName,
+          account.isPrimary
+        );
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Unsupported OAuth provider",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Re-authentication URL generated",
+        data: {
+          authUrl,
+          accountId: account._id,
+          emailAddress: account.emailAddress,
+          provider: account.oauth.provider,
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error generating re-authentication URL:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to generate re-authentication URL",
+        error: error.message,
       });
     }
   }
