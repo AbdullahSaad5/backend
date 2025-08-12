@@ -50,7 +50,7 @@ export const listingService = {
         prodTechInfoFromInventory = inventory.prodTechInfo;
 
         // If publishToEbay is true, flatten the prodTechInfo
-        if (stepData.publishToEbay) {
+        if (stepData.publishToEbay || stepData.publishToWebsite) {
           prodTechInfoFromInventory = convertToEbayFormat.transformProdTechInfo(inventory.prodTechInfo);
           // console.log("Transformed prodTechInfo for eBay:", prodTechInfoFromInventory);
         }
@@ -391,21 +391,21 @@ export const listingService = {
   toggleIsFeatured: async (id: string, isFeatured: boolean) => {
     try {
       console.log("toggleIsFeatured service - Starting with:", { id, isFeatured });
-      
+
       const updatedListing = await Listing.findByIdAndUpdate(id, { isFeatured }, { new: true });
-      
+
       console.log("toggleIsFeatured service - Database update result:", updatedListing);
-      
+
       if (!updatedListing) {
         console.log("toggleIsFeatured service - Listing not found for ID:", id);
         throw new Error("Listing not found");
       }
-      
-      console.log("toggleIsFeatured service - Success, returning:", { 
-        id: updatedListing._id, 
-        isFeatured: updatedListing.isFeatured 
+
+      console.log("toggleIsFeatured service - Success, returning:", {
+        id: updatedListing._id,
+        isFeatured: updatedListing.isFeatured,
       });
-      
+
       return updatedListing;
     } catch (error) {
       console.error("toggleIsFeatured service - Error:", error);
@@ -540,7 +540,7 @@ export const listingService = {
           const categoryIds = await ProductCategory.find({
             name: { $regex: productCategory, $options: "i" },
           }).select("_id");
-          
+
           if (categoryIds.length > 0) {
             query["productInfo.productCategory"] = {
               $in: categoryIds.map((c) => c._id),
@@ -1066,7 +1066,7 @@ export const listingService = {
           const categoryIds = await ProductCategory.find({
             name: { $regex: productCategory, $options: "i" },
           }).select("_id");
-          
+
           if (categoryIds.length > 0) {
             query["productInfo.productCategory"] = {
               $in: categoryIds.map((c) => c._id),
@@ -1109,66 +1109,68 @@ export const listingService = {
 
       // Transform listings to desired format
       const transformedProducts = listings.map((listing: any) => {
-              // Extract item name from the first marketplace entry
-      const itemName = getFirstValue((listing as any).productInfo?.item_name, 'value');
-      
-      // Extract brand from the first marketplace entry
-      const brand = getFirstValue((listing as any).productInfo?.brand, 'value');
-      
-      // Extract description from the first marketplace entry
-      const description = getFirstValue((listing as any).productInfo?.product_description, 'value');
-      
-      // Extract condition from the first marketplace entry
-      const condition = getFirstValue((listing as any).productInfo?.condition_type, 'value');
-      
-      // Extract marketplace and language from the first entry
-      const marketplace = getFirstValue((listing as any).productInfo?.item_name, 'marketplace_id');
-      const language = getFirstValue((listing as any).productInfo?.item_name, 'language_tag');
-        
+        // Extract item name from the first marketplace entry
+        const itemName = getFirstValue((listing as any).productInfo?.item_name, "value");
+
+        // Extract brand from the first marketplace entry
+        const brand = getFirstValue((listing as any).productInfo?.brand, "value");
+
+        // Extract description from the first marketplace entry
+        const description = getFirstValue((listing as any).productInfo?.product_description, "value");
+
+        // Extract condition from the first marketplace entry
+        const condition = getFirstValue((listing as any).productInfo?.condition_type, "value");
+
+        // Extract marketplace and language from the first entry
+        const marketplace = getFirstValue((listing as any).productInfo?.item_name, "marketplace_id");
+        const language = getFirstValue((listing as any).productInfo?.item_name, "language_tag");
+
         // Clean up condition value (remove marketplace prefix if present)
-        const cleanCondition = condition.replace(/^refurbished_/, '');
+        const cleanCondition = condition.replace(/^refurbished_/, "");
 
         return {
           id: listing._id,
           sku: (listing as any).productInfo?.sku || "",
           name: itemName,
           brand: brand,
-          category: (listing as any).productInfo?.productCategory ? {
-            id: (listing as any).productInfo.productCategory._id,
-            name: (listing as any).productInfo.productCategory.name || "",
-            description: (listing as any).productInfo.productCategory.description || "",
-            image: (listing as any).productInfo.productCategory.image || "",
-            tags: (listing as any).productInfo.productCategory.tags || []
-          } : null,
+          category: (listing as any).productInfo?.productCategory
+            ? {
+                id: (listing as any).productInfo.productCategory._id,
+                name: (listing as any).productInfo.productCategory.name || "",
+                description: (listing as any).productInfo.productCategory.description || "",
+                image: (listing as any).productInfo.productCategory.image || "",
+                tags: (listing as any).productInfo.productCategory.tags || [],
+              }
+            : null,
           description: description,
           condition: cleanCondition,
           pricing: {
             costPrice: (listing as any).selectedStockId?.costPricePerUnit || 0,
             purchasePrice: (listing as any).selectedStockId?.purchasePricePerUnit || 0,
             vat: (listing as any).prodPricing?.vat || 0,
-            currency: "GBP" // Default currency
+            currency: "GBP", // Default currency
           },
           stock: {
             available: (listing as any).selectedStockId?.usableUnits || 0,
             threshold: (listing as any).stockThreshold || 0,
-            inStock: ((listing as any).selectedStockId?.usableUnits || 0) > 0
+            inStock: ((listing as any).selectedStockId?.usableUnits || 0) > 0,
           },
           media: {
             images: (listing as any).prodMedia?.images || [],
             videos: (listing as any).prodMedia?.videos || [],
-            offerImages: (listing as any).prodMedia?.offerImages || []
+            offerImages: (listing as any).prodMedia?.offerImages || [],
           },
           platforms: {
             website: (listing as any).publishToWebsite || false,
             ebay: (listing as any).publishToEbay || false,
-            amazon: (listing as any).publishToAmazon || false
+            amazon: (listing as any).publishToAmazon || false,
           },
           status: (listing as any).status,
           marketplace: marketplace,
           language: language,
           createdAt: (listing as any).createdAt,
           updatedAt: (listing as any).updatedAt,
-          isFeatured: (listing as any).isFeatured || false
+          isFeatured: (listing as any).isFeatured || false,
         };
       });
 
@@ -1216,65 +1218,67 @@ export const listingService = {
       };
 
       // Extract item name from the first marketplace entry
-      const itemName = getFirstValue((listing as any).productInfo?.item_name, 'value');
-      
+      const itemName = getFirstValue((listing as any).productInfo?.item_name, "value");
+
       // Extract brand from the first marketplace entry
-      const brand = getFirstValue((listing as any).productInfo?.brand, 'value');
-      
+      const brand = getFirstValue((listing as any).productInfo?.brand, "value");
+
       // Extract description from the first marketplace entry
-      const description = getFirstValue((listing as any).productInfo?.product_description, 'value');
-      
+      const description = getFirstValue((listing as any).productInfo?.product_description, "value");
+
       // Extract condition from the first marketplace entry
-      const condition = getFirstValue((listing as any).productInfo?.condition_type, 'value');
-      
+      const condition = getFirstValue((listing as any).productInfo?.condition_type, "value");
+
       // Extract marketplace and language from the first entry
-      const marketplace = getFirstValue((listing as any).productInfo?.item_name, 'marketplace_id');
-      const language = getFirstValue((listing as any).productInfo?.item_name, 'language_tag');
-      
+      const marketplace = getFirstValue((listing as any).productInfo?.item_name, "marketplace_id");
+      const language = getFirstValue((listing as any).productInfo?.item_name, "language_tag");
+
       // Clean up condition value (remove marketplace prefix if present)
-      const cleanCondition = condition.replace(/^refurbished_/, '');
+      const cleanCondition = condition.replace(/^refurbished_/, "");
 
       return {
         id: listing._id,
         sku: listing.productInfo?.sku || "",
         name: itemName,
         brand: brand,
-        category: listing.productInfo?.productCategory ? {
-          id: listing.productInfo.productCategory._id,
-          name: listing.productInfo.productCategory.name || "",
-          description: listing.productInfo.productCategory.description || "",
-          image: listing.productInfo.productCategory.image || "",
-          tags: listing.productInfo.productCategory.tags || []
-        } : null,
+        category: listing.productInfo?.productCategory
+          ? {
+              id: listing.productInfo.productCategory._id,
+              name: listing.productInfo.productCategory.name || "",
+              description: listing.productInfo.productCategory.description || "",
+              image: listing.productInfo.productCategory.image || "",
+              tags: listing.productInfo.productCategory.tags || [],
+            }
+          : null,
         description: description,
         condition: cleanCondition,
         pricing: {
           costPrice: listing.selectedStockId?.costPricePerUnit || 0,
           purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
           vat: listing.prodPricing?.vat || 0,
-          currency: "GBP" // Default currency
+          currency: "GBP", // Default currency
         },
         stock: {
           available: listing.selectedStockId?.usableUnits || 0,
           threshold: listing.stockThreshold || 0,
-          inStock: (listing.selectedStockId?.usableUnits || 0) > 0
+          inStock: (listing.selectedStockId?.usableUnits || 0) > 0,
         },
         media: {
           images: listing.prodMedia?.images || [],
           videos: listing.prodMedia?.videos || [],
-          offerImages: listing.prodMedia?.offerImages || []
+          offerImages: listing.prodMedia?.offerImages || [],
         },
         platforms: {
           website: listing.publishToWebsite || false,
           ebay: listing.publishToEbay || false,
-          amazon: listing.publishToAmazon || false
+          amazon: listing.publishToAmazon || false,
         },
         status: listing.status,
         marketplace: marketplace,
         language: language,
         createdAt: listing.createdAt,
         updatedAt: listing.updatedAt,
-        isFeatured: listing.isFeatured || false
+        isFeatured: listing.isFeatured || false,
       };
     } catch (error) {
       console.error("Error fetching Website product:", error);

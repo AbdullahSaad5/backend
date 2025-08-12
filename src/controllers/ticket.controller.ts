@@ -139,17 +139,32 @@ export const tickerControler = {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ["Open", "In Progress", "Closed", "Resolved"];
+    const allowedStatuses = ["Open", "Assigned", "In Progress", "Closed", "Resolved"];
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
-        message: "Status must be one of: Open, In Progress, Closed, Resolved",
+        message: "Status must be one of: Open, Assigned, In Progress, Closed, Resolved",
       });
     }
 
     try {
-      const result = await ticketService.changeStatus(id, status);
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for status change, proceeding without user tracking");
+        }
+      }
+
+      const result = await ticketService.changeStatus(id, status, userId);
       res.status(StatusCodes.OK).json({
         success: true,
         message: "Status changed successfully",
@@ -378,6 +393,45 @@ export const tickerControler = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error uploading images",
+        error: error.message
+      });
+    }
+  },
+
+  updateAssignment: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { assignedTo } = req.body;
+
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for assignment, proceeding without user tracking");
+        }
+      }
+
+      // Convert string IDs to ObjectId if present
+      const assignedToIds = assignedTo ? (Array.isArray(assignedTo) ? assignedTo.map((id: string) => new Types.ObjectId(id)) : [new Types.ObjectId(assignedTo)]) : [];
+
+      const updatedTicket = await ticketService.updateAssignment(id, assignedToIds, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Assignment updated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating assignment",
         error: error.message
       });
     }

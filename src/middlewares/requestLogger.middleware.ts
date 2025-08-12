@@ -30,9 +30,9 @@ export const requestLogger = async (req: any, res: Response, next: NextFunction)
     // Save the log to the MongoDB database
     try {
       await Log.create(logData);
-      logger.info(
-        `Logged request to ${url} | Method: ${method} | Status Code: ${statusCode} | Duration: ${duration}ms`
-      );
+      // logger.info(
+      //   `Logged request to ${url} | Method: ${method} | Status Code: ${statusCode} | Duration: ${duration}ms`
+      // );
     } catch (error: any) {
       logger.error("Error saving log to database: " + error.message);
     }
