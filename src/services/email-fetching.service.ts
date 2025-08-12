@@ -53,7 +53,7 @@ export interface EmailFetchOptions {
   limit?: number;
   since?: Date;
   markAsRead?: boolean;
-  includeBody?: boolean;
+  includeBody?: boolean; // Whether to include email body content (default: true)
   fetchAll?: boolean; // New option to fetch all emails instead of just recent ones
   page?: number; // Page number for pagination (1-based)
   pageSize?: number; // Number of emails per page
@@ -156,6 +156,11 @@ export class EmailFetchingService {
     emailAccount: IEmailAccount,
     options: EmailFetchOptions = {}
   ): Promise<EmailFetchResult> {
+    // Set default values
+    const fetchOptions: EmailFetchOptions = {
+      includeBody: true, // Default to including body content
+      ...options,
+    };
     try {
       console.log("🚀 STARTING EMAIL FETCH");
       console.log("Account:", {
@@ -171,7 +176,10 @@ export class EmailFetchingService {
         hasRefreshToken: !!emailAccount.oauth?.refreshToken,
         lastError: emailAccount.stats?.lastError,
       });
-      console.log("Options:", options);
+      console.log("Options:", {
+        ...fetchOptions,
+        includeBody: fetchOptions.includeBody !== false, // Show the actual value being used
+      });
 
       logger.info(`Starting email fetch for account: ${emailAccount.emailAddress}`);
 
@@ -190,18 +198,18 @@ export class EmailFetchingService {
           console.log("📧 Gmail account detected");
           if (emailAccount.oauth) {
             console.log("🔐 Using Gmail API with OAuth");
-            result = await this.fetchFromGmailAPI(emailAccount, options);
+            result = await this.fetchFromGmailAPI(emailAccount, fetchOptions);
           } else {
             console.log("📨 Using IMAP for Gmail");
-            result = await this.fetchFromIMAP(emailAccount, options);
+            result = await this.fetchFromIMAP(emailAccount, fetchOptions);
           }
           break;
 
         case "outlook":
           if (emailAccount.oauth) {
-            result = await this.fetchFromOutlookAPI(emailAccount, options);
+            result = await this.fetchFromOutlookAPI(emailAccount, fetchOptions);
           } else {
-            result = await this.fetchFromIMAP(emailAccount, options);
+            result = await this.fetchFromIMAP(emailAccount, fetchOptions);
           }
           break;
 
@@ -209,7 +217,7 @@ export class EmailFetchingService {
         case "exchange":
         case "custom":
         default:
-          result = await this.fetchFromIMAP(emailAccount, options);
+          result = await this.fetchFromIMAP(emailAccount, fetchOptions);
           break;
       }
 
@@ -256,7 +264,7 @@ export class EmailFetchingService {
    */
   private static async fetchFromIMAP(
     emailAccount: IEmailAccount,
-    options: EmailFetchOptions
+    fetchOptions: EmailFetchOptions
   ): Promise<EmailFetchResult> {
     return new Promise((resolve) => {
       try {
@@ -265,7 +273,7 @@ export class EmailFetchingService {
         let totalCount = 0;
 
         imap.once("ready", () => {
-          const folder = options.folder || "INBOX";
+          const folder = fetchOptions.folder || "INBOX";
 
           imap.openBox(folder, false, (err: any, box: any) => {
             if (err) {
@@ -283,7 +291,7 @@ export class EmailFetchingService {
             totalCount = box.messages.total;
 
             // Build search criteria
-            const searchCriteria = this.buildSearchCriteria(options);
+            const searchCriteria = this.buildSearchCriteria(fetchOptions);
 
             imap.search(searchCriteria, (err: any, results: any) => {
               if (err) {
@@ -311,19 +319,19 @@ export class EmailFetchingService {
               }
 
               // Limit results
-              const limit = options.limit || 50;
+              const limit = fetchOptions.limit || 50;
               const limitedResults = results.slice(-limit); // Get most recent
 
-              const fetchOptions: any = {
+              const imapFetchOptions: any = {
                 bodies:
-                  options.includeBody !== false
+                  fetchOptions.includeBody !== false
                     ? ""
                     : "HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID REFERENCES IN-REPLY-TO)",
                 struct: true,
-                markSeen: options.markAsRead || false,
+                markSeen: fetchOptions.markAsRead || false,
               };
 
-              const fetch = imap.fetch(limitedResults, fetchOptions);
+              const fetch = imap.fetch(limitedResults, imapFetchOptions);
               let processedCount = 0;
 
               fetch.on("message", (msg: any, seqno: any) => {
@@ -331,16 +339,10 @@ export class EmailFetchingService {
                 let body = "";
 
                 msg.on("body", (stream: any, info: any) => {
-                  if (options.includeBody !== false) {
-                    stream.on("data", (chunk: any) => {
-                      body += chunk.toString("utf8");
-                    });
-                  } else {
-                    // Parse headers only
-                    stream.on("data", (chunk: any) => {
-                      body += chunk.toString("utf8");
-                    });
-                  }
+                  // Always collect body data if we're fetching it
+                  stream.on("data", (chunk: any) => {
+                    body += chunk.toString("utf8");
+                  });
                 });
 
                 msg.once("attributes", (attrs: any) => {
@@ -353,6 +355,16 @@ export class EmailFetchingService {
                 msg.once("end", async () => {
                   try {
                     const parsed: any = await simpleParser(body);
+
+                    console.log(`📧 IMAP message parsed:`, {
+                      messageId: parsed.messageId || `${emailAccount._id}_${emailData.uid}`,
+                      hasTextContent: !!parsed.text,
+                      textContentLength: parsed.text?.length || 0,
+                      hasHtmlContent: !!parsed.html,
+                      htmlContentLength: parsed.html?.length || 0,
+                      subject: parsed.subject,
+                      from: parsed.from?.value[0]?.address,
+                    });
 
                     const email: FetchedEmail = {
                       messageId: parsed.messageId || `${emailAccount._id}_${emailData.uid}`,
@@ -460,7 +472,7 @@ export class EmailFetchingService {
    */
   private static async fetchFromGmailAPI(
     emailAccount: IEmailAccount,
-    options: EmailFetchOptions
+    fetchOptions: EmailFetchOptions
   ): Promise<EmailFetchResult> {
     let currentAccount = emailAccount;
 
@@ -515,41 +527,35 @@ export class EmailFetchingService {
 
       // Build query for Gmail API
       let query = "";
-      if (options.since && !options.fetchAll) {
-        const sinceStr = Math.floor(options.since.getTime() / 1000);
+      if (fetchOptions.since && !fetchOptions.fetchAll) {
+        const sinceStr = Math.floor(fetchOptions.since.getTime() / 1000);
         query += `after:${sinceStr} `;
       }
-      if (options.folder && options.folder !== "INBOX") {
-        query += `in:${options.folder.toLowerCase()} `;
+      if (fetchOptions.folder && fetchOptions.folder !== "INBOX") {
+        query += `in:${fetchOptions.folder.toLowerCase()} `;
       }
 
-      console.log("🔍 Gmail API query:", {
-        query: query.trim() || "all emails",
-        maxResults: options.limit || 50,
-        folder: options.folder || "INBOX",
-        since: options.since?.toISOString(),
-        fetchAll: options.fetchAll,
-      });
-
-      // List messages with pagination support
-      console.log("📬 Calling Gmail API messages.list");
       let allMessages: any[] = [];
       let nextPageToken: string | undefined;
       let pageCount = 0;
       let lastListResponse: any = null;
 
       // Determine pagination strategy
-      const usePagination = options.page && options.pageSize;
-      const maxPages = usePagination ? 1 : options.fetchAll ? 20 : 1; // Single page for pagination, multiple for fetchAll
-      const maxResults = usePagination ? options.pageSize! : options.fetchAll ? 500 : options.limit || 50;
+      const usePagination = fetchOptions.page && fetchOptions.pageSize;
+      const maxPages = usePagination ? 1 : fetchOptions.fetchAll ? 20 : 1; // Single page for pagination, multiple for fetchAll
+      const maxResults = usePagination
+        ? fetchOptions.pageSize!
+        : fetchOptions.fetchAll
+          ? 500
+          : fetchOptions.limit || 50;
 
       console.log("📊 Pagination settings:", {
         usePagination,
-        page: options.page,
-        pageSize: options.pageSize,
+        page: fetchOptions.page,
+        pageSize: fetchOptions.pageSize,
         maxPages,
         maxResults,
-        fetchAll: options.fetchAll,
+        fetchAll: fetchOptions.fetchAll,
       });
 
       do {
@@ -609,15 +615,15 @@ export class EmailFetchingService {
 
           const msg = messageResponse.data;
           const headers = msg.payload?.headers || [];
-          console.log(`✅ Message ${message.id} fetched, parsing...`);
+          // console.log(`✅ Message ${message.id} fetched, parsing...`);
 
           const parsedEmail = this.parseGmailMessage(msg, emailAccount);
-          console.log(`✅ Message ${message.id} parsed:`, {
-            subject: parsedEmail.subject,
-            from: parsedEmail.from?.email,
-            date: parsedEmail.date,
-            hasBody: !!(parsedEmail.textContent || parsedEmail.htmlContent),
-          });
+          // console.log(`✅ Message ${message.id} parsed:`, {
+          //   subject: parsedEmail.subject,
+          //   from: parsedEmail.from?.email,
+          //   date: parsedEmail.date,
+          //   hasBody: !!(parsedEmail.textContent || parsedEmail.htmlContent),
+          // });
 
           return parsedEmail;
         } catch (error: any) {
@@ -630,20 +636,12 @@ export class EmailFetchingService {
       console.log("⏳ Waiting for all messages to be processed...");
       const fetchedMessages = await Promise.all(messagePromises);
       const validEmails = fetchedMessages.filter((email) => email !== null) as FetchedEmail[];
-
-      console.log("📊 Gmail API fetch complete:", {
-        totalFetched: fetchedMessages.length,
-        validEmails: validEmails.length,
-        failedEmails: fetchedMessages.length - validEmails.length,
-        unreadCount: validEmails.filter((e) => !e.isRead).length,
-      });
-
       const paginationData = usePagination
         ? {
-            page: options.page!,
-            pageSize: options.pageSize!,
+            page: fetchOptions.page!,
+            pageSize: fetchOptions.pageSize!,
             totalPages: Math.ceil(
-              (lastListResponse?.data.resultSizeEstimate || allMessages.length) / options.pageSize!
+              (lastListResponse?.data.resultSizeEstimate || allMessages.length) / fetchOptions.pageSize!
             ),
             hasNextPage: !!lastListResponse?.data.nextPageToken,
             nextPageToken: lastListResponse?.data.nextPageToken,
@@ -652,8 +650,8 @@ export class EmailFetchingService {
 
       console.log("📊 Pagination Debug:", {
         usePagination,
-        requestedPage: options.page,
-        requestedPageSize: options.pageSize,
+        requestedPage: fetchOptions.page,
+        requestedPageSize: fetchOptions.pageSize,
         totalEmails: lastListResponse?.data.resultSizeEstimate || allMessages.length,
         fetchedEmails: allMessages.length,
         paginationData,
@@ -695,7 +693,7 @@ export class EmailFetchingService {
 
           // Retry the operation with refreshed token
           logger.info(`Token refreshed successfully, retrying Gmail fetch for ${currentAccount.emailAddress}`);
-          return await this.fetchFromGmailAPI(currentAccount, options);
+          return await this.fetchFromGmailAPI(currentAccount, fetchOptions);
         } catch (refreshError: any) {
           console.log("❌ Token refresh failed:", refreshError.message);
           logger.error(`Token refresh failed for account ${currentAccount.emailAddress}:`, refreshError);
@@ -730,7 +728,7 @@ export class EmailFetchingService {
    */
   private static async fetchFromOutlookAPI(
     emailAccount: IEmailAccount,
-    options: EmailFetchOptions
+    fetchOptions: EmailFetchOptions
   ): Promise<EmailFetchResult> {
     try {
       if (!emailAccount.oauth?.accessToken) {
@@ -745,18 +743,18 @@ export class EmailFetchingService {
 
       // Build query parameters
       let queryParams: any = {
-        $top: options.limit || 50,
+        $top: fetchOptions.limit || 50,
         $orderby: "receivedDateTime desc",
       };
 
-      if (options.since) {
-        queryParams.$filter = `receivedDateTime ge ${options.since.toISOString()}`;
+      if (fetchOptions.since) {
+        queryParams.$filter = `receivedDateTime ge ${fetchOptions.since.toISOString()}`;
       }
 
       // Determine folder
       let folderPath = "me/mailFolders/inbox";
-      if (options.folder && options.folder.toLowerCase() !== "inbox") {
-        folderPath = `me/mailFolders/${options.folder.toLowerCase()}`;
+      if (fetchOptions.folder && fetchOptions.folder.toLowerCase() !== "inbox") {
+        folderPath = `me/mailFolders/${fetchOptions.folder.toLowerCase()}`;
       }
 
       const messages = await graphClient.api(`${folderPath}/messages`).query(queryParams).get();
@@ -837,6 +835,16 @@ export class EmailFetchingService {
         // Create email document
         const emailDoc = new EmailModel(emailData);
         await emailDoc.save();
+
+        console.log(`💾 Email stored in database:`, {
+          messageId: email.messageId,
+          subject: email.subject,
+          hasTextContent: !!email.textContent,
+          textContentLength: email.textContent?.length || 0,
+          hasHtmlContent: !!email.htmlContent,
+          htmlContentLength: email.htmlContent?.length || 0,
+          threadId: threadId,
+        });
 
         logger.debug(`Stored email: ${email.subject} in thread: ${threadId}`);
       } catch (error: any) {
@@ -930,6 +938,21 @@ export class EmailFetchingService {
     const bcc = this.parseAddressHeader(getHeader("Bcc"));
     const replyTo = this.parseSingleAddress(getHeader("Reply-To"));
 
+    // Extract content
+    const textContent = this.extractTextFromGmailPayload(msg.payload);
+    const htmlContent = this.extractHtmlFromGmailPayload(msg.payload);
+
+    console.log(`📧 Gmail message content extracted:`, {
+      messageId: msg.id,
+      hasTextContent: !!textContent,
+      textContentLength: textContent?.length || 0,
+      hasHtmlContent: !!htmlContent,
+      htmlContentLength: htmlContent?.length || 0,
+      mimeType: msg.payload?.mimeType,
+      hasParts: !!msg.payload?.parts,
+      partsCount: msg.payload?.parts?.length || 0,
+    });
+
     return {
       messageId: msg.id!,
       threadId: msg.threadId, // Gmail's native thread ID
@@ -940,8 +963,8 @@ export class EmailFetchingService {
       bcc: bcc,
       replyTo: replyTo || undefined,
       date: new Date(parseInt(msg.internalDate!)),
-      textContent: this.extractTextFromGmailPayload(msg.payload),
-      htmlContent: this.extractHtmlFromGmailPayload(msg.payload),
+      textContent: textContent,
+      htmlContent: htmlContent,
       isRead: !msg.labelIds?.includes("UNREAD"),
       headers: headers.map((h: any) => ({ name: h.name, value: h.value })),
       // Threading headers
@@ -953,6 +976,42 @@ export class EmailFetchingService {
   }
 
   private static parseOutlookMessage(msg: any, emailAccount: IEmailAccount): FetchedEmail {
+    // Extract content based on body type
+    let textContent: string | undefined;
+    let htmlContent: string | undefined;
+
+    if (msg.body) {
+      if (msg.body.contentType === "text") {
+        textContent = msg.body.content;
+      } else if (msg.body.contentType === "html") {
+        htmlContent = msg.body.content;
+      }
+    }
+
+    // If we have HTML but no text, try to extract text from HTML
+    if (htmlContent && !textContent) {
+      try {
+        // Simple HTML to text conversion (remove HTML tags)
+        textContent = htmlContent
+          .replace(/<[^>]*>/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      } catch (error) {
+        console.log("Error converting HTML to text:", error);
+      }
+    }
+
+    console.log(`📧 Outlook message parsed:`, {
+      messageId: msg.id,
+      hasTextContent: !!textContent,
+      textContentLength: textContent?.length || 0,
+      hasHtmlContent: !!htmlContent,
+      htmlContentLength: htmlContent?.length || 0,
+      subject: msg.subject,
+      from: msg.from?.emailAddress?.address,
+      bodyContentType: msg.body?.contentType,
+    });
+
     return {
       messageId: msg.id,
       threadId: msg.conversationId,
@@ -972,8 +1031,8 @@ export class EmailFetchingService {
           name: r.emailAddress.name,
         })) || [],
       date: new Date(msg.receivedDateTime),
-      textContent: msg.body?.contentType === "text" ? msg.body.content : undefined,
-      htmlContent: msg.body?.contentType === "html" ? msg.body.content : undefined,
+      textContent: textContent,
+      htmlContent: htmlContent,
       isRead: msg.isRead,
       attachments:
         msg.attachments?.map((att: any) => ({
@@ -1020,14 +1079,81 @@ export class EmailFetchingService {
   }
 
   private static extractTextFromGmailPayload(payload: any): string | undefined {
-    // Implementation for extracting text content from Gmail payload
-    // This would need to handle multipart messages, etc.
-    return undefined; // Simplified for now
+    if (!payload) return undefined;
+
+    // If payload has text content directly
+    if (payload.body?.data) {
+      try {
+        const decoded = Buffer.from(payload.body.data, "base64").toString("utf-8");
+        return decoded;
+      } catch (error) {
+        console.log("Error decoding Gmail text body:", error);
+      }
+    }
+
+    // Handle multipart messages
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        // Look for text/plain content
+        if (part.mimeType === "text/plain") {
+          if (part.body?.data) {
+            try {
+              const decoded = Buffer.from(part.body.data, "base64").toString("utf-8");
+              return decoded;
+            } catch (error) {
+              console.log("Error decoding Gmail text part:", error);
+            }
+          }
+        }
+
+        // Recursively check nested parts
+        if (part.parts) {
+          const nestedText = this.extractTextFromGmailPayload(part);
+          if (nestedText) return nestedText;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   private static extractHtmlFromGmailPayload(payload: any): string | undefined {
-    // Implementation for extracting HTML content from Gmail payload
-    return undefined; // Simplified for now
+    if (!payload) return undefined;
+
+    // If payload has HTML content directly
+    if (payload.body?.data) {
+      try {
+        const decoded = Buffer.from(payload.body.data, "base64").toString("utf-8");
+        return decoded;
+      } catch (error) {
+        console.log("Error decoding Gmail HTML body:", error);
+      }
+    }
+
+    // Handle multipart messages
+    if (payload.parts) {
+      for (const part of payload.parts) {
+        // Look for text/html content
+        if (part.mimeType === "text/html") {
+          if (part.body?.data) {
+            try {
+              const decoded = Buffer.from(part.body.data, "base64").toString("utf-8");
+              return decoded;
+            } catch (error) {
+              console.log("Error decoding Gmail HTML part:", error);
+            }
+          }
+        }
+
+        // Recursively check nested parts
+        if (part.parts) {
+          const nestedHtml = this.extractHtmlFromGmailPayload(part);
+          if (nestedHtml) return nestedHtml;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   private static async updateAccountStats(emailAccount: IEmailAccount, result: EmailFetchResult): Promise<void> {
