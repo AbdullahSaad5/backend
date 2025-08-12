@@ -28,13 +28,14 @@ export class EmailClientController {
       const user = await authService.findUserById(userId);
 
       // Get the email account
-      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      let account = await EmailAccountModel.findOne({ _id: accountId, userId });
       if (!account) {
         return res.status(404).json({
           success: false,
           message: "Email account not found",
         });
       }
+
 
       // Check if account is active
       if (!account.isActive) {
@@ -44,15 +45,60 @@ export class EmailClientController {
         });
       }
 
-      // Refresh OAuth tokens if needed
-      if (account.oauth && account.oauth.tokenExpiry && new Date() > account.oauth.tokenExpiry) {
-        const refreshResult = await EmailOAuthService.refreshTokens(account);
-        if (!refreshResult.success) {
+      // Validate OAuth configuration for OAuth accounts
+      if (account.oauth) {
+        if (!account.oauth.accessToken && !account.oauth.refreshToken) {
           return res.status(400).json({
             success: false,
-            message: "Failed to refresh OAuth tokens",
-            error: refreshResult.error,
+            message: "OAuth account is not properly configured. Please re-authenticate.",
           });
+        }
+      } else {
+        // For non-OAuth accounts, validate SMTP configuration
+        if (!account.outgoingServer?.host || !account.outgoingServer?.username || !account.outgoingServer?.password) {
+          return res.status(400).json({
+            success: false,
+            message: "SMTP configuration is incomplete. Please check account settings.",
+          });
+        }
+      }
+
+      // Check if current access token is still valid before attempting refresh
+      if (account.oauth && account.oauth.tokenExpiry && new Date() > account.oauth.tokenExpiry) {
+        console.log("🔄 Token expired, checking if current token is still valid...");
+
+        const isTokenValid = await EmailOAuthService.isAccessTokenValid(account);
+        if (isTokenValid) {
+          console.log("✅ Current access token is still valid, no refresh needed");
+        } else {
+          console.log("🔄 Token is invalid, attempting refresh...");
+          const refreshResult = await EmailOAuthService.refreshTokens(account);
+          if (!refreshResult.success) {
+            console.log("❌ Token refresh failed:", refreshResult.error);
+
+            // Check if it's an authentication issue that requires re-authentication
+            if (refreshResult.error?.includes("re-authenticate") || refreshResult.error?.includes("invalid_grant")) {
+              return res.status(401).json({
+                success: false,
+                message: "OAuth authentication expired. Please re-authenticate your account.",
+                error: refreshResult.error,
+                requiresReauth: true,
+              });
+            }
+
+            return res.status(400).json({
+              success: false,
+              message: "Failed to refresh OAuth tokens",
+              error: refreshResult.error,
+            });
+          }
+          console.log("✅ Token refresh successful");
+
+          // Reload the account to get updated tokens
+          const updatedAccount = await EmailAccountModel.findOne({ _id: accountId, userId });
+          if (updatedAccount) {
+            account = updatedAccount;
+          }
         }
       }
 
@@ -68,12 +114,26 @@ export class EmailClientController {
       });
 
       if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: "Failed to send email",
-          error: result.error,
-        });
+        // If sending failed and it's an OAuth account, it might be due to token issues
+        if (account.oauth) {
+          console.log("❌ Email sending failed for OAuth account:", result.error);
+          return res.status(400).json({
+            success: false,
+            message: "Failed to send email. OAuth tokens may be invalid. Please re-authenticate your account.",
+            error: result.error,
+            requiresReauth: true,
+          });
+        } else {
+          console.log("❌ Email sending failed for SMTP account:", result.error);
+          return res.status(400).json({
+            success: false,
+            message: "Failed to send email",
+            error: result.error,
+          });
+        }
       }
+
+      console.log("✅ Email sent successfully");
 
       // Save sent email to database
       try {
