@@ -1,5 +1,11 @@
 import { Model, Document, Types } from "mongoose";
 
+export interface ITimelineEntry {
+  status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved";
+  changedAt: Date;
+  changedBy: Types.ObjectId;
+}
+
 export interface IComplaint extends Document {
   category: string;
   title: string;
@@ -17,8 +23,9 @@ export interface IComplaint extends Document {
   assignedTo?: string[];
   createDate?: Date;
   dueDate?: Date;
-  status?: "Open" | "In Progress" | "Closed" | "Resolved";
+  status?: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved";
   priority?: "Low" | "Medium" | "High" | "Urgent";
+  timeline?: ITimelineEntry[];
   resolution?: [{
     image?:string[];
     description?: string;
