@@ -104,4 +104,11 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.refreshAccountToken
   );
+
+  // Re-authenticate existing account with expired tokens
+  router.post(
+    "/accounts/:accountId/re-authenticate",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.reAuthenticateExistingAccount
+  );
 };
