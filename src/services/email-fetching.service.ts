@@ -39,6 +39,13 @@ export interface EmailFetchResult {
   totalCount: number;
   newCount: number;
   error?: string;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    nextPageToken?: string;
+  };
 }
 
 export interface EmailFetchOptions {
@@ -47,6 +54,9 @@ export interface EmailFetchOptions {
   since?: Date;
   markAsRead?: boolean;
   includeBody?: boolean;
+  fetchAll?: boolean; // New option to fetch all emails instead of just recent ones
+  page?: number; // Page number for pagination (1-based)
+  pageSize?: number; // Number of emails per page
 }
 
 export class EmailFetchingService {
@@ -505,7 +515,7 @@ export class EmailFetchingService {
 
       // Build query for Gmail API
       let query = "";
-      if (options.since) {
+      if (options.since && !options.fetchAll) {
         const sinceStr = Math.floor(options.since.getTime() / 1000);
         query += `after:${sinceStr} `;
       }
@@ -518,23 +528,64 @@ export class EmailFetchingService {
         maxResults: options.limit || 50,
         folder: options.folder || "INBOX",
         since: options.since?.toISOString(),
+        fetchAll: options.fetchAll,
       });
 
-      // List messages
+      // List messages with pagination support
       console.log("📬 Calling Gmail API messages.list");
-      const listResponse = await gmail.users.messages.list({
-        userId: "me",
-        q: query.trim(),
-        maxResults: options.limit || 50,
+      let allMessages: any[] = [];
+      let nextPageToken: string | undefined;
+      let pageCount = 0;
+      let lastListResponse: any = null;
+
+      // Determine pagination strategy
+      const usePagination = options.page && options.pageSize;
+      const maxPages = usePagination ? 1 : options.fetchAll ? 20 : 1; // Single page for pagination, multiple for fetchAll
+      const maxResults = usePagination ? options.pageSize! : options.fetchAll ? 500 : options.limit || 50;
+
+      console.log("📊 Pagination settings:", {
+        usePagination,
+        page: options.page,
+        pageSize: options.pageSize,
+        maxPages,
+        maxResults,
+        fetchAll: options.fetchAll,
       });
 
-      console.log("📨 Gmail API response:", {
-        totalMessages: listResponse.data.messages?.length || 0,
-        resultSizeEstimate: listResponse.data.resultSizeEstimate,
-        nextPageToken: !!listResponse.data.nextPageToken,
-      });
+      do {
+        pageCount++;
+        console.log(`📄 Fetching page ${pageCount}...`);
 
-      if (!listResponse.data.messages || listResponse.data.messages.length === 0) {
+        const listResponse = await gmail.users.messages.list({
+          userId: "me",
+          q: query.trim(),
+          maxResults: maxResults,
+          pageToken: nextPageToken,
+        });
+
+        lastListResponse = listResponse;
+
+        console.log(`📨 Gmail API response (page ${pageCount}):`, {
+          totalMessages: listResponse.data.messages?.length || 0,
+          resultSizeEstimate: listResponse.data.resultSizeEstimate,
+          nextPageToken: !!listResponse.data.nextPageToken,
+        });
+
+        if (listResponse.data.messages) {
+          allMessages = allMessages.concat(listResponse.data.messages);
+        }
+
+        nextPageToken = listResponse.data.nextPageToken || undefined;
+
+        // Break if we've reached the max pages or no more pages
+        if (pageCount >= maxPages || !nextPageToken) {
+          break;
+        }
+      } while (nextPageToken);
+
+      console.log(`📊 Total messages collected: ${allMessages.length} from ${pageCount} pages`);
+
+      if (allMessages.length === 0) {
         console.log("📭 No messages found");
         return {
           success: true,
@@ -547,9 +598,9 @@ export class EmailFetchingService {
       // Fetch detailed message data
       console.log("📥 Fetching detailed message data");
       const emails: FetchedEmail[] = [];
-      const messagePromises = listResponse.data.messages.map(async (message: any, index: number) => {
+      const messagePromises = allMessages.map(async (message: any, index: number) => {
         try {
-          console.log(`📧 Fetching message ${index + 1}/${listResponse.data.messages!.length}: ${message.id}`);
+          console.log(`📧 Fetching message ${index + 1}/${allMessages.length}: ${message.id}`);
           const messageResponse = await gmail.users.messages.get({
             userId: "me",
             id: message.id!,
@@ -590,8 +641,19 @@ export class EmailFetchingService {
       return {
         success: true,
         emails: validEmails,
-        totalCount: listResponse.data.resultSizeEstimate || validEmails.length,
+        totalCount: allMessages.length,
         newCount: validEmails.filter((e) => !e.isRead).length,
+        pagination: usePagination
+          ? {
+              page: options.page!,
+              pageSize: options.pageSize!,
+              totalPages: Math.ceil(
+                (lastListResponse?.data.resultSizeEstimate || allMessages.length) / options.pageSize!
+              ),
+              hasNextPage: !!lastListResponse?.data.nextPageToken,
+              nextPageToken: lastListResponse?.data.nextPageToken,
+            }
+          : undefined,
       };
     } catch (error: any) {
       console.log("❌ GMAIL API ERROR:", {
@@ -767,6 +829,11 @@ export class EmailFetchingService {
 
         logger.debug(`Stored email: ${email.subject} in thread: ${threadId}`);
       } catch (error: any) {
+        // Handle database connection errors gracefully
+        if (error.name === "MongoNotConnectedError" || error.message?.includes("Client must be connected")) {
+          logger.warn(`Database connection lost while storing email ${email.messageId}, skipping...`);
+          break; // Stop processing more emails if DB is disconnected
+        }
         logger.error(`Error storing email ${email.messageId}:`, error);
       }
     }
@@ -971,6 +1038,11 @@ export class EmailFetchingService {
 
       await emailAccount.save();
     } catch (error: any) {
+      // Handle database connection errors gracefully
+      if (error.name === "MongoNotConnectedError" || error.message?.includes("Client must be connected")) {
+        logger.warn(`Database connection lost while updating account stats for ${emailAccount.emailAddress}`);
+        return;
+      }
       logger.error("Error updating account stats:", error);
     }
   }
