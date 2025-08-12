@@ -69,21 +69,6 @@ const complaintdata = {...req.body, userId};
     }
   },
 
-
-
-  // getAllComplaints: async (req: Request, res: Response) => {
-  //   try {
-  //     const categories = await complaintService.getAllComplaints();
-  //     console.log(categories);
-  //     res.status(StatusCodes.OK).json({ success: true, data: categories });
-  //   } catch (error) {
-  //     console.error("View Categories Error:", error);
-  //     res
-  //       .status(StatusCodes.INTERNAL_SERVER_ERROR)
-  //       .json({ success: false, message: "Error getting all Blog categories" });
-  //   }
-  // },
-
   getAllComplaints: async (req: Request, res: Response) => {
   try {
     const complaints = await complaintService.getAllComplaints();
@@ -178,19 +163,34 @@ const complaintdata = {...req.body, userId};
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowedStatuses = ["Open", "In Progress", "Closed","Resolved"];
+    const allowedStatuses = ["Open", "Assigned", "In Progress", "Closed","Resolved"];
 
     if (!status || !allowedStatuses.includes(status)) {
       return res.status(StatusCodes.BAD_REQUEST).json({
         success: false,
         message:
-          "Status is required and must be one of: Open, In Progress, Closed,Resolved",
+          "Status is required and must be one of: Open, Assigned, In Progress, Closed, Resolved",
         allowedStatuses,
       });
     }
 
     try {
-      const result = await complaintService.changeStatus(id, status);
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for status change, proceeding without user tracking");
+        }
+      }
+
+      const result = await complaintService.changeStatus(id, status, userId);
 
       res.status(StatusCodes.OK).json({
         success: true,
@@ -438,5 +438,44 @@ const complaintdata = {...req.body, userId};
       });
     }
   },
+
+  updateAssignment: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { assignedTo } = req.body;
+
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for assignment, proceeding without user tracking");
+        }
+      }
+
+      // Convert string IDs to ObjectId if present
+      const assignedToIds = assignedTo ? (Array.isArray(assignedTo) ? assignedTo.map((id: string) => new Types.ObjectId(id)) : [new Types.ObjectId(assignedTo)]) : [];
+
+      const updatedComplaint = await complaintService.updateAssignment(id, assignedToIds, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Assignment updated successfully",
+        data: updatedComplaint,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating assignment",
+        error: error.message
+      });
+    }
+  }
   
 };
