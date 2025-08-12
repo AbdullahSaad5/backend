@@ -88,6 +88,7 @@ export const EmailProcessingService = {
         isForwarded: false,
         isArchived: false,
         isSpam: false,
+        category: "primary", // Default to primary tab
         rawEmailData: mailData,
       };
 

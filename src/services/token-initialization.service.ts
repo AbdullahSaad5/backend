@@ -1,5 +1,5 @@
 import { getApplicationAuthToken } from "@/utils/ebay-helpers.util";
-import { getAmazonApplicationAuthToken } from "@/utils/amazon-helpers.util";
+import { getAmazonAccessToken } from "@/utils/amazon-helpers.util";
 import { IntegrationTokenModel } from "@/models/integration-token.model";
 
 interface TokenInitializationResult {
@@ -127,7 +127,7 @@ export class TokenInitializationService {
 
       // Get new token
       console.log(`🔄 Getting Amazon ${envVal} token...`);
-      const token = await getAmazonApplicationAuthToken();
+      const token = await getAmazonAccessToken();
 
       if (token?.access_token) {
         results.push({

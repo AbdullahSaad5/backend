@@ -9,7 +9,7 @@ export interface IResolution {
 export interface ITicket extends Document {
   title: string;
   client: string;
-  assignedTo?: Types.ObjectId;  // Changed to reference User
+  assignedTo?: Types.ObjectId[];  // Changed to reference multiple Users
   createDate: Date;
   dueDate: Date;
   status: "Open" | "In Progress" | "Closed" | "Resolved";
@@ -24,6 +24,11 @@ export interface ITicket extends Document {
   isEscalated?: boolean;
   isManuallyEscalated?: boolean;
   chatMessageId?: string;
+  // New fields
+  images?: string[]; // Array of image URLs
+  platform?: string; // Platform name (e.g., "Amazon", "eBay", "Shopify")
+  orderReference?: string; // Order reference number
+  orderStatus?: "Fulfilled" | "Not Fulfilled"; // Order fulfillment status
 }
 
 export type TicketModel = Model<ITicket>;

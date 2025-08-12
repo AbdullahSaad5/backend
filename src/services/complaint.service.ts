@@ -15,6 +15,8 @@ export const complaintService = {
       title?: string;
       details?: string;
       orderNumber?: string;
+      platform?: string;
+      orderStatus?: "Fulfilled" | "Not Fulfilled";
       attachedFiles?: string;
     }
   ) => {
