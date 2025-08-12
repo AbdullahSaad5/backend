@@ -260,6 +260,84 @@ export class EmailFetchingService {
   }
 
   /**
+   * Sync emails from multiple folders for an account
+   */
+  static async syncMultipleFolders(
+    emailAccount: IEmailAccount,
+    options: EmailFetchOptions = {}
+  ): Promise<EmailFetchResult> {
+    try {
+      console.log("🔄 SYNCING MULTIPLE FOLDERS");
+      console.log("Account:", {
+        id: emailAccount._id,
+        email: emailAccount.emailAddress,
+        syncFolders: emailAccount.settings?.syncFolders || ["INBOX"],
+      });
+
+      const syncFolders = emailAccount.settings?.syncFolders || ["INBOX"];
+      let allEmails: FetchedEmail[] = [];
+      let totalNewCount = 0;
+      let totalCount = 0;
+
+      // Sync each folder
+      for (const folder of syncFolders) {
+        console.log(`📁 Syncing folder: ${folder}`);
+
+        try {
+          const folderOptions = {
+            ...options,
+            folder: folder,
+          };
+
+          const result = await this.fetchEmailsFromAccount(emailAccount, folderOptions);
+
+          if (result.success) {
+            allEmails = allEmails.concat(result.emails);
+            totalNewCount += result.newCount;
+            totalCount += result.totalCount;
+
+            console.log(`✅ Folder ${folder} synced:`, {
+              emails: result.emails.length,
+              newEmails: result.newCount,
+              totalCount: result.totalCount,
+            });
+          } else {
+            console.log(`❌ Folder ${folder} sync failed:`, result.error);
+          }
+        } catch (error: any) {
+          console.log(`❌ Error syncing folder ${folder}:`, error.message);
+          // Continue with other folders even if one fails
+        }
+      }
+
+      console.log("🎉 MULTI-FOLDER SYNC COMPLETE:", {
+        foldersSynced: syncFolders.length,
+        totalEmails: allEmails.length,
+        totalNewEmails: totalNewCount,
+        totalCount: totalCount,
+      });
+
+      return {
+        success: true,
+        emails: allEmails,
+        totalCount: totalCount,
+        newCount: totalNewCount,
+      };
+    } catch (error: any) {
+      console.log("💥 MULTI-FOLDER SYNC FAILED:", error.message);
+      logger.error(`Error syncing multiple folders for account ${emailAccount.emailAddress}:`, error);
+
+      return {
+        success: false,
+        emails: [],
+        totalCount: 0,
+        newCount: 0,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Fetch emails using IMAP protocol
    */
   private static async fetchFromIMAP(
