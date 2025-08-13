@@ -23,6 +23,7 @@ export const productCategoryValidation = {
       image: z.string().nonempty("At least one image/icon is required"), // permissions array must have at least one string
       tags: z.array(z.string()).nonempty("At least one tag is required"),
       isBlocked: z.boolean().optional(),
+      isFeatured: z.boolean().optional(),
     });
     try {
       const validatedData = schema.parse(req.body);
@@ -59,6 +60,7 @@ export const productCategoryValidation = {
       image: z.string().nonempty("At least one image/icon is required").optional(), // permissions array must have at least one string
       tags: z.array(z.string()).nonempty("At least one tag is required"),
       isBlocked: z.boolean().optional(),
+      isFeatured: z.boolean().optional(),
     });
     try {
       const validatedData = schema.parse(req.body);

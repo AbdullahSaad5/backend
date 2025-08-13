@@ -5,12 +5,12 @@ export interface IProductCategory extends Document {
   name: string;
   ebayCategoryId: string;
   amazonCategoryId?: string;
-  platform?: String;
   description: string;
   image?: string[];
   tags?: string[];
   isBlocked?: boolean;
   isPart?: boolean;
+  isFeatured?: boolean;
 }
 
 export type ProductCategoryModel = Model<IProductCategory>;
@@ -25,7 +25,7 @@ export type ProductCategoryCreatePayload = Pick<
   | "isPart"
   | "ebayCategoryId"
   | "amazonCategoryId"
-  | "platform"
+  | "isFeatured"
 >;
 
 export type ProductCategoryUpdatePayload = Partial<ProductCategoryCreatePayload>;

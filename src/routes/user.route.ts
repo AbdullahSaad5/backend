@@ -38,6 +38,9 @@ export const user = (router: Router) => {
   // route for toggle block status
   router.patch("/block/:id", userController.toggleBlock);
 
+  // route for toggle email verification status
+  router.patch("/email-verification/:id", userController.toggleEmailVerification);
+
   router.patch("/permissions/:id", userController.updatePermissions);
 
   // Profile Completion Routes
