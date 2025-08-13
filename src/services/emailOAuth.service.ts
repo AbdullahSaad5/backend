@@ -416,13 +416,55 @@ export class EmailOAuthService {
           refresh_token: decryptedRefreshToken,
         });
 
-        const { tokens }: any = await oauth2Client.refreshAccessToken();
+        try {
+          // Try to get access token using refresh token
+          const response = await oauth2Client.refreshAccessToken();
 
-        // Update account with new encrypted tokens
-        await EmailAccountModel.findByIdAndUpdate(account._id, {
-          "oauth.accessToken": this.encryptData(tokens.access_token),
-          "oauth.tokenExpiry": tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
-        });
+          // Check if we have a valid response with tokens
+          if (!response || !response.credentials || !response.credentials.access_token) {
+            // Try alternative approach - get credentials directly
+            const credentials = oauth2Client.credentials;
+
+            if (credentials && credentials.access_token) {
+              // Use credentials directly
+              await EmailAccountModel.findByIdAndUpdate(account._id, {
+                "oauth.accessToken": this.encryptData(credentials.access_token),
+                "oauth.tokenExpiry": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+              });
+
+              logger.info(`Gmail tokens refreshed successfully using credentials for account: ${account.emailAddress}`);
+              return { success: true };
+            }
+
+            logger.error("Invalid tokens response from Google OAuth:", {
+              response,
+              responseType: typeof response,
+              responseKeys: response ? Object.keys(response) : null,
+              credentials: oauth2Client.credentials,
+            });
+            return { success: false, error: "Invalid tokens response from Google OAuth" };
+          }
+
+          // Update account with new encrypted tokens
+          await EmailAccountModel.findByIdAndUpdate(account._id, {
+            "oauth.accessToken": this.encryptData(response.credentials.access_token),
+            "oauth.tokenExpiry": response.credentials.expiry_date
+              ? new Date(response.credentials.expiry_date)
+              : undefined,
+          });
+
+          logger.info(`Gmail tokens refreshed successfully for account: ${account.emailAddress}`);
+        } catch (oauthError: any) {
+          // Check for specific OAuth errors
+          if (oauthError.code === 400 || oauthError.message?.includes("invalid_grant")) {
+            return {
+              success: false,
+              error: "Refresh token is invalid or expired. Please re-authenticate your Gmail account.",
+            };
+          }
+
+          throw oauthError;
+        }
       } else if (account.oauth.provider === "outlook") {
         const response = await fetch(provider.oauth.tokenUrl, {
           method: "POST",
@@ -444,6 +486,12 @@ export class EmailOAuthService {
         }
 
         const tokens: OAuthTokenResponse = await response.json();
+
+        // Validate tokens object
+        if (!tokens || !tokens.access_token) {
+          logger.error("Invalid tokens response from Outlook OAuth:", tokens);
+          return { success: false, error: "Invalid tokens response from Outlook OAuth" };
+        }
 
         // Update account with new encrypted tokens
         await EmailAccountModel.findByIdAndUpdate(account._id, {
@@ -472,6 +520,51 @@ export class EmailOAuthService {
     } catch (error) {
       logger.error("Error decrypting access token:", error);
       return null;
+    }
+  }
+
+  // Check if current access token is still valid
+  static async isAccessTokenValid(account: IEmailAccount): Promise<boolean> {
+    try {
+      if (!account.oauth?.accessToken) {
+        return false;
+      }
+
+      const decryptedAccessToken = this.getDecryptedAccessToken(account);
+      if (!decryptedAccessToken) {
+        return false;
+      }
+
+      // For Gmail, we can test the token by making a simple API call
+      if (account.oauth.provider === "gmail") {
+        const provider = EmailProviderService.getProvider(account.oauth.provider);
+        if (!provider?.oauth) {
+          return false;
+        }
+
+        const decryptedClientSecret = this.decryptData(account.oauth.clientSecret);
+        const oauth2Client = new OAuth2Client(provider.oauth.clientId, decryptedClientSecret);
+
+        oauth2Client.setCredentials({
+          access_token: decryptedAccessToken,
+        });
+
+        // Test the token by making a simple Gmail API call
+        const gmail = google.gmail({ version: "v1", auth: oauth2Client });
+        await gmail.users.getProfile({ userId: "me" });
+
+        return true;
+      }
+
+      // For other providers, check if token is not expired
+      if (account.oauth.tokenExpiry) {
+        return new Date() < account.oauth.tokenExpiry;
+      }
+
+      return false;
+    } catch (error) {
+      console.log("❌ Access token validation failed:", error);
+      return false;
     }
   }
 }
