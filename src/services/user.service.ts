@@ -175,6 +175,14 @@ export const userService = {
     return updateUser;
   },
 
+  toggleEmailVerification: (id: string, isEmailVerified: boolean) => {
+    const updateUser = User.findByIdAndUpdate(id, { isEmailVerified: isEmailVerified }, { new: true });
+    if (!updateUser) {
+      throw new Error("User not found");
+    }
+    return updateUser;
+  },
+
   // Profile Completion Methods
   updateProfileCompletion: async (userId: string, profileData: ProfileCompletionPayload) => {
     try {
@@ -478,6 +486,7 @@ export const userService = {
         searchQuery = "",
         userType,
         isBlocked,
+        isEmailVerified,
         startDate,
         endDate,
         additionalAccessRights,
@@ -577,6 +586,10 @@ export const userService = {
 
       if (isBlocked !== undefined) {
         query.isBlocked = isBlocked;
+      }
+
+      if (isEmailVerified !== undefined) {
+        query.isEmailVerified = isEmailVerified;
       }
 
       if (userType) {
