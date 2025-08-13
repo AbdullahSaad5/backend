@@ -351,7 +351,7 @@ export class EmailClientController {
   static async getEmails(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { folder = "INBOX", limit = 50, offset = 0, search } = req.query;
+      const { folder = "INBOX", limit = 50, offset = 0, search, threadId } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -394,24 +394,52 @@ export class EmailClientController {
         }
       }
 
-      // Sync emails from the account
-      const result = await EmailAccountConfigService.syncEmails(account, folder as string, parseInt(limit as string));
+      let emails = [];
+      let totalCount = 0;
 
-      if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: "Failed to fetch emails",
-          error: result.error,
+      // If threadId is provided, fetch emails from database by thread
+      if (threadId) {
+        console.log("📧 Fetching emails by threadId:", threadId);
+
+        const threadEmails = await EmailModel.find({
+          threadId: threadId,
+          accountId: account._id,
+        })
+          .sort({ receivedAt: 1, sentAt: 1 }) // Sort chronologically
+          .limit(parseInt(limit as string))
+          .lean();
+
+        emails = threadEmails;
+        totalCount = await EmailModel.countDocuments({
+          threadId: threadId,
+          accountId: account._id,
         });
+
+        console.log("📧 Found", emails.length, "emails in thread");
+      } else {
+        // Sync emails from the account (normal flow)
+        const result = await EmailAccountConfigService.syncEmails(account, folder as string, parseInt(limit as string));
+
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            message: "Failed to fetch emails",
+            error: result.error,
+          });
+        }
+
+        emails = result.emails || [];
+        totalCount = result.emailCount;
       }
 
       res.json({
         success: true,
         data: {
-          emails: result.emails || [],
-          totalCount: result.emailCount,
+          emails: emails,
+          totalCount: totalCount,
           accountId: account._id,
           folder,
+          threadId: threadId || null,
         },
       });
     } catch (error: any) {
