@@ -4,7 +4,22 @@ import { Types } from "mongoose";
 
 export const complaintService = {
   createComplaint: (complaintData: Omit<IComplaint, keyof Document>) => {
-    const newComplaint = new ComplaintModel(complaintData);
+    // Determine initial status based on assignment
+    let initialStatus = complaintData.status || "Open";
+    if (complaintData.assignedTo && complaintData.assignedTo.length > 0 && initialStatus === "Open") {
+      initialStatus = "Assigned";
+    }
+
+    const newComplaint = new ComplaintModel({
+      ...complaintData,
+      status: initialStatus,
+      // Initialize timeline with the actual initial status
+      timeline: [{
+        status: initialStatus,
+        changedAt: complaintData.createDate || new Date(),
+        changedBy: new Types.ObjectId("000000000000000000000000") // System user
+      }]
+    });
     return newComplaint.save();
   },
 
@@ -15,13 +30,15 @@ export const complaintService = {
       title?: string;
       details?: string;
       orderNumber?: string;
+      platform?: string;
+      orderStatus?: "Fulfilled" | "Not Fulfilled";
       attachedFiles?: string;
     }
   ) => {
     return ComplaintModel.findByIdAndUpdate(id, data, {
       new: true,
       runValidators: true,
-    });
+    }).populate('timeline.changedBy', 'firstName lastName');
   },
 
   deleteComplaint: (id: string) => {
@@ -32,10 +49,7 @@ export const complaintService = {
     return complaint;
   },
 
-  // getAllComplaints: () => {
-  //   return ComplaintModel.find();
-  // },
- // In complaint.service.ts
+  // In complaint.service.ts
 getAllComplaints: async () => {
   return ComplaintModel.find()
     .populate({
@@ -57,33 +71,52 @@ getAllComplaints: async () => {
     .populate({
       path: 'notes.notedBy',
       select: 'firstName lastName email'
+    })
+    .populate({
+      path: 'timeline.changedBy',
+      select: 'firstName lastName email'
     });
 },
   getComplaintById: (id: string) => {
-    return ComplaintModel.findById(id);
+    return ComplaintModel.findById(id).populate('timeline.changedBy', 'firstName lastName');
   },
 
-  changeStatus: (id: string, status: string) => {
-    const updatedTicket = ComplaintModel.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
-    if (!updatedTicket) {
-      throw new Error("Ticket not found");
+  changeStatus: async (id: string, status: string, userId?: string) => {
+    const updateData: any = { status };
+    
+    // Add to timeline if userId is provided
+    if (userId) {
+      updateData.$push = {
+        timeline: {
+          status,
+          changedAt: new Date(),
+          changedBy: new Types.ObjectId(userId)
+        }
+      };
     }
-    return updatedTicket;
+
+    const updatedComplaint = await ComplaintModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    ).populate('timeline.changedBy', 'firstName lastName');
+    
+    if (!updatedComplaint) {
+      throw new Error("Complaint not found");
+    }
+    return updatedComplaint;
   },
+  
   changePriority: (id: string, priority: string) => {
-    const updatedTicket = ComplaintModel.findByIdAndUpdate(
+    const updatedComplaint = ComplaintModel.findByIdAndUpdate(
       id,
       { priority },
       { new: true }
     );
-    if (!updatedTicket) {
-      throw new Error("Ticket not found");
+    if (!updatedComplaint) {
+      throw new Error("Complaint not found");
     }
-    return updatedTicket;
+    return updatedComplaint;
   },
 
   addFilesToComplaint: (id: string, files: string[]) => {
@@ -92,6 +125,43 @@ getAllComplaints: async () => {
       { $addToSet: { attachedFiles: { $each: files } } },
       { new: true, runValidators: true }
     ).exec();
+  },
+
+  // Update assignment and automatically change status to "Assigned" if currently "Open"
+  updateAssignment: async (id: string, assignedTo: Types.ObjectId[], userId?: string) => {
+    const complaint = await ComplaintModel.findById(id);
+    if (!complaint) {
+      throw new Error("Complaint not found");
+    }
+
+    const updateData: any = { assignedTo };
+    
+    // If status is "Open" and we're assigning users, change to "Assigned"
+    if (complaint.status === "Open" && assignedTo && assignedTo.length > 0) {
+      updateData.status = "Assigned";
+      
+      // Add to timeline if userId is provided
+      if (userId) {
+        updateData.$push = {
+          timeline: {
+            status: "Assigned",
+            changedAt: new Date(),
+            changedBy: new Types.ObjectId(userId)
+          }
+        };
+      }
+    }
+
+    const updatedComplaint = await ComplaintModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    ).populate('timeline.changedBy', 'firstName lastName');
+
+    if (!updatedComplaint) {
+      throw new Error("Failed to update complaint");
+    }
+    return updatedComplaint;
   },
 
   resolveComplaint: (
@@ -105,13 +175,18 @@ getAllComplaints: async () => {
     return ComplaintModel.findByIdAndUpdate(
       id,
       {
-        $set: { status: "Closed" },
+        $set: { status: "Resolved" },
         $push: {
           resolution: {
             description: resolutionData.description,
             resolvedBy: resolutionData.resolvedBy,
             resolvedAt: new Date(),
             ...(resolutionData.image && { image: resolutionData.image })
+          },
+          timeline: {
+            status: "Resolved",
+            changedAt: new Date(),
+            changedBy: resolutionData.resolvedBy
           }
         }
       },
@@ -122,8 +197,10 @@ getAllComplaints: async () => {
     )
     .populate("assignedTo", "name email")
     .populate("resolution.resolvedBy", "name email")
-    .populate("userId", "name email");
+    .populate("userId", "name email")
+    .populate("timeline.changedBy", "firstName lastName");
   },
+  
   noteComplaint: (
     id: string,
     resolutionData: {
@@ -142,14 +219,19 @@ getAllComplaints: async () => {
           resolvedBy: resolutionData.notedBy,
           
         },
+        $push: {
+          timeline: {
+            status: "Closed",
+            changedAt: new Date(),
+            changedBy: resolutionData.notedBy
+          }
+        }
       },
       { new: true, runValidators: true }
-    ).populate("resolution.resolvedBy", "name email");
+    ).populate("resolution.resolvedBy", "name email")
+     .populate("timeline.changedBy", "firstName lastName");
   },
 
-
-
-  
   addNoteToComplaint: (
     id: string,
     noteData: {
@@ -195,19 +277,25 @@ getAllComplaints: async () => {
     return ComplaintModel.findByIdAndUpdate(
       id,
       {
-        $set: { status: "Closed" },
+        $set: { status: "Resolved" },
         $push: {
           resolution: {
             ...resolutionData,
             resolvedAt: new Date(),
           },
+          timeline: {
+            status: "Resolved",
+            changedAt: new Date(),
+            changedBy: resolutionData.resolvedBy
+          }
         },
       },
       { new: true, runValidators: true }
     )
       .populate("assignedTo", "name email")
       .populate("resolution.resolvedBy", "name email")
-      .populate("userId", "name email");
+      .populate("userId", "name email")
+      .populate("timeline.changedBy", "firstName lastName");
   },
 
   deleteResolutionFromComplaint: (id: string, resolutionId: string) => {
@@ -218,11 +306,15 @@ getAllComplaints: async () => {
           resolution: { _id: resolutionId },
         },
         $set: { status: "In Progress" }, // Reset status if resolution is deleted
+        $push: {
+          timeline: {
+            status: "In Progress",
+            changedAt: new Date(),
+            changedBy: new Types.ObjectId("000000000000000000000000") // System user
+          }
+        }
       },
       { new: true }
     );
   },
-
-
-
 };

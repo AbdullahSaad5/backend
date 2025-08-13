@@ -55,9 +55,19 @@ export class EmailAccountConfigService {
     try {
       // Gmail OAuth configuration
       if (oauth?.provider === "gmail" && oauth.clientId && oauth.clientSecret && oauth.refreshToken) {
-        const oAuth2Client = new OAuth2Client(oauth.clientId, oauth.clientSecret);
-        oAuth2Client.setCredentials({ refresh_token: oauth.refreshToken });
+        // Decrypt tokens before using them
+        const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+        const decryptedClientSecret = EmailOAuthService.decryptData(oauth.clientSecret);
+        const decryptedRefreshToken = EmailOAuthService.decryptData(oauth.refreshToken);
+        const decryptedAccessToken = EmailOAuthService.getDecryptedAccessToken(emailAccount);
 
+        const oAuth2Client = new OAuth2Client(oauth.clientId, decryptedClientSecret);
+        oAuth2Client.setCredentials({ 
+          refresh_token: decryptedRefreshToken,
+          access_token: decryptedAccessToken
+        });
+
+        // Get fresh access token if needed
         const accessTokenResponse = await oAuth2Client.getAccessToken();
 
         return nodemailer.createTransport({
@@ -66,15 +76,21 @@ export class EmailAccountConfigService {
             type: "OAuth2",
             user: emailAccount.emailAddress,
             clientId: oauth.clientId,
-            clientSecret: oauth.clientSecret,
-            refreshToken: oauth.refreshToken,
-            accessToken: accessTokenResponse.token || "",
+            clientSecret: decryptedClientSecret,
+            refreshToken: decryptedRefreshToken,
+            accessToken: accessTokenResponse.token || decryptedAccessToken || "",
           },
         } as any);
       }
 
       // Outlook OAuth configuration
       if (oauth?.provider === "outlook" && oauth.clientId && oauth.clientSecret && oauth.refreshToken) {
+        // Decrypt tokens before using them
+        const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+        const decryptedClientSecret = EmailOAuthService.decryptData(oauth.clientSecret);
+        const decryptedRefreshToken = EmailOAuthService.decryptData(oauth.refreshToken);
+        const decryptedAccessToken = EmailOAuthService.getDecryptedAccessToken(emailAccount);
+
         return nodemailer.createTransport({
           host: "smtp.office365.com",
           port: 587,
@@ -83,9 +99,9 @@ export class EmailAccountConfigService {
             type: "OAuth2",
             user: emailAccount.emailAddress,
             clientId: oauth.clientId,
-            clientSecret: oauth.clientSecret,
-            refreshToken: oauth.refreshToken,
-            accessToken: oauth.accessToken || "",
+            clientSecret: decryptedClientSecret,
+            refreshToken: decryptedRefreshToken,
+            accessToken: decryptedAccessToken || "",
           },
         } as any);
       }

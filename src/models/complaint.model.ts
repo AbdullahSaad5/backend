@@ -46,6 +46,16 @@ const complaintSchema = new Schema<IComplaint>({
       message: "Order number can only contain letters, numbers, hyphens, and underscores"
     }
   },
+  platform: {
+    type: String,
+    trim: true,
+    maxlength: [50, "Platform name cannot exceed 50 characters"],
+  },
+  orderStatus: {
+    type: String,
+    enum: ["Fulfilled", "Not Fulfilled"],
+    default: "Not Fulfilled",
+  },
   attachedFiles: {
     type: [String],
     validate: {
@@ -88,7 +98,7 @@ const complaintSchema = new Schema<IComplaint>({
   },
   status: {
     type: String,
-    enum: ["Open", "In Progress", "Closed","Resolved"],
+    enum: ["Open", "Assigned", "In Progress", "Closed","Resolved"],
     default: "Open",
   },
   priority: {
@@ -96,6 +106,22 @@ const complaintSchema = new Schema<IComplaint>({
     enum: ["Low", "Medium", "High", "Urgent"],
     default: "Medium",
   },
+  // Timeline to track status changes
+  timeline: [{
+    status: {
+      type: String,
+      enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved"],
+      required: true
+    },
+    changedAt: {
+      type: Date,
+      default: Date.now
+    },
+    changedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User"
+    }
+  }],
   resolution: [
     {
       description: {

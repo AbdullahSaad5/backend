@@ -19,8 +19,9 @@ const TicketSchema = new Schema<ITicket>(
       required: true,
     },
     assignedTo: {
-      type: Schema.Types.ObjectId,
+      type: [Schema.Types.ObjectId],
       ref: "User",
+      default: [],
     },
     createDate: {
       type: Date,
@@ -32,7 +33,7 @@ const TicketSchema = new Schema<ITicket>(
     },
     status: {
       type: String,
-      enum: ["Open", "In Progress", "Closed", "Resolved"],
+      enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved"],
       default: "Open",
     },
     priority: {
@@ -66,6 +67,27 @@ const TicketSchema = new Schema<ITicket>(
         type: Date
       }
     },
+    // Timeline to track status changes
+    timeline: [{
+      status: {
+        type: String,
+        enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved", "Assignment Changed"],
+        required: true
+      },
+      changedAt: {
+        type: Date,
+        default: Date.now
+      },
+      changedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User"
+      },
+      assignedUsers: {
+        type: [Schema.Types.ObjectId],
+        ref: "User",
+        default: undefined
+      }
+    }],
     isEscalated: {
       type: Boolean,
       default: false,
@@ -77,6 +99,23 @@ const TicketSchema = new Schema<ITicket>(
     chatMessageId: {
       type: String,
       default: null,
+    },
+    // New fields
+    images: {
+      type: [String],
+      default: [],
+    },
+    platform: {
+      type: String,
+      trim: true,
+    },
+    orderReference: {
+      type: String,
+      trim: true,
+    },
+    orderStatus: {
+      type: String,
+      enum: ["Fulfilled", "Not Fulfilled"],
     },
   },
   {

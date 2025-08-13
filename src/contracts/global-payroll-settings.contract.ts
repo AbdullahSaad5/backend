@@ -9,8 +9,6 @@ export interface DeductionAllowance {
 export interface GlobalPayrollSettingsDocument extends Document {
   allowances: DeductionAllowance[];
   deductions: DeductionAllowance[];
-  createdBy: any;
-  updatedBy?: any;
   createdAt: Date;
   updatedAt: Date;
 }

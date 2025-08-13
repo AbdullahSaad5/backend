@@ -1,17 +1,13 @@
 import { Request, Response } from "express";
 import { globalPayrollSettingsService } from "@/services/global-payroll-settings.service";
-import { Types } from "mongoose";
 
 export const globalPayrollSettingsController = {
   createGlobalPayrollSettings: async (req: Request, res: Response) => {
     try {
-      const data = {
-        ...req.body,
-        createdBy: (req as any).user?._id || new Types.ObjectId(),
-      };
-
       const globalSettings =
-        await globalPayrollSettingsService.createGlobalPayrollSettings(data);
+        await globalPayrollSettingsService.createGlobalPayrollSettings(
+          req.body
+        );
 
       res.status(201).json({
         success: true,
@@ -99,15 +95,10 @@ export const globalPayrollSettingsController = {
 
   updateGlobalPayrollSettings: async (req: Request, res: Response) => {
     try {
-      const data = {
-        ...req.body,
-        updatedBy: (req as any).user?._id || new Types.ObjectId(),
-      };
-
       const globalSettings =
         await globalPayrollSettingsService.updateGlobalPayrollSettings(
           req.params.id,
-          data
+          req.body
         );
 
       if (!globalSettings) {
