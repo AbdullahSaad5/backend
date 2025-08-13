@@ -228,7 +228,7 @@ export const attendanceService = {
       attendance = await Attendance.create({
         employeeId,
         date: today,
-        checkIn: checkIn,
+        checkIn: new Date(checkIn), // Ensure it's a proper Date object
         checkOut: undefined,
         shiftId,
         workModeId,
@@ -238,7 +238,7 @@ export const attendanceService = {
       if (attendance.checkIn) {
         throw new Error("You have already checked in today.");
       }
-      attendance.checkIn = new Date();
+      attendance.checkIn = new Date(); // Current time
       attendance.status = "present";
       await attendance.save();
     }
@@ -274,11 +274,13 @@ export const attendanceService = {
     date.setHours(0, 0, 0, 0);
     let attendance = await Attendance.findOne({ employeeId, date });
     if (!attendance) {
+      // Ensure the check-in and check-out times are properly created as Date objects
+      // without timezone adjustments
       attendance = await Attendance.create({
         employeeId,
         date,
-        checkIn,
-        checkOut,
+        checkIn: checkIn ? new Date(checkIn) : undefined,
+        checkOut: checkOut ? new Date(checkOut) : undefined,
         shiftId,
         workModeId,
         status,
@@ -287,8 +289,8 @@ export const attendanceService = {
       attendance.status = status;
       if (shiftId) attendance.shiftId = shiftId as any;
       if (workModeId) attendance.workModeId = workModeId as any;
-      if (checkIn) attendance.checkIn = checkIn;
-      if (checkOut) attendance.checkOut = checkOut;
+      if (checkIn) attendance.checkIn = new Date(checkIn);
+      if (checkOut) attendance.checkOut = new Date(checkOut);
       await attendance.save();
     }
     return attendance;

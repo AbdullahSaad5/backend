@@ -31,7 +31,7 @@ export const attendanceController = {
       if (!checkIn) {
         return res.status(400).json({ message: "Check-in time is required" });
       }
-      // Convert checkIn to Date object
+      // Convert checkIn to Date object with proper handling
       const checkInDate = new Date(checkIn);
       const attendance = await attendanceService.checkIn(
         userId,
@@ -133,14 +133,19 @@ export const attendanceController = {
           });
         }
       }
+
+      // Convert checkIn and checkOut to proper Date objects
+      const checkInDate = checkIn ? new Date(checkIn) : undefined;
+      const checkOutDate = checkOut ? new Date(checkOut) : undefined;
+      
       const attendance = await attendanceService.adminMark(
         employeeId,
         new Date(date),
         status,
         shiftId,
         workModeId,
-        checkIn ? new Date(checkIn) : undefined,
-        checkOut ? new Date(checkOut) : undefined
+        checkInDate,
+        checkOutDate
       );
       res.status(200).json(attendance);
     } catch (err: any) {
