@@ -237,7 +237,7 @@ export const tickerControler = {
 
   addResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
       const { description } = req.body;
 
       const authHeader = req.headers["authorization"];
@@ -268,7 +268,7 @@ export const tickerControler = {
       }
 
       const resolvedTicket = await ticketService.addResolution(
-        ticketId,
+        id,
         description,
         userId
       );
@@ -288,9 +288,9 @@ export const tickerControler = {
 
   deleteResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
 
-      const deletedResolutionTicket = await ticketService.deleteResolution(ticketId);
+      const deletedResolutionTicket = await ticketService.deleteResolution(id);
 
       return res.status(StatusCodes.OK).json({
         success: true,
@@ -311,7 +311,7 @@ export const tickerControler = {
 
   updateResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
       const { description } = req.body;
 
       const authHeader = req.headers["authorization"];
@@ -342,7 +342,7 @@ export const tickerControler = {
       }
 
       const updatedTicket = await ticketService.updateResolution(
-        ticketId,
+        id,
         description,
         userId
       );
@@ -432,6 +432,122 @@ export const tickerControler = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error updating assignment",
+        error: error.message
+      });
+    }
+  },
+
+  // Comment methods
+  addComment: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { content, parentCommentId } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!content?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Comment content is required",
+        });
+      }
+
+      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment added successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error adding comment",
+        error: error.message
+      });
+    }
+  },
+
+  updateComment: async (req: Request, res: Response) => {
+    try {
+      const { id, commentId } = req.params;
+      const { content } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!content?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Comment content is required",
+        });
+      }
+
+      const updatedTicket = await ticketService.updateComment(id, commentId, content.trim(), userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment updated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating comment",
+        error: error.message
+      });
+    }
+  },
+
+  deleteComment: async (req: Request, res: Response) => {
+    try {
+      const { id, commentId } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.deleteComment(id, commentId, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error deleting comment",
         error: error.message
       });
     }

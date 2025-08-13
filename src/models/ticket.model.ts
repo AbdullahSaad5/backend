@@ -117,6 +117,30 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       enum: ["Fulfilled", "Not Fulfilled"],
     },
+    // Comments field
+    comments: [{
+      content: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      author: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+      updatedAt: {
+        type: Date,
+      },
+      parentComment: {
+        type: Schema.Types.ObjectId,
+        default: null,
+      },
+    }],
   },
   {
     timestamps: true,

@@ -95,7 +95,8 @@ export const ticketService = {
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
   },
 
   getById: (id: string) => {
@@ -104,7 +105,8 @@ export const ticketService = {
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
   },
 
   changeStatus: async (id: string, status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved", userId?: string) => {
@@ -349,9 +351,102 @@ export const ticketService = {
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to add images to ticket');
+    return updatedTicket;
+  },
+
+  // Comment methods
+  addComment: async (ticketId: string, content: string, userId: string, parentCommentId?: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const commentData: any = {
+      content,
+      author: new Types.ObjectId(userId),
+      createdAt: new Date(),
+    };
+
+    if (parentCommentId && Types.ObjectId.isValid(parentCommentId)) {
+      commentData.parentComment = new Types.ObjectId(parentCommentId);
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { $push: { comments: commentData } },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to add comment');
+    return updatedTicket;
+  },
+
+  updateComment: async (ticketId: string, commentId: string, content: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(commentId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await TicketModel.findOneAndUpdate(
+      { 
+        _id: ticketId, 
+        'comments._id': commentId,
+        'comments.author': userId // Ensure user owns the comment
+      },
+      { 
+        $set: { 
+          'comments.$.content': content,
+          'comments.$.updatedAt': new Date()
+        } 
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('comments.parentComment');
+
+    if (!updatedTicket) throw new Error('Comment not found or unauthorized');
+    return updatedTicket;
+  },
+
+  deleteComment: async (ticketId: string, commentId: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(commentId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { 
+        $pull: { 
+          comments: { 
+            _id: commentId,
+            author: userId // Ensure user owns the comment
+          } 
+        } 
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('comments.parentComment');
+
+    if (!updatedTicket) throw new Error('Comment not found or unauthorized');
     return updatedTicket;
   }
 };

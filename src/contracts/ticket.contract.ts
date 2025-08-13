@@ -13,6 +13,16 @@ export interface ITimelineEntry {
   assignedUsers?: Types.ObjectId[]; // For assignment changes
 }
 
+export interface IComment {
+  _id: Types.ObjectId;
+  content: string;
+  author: Types.ObjectId;
+  createdAt: Date;
+  updatedAt?: Date;
+  replies?: IComment[];
+  parentComment?: Types.ObjectId; // For replies
+}
+
 export interface ITicket extends Document {
   title: string;
   client: string;
@@ -29,6 +39,7 @@ export interface ITicket extends Document {
     closedAt: Date;
   };
   timeline?: ITimelineEntry[];
+  comments?: IComment[]; // New comments field
   isEscalated?: boolean;
   isManuallyEscalated?: boolean;
   chatMessageId?: string;
