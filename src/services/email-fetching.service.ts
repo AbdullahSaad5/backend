@@ -39,6 +39,7 @@ export interface EmailFetchResult {
   totalCount: number;
   newCount: number;
   error?: string;
+  syncStatus?: string; // New field for sync status
   pagination?: {
     page: number;
     pageSize: number;
@@ -378,9 +379,17 @@ export class EmailFetchingService {
 
       // Perform historical sync using History API
       if (emailAccount.syncState.syncStatus === "initial" || emailAccount.syncState.syncStatus === "historical") {
-        const historicalResult = await this.performHistoricalGmailSync(emailAccount);
-        if (!historicalResult.success) {
-          return historicalResult;
+        try {
+          const historicalResult = await this.performHistoricalGmailSync(emailAccount);
+          if (!historicalResult.success) {
+            return historicalResult;
+          }
+          logger.info(`Historical sync completed for ${emailAccount.emailAddress}`);
+        } catch (error: any) {
+          logger.warn(
+            `Historical sync failed for ${emailAccount.emailAddress}, continuing with current state: ${error.message}`
+          );
+          // Continue with current state instead of failing completely
         }
       }
 
@@ -389,12 +398,16 @@ export class EmailFetchingService {
         await this.setupGmailWatch(emailAccount);
       }
 
+      // Get the final sync state
+      const finalSyncState = await EmailAccountModel.findById(emailAccount._id).select("syncState");
+
       return {
         success: true,
         emails: [],
-        totalCount: 0,
-        newCount: 0,
+        totalCount: finalSyncState?.syncState?.syncProgress?.totalProcessed || 0,
+        newCount: finalSyncState?.syncState?.syncProgress?.totalProcessed || 0,
         historyId: emailAccount.syncState.lastHistoryId,
+        syncStatus: emailAccount.syncState.syncStatus,
       };
     } catch (error: any) {
       logger.error(`Gmail History API sync failed for ${emailAccount.emailAddress}:`, error);
@@ -406,6 +419,7 @@ export class EmailFetchingService {
         totalCount: 0,
         newCount: 0,
         error: error.message,
+        syncStatus: emailAccount.syncState?.syncStatus,
       };
     }
   }
@@ -496,7 +510,17 @@ export class EmailFetchingService {
       const startHistoryId = emailAccount.syncState?.lastHistoryId;
 
       if (!startHistoryId) {
-        throw new Error("No historyId available for historical sync");
+        logger.warn(
+          `No historyId available for historical sync for ${emailAccount.emailAddress}, skipping historical sync`
+        );
+        // Return success but with no processing since we can't do historical sync without historyId
+        return {
+          success: true,
+          emails: [],
+          totalCount: 0,
+          newCount: 0,
+          historyId: undefined,
+        };
       }
 
       let currentHistoryId = startHistoryId;
@@ -617,19 +641,29 @@ export class EmailFetchingService {
 
       const gmail = google.gmail({ version: "v1", auth: await this.getGmailAuthClient(emailAccount) });
 
+      // Get the Google Cloud project ID from environment
+      const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+      if (!projectId) {
+        throw new Error("GOOGLE_CLOUD_PROJECT environment variable is required for Gmail watch setup");
+      }
+
+      const topicName = `projects/${projectId}/topics/gmail-notifications`;
+      logger.info(`Using topic: ${topicName} for Gmail watch setup`);
+
       const watchResponse = await gmail.users.watch({
         userId: "me",
         requestBody: {
-          topicName: `projects/${process.env.GOOGLE_CLOUD_PROJECT || "default"}/topics/gmail-notifications`,
+          topicName: topicName,
           labelIds: ["INBOX", "SENT", "DRAFT"],
           labelFilterAction: "include",
         },
       });
 
-      // Update sync state with watch expiration
+      // Update sync state with watch expiration and set watching flag
       await this.updateSyncState(emailAccount, {
         watchExpiration: new Date(watchResponse.data.expiration || Date.now()),
         lastWatchRenewal: new Date(),
+        isWatching: true,
       });
 
       logger.info(
@@ -637,6 +671,17 @@ export class EmailFetchingService {
       );
     } catch (error: any) {
       logger.error(`Failed to setup Gmail watch for ${emailAccount.emailAddress}:`, error);
+
+      // Log additional debugging information
+      logger.error(`Gmail watch setup error details:`, {
+        emailAddress: emailAccount.emailAddress,
+        projectId: process.env.GOOGLE_CLOUD_PROJECT,
+        hasOAuth: !!emailAccount.oauth,
+        oauthProvider: emailAccount.oauth?.provider,
+        errorCode: error.code,
+        errorMessage: error.message,
+      });
+
       throw error;
     }
   }
