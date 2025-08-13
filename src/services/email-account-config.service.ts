@@ -62,9 +62,9 @@ export class EmailAccountConfigService {
         const decryptedAccessToken = EmailOAuthService.getDecryptedAccessToken(emailAccount);
 
         const oAuth2Client = new OAuth2Client(oauth.clientId, decryptedClientSecret);
-        oAuth2Client.setCredentials({ 
+        oAuth2Client.setCredentials({
           refresh_token: decryptedRefreshToken,
-          access_token: decryptedAccessToken
+          access_token: decryptedAccessToken,
         });
 
         // Get fresh access token if needed
@@ -404,6 +404,9 @@ export class EmailAccountConfigService {
       cc?: string | string[];
       bcc?: string | string[];
       attachments?: any[];
+      inReplyTo?: string;
+      references?: string;
+      threadId?: string;
     }
   ): Promise<EmailConnectionResult> {
     try {
@@ -418,6 +421,9 @@ export class EmailAccountConfigService {
         cc: emailData.cc ? (Array.isArray(emailData.cc) ? emailData.cc.join(", ") : emailData.cc) : undefined,
         bcc: emailData.bcc ? (Array.isArray(emailData.bcc) ? emailData.bcc.join(", ") : emailData.bcc) : undefined,
         attachments: emailData.attachments,
+        // Add threading headers for proper email threading
+        inReplyTo: emailData.inReplyTo ? `<${emailData.inReplyTo}>` : undefined,
+        references: emailData.references ? `<${emailData.references}>` : undefined,
       };
 
       const result = await transporter.sendMail(mailOptions);
