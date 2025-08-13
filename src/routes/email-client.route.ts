@@ -7,14 +7,27 @@ import Joi from "joi";
 // Validation schemas for email client
 const emailClientValidation = {
   sendEmail: Joi.object({
-    to: Joi.string().email().required(),
+    to: Joi.alternatives().try(
+      Joi.string().email(),
+      Joi.array().items(Joi.string().email())
+    ).required(),
     subject: Joi.string().required(),
     text: Joi.string().optional(),
     html: Joi.string().optional(),
-    cc: Joi.array().items(Joi.string().email()).optional(),
-    bcc: Joi.array().items(Joi.string().email()).optional(),
+    cc: Joi.alternatives().try(
+      Joi.string().email(),
+      Joi.array().items(Joi.string().email())
+    ).optional(),
+    bcc: Joi.alternatives().try(
+      Joi.string().email(),
+      Joi.array().items(Joi.string().email())
+    ).optional(),
     attachments: Joi.array().optional(),
     replyTo: Joi.string().email().optional(),
+    // Add threading fields for proper email threading
+    threadId: Joi.string().optional(),
+    inReplyTo: Joi.string().optional(),
+    references: Joi.string().optional(),
   }),
 
   replyToEmail: Joi.object({
@@ -23,6 +36,7 @@ const emailClientValidation = {
     text: Joi.string().optional(),
     html: Joi.string().optional(),
     attachments: Joi.array().optional(),
+    threadId: Joi.string().optional(),
   }),
 
   forwardEmail: Joi.object({

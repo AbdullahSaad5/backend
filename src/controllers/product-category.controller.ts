@@ -10,24 +10,24 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart,
+        isFeatured,
       } = req.body;
 
       const newProductCategory = await productCategoryService.createCategory(
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
-        isPart
+        isPart,
+        isFeatured
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -95,24 +95,24 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart,
+        isFeatured,
       } = req.body;
 
       const category = await productCategoryService.editCategory(id, {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
         isBlocked,
         isPart,
+        isFeatured,
       });
 
       res.status(StatusCodes.OK).json({
@@ -162,6 +162,32 @@ export const productCategoryController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error updating product category status",
+      });
+    }
+  },
+
+  toggleFeatured: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isFeatured } = req.body;
+      console.log("id : ", id);
+      const result = await productCategoryService.toggleFeatured(id, isFeatured);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Category ${isFeatured ? "featured" : "unfeatured"} successfully`,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Toggle Featured Category Error:", error);
+      if (error.message === "Maximum of 4 categories can be featured at a time") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating product category featured status",
       });
     }
   },

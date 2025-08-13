@@ -77,9 +77,11 @@ import { productTypeWorkflow as productTypeWorkflows } from "./product-type-work
 import { orderRoutes as orders } from "./order.route";
 import { globalPayrollSettings } from "./global-payroll-settings.route";
 import tokenManagement from "./token-management.route";
+import { website } from "./website.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
+import { gmailWebhook } from "./gmail-webhook.route";
 
 const router: Router = Router();
 
@@ -155,6 +157,8 @@ const routes: {
   Forum,
   ForumTopic,
 
+  website,
+
   ForumCategory,
   Comment,
   team,
@@ -165,6 +169,7 @@ const routes: {
   orderTaskTypes,
   productTypeWorkflows,
   globalPayrollSettings,
+  gmailWebhook,
 };
 
 // Loop through all routes and pass the router to each route

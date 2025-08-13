@@ -16,4 +16,6 @@ export const productCategory = (router: Router) => {
   router.get("/:id", productCategoryValidation.validateId, productCategoryController.getSpecificCategory);
 
   router.patch("/block/:id", productCategoryValidation.validateId, productCategoryController.toggleBlock);
+
+  router.patch("/featured/:id", productCategoryValidation.validateId, productCategoryController.toggleFeatured);
 };

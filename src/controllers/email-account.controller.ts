@@ -907,6 +907,7 @@ export class EmailAccountController {
         since: fetchAll === "true" ? undefined : account.stats.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000), // Skip since filter if fetchAll is true
         includeBody: true,
         fetchAll: fetchAll === "true",
+        useHistoryAPI: account.accountType === "gmail" && account.oauth, // Use History API for Gmail OAuth accounts
       };
       console.log("📧 Fetch options:", options);
 
@@ -960,6 +961,148 @@ export class EmailAccountController {
       res.status(500).json({
         success: false,
         message: "Failed to sync emails",
+        error: error.message,
+      });
+    }
+  }
+
+  // Setup real-time Gmail watch for an account
+  static async setupGmailWatch(req: Request, res: Response) {
+    try {
+      console.log("🔄 GMAIL WATCH SETUP REQUEST");
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Verify this is a Gmail OAuth account
+      if (account.accountType !== "gmail" || !account.oauth) {
+        return res.status(400).json({
+          success: false,
+          message: "Only Gmail OAuth accounts support real-time watch",
+        });
+      }
+
+      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+      
+      // Setup watch notifications
+      await EmailFetchingService.setupGmailWatch(account);
+
+      res.status(200).json({
+        success: true,
+        message: "Gmail real-time watch setup completed successfully",
+        data: {
+          accountId: account._id,
+          emailAddress: account.emailAddress,
+          watchExpiration: account.syncState?.watchExpiration,
+          isWatching: account.syncState?.isWatching
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Gmail watch setup error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to setup Gmail watch",
+        error: error.message,
+      });
+    }
+  }
+
+  // Enhanced Gmail sync using History API
+  static async syncGmailWithHistoryAPI(req: Request, res: Response) {
+    try {
+      console.log("🔄 GMAIL HISTORY API SYNC REQUEST");
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Verify this is a Gmail OAuth account
+      if (account.accountType !== "gmail" || !account.oauth) {
+        return res.status(400).json({
+          success: false,
+          message: "This endpoint is only for Gmail OAuth accounts",
+        });
+      }
+
+      // Update status to syncing
+      account.status = "syncing";
+      await account.save();
+
+      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+
+      console.log("🔄 Starting Gmail History API sync for:", account.emailAddress);
+
+      const result = await EmailFetchingService.syncGmailWithHistoryAPI(account, {
+        useHistoryAPI: true,
+        includeBody: true,
+      });
+
+      console.log("📤 Gmail History API sync response:", {
+        success: result.success,
+        historyId: result.historyId,
+        totalCount: result.totalCount,
+        newCount: result.newCount,
+        hasError: !!result.error,
+      });
+
+      res.json({
+        success: result.success,
+        data: {
+          historyId: result.historyId,
+          totalProcessed: result.totalCount,
+          newEmailsCount: result.newCount,
+          syncStatus: account.syncState?.syncStatus,
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+            lastSyncAt: account.stats.lastSyncAt,
+          },
+        },
+        message: result.success
+          ? `Gmail History API sync completed. Status: ${account.syncState?.syncStatus}`
+          : "Gmail History API sync failed",
+        error: result.error,
+      });
+    } catch (error: any) {
+      logger.error("Error in Gmail History API sync:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to sync Gmail with History API",
         error: error.message,
       });
     }
