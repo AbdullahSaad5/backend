@@ -7,9 +7,10 @@ export interface IResolution {
 }
 
 export interface ITimelineEntry {
-  status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved";
+  status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved" | "Assignment Changed";
   changedAt: Date;
   changedBy: Types.ObjectId;
+  assignedUsers?: Types.ObjectId[]; // For assignment changes
 }
 
 export interface ITicket extends Document {
