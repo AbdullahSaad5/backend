@@ -238,11 +238,13 @@ export const userService = {
 
       // Base fields that apply to all users (11 fields - moved NI Number to documents)
       const baseFields = 11;
+      // Skills specific fields (1 field)
+      const skillsFields = 1;
       // Documents and Right to work specific fields (4 fields - including NI Number)
       const documentsFields = 4;
 
       // Calculate total fields based on user type
-      const totalFields = baseFields + documentsFields;
+      const totalFields = baseFields + skillsFields + documentsFields;
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -263,6 +265,9 @@ export const userService = {
       if (user.annualLeaveEntitlement !== undefined) completedFields++;
       if (user.annualLeaveCarriedForward !== undefined) completedFields++;
       if (user.annualLeaveYear !== undefined) completedFields++;
+
+      // Skills Information (1 field)
+      if (user.skills && user.skills.length > 0) completedFields++;
 
       // Documents and Right to Work Information (4 fields - including NI Number)
       if (user.niNumber) completedFields++;
@@ -338,6 +343,9 @@ export const userService = {
       if (user.annualLeaveEntitlement === undefined) missingFields.push("Annual Leave Entitlement");
       if (user.annualLeaveCarriedForward === undefined) missingFields.push("Annual Leave Carried Forward");
       if (user.annualLeaveYear === undefined) missingFields.push("Annual Leave Year");
+
+      // Skills Information
+      if (!user.skills || user.skills.length === 0) missingFields.push("Skills");
 
       // Documents and Right to Work Information
       if (!user.niNumber) missingFields.push("NI Number");
