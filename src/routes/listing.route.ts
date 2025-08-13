@@ -2,6 +2,7 @@ import { listingController } from "@/controllers";
 import { listingValidation } from "@/validations";
 import { Router } from "express";
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
+import { productCategoryController } from "@/controllers";
 
 export const listing = (router: Router) => {
   // TODO: listingValidation.addListing
@@ -108,4 +109,5 @@ export const listing = (router: Router) => {
     listingValidation.validateId,
     listingController.getWebsiteProductById
   );
+
 };

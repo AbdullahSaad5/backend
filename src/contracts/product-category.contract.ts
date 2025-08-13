@@ -5,7 +5,6 @@ export interface IProductCategory extends Document {
   name: string;
   ebayCategoryId: string;
   amazonCategoryId?: string;
-  platform?: String;
   description: string;
   image?: string[];
   tags?: string[];
@@ -26,7 +25,6 @@ export type ProductCategoryCreatePayload = Pick<
   | "isPart"
   | "ebayCategoryId"
   | "amazonCategoryId"
-  | "platform"
   | "isFeatured"
 >;
 

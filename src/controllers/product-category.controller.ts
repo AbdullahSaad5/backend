@@ -10,7 +10,6 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
@@ -23,7 +22,6 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
@@ -97,7 +95,6 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
@@ -110,7 +107,6 @@ export const productCategoryController = {
         name,
         ebayCategoryId,
         amazonCategoryId,
-        platform, // <-- added here
         description,
         image,
         tags,
