@@ -161,5 +161,11 @@ export const documentService = {
     documentExists: async (id: string) => {
         const doc = await DocumentModel.findById(id);
         return doc !== null;
+    },
+
+    getDocumentForDownload: async (id: string) => {
+        return await DocumentModel.findById(id)
+            .select('docTitle document expiryDate')
+            .lean(); // Use lean() for better performance since we don't need mongoose document methods
     }
 };

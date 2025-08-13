@@ -3,6 +3,7 @@ import { documentService } from "../services/document.service";
 import { StatusCodes } from 'http-status-codes';
 import { Types } from 'mongoose';
 import { jwtVerify } from "@/utils/jwt.util";
+import fetch from 'node-fetch';
 
 export const documentController = {
     // Create a new document
@@ -263,6 +264,84 @@ export const documentController = {
                 error: error instanceof Error ? error.message : error
             });
         }
+    },
+
+    // Download document
+    downloadDocument: async (req: Request, res: Response) => {
+        try {
+            const document = await documentService.getDocumentForDownload(req.params.id);
+            if (!document) {
+                return res.status(StatusCodes.NOT_FOUND).json({
+                    success: false,
+                    message: 'Document not found'
+                });
+            }
+
+            // Check if document is expired
+            if (document.expiryDate && new Date(document.expiryDate) < new Date()) {
+                return res.status(StatusCodes.FORBIDDEN).json({
+                    success: false,
+                    message: 'Document has expired and cannot be downloaded'
+                });
+            }
+
+            // Check if document has a file
+            if (!document.document || !document.document[0] || !document.document[0].url) {
+                return res.status(StatusCodes.NOT_FOUND).json({
+                    success: false,
+                    message: 'File not found for this document'
+                });
+            }
+
+            const fileUrl = document.document[0].url;
+            const fileName = document.document[0].name || `${document.docTitle}.${getFileExtensionFromUrl(fileUrl)}`;
+
+            try {
+                // Fetch the file from the URL
+                const response = await fetch(fileUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch file: ${response.statusText}`);
+                }
+
+                // Get file content as buffer
+                const fileBuffer = await response.buffer();
+                
+                // Set appropriate headers for download
+                res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+                res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+                res.setHeader('Content-Length', fileBuffer.length);
+                res.setHeader('Cache-Control', 'no-cache');
+                
+                // Send the file
+                res.send(fileBuffer);
+            } catch (fetchError) {
+                console.error('Error fetching file:', fetchError);
+                return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                    success: false,
+                    message: 'Error downloading file from storage',
+                    error: fetchError instanceof Error ? fetchError.message : fetchError
+                });
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: 'Error downloading document',
+                error: error instanceof Error ? error.message : error
+            });
+        }
     }
 
 };
+
+// Helper function to extract file extension from URL
+function getFileExtensionFromUrl(url: string): string {
+    try {
+        const pathname = new URL(url).pathname;
+        const extension = pathname.split('.').pop();
+        return extension || 'file';
+    } catch {
+        return 'file';
+    }
+}
