@@ -364,6 +364,51 @@ export const tickerControler = {
     }
   },
 
+  // New endpoints for multiple resolutions
+  getResolutions: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const resolutions = await ticketService.getResolutions(id);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolutions retrieved successfully",
+        data: resolutions,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error retrieving resolutions",
+      });
+    }
+  },
+
+  deleteResolutionById: async (req: Request, res: Response) => {
+    try {
+      const { id, resolutionId } = req.params;
+      const updatedTicket = await ticketService.deleteResolutionById(id, resolutionId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error deleting resolution",
+      });
+    }
+  },
+
   uploadImages: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

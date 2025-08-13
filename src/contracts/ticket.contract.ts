@@ -4,6 +4,7 @@ export interface IResolution {
   description: string;
   resolvedBy: Types.ObjectId;
   closedAt: Date;
+  _id?: Types.ObjectId;
 }
 
 export interface ITimelineEntry {
@@ -11,6 +12,7 @@ export interface ITimelineEntry {
   changedAt: Date;
   changedBy: Types.ObjectId;
   assignedUsers?: Types.ObjectId[]; // For assignment changes
+  resolutionDescription?: string; // For resolution entries
 }
 
 export interface IComment {
@@ -33,11 +35,12 @@ export interface ITicket extends Document {
   priority: "Low" | "Medium" | "High" | "Urgent";
   role: Types.ObjectId;  // Changed from department to role (references UserCategory)
   description: string;
+  resolutions?: IResolution[]; // Multiple resolutions
   resolution?: {
     description: string;
     resolvedBy: Types.ObjectId;
     closedAt: Date;
-  };
+  }; // Keep for backward compatibility
   timeline?: ITimelineEntry[];
   comments?: IComment[]; // New comments field
   isEscalated?: boolean;

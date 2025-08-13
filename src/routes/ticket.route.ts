@@ -15,6 +15,9 @@ export const ticket = (router: Router) => {
   router.post("/:id/resolution", tickerControler.addResolution);       // Add resolution
   router.patch("/:id/resolution", tickerControler.updateResolution);  // Update resolution
   router.delete("/:id/resolution", tickerControler.deleteResolution);
+  // Multiple resolutions routes
+  router.get("/:id/resolutions", tickerControler.getResolutions);     // Get all resolutions
+  router.delete("/:id/resolutions/:resolutionId", tickerControler.deleteResolutionById); // Delete specific resolution
   // New route for uploading images
   router.post("/:id/upload-images", uploadMultipleFiles("images", 5), tickerControler.uploadImages);
   // Comment routes

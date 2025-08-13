@@ -94,6 +94,7 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
       .populate('timeline.assignedUsers', 'firstName lastName')
       .populate('comments.author', 'firstName lastName');
@@ -104,6 +105,7 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
       .populate('timeline.assignedUsers', 'firstName lastName')
       .populate('comments.author', 'firstName lastName');
@@ -167,7 +169,7 @@ export const ticketService = {
     return updatedTicket;
   },
 
-  // Update assignment and automatically change status to "Assigned" if currently "Open"
+  // Update assignment and automatically change status to "Assigned" if currently "Open" or "Resolved"
   updateAssignment: async (id: string, assignedTo: Types.ObjectId[], userId?: string) => {
     const ticket = await TicketModel.findById(id);
     if (!ticket) {
@@ -176,32 +178,33 @@ export const ticketService = {
 
     const updateData: any = { assignedTo };
     
-    // Always add assignment change to timeline if userId is provided
+    // Determine the appropriate status and timeline entry
+    let timelineStatus = "Assignment Changed";
+    let shouldUpdateStatus = false;
+    
+    // If status is "Open" and we're assigning users, change to "Assigned"
+    if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
+      updateData.status = "Assigned";
+      timelineStatus = "Assigned";
+      shouldUpdateStatus = true;
+    }
+    // If status is "Resolved" and we're reassigning users, change to "Assigned"
+    else if (ticket.status === "Resolved" && assignedTo && assignedTo.length > 0) {
+      updateData.status = "Assigned";
+      timelineStatus = "Assigned";
+      shouldUpdateStatus = true;
+    }
+    
+    // Add timeline entry if userId is provided
     if (userId) {
       updateData.$push = {
         timeline: {
-          status: "Assignment Changed",
+          status: timelineStatus,
           changedAt: new Date(),
           changedBy: new Types.ObjectId(userId),
           assignedUsers: assignedTo
         }
       };
-    }
-    
-    // If status is "Open" and we're assigning users, change to "Assigned"
-    if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
-      updateData.status = "Assigned";
-      
-      // Add status change to timeline if userId is provided
-      if (userId) {
-        updateData.$push = {
-          timeline: {
-            status: "Assigned",
-            changedAt: new Date(),
-            changedBy: new Types.ObjectId(userId)
-          }
-        };
-      }
     }
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
@@ -231,7 +234,6 @@ export const ticketService = {
 
     const ticket = await TicketModel.findById(ticketId);
     if (!ticket) throw new Error('Ticket not found');
-    if (ticket.status === 'Resolved') throw new Error('Ticket already resolved');
 
     const resolution: IResolution = {
       description,
@@ -243,12 +245,14 @@ export const ticketService = {
       ticketId,
       {
         status: 'Resolved',
-        resolution,
+        resolution, // Keep for backward compatibility
         $push: {
+          resolutions: resolution,
           timeline: {
             status: 'Resolved',
             changedAt: new Date(),
-            changedBy: new Types.ObjectId(userId)
+            changedBy: new Types.ObjectId(userId),
+            resolutionDescription: description
           }
         }
       },
@@ -257,10 +261,51 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
       .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to update ticket');
+    return updatedTicket;
+  },
+
+  // New method to get all resolutions for a ticket
+  getResolutions: async (ticketId: string): Promise<IResolution[]> => {
+    if (!Types.ObjectId.isValid(ticketId)) {
+      throw new Error("Invalid ticket ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId)
+      .populate('resolutions.resolvedBy', 'firstName lastName');
+    
+    if (!ticket) throw new Error('Ticket not found');
+    
+    return ticket.resolutions || [];
+  },
+
+  // New method to delete a specific resolution
+  deleteResolutionById: async (ticketId: string, resolutionId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(resolutionId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      {
+        $pull: { resolutions: { _id: resolutionId } }
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to remove resolution');
     return updatedTicket;
   },
 
