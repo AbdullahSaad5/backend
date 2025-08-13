@@ -71,7 +71,7 @@ const TicketSchema = new Schema<ITicket>(
     timeline: [{
       status: {
         type: String,
-        enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved"],
+        enum: ["Open", "Assigned", "In Progress", "Closed", "Resolved", "Assignment Changed"],
         required: true
       },
       changedAt: {
@@ -81,6 +81,11 @@ const TicketSchema = new Schema<ITicket>(
       changedBy: {
         type: Schema.Types.ObjectId,
         ref: "User"
+      },
+      assignedUsers: {
+        type: [Schema.Types.ObjectId],
+        ref: "User",
+        default: undefined
       }
     }],
     isEscalated: {

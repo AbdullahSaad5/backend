@@ -73,7 +73,8 @@ export const ticketService = {
     return TicketModel.findByIdAndUpdate(id, data, { new: true })
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
   },
 
   deleteTicket: async (id: string) => {
@@ -93,7 +94,8 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
   },
 
   getById: (id: string) => {
@@ -101,7 +103,8 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
   },
 
   changeStatus: async (id: string, status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved", userId?: string) => {
@@ -125,7 +128,8 @@ export const ticketService = {
     )
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
     
     if (!updatedTicket) {
       throw new Error("Ticket not found");
@@ -170,11 +174,23 @@ export const ticketService = {
 
     const updateData: any = { assignedTo };
     
+    // Always add assignment change to timeline if userId is provided
+    if (userId) {
+      updateData.$push = {
+        timeline: {
+          status: "Assignment Changed",
+          changedAt: new Date(),
+          changedBy: new Types.ObjectId(userId),
+          assignedUsers: assignedTo
+        }
+      };
+    }
+    
     // If status is "Open" and we're assigning users, change to "Assigned"
     if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
       updateData.status = "Assigned";
       
-      // Add to timeline if userId is provided
+      // Add status change to timeline if userId is provided
       if (userId) {
         updateData.$push = {
           timeline: {
@@ -193,7 +209,8 @@ export const ticketService = {
     )
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) {
       throw new Error("Failed to update ticket");
@@ -238,7 +255,8 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to update ticket');
     return updatedTicket;
@@ -270,7 +288,8 @@ export const ticketService = {
     )
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to remove resolution');
     return updatedTicket;
@@ -303,7 +322,8 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to update resolution');
     return updatedTicket;
@@ -328,7 +348,8 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
-      .populate('timeline.changedBy', 'firstName lastName');
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to add images to ticket');
     return updatedTicket;
