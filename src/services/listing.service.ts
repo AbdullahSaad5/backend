@@ -1098,7 +1098,8 @@ export const listingService = {
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
         .skip(skip)
-        .limit(limitNumber);
+        .limit(limitNumber)
+        .lean();
 
       const totalListings = await Listing.countDocuments(query);
 
@@ -1165,6 +1166,23 @@ export const listingService = {
             ebay: (listing as any).publishToEbay || false,
             amazon: (listing as any).publishToAmazon || false,
           },
+          technicalInfo: (() => {
+            const techInfo = (listing as any).prodTechInfo || {};
+            // Filter out unwanted fields
+            const {
+              unit_quantity,
+              unit_type,
+              item_height,
+              item_length,
+              item_width,
+              item_weight,
+              country_region_of_manufacture,
+              mpn,
+              hard_drive_capacity,
+              ...filteredTechInfo
+            } = techInfo;
+            return filteredTechInfo;
+          })(),
           status: (listing as any).status,
           marketplace: marketplace,
           language: language,
@@ -1206,7 +1224,8 @@ export const listingService = {
       const listing: any = await Listing.findOne(query)
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .populate("selectedStockId");
+        .populate("selectedStockId")
+        .lean();
 
       if (!listing) {
         return null;
@@ -1273,6 +1292,23 @@ export const listingService = {
           ebay: listing.publishToEbay || false,
           amazon: listing.publishToAmazon || false,
         },
+        technicalInfo: (() => {
+          const techInfo = listing.prodTechInfo || {};
+          // Filter out unwanted fields
+          const {
+            unit_quantity,
+            unit_type,
+            item_height,
+            item_length,
+            item_width,
+            item_weight,
+            country_region_of_manufacture,
+            mpn,
+            hard_drive_capacity,
+            ...filteredTechInfo
+          } = techInfo;
+          return filteredTechInfo;
+        })(),
         status: listing.status,
         marketplace: marketplace,
         language: language,
