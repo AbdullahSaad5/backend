@@ -92,6 +92,11 @@ const bundleSchema = new Schema(
           required: true,
           min: 0,
         },
+        retailPricePerUnit: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
         _id: false,
       },
     ],

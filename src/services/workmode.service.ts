@@ -57,6 +57,9 @@ export const workmodeService = {
 
   async removeUsersFromOtherWorkmodes(userIds: string[]) {
     // Remove these users from all other workmodes
-    await Workmode.updateMany({ employees: { $in: userIds } }, { $pullAll: { employees: userIds } });
+    await Workmode.updateMany(
+      { employees: { $in: userIds } },
+      { $pullAll: { employees: userIds } }
+    );
   },
 };

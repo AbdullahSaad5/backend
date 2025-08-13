@@ -42,6 +42,24 @@ export const featuredCategoryController = {
     }
   },
 
+  // Get active categories only
+  getActiveCategories: async (_req: Request, res: Response) => {
+    try {
+      const categories = await featuredCategoryService.getActiveCategories();
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Fetched active featured categories successfully",
+        data: categories,
+      });
+    } catch (error) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to fetch active featured categories",
+        data: null,
+      });
+    }
+  },
+
   // Update a featured category
   updateCategory: async (req: Request, res: Response) => {
     try {

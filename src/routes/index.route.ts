@@ -62,16 +62,29 @@ import { lead } from "./lead.route";
 import { task } from "./task.route";
 import { heroSlider } from "./hero-slider.routes";
 import { featuredCategory } from "./featured-category.routes";
+import { featuredSale } from "./featured-sale.routes";
 import { marketing } from "./marketing.route";
 import { mailbox } from "./mailbox.route";
 import { Forum } from "./forum.route";
 import { ForumTopic } from "./forum-topic.route";
+import { team } from "./team.route";
+import { emailAccount } from "./email-account.route";
+import { announcementBar } from "./announcement-bar.routes";
+import { emailClient } from "./email-client.route";
+import { documentation } from "./documentation.route";
+import { orderTaskType as orderTaskTypes } from "./order-task-type.route";
+import { productTypeWorkflow as productTypeWorkflows } from "./product-type-workflow.route";
+import { orderRoutes as orders } from "./order.route";
+import { globalPayrollSettings } from "./global-payroll-settings.route";
+import tokenManagement from "./token-management.route";
+
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
 
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
+router.use("/tokens", tokenManagement);
 
 const routes: {
   [key: string]: (router: Router) => void;
@@ -110,7 +123,7 @@ const routes: {
   customPolicy,
   returnPolicy,
   bundle,
-  orderRoutes,
+  orders,
   cartRoutes,
   fulfillmentPolicy,
   paymentPolicy,
@@ -136,12 +149,22 @@ const routes: {
   task,
   heroSlider,
   featuredCategory,
+  featuredSale,
   marketing,
   mailbox,
   Forum,
   ForumTopic,
+
   ForumCategory,
   Comment,
+  team,
+  emailAccount,
+  announcementBar,
+  emailClient,
+  documentation,
+  orderTaskTypes,
+  productTypeWorkflows,
+  globalPayrollSettings,
 };
 
 // Loop through all routes and pass the router to each route

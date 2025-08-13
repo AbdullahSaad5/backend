@@ -30,6 +30,9 @@ export const heroSlider = (router: Router) => {
   // Get all slides
   router.get("/", heroSliderController.getSlides);
 
+  // Get active slides only
+  router.get("/active", heroSliderController.getActiveSlides);
+
   // Update a slide
   router.put(
     "/:id",

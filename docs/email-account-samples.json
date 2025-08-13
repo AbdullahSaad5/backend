@@ -1,0 +1,213 @@
+{
+  "gmail_account": {
+    "userId": "admin_user_id",
+    "accountName": "Main Gmail Account",
+    "emailAddress": "admin@gmail.com",
+    "displayName": "Admin User",
+    "accountType": "gmail",
+    "isActive": true,
+    "isPrimary": true,
+    "incomingServer": {
+      "host": "imap.gmail.com",
+      "port": 993,
+      "security": "ssl",
+      "username": "admin@gmail.com",
+      "password": "app_specific_password"
+    },
+    "outgoingServer": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "security": "tls",
+      "username": "admin@gmail.com",
+      "password": "app_specific_password",
+      "requiresAuth": true
+    },
+    "oauth": {
+      "provider": "gmail",
+      "clientId": "your_gmail_client_id.apps.googleusercontent.com",
+      "clientSecret": "your_gmail_client_secret",
+      "refreshToken": "your_refresh_token",
+      "accessToken": "your_access_token"
+    },
+    "settings": {
+      "checkInterval": 5,
+      "autoDownload": true,
+      "downloadLimit": 100,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX", "[Gmail]/Sent Mail", "[Gmail]/Drafts", "[Gmail]/All Mail"]
+    }
+  },
+
+  "outlook_account": {
+    "userId": "admin_user_id",
+    "accountName": "Business Outlook",
+    "emailAddress": "admin@company.com",
+    "displayName": "Admin User",
+    "accountType": "outlook",
+    "isActive": true,
+    "isPrimary": false,
+    "incomingServer": {
+      "host": "outlook.office365.com",
+      "port": 993,
+      "security": "ssl",
+      "username": "admin@company.com",
+      "password": "encrypted_password"
+    },
+    "outgoingServer": {
+      "host": "smtp.office365.com",
+      "port": 587,
+      "security": "tls",
+      "username": "admin@company.com",
+      "password": "encrypted_password",
+      "requiresAuth": true
+    },
+    "oauth": {
+      "provider": "outlook",
+      "clientId": "your_outlook_client_id",
+      "clientSecret": "your_outlook_client_secret",
+      "refreshToken": "your_refresh_token",
+      "accessToken": "your_access_token"
+    },
+    "settings": {
+      "checkInterval": 10,
+      "autoDownload": true,
+      "downloadLimit": 50,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX", "Sent Items", "Drafts", "Archive"]
+    }
+  },
+
+  "custom_imap_account": {
+    "userId": "admin_user_id",
+    "accountName": "Company Email Server",
+    "emailAddress": "admin@mycompany.com",
+    "displayName": "Company Admin",
+    "accountType": "imap",
+    "isActive": true,
+    "isPrimary": false,
+    "incomingServer": {
+      "host": "mail.mycompany.com",
+      "port": 993,
+      "security": "ssl",
+      "username": "admin@mycompany.com",
+      "password": "encrypted_password"
+    },
+    "outgoingServer": {
+      "host": "smtp.mycompany.com",
+      "port": 587,
+      "security": "tls",
+      "username": "admin@mycompany.com",
+      "password": "encrypted_password",
+      "requiresAuth": true
+    },
+    "settings": {
+      "checkInterval": 15,
+      "autoDownload": true,
+      "downloadLimit": 200,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX", "Sent", "Drafts", "Archive", "Customers", "Orders"]
+    }
+  },
+
+  "yahoo_imap_account": {
+    "userId": "admin_user_id",
+    "accountName": "Yahoo Mail Account",
+    "emailAddress": "admin@yahoo.com",
+    "displayName": "Admin User",
+    "accountType": "imap",
+    "isActive": true,
+    "isPrimary": false,
+    "incomingServer": {
+      "host": "imap.mail.yahoo.com",
+      "port": 993,
+      "security": "ssl",
+      "username": "admin@yahoo.com",
+      "password": "app_password"
+    },
+    "outgoingServer": {
+      "host": "smtp.mail.yahoo.com",
+      "port": 587,
+      "security": "tls",
+      "username": "admin@yahoo.com",
+      "password": "app_password",
+      "requiresAuth": true
+    },
+    "settings": {
+      "checkInterval": 20,
+      "autoDownload": true,
+      "downloadLimit": 100,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX", "Sent", "Draft", "Archive"]
+    }
+  },
+
+  "pop3_account": {
+    "userId": "admin_user_id",
+    "accountName": "Legacy POP3 Account",
+    "emailAddress": "legacy@oldserver.com",
+    "displayName": "Legacy Admin",
+    "accountType": "pop3",
+    "isActive": true,
+    "isPrimary": false,
+    "incomingServer": {
+      "host": "pop.oldserver.com",
+      "port": 995,
+      "security": "ssl",
+      "username": "legacy@oldserver.com",
+      "password": "encrypted_password"
+    },
+    "outgoingServer": {
+      "host": "smtp.oldserver.com",
+      "port": 465,
+      "security": "ssl",
+      "username": "legacy@oldserver.com",
+      "password": "encrypted_password",
+      "requiresAuth": true
+    },
+    "settings": {
+      "checkInterval": 30,
+      "autoDownload": true,
+      "downloadLimit": 50,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX"]
+    }
+  },
+
+  "exchange_account": {
+    "userId": "admin_user_id",
+    "accountName": "Exchange Server Account",
+    "emailAddress": "admin@enterprise.com",
+    "displayName": "Enterprise Admin",
+    "accountType": "exchange",
+    "isActive": true,
+    "isPrimary": false,
+    "incomingServer": {
+      "host": "mail.enterprise.com",
+      "port": 993,
+      "security": "ssl",
+      "username": "DOMAIN\\admin",
+      "password": "encrypted_password"
+    },
+    "outgoingServer": {
+      "host": "mail.enterprise.com",
+      "port": 587,
+      "security": "tls",
+      "username": "DOMAIN\\admin",
+      "password": "encrypted_password",
+      "requiresAuth": true
+    },
+    "settings": {
+      "checkInterval": 5,
+      "autoDownload": true,
+      "downloadLimit": 200,
+      "deleteFromServer": false,
+      "leaveOnServer": true,
+      "syncFolders": ["INBOX", "Sent Items", "Drafts", "Calendar", "Contacts", "Tasks"]
+    }
+  }
+}

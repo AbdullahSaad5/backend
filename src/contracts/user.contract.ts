@@ -7,6 +7,17 @@ export interface IFile {
   name?: string;
 }
 
+export interface ITeamAssignment {
+  teamId: Types.ObjectId;
+  priority: number; // 1 = primary, 2 = secondary, etc.
+  assignedAt: Date;
+}
+
+export interface ISupervisorTeam {
+  teamId: Types.ObjectId;
+  assignedAt: Date;
+}
+
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -30,7 +41,15 @@ export interface IUser extends Document {
   resetPasswordExpires?: number;
   isBlocked: boolean;
   additionalDocuments: [IFile];
-  // isSupplier: boolean;
+  // Team assignments
+  teamAssignments: ITeamAssignment[];
+  
+  // Supervisor Configuration
+  isSupervisor: boolean;
+  supervisorTeams: ISupervisorTeam[];
+  
+  // Employee ID - unique 6-character alphanumeric identifier
+  employeeId: string;
 
   // Profile Completion Fields
   // Personal Information
@@ -41,20 +60,24 @@ export interface IUser extends Document {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: Date;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: Date;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: Date;
   niNumber?: string;
+  
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
   
   // Profile Completion Status
   profileCompleted?: boolean;
@@ -73,7 +96,10 @@ export type UserCreatePayload = Pick<
   | "restrictedAccessRights"
 > & { 
   dob?: string;
-  address: Partial<IUserAddress> 
+  address: Partial<IUserAddress>;
+  teamIds?: string[]; // Array of team IDs in priority order
+  isSupervisor?: boolean; // Whether user is a supervisor
+  supervisorTeamIds?: string[]; // Array of team IDs this user supervises
 };
 
 export type UserUpdatePayload = Partial<UserCreatePayload>;
@@ -89,20 +115,24 @@ export type ProfileCompletionPayload = {
   geofencingRadius?: number;
   geofencingAttendanceEnabled?: boolean;
   
-  // Foreign User Information
-  isForeignUser?: boolean;
+  // Right to Work Information
+  rightToWorkType?: "british_national_ilr" | "visa_holder";
   countryOfIssue?: string;
   passportNumber?: string;
   passportExpiryDate?: string;
-  passportDocument?: IFile;
   visaNumber?: string;
   visaExpiryDate?: string;
-  visaDocument?: IFile;
+  employmentDocuments?: Array<IFile & { documentType?: string }>;
   
   // Employment Information
   jobTitle?: string;
   employmentStartDate?: string;
   niNumber?: string;
+  
+  // Annual Leave Configuration
+  annualLeaveEntitlement?: number;
+  annualLeaveCarriedForward?: number;
+  annualLeaveYear?: number;
 };
 
 export interface IUserMethods {

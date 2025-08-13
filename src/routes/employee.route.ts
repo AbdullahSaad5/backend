@@ -1,7 +1,7 @@
-import { Router } from "express";
 import { employeeController } from "@/controllers/employee.controller";
 import { authGuard } from "@/guards";
 import { adminRoleCheck } from "@/middlewares/auth.middleware";
+import { router } from "./index.route";
 
 export const employee = (router: Router) => {
   router.get(
@@ -17,4 +17,7 @@ export const employee = (router: Router) => {
     adminRoleCheck,
     employeeController.getEmployeeProfileDetails
   );
+
+  router.get("/employee-leaves",authGuard.isAuth as any, employeeController.getEmployeeLeaves);
+  router.get("/admin/employee-leaves/:id", authGuard.isAuth as any, adminRoleCheck, employeeController.getEmployeeLeavesById);
 };

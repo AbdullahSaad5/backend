@@ -34,6 +34,21 @@ export const mailbox = (router: Router) => {
   router.get("/threads/:threadId/conversation", MailboxController.getEmailThreadConversation);
   router.patch("/threads/:threadId", MailboxController.updateEmailThreadStatus);
 
+  // Email status flag routes
+  router.patch("/emails/:id/read", MailboxController.markEmailAsRead);
+  router.patch("/emails/read", MailboxController.markEmailsAsRead);
+  router.patch("/emails/:id/replied", MailboxController.markEmailAsReplied);
+  router.patch("/emails/:id/forwarded", MailboxController.markEmailAsForwarded);
+  router.patch("/emails/archive", MailboxController.archiveEmails);
+  router.patch("/emails/spam", MailboxController.markEmailsAsSpam);
+  router.get("/emails/status-summary", MailboxController.getEmailStatusSummary);
+  router.patch("/emails/bulk-update-status", MailboxController.bulkUpdateEmailStatus);
+
+  // IMAP/POP3 Protocol Support for External Email Clients
+  router.get("/imap/:userId/messages", MailboxController.getIMAPMessages);
+  router.patch("/imap/:userId/messages/:messageId/flags", MailboxController.updateIMAPFlags);
+  router.get("/imap/capabilities", MailboxController.getEmailClientCapabilities);
+
   // Email retrieval routes
   router.get("/emails", MailboxController.getEmails);
   router.get("/emails/:id", MailboxController.getEmailById);

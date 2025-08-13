@@ -287,6 +287,7 @@ const listingSchema = new Schema(
     amazonSku: { type: String },
     offerId: { type: String },
     isBlocked: { type: Boolean, default: false },
+    isFeatured: { type: Boolean, default: false },
     publishToEbay: { type: Boolean, default: false },
     publishToAmazon: { type: Boolean, default: false },
     publishToWebsite: { type: Boolean, default: false },

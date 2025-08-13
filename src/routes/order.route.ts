@@ -1,37 +1,54 @@
-import { orderController } from "@/controllers"; // Assuming you have an order controller
-import { orderValidation } from "@/validations/order.validation"; // Importing the validation
-import { authGuard } from "@/guards"; // Assuming you have an authentication guard
+import { orderController } from "@/controllers";
+import { orderValidation } from "@/validations/order.validation";
+import { authGuard } from "@/guards";
 import { Router } from "express";
 
 export const orderRoutes = (router: Router) => {
-  // Uncomment this line if authentication is required for all routes
-  // router.use(authGuard.isAuth);
+  // Apply authentication guard to all order routes
+  router.use(authGuard.isAuth);
 
-  // Route to create a new order with validation
-  router.post("/", orderValidation.createOrder, orderController.addOrder);
-
-  // Route to get all orders (authentication might be required, add validation if needed)
+  // Basic CRUD operations
+  router.post("/", orderValidation.createOrder, orderController.createOrder);
   router.get("/", orderController.getAllOrders);
+  router.get("/:id", orderValidation.validateOrderId, orderController.getOrderById);
+  router.get("/orderId/:orderId", orderController.getOrderByOrderId);
+  router.patch("/:id", orderValidation.validateOrderId, orderValidation.updateOrder, orderController.updateOrderById);
+  router.delete("/:id", orderValidation.validateOrderId, orderController.deleteOrderById);
 
-  // Route to get a specific order by ID with validation
-  router.get(
-    "/:id",
-    orderValidation.validateOrderId,
-    orderController.getOrderById
-  );
-
-  // Route to update an order by ID with validation
+  // Order status management
   router.patch(
-    "/:id",
+    "/:id/status",
     orderValidation.validateOrderId,
-    orderValidation.updateOrder,
-    orderController.updateOrderById
+    orderValidation.validateOrderStatus,
+    orderController.updateOrderStatus
   );
 
-  // Route to delete an order by ID with validation
-  router.delete(
-    "/:id",
+  // Customer-specific routes
+  router.get("/customer/:customerId", orderController.getOrdersByCustomerId);
+
+  // Status-based filtering
+  router.get("/status/:status", orderController.getOrdersByStatus);
+
+  // Platform-based filtering
+  router.get("/platform/:platform", orderController.getOrdersByPlatform);
+
+  // Search functionality
+  router.get("/search", orderController.searchOrders);
+
+  // Statistics
+  router.get("/statistics", orderController.getOrderStatistics);
+
+  // Refund and replacement operations
+  router.post(
+    "/:originalOrderId/refund",
     orderValidation.validateOrderId,
-    orderController.deleteOrderById
+    orderValidation.validateRefundOrder,
+    orderController.createRefundOrder
+  );
+  router.post(
+    "/:originalOrderId/replacement",
+    orderValidation.validateOrderId,
+    orderValidation.validateReplacementOrder,
+    orderController.createReplacementOrder
   );
 };

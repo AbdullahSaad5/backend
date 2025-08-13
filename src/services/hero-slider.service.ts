@@ -13,6 +13,11 @@ export const heroSliderService = {
     return HeroSliderModel.find().sort({ createdAt: -1 }).exec();
   },
 
+  // Get active slides only
+  getActiveSlides: async (): Promise<IHeroSlider[]> => {
+    return HeroSliderModel.find({ status: "active" }).sort({ createdAt: -1 }).exec();
+  },
+
   // Update a slide
   updateSlide: async (id: string, data: Partial<IHeroSlider>): Promise<IHeroSlider | null> => {
     return HeroSliderModel.findByIdAndUpdate(id, data, { new: true });

@@ -6,6 +6,8 @@ export const productCategory = (router: Router) => {
   router.post("/", productCategoryValidation.addCategory, productCategoryController.addCategory);
 
   router.get("/", productCategoryController.getAllCategory);
+  
+  router.get("/web", productCategoryController.getAllCategoryWeb);
 
   router.patch("/:id", productCategoryValidation.updateCategory, productCategoryController.editCategory);
 

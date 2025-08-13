@@ -8,7 +8,7 @@ export interface IBlog extends Document {
   altText: string;
   seoTitle: string;
   authorName: string;
-  focusKewword: string[];
+  focusKeyword: string[];
   date: Date;
 }
 

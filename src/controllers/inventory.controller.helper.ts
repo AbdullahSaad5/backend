@@ -53,6 +53,11 @@ export const handleBulkExport = async (req: Request, res: Response) => {
       // filters: filters || {},
     });
 
+    // Debug logging to help troubleshoot cache issues
+    console.log(
+      `Export result - fromCache: ${fromCache}, fileLength: ${file?.length || 0}, totalExported: ${totalExported}`
+    );
+
     res.status(200).json({
       message: fromCache ? "Served from cache" : "Generated new Excel file",
       file, // single base64 encoded Excel file string

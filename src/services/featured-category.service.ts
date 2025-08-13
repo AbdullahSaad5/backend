@@ -13,6 +13,11 @@ export const featuredCategoryService = {
     return FeaturedCategoryModel.find().sort({ createdAt: -1 }).exec();
   },
 
+  // Get active categories only
+  getActiveCategories: async (): Promise<IFeaturedCategory[]> => {
+    return FeaturedCategoryModel.find({ status: "active" }).sort({ createdAt: -1 }).exec();
+  },
+
   // Update a featured category
   updateCategory: async (id: string, data: Partial<IFeaturedCategory>): Promise<IFeaturedCategory | null> => {
     return FeaturedCategoryModel.findByIdAndUpdate(id, data, { new: true });

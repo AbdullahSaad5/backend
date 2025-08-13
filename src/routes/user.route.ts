@@ -8,6 +8,10 @@ export const user = (router: Router) => {
   router.post("/", userValidation.createUser, userController.createUser);
   // route for get all users
   router.get("/", authGuard.isAuth as any, userController.allUsers);
+
+  // Router for get all users with specific role
+  router.get("/role/:role", userController.getUsersByRole);
+
   //new route for search and filter and pagination
   router.get("/search", userController.searchAndFilterUsers);
   // New route for fetching user stats/ Widgets
@@ -30,11 +34,7 @@ export const user = (router: Router) => {
   router.delete("/:id", userValidation.validateId, userController.deleteUser);
 
   // route for update user
-  router.patch(
-    "/escalate/:id",
-    userValidation.updateUser,
-    userController.updateUser
-  );
+  router.patch("/escalate/:id", userValidation.updateUser, userController.updateUser);
   // route for toggle block status
   router.patch("/block/:id", userController.toggleBlock);
 
@@ -42,5 +42,15 @@ export const user = (router: Router) => {
 
   // Profile Completion Routes
   router.get("/:id/profile-status", userValidation.validateId, userController.getProfileCompletionStatus);
-  router.patch("/:id/profile-completion", userValidation.validateId, userValidation.profileCompletion, userController.updateProfileCompletion);
+  router.patch(
+    "/:id/profile-completion",
+    userValidation.validateId,
+    userValidation.profileCompletion,
+    userController.updateProfileCompletion
+  );
+
+  // Team Assignment Routes
+  router.patch("/:id/assign-teams", userValidation.validateId, userController.assignTeams);
+  router.get("/:id/teams", userValidation.validateId, userController.getUserWithTeams);
+  router.delete("/:userId/teams/:teamId", userValidation.validateId, userController.removeTeam);
 };

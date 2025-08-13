@@ -12,6 +12,12 @@ const validateNINumber = (niNumber: string) => {
   return niRegex.test(niNumber);
 };
 
+// Employee ID validation function
+const validateEmployeeId = (employeeId: string) => {
+  const employeeIdRegex = /^BMR-[A-Z0-9]{6}$/;
+  return employeeIdRegex.test(employeeId);
+};
+
 export const fileSchema = {
   url: { type: String },
   type: { type: String },
@@ -58,61 +64,127 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     // supplierKey added but not required by default
     supplierKey: { type: String },
 
+    // Employee ID - unique 6-character alphanumeric identifier
+    employeeId: {
+      type: String,
+      unique: true,
+      // required: true,
+      validate: {
+        validator: validateEmployeeId,
+        message:
+          "Employee ID must be in format: BMR-XXXXXX (where XXXXXX are 6 uppercase letters/numbers)",
+      },
+    },
+
+    // Team Assignments
+    teamAssignments: {
+      type: [
+        {
+          teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+          priority: { type: Number, required: true },
+          assignedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+      _id: false,
+    },
+
+    // Supervisor Configuration
+    isSupervisor: {
+      type: Boolean,
+      default: false,
+    },
+    supervisorTeams: {
+      type: [
+        {
+          teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
+          assignedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+      _id: false,
+    },
+
     // Profile Completion Fields
     // Personal Information
-    gender: { 
-      type: String, 
-      enum: ["Male", "Female", "Other"]
+    gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
     },
     emergencyPhoneNumber: { type: String },
     dob: { type: Date },
-    
+
     // Geofencing Configuration
-    geofencingRadius: { 
-      type: Number, 
-      min: 100, 
-      max: 1000, 
-      default: 500
+    geofencingRadius: {
+      type: Number,
+      min: 100,
+      max: 1000,
+      default: 500,
     },
-    geofencingAttendanceEnabled: { 
-      type: Boolean, 
-      default: false
+    geofencingAttendanceEnabled: {
+      type: Boolean,
+      default: false,
     },
-    
-    // Foreign User Information
-    isForeignUser: { 
-      type: Boolean, 
-      default: false
+
+    // Right to Work Information
+    rightToWorkType: {
+      type: String,
+      enum: ["british_national_ilr", "visa_holder"],
+      default: "british_national_ilr",
     },
     countryOfIssue: { type: String },
     passportNumber: { type: String },
     passportExpiryDate: { type: Date },
-    passportDocument: { type: fileSchema, _id: false },
     visaNumber: { type: String },
     visaExpiryDate: { type: Date },
-    visaDocument: { type: fileSchema, _id: false },
-    
+    employmentDocuments: [{
+      url: { type: String },
+      type: { type: String },
+      name: { type: String },
+      documentType: { type: String }, // passport, visa, ni, etc.
+    }],
+
     // Employment Information
     jobTitle: { type: String },
     employmentStartDate: { type: Date },
-    niNumber: { 
-      type: String, 
+    niNumber: {
+      type: String,
       validate: {
         validator: validateNINumber,
-        message: "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)"
-      }
+        message:
+          "NI number must be in format: 2 letters, 6 numbers, 1 letter (e.g., QQ123456B)",
+      },
     },
-    
+
+
+    // Annual Leave Configuration
+    annualLeaveEntitlement: {
+      type: Number,
+      min: 0,
+      max: 365,
+      default: 20, // Default 20 days per year
+    },
+    annualLeaveCarriedForward: {
+      type: Number,
+      min: 0,
+      max: 365,
+      default: 0,
+    },
+    annualLeaveYear: {
+      type: Number,
+      default: () => new Date().getFullYear(),
+    },
+
     // Profile Completion Status
-    profileCompleted: { 
-      type: Boolean, 
-      default: false
+    profileCompleted: {
+      type: Boolean,
+      default: false,
     },
-    profileCompletionPercentage: { 
-      type: Number, 
-      min: 0, 
-      max: 100, 
-      default: 0
+    profileCompletionPercentage: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0,
     },
   },
   { timestamps: true }

@@ -31,6 +31,12 @@ export const listing = (router: Router) => {
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
+  // Fetch all Website listings
+  router.get("/website", listingController.getWebsiteListings);
+  
+  // Fetch single Website product by ID
+  router.get("/website/:id", listingValidation.validateId, listingController.getWebsiteProductById);
+
   
   // Update a draft listing by ID (subsequent steps)
   router.patch(
@@ -52,6 +58,9 @@ export const listing = (router: Router) => {
 
   // route for toggle block status
   router.patch("/istemplate/:id", listingController.toggleIsTemplate);
+
+  // route for toggle featured status
+  router.patch("/isfeatured/:id", listingController.toggleIsFeatured);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);

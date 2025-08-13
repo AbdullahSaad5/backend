@@ -1,0 +1,14 @@
+{
+  "name": "bavit-inbound-email-processor",
+  "version": "1.0.0",
+  "description": "AWS Lambda function to process inbound emails from SES and store in MongoDB",
+  "main": "src/index.js",
+  "scripts": {
+    "package": "zip -r inbound-email-processor.zip src/ node_modules/ package.json",
+    "deploy": "aws lambda update-function-code --function-name bavit-inbound-email-processor --zip-file fileb://inbound-email-processor.zip"
+  },
+  "dependencies": {
+    "mongoose": "^8.8.4",
+    "aws-sdk": "^2.1692.0"
+  }
+}

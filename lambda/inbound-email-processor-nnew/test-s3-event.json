@@ -1,0 +1,38 @@
+{
+  "Records": [
+    {
+      "eventVersion": "2.1",
+      "eventSource": "aws:s3",
+      "awsRegion": "ap-south-1",
+      "eventTime": "2025-08-04T10:57:47.771Z",
+      "eventName": "ObjectCreated:Put",
+      "userIdentity": {
+        "principalId": "AWS:AROA5FTY7KPXKDARA6A4N:f313fae9715145bc99196855f44cd75b"
+      },
+      "requestParameters": {
+        "sourceIPAddress": "10.0.53.13"
+      },
+      "responseElements": {
+        "x-amz-request-id": "JMWJCSBQJY6K0YXX",
+        "x-amz-id-2": "avfFsxMDAuWEWKtR1SVrmjSDmL1+4+WEKGVW+2WmLXP7Eoz9CysDr1eo46Ye6RKHng8lLcNKezY+Wka/OJIvcaeWBzbCU1xd"
+      },
+      "s3": {
+        "s3SchemaVersion": "1.0",
+        "configurationId": "ses-email-s3-trigger-for-mongo",
+        "bucket": {
+          "name": "bmr-ses-inbound-emails",
+          "ownerIdentity": {
+            "principalId": "A2R1NTGDCI75PO"
+          },
+          "arn": "arn:aws:s3:::bmr-ses-inbound-emails"
+        },
+        "object": {
+          "key": "uvvl7ugm0qj15io9un9c65d99mm0hss2cms2o4g1",
+          "size": 5835,
+          "eTag": "428dfd149fa5ad6a3c4e3add58af5734",
+          "sequencer": "006890922BB44848D6"
+        }
+      }
+    }
+  ]
+}

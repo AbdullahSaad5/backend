@@ -79,7 +79,7 @@ export const supplierController = {
       console.error(error);
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ message: "Error creating user" });
+        .json({ message: "Error creating supplier" });
     }
   },
 

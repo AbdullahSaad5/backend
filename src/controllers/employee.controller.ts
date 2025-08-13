@@ -43,9 +43,7 @@ export const employeeController = {
     try {
       const { userId } = req.params;
       if (!userId) {
-        return res
-          .status(400)
-          .json({ success: false, message: "User ID is required" });
+        return res.status(400).json({ success: false, message: "User ID is required" });
       }
       const result = await employeeService.getEmployeeProfileDetails(userId);
       return res.status(200).json(result);
@@ -53,6 +51,40 @@ export const employeeController = {
       return res.status(500).json({
         success: false,
         message: "Failed to fetch employee profile details",
+        error: error.message,
+      });
+    }
+  },
+  getEmployeeLeaves: async (req: Request, res: Response) => {
+    try {
+      const token = req.headers.authorization?.split(" ")[1];
+      console.log("token : ", token);
+      // decode token
+      const decoded = jwtVerify(token as string);
+      const userId = decoded.id.toString();
+
+      const result = await employeeService.getEmployeeLeaves(userId);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch employee leaves",
+        error: error.message,
+      });
+    }
+  },
+  getEmployeeLeavesById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ success: false, message: "User ID is required" });
+      }
+      const result = await employeeService.getEmployeeLeaves(id);
+      return res.status(200).json(result);
+    } catch (error: any) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch employee leaves by ID",
         error: error.message,
       });
     }

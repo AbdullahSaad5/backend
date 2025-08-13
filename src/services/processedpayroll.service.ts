@@ -138,17 +138,12 @@ export const processedPayrollService = {
     id: string,
     update: Partial<IProcessedPayroll>
   ) {
-    console.log("updateProcessedPayrollById called with:");
-    console.log("id:", id);
-    console.log("update data:", update);
-
     const result = await ProcessedPayroll.findByIdAndUpdate(id, update, {
       new: true,
     })
       .populate("employeeId", "firstName lastName email")
       .populate("processedBy", "firstName lastName email");
 
-    console.log("Updated payroll result:", result);
     return result;
   },
 

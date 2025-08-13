@@ -26,6 +26,21 @@ interface TypingUsers {
   };
 }
 
+// Add email status update interface
+interface EmailStatusUpdate {
+  emailId: string;
+  isRead?: boolean;
+  isArchived?: boolean;
+  isSpam?: boolean;
+  isReplied?: boolean;
+  isForwarded?: boolean;
+  readAt?: Date;
+  archivedAt?: Date;
+  spamMarkedAt?: Date;
+  repliedAt?: Date;
+  forwardedAt?: Date;
+}
+
 class SocketManager {
   private io: Server | null = null;
   private connectedUsers: Map<string, SocketUser> = new Map();
@@ -594,6 +609,33 @@ class SocketManager {
         this.typingUsers.set(key, typingUsers);
       }
     }, 5000); // Check every 5 seconds
+  }
+
+  // Add method to emit email status updates
+  public emitEmailStatusUpdate(userEmail: string, statusUpdate: EmailStatusUpdate): void {
+    const user = Array.from(this.connectedUsers.values()).find((u) => u.email === userEmail);
+    if (user && this.io) {
+      this.io.to(user.socketId).emit("email-status-updated", statusUpdate);
+      console.log(`Email status update emitted to ${userEmail}:`, statusUpdate);
+    }
+  }
+
+  // Add method to emit bulk email status updates
+  public emitBulkEmailStatusUpdate(userEmail: string, updates: EmailStatusUpdate[]): void {
+    const user = Array.from(this.connectedUsers.values()).find((u) => u.email === userEmail);
+    if (user && this.io) {
+      this.io.to(user.socketId).emit("bulk-email-status-updated", { updates });
+      console.log(`Bulk email status update emitted to ${userEmail}:`, updates.length, "emails");
+    }
+  }
+
+  // Add method to emit new email notification
+  public emitNewEmail(userEmail: string, emailData: any): void {
+    const user = Array.from(this.connectedUsers.values()).find((u) => u.email === userEmail);
+    if (user && this.io) {
+      this.io.to(user.socketId).emit("new-email-received", emailData);
+      console.log(`New email notification emitted to ${userEmail}`);
+    }
   }
 
   public getIO(): Server | null {

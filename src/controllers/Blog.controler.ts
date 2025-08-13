@@ -5,12 +5,34 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const blogController = {
   addblog: async (req: Request, res: Response) => {
     try {
-      const { title, content, category } = req.body;
+      const {
+        title,
+        content,
+        category,
+        altText,
+        seoTitle,
+        authorName,
+        coverImage,
+        focusKeyword,
+      } = req.body;
       console.log(title, content, category);
-      const newblog = await blogService.createblog(title, content, category);
+      const newblog = await blogService.createblog(
+        title,
+        content,
+        category,
+        altText,
+        seoTitle,
+        authorName,
+        coverImage,
+        focusKeyword
+      );
       res
         .status(StatusCodes.CREATED)
-        .json({ success: true, message: "Blog blog created successfully", data: newblog });
+        .json({
+          success: true,
+          message: "Blog blog created successfully",
+          data: newblog,
+        });
     } catch (error: any) {
       console.error(error);
       if (error.title === "MongoServerError" && error.code === 11000) {
@@ -21,7 +43,9 @@ export const blogController = {
         });
       } else {
         // console.error(error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating user blog" });
+        res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error creating user blog" });
       }
     }
   },
@@ -31,7 +55,13 @@ export const blogController = {
       const { id } = req.params;
       const { title, content, category } = req.body;
       const blog = await blogService.editblog(id, { title, content, category });
-      res.status(StatusCodes.OK).json({ success: true, message: "blog updated successfully", data: blog });
+      res
+        .status(StatusCodes.OK)
+        .json({
+          success: true,
+          message: "blog updated successfully",
+          data: blog,
+        });
     } catch (error: any) {
       // console.error("Edit blog Error:", error);
       if (error.title === "MongoServerError" && error.code === 11000) {
@@ -54,7 +84,13 @@ export const blogController = {
     try {
       const { id } = req.params;
       const result = await blogService.deleteblog(id);
-      res.status(StatusCodes.OK).json({ success: true, message: "blog deleted successfully", deletedUser: result });
+      res
+        .status(StatusCodes.OK)
+        .json({
+          success: true,
+          message: "blog deleted successfully",
+          deletedUser: result,
+        });
     } catch (error) {
       console.error("Delete blog Error:", error);
       res
@@ -90,6 +126,4 @@ export const blogController = {
         .json({ success: false, message: "Error getting Blog blog" });
     }
   },
-
- 
 };
