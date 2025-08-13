@@ -104,13 +104,13 @@ export const ForumTopicController = {
       .find({ category: req.params.id })
       .populate('category', 'name');
 
-    if (!forumTopics || forumTopics.length === 0) {
-      return res.status(StatusCodes.NOT_FOUND).json({
-        success: false,
-        message: "No forum topics found for this category",
-        issueMessage: "No forum topics found for this category"
-      });
-    }
+    // if (!forumTopics || forumTopics.length === 0) {
+    //   return res.status(StatusCodes.NOT_FOUND).json({
+    //     success: false,
+    //     message: "No forum topics found for this category",
+    //     issueMessage: "No forum topics found for this category"
+    //   });
+    // }
 
     res.status(StatusCodes.OK).json({
       success: true,
