@@ -6,6 +6,14 @@ import { Location } from "@/models/location.model";
 import { Shift } from "@/models/workshift.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 import { Workmode } from "@/models/workmode.model";
+
+// Utility function to normalize dates to prevent timezone issues
+const normalizeDate = (date: Date): Date => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
 // Helper function to calculate overtime for a record
 function calculateOvertime(record: any) {
   try {
@@ -79,6 +87,9 @@ function calculateOvertime(record: any) {
       earlyMinutes = Math.floor((shiftStartTime.getTime() - record.checkIn.getTime()) / (1000 * 60));
     }
 
+    // Note: Early check-in time is tracked but not counted as overtime
+    // It's just being punctual, not working extra hours
+
     // Calculate late check-in minutes
     let lateMinutes = 0;
     if (record.checkIn > shiftStartTime) {
@@ -94,8 +105,9 @@ function calculateOvertime(record: any) {
     // Calculate actual worked minutes (excluding breaks if applicable)
     const totalWorkedMinutes = Math.floor((record.checkOut.getTime() - record.checkIn.getTime()) / (1000 * 60));
 
-    // Adjust normal working hours by removing break time
-    const adjustedShiftDuration = shiftDurationMinutes - breakMinutes;
+    // Break time is included within normal shift hours, not subtracted
+    // Employee should work the full shift duration (break is just a pause within shift time)
+    const normalShiftDuration = shiftDurationMinutes; // Don't subtract break time
 
     // Calculate overtime minutes based on the rules
     let overtimeMinutes = 0;
@@ -103,11 +115,11 @@ function calculateOvertime(record: any) {
 
     if (lateMinutes > 0) {
       // For late check-ins, first calculate actual time worked
-      normalHoursMinutes = Math.min(totalWorkedMinutes, adjustedShiftDuration);
+      normalHoursMinutes = Math.min(totalWorkedMinutes, normalShiftDuration);
 
       // Employee must first complete their normal hours
       // Normal hours are the full shift duration (they need to make up for being late)
-      const requiredWorkMinutes = adjustedShiftDuration + lateMinutes;
+      const requiredWorkMinutes = normalShiftDuration + lateMinutes;
 
       if (totalWorkedMinutes > requiredWorkMinutes) {
         // If they worked more than required (shift + late time), the rest is overtime
@@ -118,15 +130,27 @@ function calculateOvertime(record: any) {
       }
     } else {
       // For on-time or early check-ins
-      normalHoursMinutes = adjustedShiftDuration;
+      normalHoursMinutes = normalShiftDuration;
 
-      // For early check-ins, count early time as overtime
-      // For all employees, count time after shift end as overtime
-      overtimeMinutes = earlyMinutes + lateCheckoutMinutes;
+      // Calculate overtime based on actual work completed
+      // Only count overtime if they've worked beyond their normal shift hours
+      if (totalWorkedMinutes > normalShiftDuration) {
+        // They worked beyond their shift - count the extra time as overtime
+        overtimeMinutes = totalWorkedMinutes - normalShiftDuration;
+      } else {
+        // They haven't worked their full shift yet - no overtime
+        overtimeMinutes = 0;
+      }
+
+      // Early check-in time is not overtime - it's just being punctual
+      // Only count time worked beyond shift end as overtime
+      overtimeMinutes = Math.max(0, overtimeMinutes);
     }
 
     // Only count overtime if it's at least 25 minutes
-    const finalOvertimeMinutes = overtimeMinutes >= 25 ? overtimeMinutes : 0;
+    // AND if they've actually worked beyond their normal shift hours
+    const finalOvertimeMinutes =
+      overtimeMinutes >= 25 && totalWorkedMinutes > normalShiftDuration ? overtimeMinutes : 0;
 
     return {
       ...record,
@@ -168,8 +192,7 @@ export const attendanceService = {
       }
 
       // Get today's date at midnight
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = normalizeDate(new Date());
 
       // Get attendance for today if exists
       const attendance = await Attendance.findOne({
@@ -220,8 +243,7 @@ export const attendanceService = {
   },
   // Employee self check-in
   checkIn: async (employeeId: string, shiftId: string, workModeId: string, checkIn: Date) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = normalizeDate(new Date());
     // Removed isEmployee check as requested
     let attendance = await Attendance.findOne({ employeeId, date: today });
     if (!attendance) {
@@ -241,14 +263,39 @@ export const attendanceService = {
       attendance.checkIn = new Date(); // Current time
       attendance.status = "present";
       await attendance.save();
+
+      // After saving, recalculate overtime if we have shift information
+      if (attendance.shiftId) {
+        // Populate shift information for overtime calculation
+        const populatedAttendance = await Attendance.findById(attendance._id).populate({
+          path: "shiftId",
+          select: "startTime endTime hasBreak breakStartTime breakEndTime",
+        });
+
+        if (populatedAttendance) {
+          // Recalculate overtime hours
+          const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+          // Return the record with recalculated overtime values
+          return {
+            ...attendance.toObject(),
+            overtimeMinutes: recalculatedRecord.overtimeMinutes,
+            earlyMinutes: recalculatedRecord.earlyMinutes,
+            lateMinutes: recalculatedRecord.lateMinutes,
+            normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+            shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+            breakMinutes: recalculatedRecord.breakMinutes,
+            totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+          };
+        }
+      }
     }
     return attendance;
   },
 
   // Employee self check-out
   checkOut: async (employeeId: string) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = normalizeDate(new Date());
     let attendance = await Attendance.findOne({ employeeId, date: today });
     if (!attendance || !attendance.checkIn) {
       throw new Error("No check-in found for today");
@@ -258,6 +305,32 @@ export const attendanceService = {
     }
     attendance.checkOut = new Date();
     await attendance.save();
+
+    // After saving, recalculate overtime if we have shift information
+    if (attendance.shiftId) {
+      // Populate shift information for overtime calculation
+      const populatedAttendance = await Attendance.findById(attendance._id).populate({
+        path: "shiftId",
+        select: "startTime endTime hasBreak breakStartTime breakEndTime",
+      });
+
+      if (populatedAttendance) {
+        // Recalculate overtime hours
+        const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+        // Return the record with recalculated overtime values
+        return {
+          ...attendance.toObject(),
+          overtimeMinutes: recalculatedRecord.overtimeMinutes,
+          earlyMinutes: recalculatedRecord.earlyMinutes,
+          lateMinutes: recalculatedRecord.lateMinutes,
+          normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+          shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+          breakMinutes: recalculatedRecord.breakMinutes,
+          totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+        };
+      }
+    }
     return attendance;
   },
 
@@ -271,14 +344,16 @@ export const attendanceService = {
     checkIn?: Date,
     checkOut?: Date
   ) => {
-    date.setHours(0, 0, 0, 0);
-    let attendance = await Attendance.findOne({ employeeId, date });
+    // Use utility function to normalize date and prevent timezone issues
+    const normalizedDate = normalizeDate(date);
+
+    let attendance = await Attendance.findOne({ employeeId, date: normalizedDate });
     if (!attendance) {
       // Ensure the check-in and check-out times are properly created as Date objects
       // without timezone adjustments
       attendance = await Attendance.create({
         employeeId,
-        date,
+        date: normalizedDate,
         checkIn: checkIn ? new Date(checkIn) : undefined,
         checkOut: checkOut ? new Date(checkOut) : undefined,
         shiftId,
@@ -292,13 +367,75 @@ export const attendanceService = {
       if (checkIn) attendance.checkIn = new Date(checkIn);
       if (checkOut) attendance.checkOut = new Date(checkOut);
       await attendance.save();
+
+      // After updating, recalculate overtime if the record affects overtime calculation
+      if (status === "present" && (checkIn || checkOut || shiftId)) {
+        // Populate shift information for overtime calculation
+        const populatedAttendance = await Attendance.findById(attendance._id).populate({
+          path: "shiftId",
+          select: "startTime endTime hasBreak breakStartTime breakEndTime",
+        });
+
+        if (populatedAttendance) {
+          // Recalculate overtime hours
+          const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+          // Return the record with recalculated overtime values
+          return {
+            ...attendance.toObject(),
+            overtimeMinutes: recalculatedRecord.overtimeMinutes,
+            earlyMinutes: recalculatedRecord.earlyMinutes,
+            lateMinutes: recalculatedRecord.lateMinutes,
+            normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+            shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+            breakMinutes: recalculatedRecord.breakMinutes,
+            totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+          };
+        }
+      }
     }
     return attendance;
   },
 
   // Admin: update attendance record
   updateAttendance: async (attendanceId: string, update: Partial<IAttendance>) => {
+    // Update the attendance record
     const attendance = await Attendance.findByIdAndUpdate(attendanceId, update, { new: true });
+
+    if (!attendance) {
+      throw new Error("Attendance record not found");
+    }
+
+    // If the update affects overtime calculation (checkIn, checkOut, status, or shiftId),
+    // we need to recalculate overtime hours
+    if (update.checkIn || update.checkOut || update.status || update.shiftId) {
+      // Populate shift information for overtime calculation
+      const populatedAttendance = await Attendance.findById(attendanceId).populate({
+        path: "shiftId",
+        select: "startTime endTime hasBreak breakStartTime breakEndTime",
+      });
+
+      if (populatedAttendance) {
+        // Recalculate overtime hours
+        const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+        // Update the attendance record with recalculated overtime values
+        // Note: We don't save these calculated fields to the database as they're computed values
+        // They will be recalculated each time the record is retrieved
+
+        return {
+          ...attendance.toObject(),
+          overtimeMinutes: recalculatedRecord.overtimeMinutes,
+          earlyMinutes: recalculatedRecord.earlyMinutes,
+          lateMinutes: recalculatedRecord.lateMinutes,
+          normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+          shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+          breakMinutes: recalculatedRecord.breakMinutes,
+          totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+        };
+      }
+    }
+
     return attendance;
   },
 
@@ -375,9 +512,8 @@ export const attendanceService = {
       console.time("getAllForDate");
       const query: any = {};
       if (startDate && endDate) {
-        const start = new Date(startDate);
+        const start = normalizeDate(new Date(startDate));
         const end = new Date(endDate);
-        start.setHours(0, 0, 0, 0);
         end.setHours(23, 59, 59, 999);
         query.date = { $gte: start, $lte: end };
       }
@@ -500,9 +636,8 @@ export const attendanceService = {
       console.time("getAllForDate");
       const query: any = {};
       if (startDate && endDate) {
-        const start = new Date(startDate);
+        const start = normalizeDate(new Date(startDate));
         const end = new Date(endDate);
-        start.setHours(0, 0, 0, 0);
         end.setHours(23, 59, 59, 999);
         query.date = { $gte: start, $lte: end };
       }
@@ -538,9 +673,9 @@ export const attendanceService = {
         const uniqueUserIds = [...new Set(leaveRecords.map((record) => record.employeeId.toString()))];
 
         // Calculate date range more efficiently
-        const dates = leaveRecords.map((record) => new Date(record.date).setHours(0, 0, 0, 0));
-        const minDate = new Date(Math.min(...dates));
-        const maxDate = new Date(Math.max(...dates));
+        const dates = leaveRecords.map((record) => normalizeDate(new Date(record.date)));
+        const minDate = new Date(Math.min(...dates.map((date) => date.getTime())));
+        const maxDate = new Date(Math.max(...dates.map((date) => date.getTime())));
         maxDate.setHours(23, 59, 59, 999);
 
         // Single optimized query with projection
@@ -764,6 +899,32 @@ export const attendanceService = {
       attendance.checkIn = new Date();
       attendance.status = "present";
       await attendance.save();
+
+      // After saving, recalculate overtime if we have shift information
+      if (attendance.shiftId) {
+        // Populate shift information for overtime calculation
+        const populatedAttendance = await Attendance.findById(attendance._id).populate({
+          path: "shiftId",
+          select: "startTime endTime hasBreak breakStartTime breakEndTime",
+        });
+
+        if (populatedAttendance) {
+          // Recalculate overtime hours
+          const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+          // Return the record with recalculated overtime values
+          return {
+            ...attendance.toObject(),
+            overtimeMinutes: recalculatedRecord.overtimeMinutes,
+            earlyMinutes: recalculatedRecord.earlyMinutes,
+            lateMinutes: recalculatedRecord.lateMinutes,
+            normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+            shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+            breakMinutes: recalculatedRecord.breakMinutes,
+            totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+          };
+        }
+      }
     }
     return attendance;
   },
@@ -809,8 +970,7 @@ export const attendanceService = {
       }
 
       // Set date to midnight for consistent comparison
-      const attendanceDate = new Date(date);
-      attendanceDate.setHours(0, 0, 0, 0);
+      const attendanceDate = normalizeDate(date);
 
       let attendance = await Attendance.findOne({
         employeeId: userId,
@@ -852,6 +1012,32 @@ export const attendanceService = {
         attendance.checkIn = date;
         attendance.status = "present";
         await attendance.save();
+
+        // After saving, recalculate overtime if we have shift information
+        if (attendance.shiftId) {
+          // Populate shift information for overtime calculation
+          const populatedAttendance = await Attendance.findById(attendance._id).populate({
+            path: "shiftId",
+            select: "startTime endTime hasBreak breakStartTime breakEndTime",
+          });
+
+          if (populatedAttendance) {
+            // Recalculate overtime hours
+            const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+            // Return the record with recalculated overtime values
+            return {
+              ...attendance.toObject(),
+              overtimeMinutes: recalculatedRecord.overtimeMinutes,
+              earlyMinutes: recalculatedRecord.earlyMinutes,
+              lateMinutes: recalculatedRecord.lateMinutes,
+              normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+              shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+              breakMinutes: recalculatedRecord.breakMinutes,
+              totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+            };
+          }
+        }
       }
 
       return attendance;
@@ -887,8 +1073,7 @@ export const attendanceService = {
       }
 
       // Set date to midnight for consistent comparison
-      const attendanceDate = new Date(date);
-      attendanceDate.setHours(0, 0, 0, 0);
+      const attendanceDate = normalizeDate(date);
 
       let attendance = await Attendance.findOne({
         employeeId: userId,
@@ -926,7 +1111,31 @@ export const attendanceService = {
       attendance.checkOut = date;
       await attendance.save();
 
-      return attendance;
+      // After saving, recalculate overtime if we have shift information
+      if (attendance.shiftId) {
+        // Populate shift information for overtime calculation
+        const populatedAttendance = await Attendance.findById(attendance._id).populate({
+          path: "shiftId",
+          select: "startTime endTime hasBreak breakStartTime breakEndTime",
+        });
+
+        if (populatedAttendance) {
+          // Recalculate overtime hours
+          const recalculatedRecord = calculateOvertime(populatedAttendance);
+
+          // Return the record with recalculated overtime values
+          return {
+            ...attendance.toObject(),
+            overtimeMinutes: recalculatedRecord.overtimeMinutes,
+            earlyMinutes: recalculatedRecord.earlyMinutes,
+            lateMinutes: recalculatedRecord.lateMinutes,
+            normalHoursMinutes: recalculatedRecord.normalHoursMinutes,
+            shiftDurationMinutes: recalculatedRecord.shiftDurationMinutes,
+            breakMinutes: recalculatedRecord.breakMinutes,
+            totalWorkedMinutes: recalculatedRecord.totalWorkedMinutes,
+          };
+        }
+      }
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -1005,6 +1214,10 @@ export const autoCheckoutForUsers = async () => {
           if (attendance && attendance.checkIn && !attendance.checkOut) {
             attendance.checkOut = shiftEnd;
             await attendance.save();
+
+            // After auto-checkout, recalculate overtime if we have shift information
+            // Note: Overtime values are computed on-the-fly and not stored in the database
+            // They will be recalculated each time the record is retrieved
           }
         }
       }
