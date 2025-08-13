@@ -47,5 +47,10 @@ export const document = (router: Router) => {
         documentController.getMyDocuments
     );
 
+    router.get(
+        "/download/:id",
+        documentController.downloadDocument
+    );
+
     return router;
 };

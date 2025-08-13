@@ -79,6 +79,9 @@ export interface IUser extends Document {
   annualLeaveCarriedForward?: number;
   annualLeaveYear?: number;
   
+  // Skills Information
+  skills?: string[];
+  
   // Profile Completion Status
   profileCompleted?: boolean;
   profileCompletionPercentage?: number;
@@ -133,6 +136,9 @@ export type ProfileCompletionPayload = {
   annualLeaveEntitlement?: number;
   annualLeaveCarriedForward?: number;
   annualLeaveYear?: number;
+  
+  // Skills Information
+  skills?: string[];
 };
 
 export interface IUserMethods {

@@ -13,7 +13,7 @@ export class EmailClientController {
   static async sendEmail(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { to, subject, text, html, cc, bcc, attachments, replyTo } = req.body;
+      const { to, subject, text, html, cc, bcc, attachments, replyTo, inReplyTo, references, threadId } = req.body;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -35,7 +35,6 @@ export class EmailClientController {
           message: "Email account not found",
         });
       }
-
 
       // Check if account is active
       if (!account.isActive) {
@@ -111,6 +110,9 @@ export class EmailClientController {
         cc,
         bcc,
         attachments,
+        inReplyTo,
+        references,
+        threadId,
       });
 
       if (!result.success) {
@@ -140,67 +142,108 @@ export class EmailClientController {
         // Check if this is a reply or forward by analyzing subject
         const isReply = subject.toLowerCase().includes("re:");
         const isForward = subject.toLowerCase().includes("fwd:") || subject.toLowerCase().includes("fw:");
-        let threadId;
+        let finalThreadId = threadId; // Use provided threadId if available
         let originalEmailId = null;
 
         if (isReply || isForward) {
-          // Find the original email being replied to or forwarded
-          const cleanSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+          // If threadId is provided, use it (for proper threading)
+          if (threadId) {
+            finalThreadId = threadId;
 
-          // Look for existing emails with similar subject
-          const originalEmail = await EmailModel.findOne({
-            $and: [
-              {
-                $or: [{ subject: { $regex: cleanSubject, $options: "i" } }, { subject: cleanSubject }],
-              },
-              {
-                $or: [{ "from.email": Array.isArray(to) ? to[0] : to }, { "to.email": account.emailAddress }],
-              },
-            ],
-          }).sort({ receivedAt: -1 });
+            // Find the original email in this thread
+            const originalEmail = await EmailModel.findOne({
+              threadId: threadId,
+              accountId: account._id,
+            }).sort({ receivedAt: 1 }); // Get the first email in the thread
 
-          if (originalEmail) {
-            threadId = originalEmail.threadId;
-            originalEmailId = originalEmail._id;
+            if (originalEmail) {
+              originalEmailId = originalEmail._id;
 
-            // Mark original email as replied or forwarded
-            if (isReply) {
-              originalEmail.isReplied = true;
-              originalEmail.repliedAt = new Date();
-              if (!originalEmail.isRead) {
-                originalEmail.isRead = true;
-                originalEmail.readAt = new Date();
+              // Mark original email as replied or forwarded
+              if (isReply) {
+                originalEmail.isReplied = true;
+                originalEmail.repliedAt = new Date();
+                if (!originalEmail.isRead) {
+                  originalEmail.isRead = true;
+                  originalEmail.readAt = new Date();
+                }
+              } else if (isForward) {
+                originalEmail.isForwarded = true;
+                originalEmail.forwardedAt = new Date();
+                if (!originalEmail.isRead) {
+                  originalEmail.isRead = true;
+                  originalEmail.readAt = new Date();
+                }
               }
-            } else if (isForward) {
-              originalEmail.isForwarded = true;
-              originalEmail.forwardedAt = new Date();
-              if (!originalEmail.isRead) {
-                originalEmail.isRead = true;
-                originalEmail.readAt = new Date();
-              }
+              await originalEmail.save();
+
+              logger.info(`Original email updated for reply/forward`, {
+                originalEmailId: originalEmail._id,
+                isReply,
+                isForward,
+                threadId: finalThreadId,
+              });
             }
-            await originalEmail.save();
-
-            logger.info(`Original email updated for reply/forward`, {
-              originalEmailId: originalEmail._id,
-              isReply,
-              isForward,
-              threadId,
-            });
           } else {
-            // No original email found, create new thread
-            threadId = `thread_${cleanSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+            // Fallback: Find the original email being replied to or forwarded
+            const cleanSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
+
+            // Look for existing emails with similar subject
+            const originalEmail = await EmailModel.findOne({
+              $and: [
+                {
+                  $or: [{ subject: { $regex: cleanSubject, $options: "i" } }, { subject: cleanSubject }],
+                },
+                {
+                  $or: [{ "from.email": Array.isArray(to) ? to[0] : to }, { "to.email": account.emailAddress }],
+                },
+              ],
+            }).sort({ receivedAt: -1 });
+
+            if (originalEmail) {
+              finalThreadId = originalEmail.threadId;
+              originalEmailId = originalEmail._id;
+
+              // Mark original email as replied or forwarded
+              if (isReply) {
+                originalEmail.isReplied = true;
+                originalEmail.repliedAt = new Date();
+                if (!originalEmail.isRead) {
+                  originalEmail.isRead = true;
+                  originalEmail.readAt = new Date();
+                }
+              } else if (isForward) {
+                originalEmail.isForwarded = true;
+                originalEmail.forwardedAt = new Date();
+                if (!originalEmail.isRead) {
+                  originalEmail.isRead = true;
+                  originalEmail.readAt = new Date();
+                }
+              }
+              await originalEmail.save();
+
+              logger.info(`Original email updated for reply/forward`, {
+                originalEmailId: originalEmail._id,
+                isReply,
+                isForward,
+                threadId: finalThreadId,
+              });
+            } else {
+              // No original email found, create new thread
+              finalThreadId = `thread_${cleanSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+            }
           }
         } else {
           // New email thread
           const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-          threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
+          finalThreadId =
+            threadId || `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
         }
 
         // Create email data for database storage
         const emailData = {
           messageId: result.data?.messageId || `sent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          threadId,
+          threadId: finalThreadId,
           accountId: account._id,
           direction: EmailDirection.OUTBOUND,
           type: "general" as EmailType,
@@ -217,6 +260,9 @@ export class EmailClientController {
           cc: cc ? (Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }]) : [],
           bcc: bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : [],
           replyTo: replyTo ? { email: replyTo } : undefined,
+          // Add threading headers
+          inReplyTo: inReplyTo,
+          references: references ? [references] : undefined,
           sentAt: new Date(),
           receivedAt: new Date(),
           isRead: true, // Outbound emails are considered "read" by the sender
@@ -305,7 +351,7 @@ export class EmailClientController {
   static async getEmails(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { folder = "INBOX", limit = 50, offset = 0, search } = req.query;
+      const { folder = "INBOX", limit = 50, offset = 0, search, threadId } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -348,24 +394,52 @@ export class EmailClientController {
         }
       }
 
-      // Sync emails from the account
-      const result = await EmailAccountConfigService.syncEmails(account, folder as string, parseInt(limit as string));
+      let emails = [];
+      let totalCount = 0;
 
-      if (!result.success) {
-        return res.status(400).json({
-          success: false,
-          message: "Failed to fetch emails",
-          error: result.error,
+      // If threadId is provided, fetch emails from database by thread
+      if (threadId) {
+        console.log("📧 Fetching emails by threadId:", threadId);
+
+        const threadEmails = await EmailModel.find({
+          threadId: threadId,
+          accountId: account._id,
+        })
+          .sort({ receivedAt: 1, sentAt: 1 }) // Sort chronologically
+          .limit(parseInt(limit as string))
+          .lean();
+
+        emails = threadEmails;
+        totalCount = await EmailModel.countDocuments({
+          threadId: threadId,
+          accountId: account._id,
         });
+
+        console.log("📧 Found", emails.length, "emails in thread");
+      } else {
+        // Sync emails from the account (normal flow)
+        const result = await EmailAccountConfigService.syncEmails(account, folder as string, parseInt(limit as string));
+
+        if (!result.success) {
+          return res.status(400).json({
+            success: false,
+            message: "Failed to fetch emails",
+            error: result.error,
+          });
+        }
+
+        emails = result.emails || [];
+        totalCount = result.emailCount;
       }
 
       res.json({
         success: true,
         data: {
-          emails: result.emails || [],
-          totalCount: result.emailCount,
+          emails: emails,
+          totalCount: totalCount,
           accountId: account._id,
           folder,
+          threadId: threadId || null,
         },
       });
     } catch (error: any) {
@@ -483,7 +557,7 @@ export class EmailClientController {
   static async replyToEmail(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { originalEmailId, subject, text, html, attachments } = req.body;
+      const { originalEmailId, subject, text, html, attachments, threadId } = req.body;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -506,16 +580,47 @@ export class EmailClientController {
         });
       }
 
-      // For now, we'll just send a new email with "Re:" prefix
-      // In a full implementation, you'd want to handle threading properly
+      // Get the original email to extract proper threading information
+      const originalEmail = await EmailModel.findById(originalEmailId);
+      if (!originalEmail) {
+        return res.status(404).json({
+          success: false,
+          message: "Original email not found",
+        });
+      }
+
+      // Determine the recipient for the reply
+      let recipientEmail = "";
+      if (originalEmail.direction === "inbound") {
+        // If original is inbound, reply to the sender
+        recipientEmail = originalEmail.from.email;
+      } else if (originalEmail.direction === "outbound") {
+        // If original is outbound, reply to the recipient
+        recipientEmail = originalEmail.to[0]?.email;
+      }
+
+      if (!recipientEmail) {
+        return res.status(400).json({
+          success: false,
+          message: "Could not determine recipient for reply",
+        });
+      }
+
+      // Create reply subject
       const replySubject = subject.startsWith("Re:") ? subject : `Re: ${subject}`;
 
+      // Use the original email's thread ID for proper threading
+      const finalThreadId = threadId || originalEmail.threadId;
+
       const result = await EmailAccountConfigService.sendEmailWithAccount(account, {
-        to: originalEmailId, // This should be the original sender's email
+        to: recipientEmail,
         subject: replySubject,
         text,
         html,
         attachments,
+        inReplyTo: originalEmail.messageId,
+        references: originalEmail.messageId,
+        threadId: finalThreadId,
       });
 
       if (!result.success) {
@@ -526,6 +631,15 @@ export class EmailClientController {
         });
       }
 
+      // Mark the original email as replied
+      originalEmail.isReplied = true;
+      originalEmail.repliedAt = new Date();
+      if (!originalEmail.isRead) {
+        originalEmail.isRead = true;
+        originalEmail.readAt = new Date();
+      }
+      await originalEmail.save();
+
       res.json({
         success: true,
         message: "Reply sent successfully",
@@ -533,6 +647,7 @@ export class EmailClientController {
           messageId: result.data?.messageId,
           accountId: account._id,
           from: account.emailAddress,
+          threadId: finalThreadId,
         },
       });
     } catch (error: any) {
