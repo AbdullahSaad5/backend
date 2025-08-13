@@ -1148,6 +1148,9 @@ export const listingService = {
           pricing: {
             costPrice: (listing as any).selectedStockId?.costPricePerUnit || 0,
             purchasePrice: (listing as any).selectedStockId?.purchasePricePerUnit || 0,
+            retailPrice: (listing as any).prodPricing?.retailPrice || 0,
+            discountType: (listing as any).prodPricing?.discountType || null,
+            discountValue: (listing as any).prodPricing?.discountValue || 0,
             vat: (listing as any).prodPricing?.vat || 0,
             currency: "GBP", // Default currency
           },
@@ -1274,6 +1277,9 @@ export const listingService = {
         pricing: {
           costPrice: listing.selectedStockId?.costPricePerUnit || 0,
           purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
+          retailPrice: listing.prodPricing?.retailPrice || 0,
+          discountType: listing.prodPricing?.discountType || null,
+          discountValue: listing.prodPricing?.discountValue || 0,
           vat: listing.prodPricing?.vat || 0,
           currency: "GBP", // Default currency
         },
