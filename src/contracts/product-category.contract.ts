@@ -11,6 +11,7 @@ export interface IProductCategory extends Document {
   tags?: string[];
   isBlocked?: boolean;
   isPart?: boolean;
+  isFeatured?: boolean;
 }
 
 export type ProductCategoryModel = Model<IProductCategory>;
@@ -26,6 +27,7 @@ export type ProductCategoryCreatePayload = Pick<
   | "ebayCategoryId"
   | "amazonCategoryId"
   | "platform"
+  | "isFeatured"
 >;
 
 export type ProductCategoryUpdatePayload = Partial<ProductCategoryCreatePayload>;

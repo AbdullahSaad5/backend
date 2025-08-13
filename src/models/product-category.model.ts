@@ -12,6 +12,7 @@ const productCategorySchema = new Schema<IProductCategory, ProductCategoryModel>
     tags: { type: [String] },
     isBlocked: { type: Boolean, default: false },
     isPart: { type: Boolean, default: false },
+    isFeatured: { type: Boolean, default: false },
   },
   {
     timestamps: true,

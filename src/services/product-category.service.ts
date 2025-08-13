@@ -11,7 +11,8 @@ export const productCategoryService = {
     image: string,
     tags: string[],
     isBlocked: boolean,
-    isPart: boolean
+    isPart: boolean,
+    isFeatured: boolean
   ) => {
     const newProductCategory = new ProductCategory({
       name,
@@ -23,6 +24,7 @@ export const productCategoryService = {
       tags,
       isBlocked,
       isPart,
+      isFeatured,
     });
     return newProductCategory.save();
   },
@@ -52,6 +54,22 @@ export const productCategoryService = {
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
     const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isBlocked }, { new: true });
+    if (!updatedCategory) {
+      throw new Error("Category not found");
+    }
+    return updatedCategory;
+  },
+
+  toggleFeatured: async (id: string, isFeatured: boolean) => {
+    // If trying to feature a category, check if we already have 4 featured categories
+    if (isFeatured) {
+      const featuredCount = await ProductCategory.countDocuments({ isFeatured: true });
+      if (featuredCount >= 4) {
+        throw new Error("Maximum of 4 categories can be featured at a time");
+      }
+    }
+
+    const updatedCategory = await ProductCategory.findByIdAndUpdate(id, { isFeatured }, { new: true });
     if (!updatedCategory) {
       throw new Error("Category not found");
     }
