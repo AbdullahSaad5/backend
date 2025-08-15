@@ -184,7 +184,7 @@ for (const route in routes) {
 // Add Gmail webhook route with correct path
 const gmailWebhookRouter = Router();
 gmailWebhook(gmailWebhookRouter);
-router.use("/gmail", gmailWebhookRouter);
+router.use("/gmail-webhook", gmailWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({
