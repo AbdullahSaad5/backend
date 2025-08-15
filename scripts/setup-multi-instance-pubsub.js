@@ -17,13 +17,13 @@ const SERVICE_ACCOUNT = "gmail-webhook-sa@build-my-rig-468317.iam.gserviceaccoun
 // Instance configurations
 const INSTANCES = [
   {
-    instanceId: "instance1",
+    instanceId: "development",
     environment: "development",
     webhookUrl: "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/gmail-webhook/webhook",
     subscriptionName: "gmail-sync-notifications-sub",
   },
   {
-    instanceId: "instance2",
+    instanceId: "testing",
     environment: "staging",
     webhookUrl: "https://bavit-test-bc872f1d3e07.herokuapp.com/api/gmail-webhook/webhook",
     subscriptionName: "gmail-sync-notifications-sub-testing",
