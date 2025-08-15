@@ -6,6 +6,7 @@ import path from "path";
 import { mongoose } from "./datasources";
 import { authMiddleware, corsMiddleware, apiRateLimiter } from "./middlewares";
 import { router } from "./routes/index.route";
+import { websiteRouter } from "./routes/website-router";
 import { socketManager } from "./datasources/socket.datasource";
 import seedData from "./utils/seeder.util";
 import { requestLogger } from "./middlewares/requestLogger.middleware";
@@ -64,7 +65,11 @@ app.get("/", (req, res) => {
 // Setup API documentation
 const apiDoc = new ApiDocumentation(app, documentationConfig);
 
+// Admin API routes
 app.use("/api", router);
+
+// Client-side website routes
+app.use("/web", websiteRouter);
 
 initCron();
 const port = process.env.PORT || 5000;
