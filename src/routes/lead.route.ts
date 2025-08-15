@@ -6,12 +6,15 @@ import { Router } from "express";
 export const lead = (router: Router) => {
     router.post("/", LeadController.createLead);
 
+    router.get("/search", LeadController.searchAndFilterUsers);
+    
     // Get single lead
     router.get("/:id", LeadController.getLead);
 
     // Get all leads
     router.get("/", LeadController.getAllLeads);
 
+    
     // Update lead
     router.patch("/:id", LeadController.updateLead);
 

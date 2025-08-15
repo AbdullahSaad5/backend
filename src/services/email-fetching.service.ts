@@ -647,7 +647,7 @@ export class EmailFetchingService {
         throw new Error("GOOGLE_CLOUD_PROJECT environment variable is required for Gmail watch setup");
       }
 
-      const topicName = `projects/${projectId}/topics/gmail-notifications`;
+      const topicName = `projects/${projectId}/topics/gmail-sync-notifications`;
       logger.info(`Using topic: ${topicName} for Gmail watch setup`);
 
       const watchResponse = await gmail.users.watch({
