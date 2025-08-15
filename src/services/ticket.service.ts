@@ -1,9 +1,10 @@
 import { TicketModel } from "@/models/ticket.model";
+import { User } from "@/models/user.model";
 import { IResolution, ITicket } from "@/contracts/ticket.contract";
 import { Types } from "mongoose";
 
 export const ticketService = {
-  createTicket: (
+  createTicket: async (
     title: string,
     client: string,
     assignedTo: Types.ObjectId[] | undefined,
@@ -18,13 +19,17 @@ export const ticketService = {
     images?: string[],
     platform?: string,
     orderReference?: string,
-    orderStatus?: "Fulfilled" | "Not Fulfilled"
+    orderStatus?: "Fulfilled" | "Not Fulfilled",
+    userId?: string
   ) => {
     // Determine initial status based on assignment
     let initialStatus = status;
     if (assignedTo && assignedTo.length > 0 && status === "Open") {
       initialStatus = "Assigned";
     }
+
+    // Use provided userId or fallback to system user
+    const timelineChangedBy = userId ? new Types.ObjectId(userId) : new Types.ObjectId("000000000000000000000000");
 
     const newTicket = new TicketModel({
       title,
@@ -42,14 +47,23 @@ export const ticketService = {
       platform,
       orderReference,
       orderStatus,
-      // Initialize timeline with the actual initial status
+      // Initialize timeline with the actual initial status and proper user
       timeline: [{
         status: initialStatus,
         changedAt: createDate,
-        changedBy: new Types.ObjectId("000000000000000000000000") // System user
+        changedBy: timelineChangedBy,
+        ...(assignedTo && assignedTo.length > 0 && { assignedUsers: assignedTo })
       }]
     });
-    return newTicket.save();
+    
+    const savedTicket = await newTicket.save();
+    
+    // Return populated ticket data
+    return TicketModel.findById(savedTicket._id)
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
   },
 
   editTicket: (
@@ -177,22 +191,20 @@ export const ticketService = {
     }
 
     const updateData: any = { assignedTo };
+    let timelineStatus = "Assigned"; // Default timeline status
     
-    // Determine the appropriate status and timeline entry
-    let timelineStatus = "Assignment Changed";
-    let shouldUpdateStatus = false;
-    
-    // If status is "Open" and we're assigning users, change to "Assigned"
-    if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
+    // Always change status to "Assigned" when assigning users and show "Assigned" in timeline
+    if (assignedTo && assignedTo.length > 0) {
       updateData.status = "Assigned";
       timelineStatus = "Assigned";
-      shouldUpdateStatus = true;
-    }
-    // If status is "Resolved" and we're reassigning users, change to "Assigned"
-    else if (ticket.status === "Resolved" && assignedTo && assignedTo.length > 0) {
-      updateData.status = "Assigned";
-      timelineStatus = "Assigned";
-      shouldUpdateStatus = true;
+      
+      // Update role based on assigned users
+      // Get the first assigned user's role and use it for the ticket
+      const firstAssignedUser = await User.findById(assignedTo[0]).populate('userType');
+      
+      if (firstAssignedUser && firstAssignedUser.userType) {
+        updateData.role = firstAssignedUser.userType._id;
+      }
     }
     
     // Add timeline entry if userId is provided
