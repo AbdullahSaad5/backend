@@ -81,6 +81,7 @@ import tokenManagement from "./token-management.route";
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
 import { gmailWebhook } from "./gmail-webhook.route";
+import { website } from "./website.route";
 
 const router: Router = Router();
 
@@ -167,6 +168,7 @@ const routes: {
   productTypeWorkflows,
   globalPayrollSettings,
   gmailWebhook,
+  website,
 };
 
 // Loop through all routes and pass the router to each route
