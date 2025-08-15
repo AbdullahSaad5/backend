@@ -4,7 +4,7 @@ import { IResolution, ITicket } from "@/contracts/ticket.contract";
 import { Types } from "mongoose";
 
 export const ticketService = {
-  createTicket: (
+  createTicket: async (
     title: string,
     client: string,
     assignedTo: Types.ObjectId[] | undefined,
@@ -19,13 +19,17 @@ export const ticketService = {
     images?: string[],
     platform?: string,
     orderReference?: string,
-    orderStatus?: "Fulfilled" | "Not Fulfilled"
+    orderStatus?: "Fulfilled" | "Not Fulfilled",
+    userId?: string
   ) => {
     // Determine initial status based on assignment
     let initialStatus = status;
     if (assignedTo && assignedTo.length > 0 && status === "Open") {
       initialStatus = "Assigned";
     }
+
+    // Use provided userId or fallback to system user
+    const timelineChangedBy = userId ? new Types.ObjectId(userId) : new Types.ObjectId("000000000000000000000000");
 
     const newTicket = new TicketModel({
       title,
@@ -43,14 +47,23 @@ export const ticketService = {
       platform,
       orderReference,
       orderStatus,
-      // Initialize timeline with the actual initial status
+      // Initialize timeline with the actual initial status and proper user
       timeline: [{
         status: initialStatus,
         changedAt: createDate,
-        changedBy: new Types.ObjectId("000000000000000000000000") // System user
+        changedBy: timelineChangedBy,
+        ...(assignedTo && assignedTo.length > 0 && { assignedUsers: assignedTo })
       }]
     });
-    return newTicket.save();
+    
+    const savedTicket = await newTicket.save();
+    
+    // Return populated ticket data
+    return TicketModel.findById(savedTicket._id)
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
   },
 
   editTicket: (
