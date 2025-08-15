@@ -82,6 +82,7 @@ import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
 import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
+import { website } from "./website.route";
 
 const router: Router = Router();
 
@@ -168,6 +169,7 @@ const routes: {
   productTypeWorkflows,
   globalPayrollSettings,
   multiInstanceGmail,
+  website,
 };
 
 // Loop through all routes and pass the router to each route
