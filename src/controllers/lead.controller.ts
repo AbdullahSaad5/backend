@@ -112,6 +112,46 @@ export const LeadController = {
         }
     },
 
+ searchAndFilterUsers: async (req: Request, res: Response) => {
+  try {
+    const { searchQuery = "", page = 1, limit = 10 } = req.query;
+
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    let filter: any = {};
+
+    if (searchQuery) {
+      filter = {
+        $or: [
+          { name: { $regex: searchQuery as string, $options: "i" } },
+          { email: { $regex: searchQuery as string, $options: "i" } }
+        ]
+      };
+    }
+
+    console.log("Running LeadModel.find with:", filter);
+
+    const { leads, total } = await LeadService.searchAndFilterUsers(limitNum, skip, filter);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: leads,
+      pagination: {
+        currentPage: pageNum,
+        totalPages: Math.ceil(total / limitNum),
+        totalItems: total
+      }
+    });
+  } catch (error) {
+    console.error("Error in searchAndFilterUsers:", error);
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+},
     updateLead: async (req: Request, res: Response) => {
         try {
             const { id } = req.params;
