@@ -1,4 +1,5 @@
 import { TicketModel } from "@/models/ticket.model";
+import { User } from "@/models/user.model";
 import { IResolution, ITicket } from "@/contracts/ticket.contract";
 import { Types } from "mongoose";
 
@@ -183,6 +184,14 @@ export const ticketService = {
     if (assignedTo && assignedTo.length > 0) {
       updateData.status = "Assigned";
       timelineStatus = "Assigned";
+      
+      // Update role based on assigned users
+      // Get the first assigned user's role and use it for the ticket
+      const firstAssignedUser = await User.findById(assignedTo[0]).populate('userType');
+      
+      if (firstAssignedUser && firstAssignedUser.userType) {
+        updateData.role = firstAssignedUser.userType._id;
+      }
     }
     
     // Add timeline entry if userId is provided
