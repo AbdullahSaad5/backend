@@ -77,7 +77,6 @@ import { productTypeWorkflow as productTypeWorkflows } from "./product-type-work
 import { orderRoutes as orders } from "./order.route";
 import { globalPayrollSettings } from "./global-payroll-settings.route";
 import tokenManagement from "./token-management.route";
-import { website } from "./website.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
@@ -156,8 +155,6 @@ const routes: {
   mailbox,
   Forum,
   ForumTopic,
-
-  website,
 
   ForumCategory,
   Comment,
