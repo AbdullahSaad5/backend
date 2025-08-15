@@ -177,22 +177,12 @@ export const ticketService = {
     }
 
     const updateData: any = { assignedTo };
+    let timelineStatus = "Assigned"; // Default timeline status
     
-    // Determine the appropriate status and timeline entry
-    let timelineStatus = "Assignment Changed";
-    let shouldUpdateStatus = false;
-    
-    // If status is "Open" and we're assigning users, change to "Assigned"
-    if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
+    // Always change status to "Assigned" when assigning users and show "Assigned" in timeline
+    if (assignedTo && assignedTo.length > 0) {
       updateData.status = "Assigned";
       timelineStatus = "Assigned";
-      shouldUpdateStatus = true;
-    }
-    // If status is "Resolved" and we're reassigning users, change to "Assigned"
-    else if (ticket.status === "Resolved" && assignedTo && assignedTo.length > 0) {
-      updateData.status = "Assigned";
-      timelineStatus = "Assigned";
-      shouldUpdateStatus = true;
     }
     
     // Add timeline entry if userId is provided
