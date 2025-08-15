@@ -10,14 +10,14 @@ export const INSTANCE_CONFIGS: InstanceConfig[] = [
   {
     instanceId: "instance1",
     environment: "development",
-    webhookUrl: "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/gmail-webhook/webhook",
+    webhookUrl: "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/gmail/webhook",
     subscriptionName: "gmail-sync-notifications-sub",
     isActive: true,
   },
   {
     instanceId: "instance2",
     environment: "staging",
-    webhookUrl: "https://bavit-test-bc872f1d3e07.herokuapp.com/api/gmail-webhook/webhook",
+    webhookUrl: "https://bavit-test-bc872f1d3e07.herokuapp.com/api/gmail/webhook",
     subscriptionName: "gmail-sync-notifications-sub-testing",
     isActive: true,
   },
