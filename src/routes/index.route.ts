@@ -167,7 +167,6 @@ const routes: {
   orderTaskTypes,
   productTypeWorkflows,
   globalPayrollSettings,
-  gmailWebhook,
   multiInstanceGmail,
 };
 
@@ -181,6 +180,11 @@ for (const route in routes) {
   routeHandler(tempRouter);
   router.use(basePath, tempRouter);
 }
+
+// Add Gmail webhook route with correct path
+const gmailWebhookRouter = Router();
+gmailWebhook(gmailWebhookRouter);
+router.use("/gmail", gmailWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({
