@@ -1,6 +1,6 @@
 // src/services/guide.service.ts
 import { GuideModel } from "@/models/guide.model";
-import { IGuide } from "@/contracts/guide.contract";
+import { IGuide, IGuideResponse } from "@/contracts/guide.contract";
 
 export const guideService = {
   createGuide: async (data: {
@@ -12,11 +12,11 @@ export const guideService = {
   }): Promise<IGuide> => {
     const guide = new GuideModel(data);
     await guide.save();
-    return guide.populate('category', 'title _id');
+    return guide.populate("category", "title _id");
   },
 
   getGuideById: async (id: string): Promise<IGuide | null> => {
-    return GuideModel.findById(id).populate('category', 'title _id');
+    return GuideModel.findById(id).populate("category", "title _id");
   },
 
   getAllGuides: async (
@@ -24,8 +24,10 @@ export const guideService = {
       category?: string;
       search?: string;
       isBlocked?: boolean;
-    } = {}
-  ): Promise<IGuide[]> => {
+    } = {},
+    limitNum: number,
+    skip: number
+  ): Promise<IGuideResponse> => {
     const query: any = {};
 
     if (filters.category) query.category = filters.category;
@@ -38,28 +40,31 @@ export const guideService = {
       ];
     }
 
-    return GuideModel.find(query)
-      .populate('category', 'title _id')
-      .sort({ createdAt: -1 });
+    // return GuideModel.find(query)
+    //   .populate("category", "title _id")
+    //   .skip(skip)
+    //   .limit(limitNum)
+    //   .sort({ createdAt: -1 });
+
+    const [guides, totalCount] = await Promise.all([
+      GuideModel.find(query).skip(skip).limit(limitNum).sort({ createdAt: -1 }),
+      GuideModel.countDocuments(query),
+    ]);
+
+    return { guides, totalCount };
   },
 
   updateGuide: async (
     id: string,
     updateData: Partial<IGuide>
   ): Promise<IGuide | null> => {
-    return GuideModel.findByIdAndUpdate(
-      id,
-      updateData,
-      {
-        new: true,
-        runValidators: true,
-      }
-    ).populate('category', 'title _id');
+    return GuideModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+      runValidators: true,
+    }).populate("category", "title _id");
   },
 
   deleteGuide: async (id: string): Promise<IGuide | null> => {
-    return GuideModel.findByIdAndDelete(id).populate('category', 'title _id');
+    return GuideModel.findByIdAndDelete(id).populate("category", "title _id");
   },
-
- 
 };
