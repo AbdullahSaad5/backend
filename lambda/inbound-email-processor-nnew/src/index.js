@@ -763,6 +763,35 @@ exports.handler = async (event, context) => {
             const fromMatch = fromEmail.match(/<(.+?)>/);
             const fromNameMatch = fromEmail.match(/(.+?)\s*</);
 
+            // Determine which account this email belongs to based on recipients
+            const recipientEmails = mail.commonHeaders.to || [];
+            let targetAccountId = null;
+
+            // Try to find the account ID based on recipient emails
+            try {
+              const { EmailAccountModel } = await import("../models/email-account.model.js");
+              for (const recipientEmail of recipientEmails) {
+                const cleanRecipientEmail = recipientEmail.replace(/<(.+?)>/, "$1").trim();
+                const account = await EmailAccountModel.findOne({
+                  emailAddress: cleanRecipientEmail,
+                  isActive: true,
+                });
+                if (account) {
+                  targetAccountId = account._id;
+                  console.log(`📧 Email assigned to account: ${account.emailAddress} (${account._id})`);
+                  break;
+                }
+              }
+
+              // If no account found, log warning
+              if (!targetAccountId) {
+                console.log(`⚠️ No active account found for recipients: ${recipientEmails.join(", ")}`);
+                // Continue processing but without accountId
+              }
+            } catch (error) {
+              console.log(`❌ Error finding account for email: ${error.message}`);
+            }
+
             // Extract Amazon and eBay specific information (for SNS, we have limited content)
             const amazonInfo = extractAmazonInfo("", "", headers);
             const ebayInfo = extractEbayInfo("", "", headers);
@@ -808,56 +837,34 @@ exports.handler = async (event, context) => {
             const emailData = {
               messageId: mail.messageId,
               threadId: threadId,
-              direction: EmailDirection.INBOUND,
-              type: classifyEmailType(fromMatch ? fromMatch[1] : fromEmail),
-              status: EmailStatus.RECEIVED,
-              priority: determinePriority(mail.commonHeaders.subject),
+              accountId: targetAccountId, // Add the account ID
+              direction: "inbound",
+              type: "general",
+              status: "received",
+              priority: "normal",
               subject: mail.commonHeaders.subject || "No Subject",
-              textContent: "", // Will be populated if available in SES notification
-              htmlContent: "", // Will be populated if available in SES notification
+              textContent: textContent,
+              htmlContent: htmlContent,
               from: {
                 email: fromMatch ? fromMatch[1] : fromEmail,
                 name: fromNameMatch ? fromNameMatch[1].trim() : "",
               },
-              to: mail.commonHeaders.to.map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              cc: (mail.commonHeaders.cc || []).map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              bcc: (mail.commonHeaders.bcc || []).map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              replyTo: null, // Will be populated if available
-              headers: headers.map((h) => ({ name: h.name, value: h.value })),
-              attachments: [], // Will be populated if attachments are found
-              amazonOrderId: amazonInfo.amazonOrderId,
-              amazonBuyerId: amazonInfo.amazonBuyerId,
-              amazonMarketplace: amazonInfo.amazonMarketplace,
-              amazonASIN: amazonInfo.amazonASIN,
-              ebayItemId: ebayInfo.ebayItemId,
-              ebayTransactionId: ebayInfo.ebayTransactionId,
-              ebayBuyerId: ebayInfo.ebayBuyerId,
+              to: (mail.commonHeaders.to || []).map((to) => ({
+                email: to.replace(/<(.+?)>/, "$1").trim(),
+                name: to.match(/(.+?)\s*</) ? to.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              cc: (mail.commonHeaders.cc || []).map((cc) => ({
+                email: cc.replace(/<(.+?)>/, "$1").trim(),
+                name: cc.match(/(.+?)\s*</) ? cc.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              bcc: (mail.commonHeaders.bcc || []).map((bcc) => ({
+                email: bcc.replace(/<(.+?)>/, "$1").trim(),
+                name: bcc.match(/(.+?)\s*</) ? bcc.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              headers: headers,
+              attachments: [],
               receivedAt: new Date(mail.timestamp),
-              processedAt: new Date(), // Set to current time when processed
-              sentAt: null, // Not applicable for inbound emails
-              readAt: null, // Will be set when email is read
-              isRead: isRead,
+              isRead: false,
               isReplied: isReplied,
               isForwarded: isForwarded,
               isArchived: isArchived,
