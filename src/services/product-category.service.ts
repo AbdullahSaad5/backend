@@ -11,7 +11,8 @@ export const productCategoryService = {
     tags: string[],
     isBlocked: boolean,
     isPart: boolean,
-    isFeatured: boolean
+    isFeatured: boolean,
+    categoryFieldsMapping?: any[]
   ) => {
     const newProductCategory = new ProductCategory({
       name,
@@ -23,6 +24,7 @@ export const productCategoryService = {
       isBlocked,
       isPart,
       isFeatured,
+      categoryFieldsMapping,
     });
     return newProductCategory.save();
   },

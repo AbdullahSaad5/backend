@@ -635,7 +635,7 @@ export class EmailFetchingService {
   /**
    * Setup Gmail watch notifications for real-time updates
    */
-  private static async setupGmailWatch(emailAccount: IEmailAccount): Promise<void> {
+  static async setupGmailWatch(emailAccount: IEmailAccount): Promise<void> {
     try {
       logger.info(`Setting up Gmail watch for ${emailAccount.emailAddress}`);
 
@@ -660,14 +660,18 @@ export class EmailFetchingService {
       });
 
       // Update sync state with watch expiration and set watching flag
+      const expirationTime = watchResponse.data.expiration
+        ? new Date(parseInt(watchResponse.data.expiration))
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // Default to 7 days from now
+
       await this.updateSyncState(emailAccount, {
-        watchExpiration: new Date(watchResponse.data.expiration || Date.now()),
+        watchExpiration: expirationTime,
         lastWatchRenewal: new Date(),
         isWatching: true,
       });
 
       logger.info(
-        `Gmail watch setup completed for ${emailAccount.emailAddress}, expires: ${watchResponse.data.expiration}`
+        `Gmail watch setup completed for ${emailAccount.emailAddress}, expires: ${expirationTime.toISOString()}`
       );
     } catch (error: any) {
       logger.error(`Failed to setup Gmail watch for ${emailAccount.emailAddress}:`, error);
@@ -1052,28 +1056,37 @@ export class EmailFetchingService {
         query += `in:${fetchOptions.folder.toLowerCase()} `;
       }
 
+      // For fetchAll, we want to get ALL emails without any date restrictions
+      if (fetchOptions.fetchAll) {
+        console.log("🔄 Fetching ALL emails (no date restrictions)");
+        // Don't add any date filters - this will fetch all emails
+      } else {
+        console.log("📅 Fetching recent emails only");
+      }
+
       let allMessages: any[] = [];
       let nextPageToken: string | undefined;
       let pageCount = 0;
       let lastListResponse: any = null;
 
-      // Determine pagination strategy
+      // Determine pagination strategy for fetchAll
       const usePagination = fetchOptions.page && fetchOptions.pageSize;
-      const maxPages = usePagination ? 1 : fetchOptions.fetchAll ? 20 : 1; // Single page for pagination, multiple for fetchAll
+      const maxPages = usePagination ? 1 : fetchOptions.fetchAll ? 50 : 1; // Increase max pages for fetchAll
       const maxResults = usePagination
         ? fetchOptions.pageSize!
         : fetchOptions.fetchAll
-          ? 500
+          ? 500 // Maximum allowed by Gmail API
           : fetchOptions.limit || 50;
 
-      // console.log("📊 Pagination settings:", {
-      //   usePagination,
-      //   page: fetchOptions.page,
-      //   pageSize: fetchOptions.pageSize,
-      //   maxPages,
-      //   maxResults,
-      //   fetchAll: fetchOptions.fetchAll,
-      // });
+      console.log("📊 Gmail API settings:", {
+        usePagination,
+        page: fetchOptions.page,
+        pageSize: fetchOptions.pageSize,
+        maxPages,
+        maxResults,
+        fetchAll: fetchOptions.fetchAll,
+        query: query.trim() || "ALL",
+      });
 
       do {
         pageCount++;
@@ -1298,9 +1311,23 @@ export class EmailFetchingService {
   private static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
     for (const email of emails) {
       try {
-        // Check if email already exists
-        const existingEmail = await EmailModel.findOne({ messageId: email.messageId });
+        // Enhanced duplicate check with multiple criteria
+        const existingEmail = await EmailModel.findOne({
+          $or: [
+            { messageId: email.messageId },
+            {
+              $and: [
+                { accountId: emailAccount._id },
+                { "from.email": email.from.email },
+                { subject: email.subject },
+                { receivedAt: { $gte: new Date(email.date.getTime() - 300000) } }, // Within 5 minutes
+              ],
+            },
+          ],
+        });
+
         if (existingEmail) {
+          console.log(`💾 Skipping duplicate email: ${email.messageId} (existing: ${existingEmail._id})`);
           continue; // Skip if already exists
         }
 
@@ -1348,6 +1375,7 @@ export class EmailFetchingService {
         console.log(`💾 Email stored in database:`, {
           messageId: email.messageId,
           subject: email.subject,
+          category: emailData.category || "primary",
           hasTextContent: !!email.textContent,
           textContentLength: email.textContent?.length || 0,
           hasHtmlContent: !!email.htmlContent,
