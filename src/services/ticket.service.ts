@@ -238,7 +238,8 @@ export const ticketService = {
   addResolution: async (
     ticketId: string,
     description: string,
-    userId: string
+    userId: string,
+    images?: string[]
   ): Promise<ITicket> => {
     if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
       throw new Error("Invalid ID");
@@ -250,7 +251,8 @@ export const ticketService = {
     const resolution: IResolution = {
       description,
       resolvedBy: new Types.ObjectId(userId),
-      closedAt: new Date()
+      closedAt: new Date(),
+      ...(images && images.length > 0 ? { images } : {})
     };
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
