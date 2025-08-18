@@ -43,8 +43,8 @@ const EmailSchema = new Schema<IEmail>(
     replyTo: { _id: false, email: { type: String, index: true }, name: { type: String } },
 
     // Threading headers (RFC 2822 standard)
-    inReplyTo: { type: String, index: true }, // Message-ID this email is replying to
-    references: [{ type: String, index: true }], // Chain of message IDs in conversation
+    inReplyTo: { type: String }, // Message-ID this email is replying to
+    references: [{ type: String }], // Chain of message IDs in conversation
     parentMessageId: { type: String, index: true }, // Direct parent message ID
 
     // Headers and attachments
@@ -96,8 +96,8 @@ const EmailSchema = new Schema<IEmail>(
     // Assignment and relationships
     assignedTo: { type: Schema.Types.ObjectId, ref: "User", index: true },
     assignedAt: { type: Date },
-    relatedOrderId: { type: Schema.Types.ObjectId, ref: "Order", index: true },
-    relatedCustomerId: { type: Schema.Types.ObjectId, ref: "Customer", index: true },
+    relatedOrderId: { type: Schema.Types.ObjectId, ref: "Order" },
+    relatedCustomerId: { type: Schema.Types.ObjectId, ref: "Customer" },
     relatedTicketId: { type: Schema.Types.ObjectId, ref: "Ticket", index: true },
 
     // Raw data for debugging
@@ -133,4 +133,3 @@ EmailSchema.index({ accountId: 1, threadId: 1, receivedAt: -1 });
 
 export const EmailModel = models.Email || model<IEmail>("Email", EmailSchema);
 export { IEmail };
-
