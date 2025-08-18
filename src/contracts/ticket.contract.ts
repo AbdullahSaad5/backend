@@ -5,6 +5,7 @@ export interface IResolution {
   resolvedBy: Types.ObjectId;
   closedAt: Date;
   _id?: Types.ObjectId;
+  images?: string[];
 }
 
 export interface ITimelineEntry {
@@ -40,6 +41,7 @@ export interface ITicket extends Document {
     description: string;
     resolvedBy: Types.ObjectId;
     closedAt: Date;
+    images?: string[];
   }; // Keep for backward compatibility
   timeline?: ITimelineEntry[];
   comments?: IComment[]; // New comments field

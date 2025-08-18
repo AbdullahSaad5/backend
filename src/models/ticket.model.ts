@@ -63,6 +63,11 @@ const TicketSchema = new Schema<ITicket>(
       closedAt: {
         type: Date,
         default: Date.now
+      },
+      // Images specific to this resolution
+      images: {
+        type: [String],
+        default: [],
       }
     }],
     // Keep single resolution for backward compatibility
@@ -84,6 +89,11 @@ const TicketSchema = new Schema<ITicket>(
       },
       closedAt: {
         type: Date
+      },
+      // Optional images for single resolution (backward compatibility)
+      images: {
+        type: [String],
+        default: undefined
       }
     },
     // Timeline to track status changes
