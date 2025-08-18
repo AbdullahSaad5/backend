@@ -33,11 +33,7 @@ export const listing = (router: Router) => {
   router.get("/drafts", listingController.getAllDraftListingNames);
 
   // Update a draft listing by ID (subsequent steps)
-  router.patch(
-    "/:id",
-    // listingValidation.updateListing,
-    listingController.updateDraftListingController
-  );
+  router.patch("/:id", listingController.updateDraftListingController);
   router.get("/", listingController.getAllListing);
 
   router.get("/:id", listingValidation.validateId, listingController.getListingById);
@@ -53,10 +49,14 @@ export const listing = (router: Router) => {
   // route for toggle block status
   router.patch("/istemplate/:id", listingController.toggleIsTemplate);
 
+  // route for toggle featured status for listings
+  router.patch("/featured/:id", listingValidation.validateId, listingController.toggleFeaturedForListing);
+
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);
 
   router.get("/:id/get-all-attributes", listingController.getAllAttributesById);
   // Get selected variations for listing
   router.get("/:id/selected-parts", listingController.getSelectedListingParts);
+
 };

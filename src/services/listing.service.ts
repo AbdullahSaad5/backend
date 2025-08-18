@@ -1209,4 +1209,48 @@ export const listingService = {
       throw new Error("Error fetching Website listings");
     }
   },
+
+  toggleFeaturedForListing: async (listingId: string, isFeatured: boolean) => {
+    // If trying to feature a listing, check if we already have 6 featured listings in the same category
+    if (isFeatured) {
+      const listing: any = await Listing.findById(listingId).populate('productInfo.productCategory');
+      if (!listing) {
+        throw new Error("Listing not found");
+      }
+
+      const categoryId = listing.productInfo?.productCategory;
+      if (!categoryId) {
+        throw new Error("Listing must have a product category to be featured");
+      }
+
+      // Check if the category is featured
+      const category = await mongoose.model('ProductCategory').findById(categoryId);
+      if (!category || !category.isFeatured) {
+        throw new Error("Category must be featured before featuring listings within it");
+      }
+
+      // Count featured listings in the same category
+      const featuredCount = await Listing.countDocuments({
+        'productInfo.productCategory': categoryId,
+        isFeatured: true,
+        _id: { $ne: listingId } // Exclude current listing from count
+      });
+
+      if (featuredCount >= 6) {
+        throw new Error("Maximum of 6 listings can be featured per category");
+      }
+    }
+
+    const updatedListing = await Listing.findByIdAndUpdate(
+      listingId, 
+      { isFeatured }, 
+      { new: true }
+    );
+    
+    if (!updatedListing) {
+      throw new Error("Listing not found");
+    }
+    
+    return updatedListing;
+  },
 };
