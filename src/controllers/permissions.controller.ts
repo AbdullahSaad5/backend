@@ -76,6 +76,8 @@ export const permissionsController = {
             "VIEW_REVENUE",
             "ADD_REVENUE",
             "VIEW_INVENTORY_PURCHASES",
+            "VIEW_RECURRING_EXPENSE",
+            "ADD_RECURRING_EXPENSE",
           ],
         },
         hrManagement: {

@@ -616,7 +616,7 @@ export class EmailAccountController {
   static async getAccountEmailsWithThreads(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { folder = "INBOX", limit = 50, offset = 0, threadView = true, unreadOnly = false } = req.query;
+      const { folder = "INBOX", limit = 100, offset = 0, threadView = true, unreadOnly = false } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -652,7 +652,8 @@ export class EmailAccountController {
         switch (folder) {
           case "INBOX":
             // For inbox threads, include emails received by this account
-            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            // to.email is an array of objects, so we need to check if any email in the array matches
+            threadEmailFilter["to.email"] = account.emailAddress;
             threadEmailFilter.isArchived = { $ne: true };
             threadEmailFilter.isSpam = { $ne: true };
             break;
@@ -670,8 +671,8 @@ export class EmailAccountController {
             threadEmailFilter.isSpam = true;
             break;
           default:
-            // Default to inbox behavior
-            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            // Default to inbox behavior - show ALL emails for this account
+            // Don't filter by to/from - just show all emails for the account
             threadEmailFilter.isArchived = { $ne: true };
             threadEmailFilter.isSpam = { $ne: true };
         }
@@ -682,74 +683,112 @@ export class EmailAccountController {
 
         console.log(`🧵 Thread email filter for account ${account.emailAddress}, folder ${folder}:`, threadEmailFilter);
 
-        const threads = await EmailThreadModel.aggregate([
-          {
-            $lookup: {
-              from: "emails",
-              localField: "threadId",
-              foreignField: "threadId",
-              as: "emails",
-              pipeline: [
-                { $match: threadEmailFilter },
-                { $sort: { receivedAt: -1 } },
-                { $limit: 20 }, // Increase limit to show more emails per thread
-              ],
+        let threads;
+        try {
+          threads = await EmailThreadModel.aggregate([
+            {
+              $lookup: {
+                from: "emails",
+                localField: "threadId",
+                foreignField: "threadId",
+                as: "emails",
+                pipeline: [
+                  { $match: threadEmailFilter },
+                  { $sort: { receivedAt: -1 } },
+                  { $limit: 20 }, // Increase limit to show more emails per thread
+                ],
+              },
             },
-          },
-          {
-            $match: {
-              "emails.0": { $exists: true }, // Only threads with matching emails
-              accountId: account._id, // Ensure thread belongs to this account
+            {
+              $match: {
+                "emails.0": { $exists: true }, // Only threads with matching emails
+                accountId: account._id, // Ensure thread belongs to this account
+              },
             },
-          },
-          {
-            $addFields: {
-              unreadCount: {
-                $size: {
-                  $filter: {
-                    input: "$emails",
-                    cond: { $eq: ["$$this.isRead", false] },
+            {
+              $addFields: {
+                unreadCount: {
+                  $size: {
+                    $filter: {
+                      input: "$emails",
+                      cond: { $eq: ["$$this.isRead", false] },
+                    },
+                  },
+                },
+                latestEmail: { $arrayElemAt: ["$emails", 0] },
+                // Add thread metadata for better display
+                threadDirection: { $arrayElemAt: ["$emails.direction", 0] },
+                threadSubject: { $arrayElemAt: ["$emails.subject", 0] },
+                // Add email count for this thread
+                emailCount: { $size: "$emails" },
+                // Add participants from all emails in thread (simplified to avoid $concatArrays issues)
+                participants: {
+                  $map: {
+                    input: { $slice: ["$emails", 5] }, // Limit to first 5 emails to avoid complexity
+                    as: "email",
+                    in: {
+                      from: "$$email.from",
+                      to: "$$email.to",
+                      emailId: "$$email._id",
+                    },
                   },
                 },
               },
-              latestEmail: { $arrayElemAt: ["$emails", 0] },
-              // Add thread metadata for better display
-              threadDirection: { $arrayElemAt: ["$emails.direction", 0] },
-              threadSubject: { $arrayElemAt: ["$emails.subject", 0] },
-              // Add email count for this thread
-              emailCount: { $size: "$emails" },
-              // Add participants from all emails in thread
-              participants: {
-                $reduce: {
-                  input: "$emails",
-                  initialValue: [],
-                  in: {
-                    $concatArrays: ["$$value", "$$this.from", "$$this.to"],
-                  },
-                },
+            },
+            { $sort: { lastMessageAt: -1 } },
+            { $skip: parseInt(offset as string) },
+            { $limit: parseInt(limit as string) },
+          ]);
+
+          console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+
+          res.json({
+            success: true,
+            data: {
+              threads,
+              totalCount: threads.length, // Add totalCount for pagination
+              account: {
+                id: account._id,
+                emailAddress: account.emailAddress,
+                accountName: account.accountName,
               },
+              viewMode: "threads",
             },
-          },
-          { $sort: { lastMessageAt: -1 } },
-          { $skip: parseInt(offset as string) },
-          { $limit: parseInt(limit as string) },
-        ]);
+          });
+        } catch (aggregationError: any) {
+          logger.error("Error in email thread aggregation:", aggregationError);
+          // Fallback to individual emails if aggregation fails
+          console.log("🔄 Falling back to individual emails due to aggregation error");
 
-        console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+          const { EmailModel } = await import("@/models/email.model");
 
-        res.json({
-          success: true,
-          data: {
-            threads,
-            totalCount: threads.length, // Add totalCount for pagination
-            account: {
-              id: account._id,
-              emailAddress: account.emailAddress,
-              accountName: account.accountName,
+          // Simple fallback query
+          const fallbackFilter = {
+            accountId: account._id,
+            ...threadEmailFilter,
+          };
+
+          const fallbackEmails = await EmailModel.find(fallbackFilter)
+            .sort({ receivedAt: -1 })
+            .skip(parseInt(offset as string))
+            .limit(parseInt(limit as string));
+
+          const totalCount = await EmailModel.countDocuments(fallbackFilter);
+
+          res.json({
+            success: true,
+            data: {
+              emails: fallbackEmails,
+              totalCount,
+              account: {
+                id: account._id,
+                emailAddress: account.emailAddress,
+                accountName: account.accountName,
+              },
+              viewMode: "emails", // Fallback to individual emails
             },
-            viewMode: "threads",
-          },
-        });
+          });
+        }
       } else {
         // Get individual emails - use the original direction-based filtering
         const { EmailModel } = await import("@/models/email.model");
@@ -757,15 +796,13 @@ export class EmailAccountController {
         // Build email filter with proper account-based filtering for individual emails
         const emailFilter: any = {
           accountId: account._id,
-          // Filter by direction based on folder
-          direction: folder === "SENT" ? "outbound" : "inbound",
         };
 
         // Additional filtering based on folder
         switch (folder) {
           case "INBOX":
             // For inbox, show emails received by this account
-            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            emailFilter["to.email"] = account.emailAddress;
             emailFilter.isArchived = { $ne: true };
             emailFilter.isSpam = { $ne: true };
             break;
@@ -787,8 +824,8 @@ export class EmailAccountController {
             emailFilter.isSpam = true;
             break;
           default:
-            // Default to inbox behavior
-            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            // Default to inbox behavior - show ALL emails for this account
+            // Don't filter by to/from - just show all emails for the account
             emailFilter.isArchived = { $ne: true };
             emailFilter.isSpam = { $ne: true };
         }
@@ -1007,6 +1044,7 @@ export class EmailAccountController {
         includeBody: true,
         fetchAll: fetchAll === "true",
         useHistoryAPI: account.accountType === "gmail" && account.oauth, // Use History API for Gmail OAuth accounts
+        limit: fetchAll === "true" ? 1000 : 50, // Higher limit for fetchAll
       };
       console.log("📧 Fetch options:", options);
 
@@ -1167,6 +1205,7 @@ export class EmailAccountController {
       const result = await EmailFetchingService.syncGmailWithHistoryAPI(account, {
         useHistoryAPI: true,
         includeBody: true,
+        fetchAll: true, // Force fetch ALL emails
       });
 
       console.log("📤 Gmail History API sync response:", {

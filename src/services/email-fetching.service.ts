@@ -369,27 +369,41 @@ export class EmailFetchingService {
         };
       }
 
-      // If this is initial sync, fetch recent emails first
-      if (emailAccount.syncState.syncStatus === "initial") {
-        const initialResult = await this.performInitialGmailSync(emailAccount, options);
-        if (!initialResult.success) {
-          return initialResult;
-        }
-      }
+      // Check if we need to fetch ALL emails (no historyId or force fetch)
+      const needsFullFetch = !emailAccount.syncState.lastHistoryId || options.fetchAll;
 
-      // Perform historical sync using History API
-      if (emailAccount.syncState.syncStatus === "initial" || emailAccount.syncState.syncStatus === "historical") {
-        try {
-          const historicalResult = await this.performHistoricalGmailSync(emailAccount);
-          if (!historicalResult.success) {
-            return historicalResult;
+      if (needsFullFetch) {
+        logger.info(
+          `Performing full email fetch for ${emailAccount.emailAddress} (no historyId or fetchAll requested)`
+        );
+        const fullFetchResult = await this.performFullGmailSync(emailAccount, options);
+        if (!fullFetchResult.success) {
+          return fullFetchResult;
+        }
+        logger.info(`Full email fetch completed for ${emailAccount.emailAddress}`);
+      } else {
+        // If this is initial sync, fetch recent emails first
+        if (emailAccount.syncState.syncStatus === "initial") {
+          const initialResult = await this.performInitialGmailSync(emailAccount, options);
+          if (!initialResult.success) {
+            return initialResult;
           }
-          logger.info(`Historical sync completed for ${emailAccount.emailAddress}`);
-        } catch (error: any) {
-          logger.warn(
-            `Historical sync failed for ${emailAccount.emailAddress}, continuing with current state: ${error.message}`
-          );
-          // Continue with current state instead of failing completely
+        }
+
+        // Perform historical sync using History API
+        if (emailAccount.syncState.syncStatus === "initial" || emailAccount.syncState.syncStatus === "historical") {
+          try {
+            const historicalResult = await this.performHistoricalGmailSync(emailAccount);
+            if (!historicalResult.success) {
+              return historicalResult;
+            }
+            logger.info(`Historical sync completed for ${emailAccount.emailAddress}`);
+          } catch (error: any) {
+            logger.warn(
+              `Historical sync failed for ${emailAccount.emailAddress}, continuing with current state: ${error.message}`
+            );
+            // Continue with current state instead of failing completely
+          }
         }
       }
 
@@ -421,6 +435,120 @@ export class EmailFetchingService {
         error: error.message,
         syncStatus: emailAccount.syncState?.syncStatus,
       };
+    }
+  }
+
+  /**
+   * Perform full Gmail sync to fetch ALL emails (for fresh database or when fetchAll is requested)
+   */
+  private static async performFullGmailSync(
+    emailAccount: IEmailAccount,
+    options: EmailFetchOptions
+  ): Promise<EmailFetchResult> {
+    try {
+      logger.info(`Performing full Gmail sync for ${emailAccount.emailAddress} to fetch ALL emails`);
+
+      const gmail = google.gmail({ version: "v1", auth: await this.getGmailAuthClient(emailAccount) });
+      let totalProcessed = 0;
+      let pageToken: string | undefined;
+      let batchCount = 0;
+
+      // Fetch ALL emails using pagination
+      while (true) {
+        batchCount++;
+        logger.info(
+          `Processing batch ${batchCount} for ${emailAccount.emailAddress} (total processed: ${totalProcessed})`
+        );
+
+        // Check quota before making API call
+        if (!(await this.checkQuota(emailAccount))) {
+          logger.warn(`Quota limit reached for ${emailAccount.emailAddress}, pausing sync`);
+          break;
+        }
+
+        // Fetch message IDs
+        const messagesResponse = await gmail.users.messages.list({
+          userId: "me",
+          maxResults: this.BATCH_SIZE,
+          pageToken: pageToken,
+          // No date filter - fetch ALL emails
+        });
+
+        if (!messagesResponse.data.messages || messagesResponse.data.messages.length === 0) {
+          logger.info(`No more messages found for ${emailAccount.emailAddress}`);
+          break;
+        }
+
+        // Fetch full message details for this batch using concurrent requests
+        const emails: FetchedEmail[] = [];
+        const messageIds = messagesResponse.data.messages.map((msg) => msg.id!);
+
+        // Use concurrent requests for better performance
+        const messagePromises = messageIds.map(async (messageId) => {
+          try {
+            const messageResponse = await gmail.users.messages.get({
+              userId: "me",
+              id: messageId,
+              format: "full",
+            });
+
+            const fetchedEmail = await this.parseGmailMessage(messageResponse.data, emailAccount);
+            return fetchedEmail;
+          } catch (error: any) {
+            logger.warn(`Failed to fetch message ${messageId}: ${error.message}`);
+            return null;
+          }
+        });
+
+        // Wait for all requests to complete
+        const results = await Promise.all(messagePromises);
+        const validEmails = results.filter((email) => email !== null) as FetchedEmail[];
+        emails.push(...validEmails);
+
+        // Store emails in database
+        if (emails.length > 0) {
+          await this.storeEmailsInDatabase(emails, emailAccount);
+          totalProcessed += emails.length;
+        }
+
+        // Update progress
+        await this.updateSyncProgress(emailAccount, totalProcessed, "", batchCount);
+
+        // Get next page token
+        pageToken = messagesResponse.data.nextPageToken || undefined;
+        if (!pageToken) {
+          logger.info(`No more pages for ${emailAccount.emailAddress}`);
+          break;
+        }
+
+        // Rate limiting
+        await this.delay(this.RATE_LIMIT_DELAY);
+      }
+
+      // Get the latest historyId for future incremental syncs
+      const profileResponse = await gmail.users.getProfile({ userId: "me" });
+      const historyId = profileResponse.data.historyId;
+
+      // Mark sync as complete
+      await this.updateSyncState(emailAccount, {
+        syncStatus: "complete",
+        lastSyncAt: new Date(),
+        lastHistoryId: historyId,
+        syncProgress: { totalProcessed, currentBatch: batchCount, estimatedTotal: totalProcessed },
+      });
+
+      logger.info(`Full Gmail sync completed for ${emailAccount.emailAddress}: ${totalProcessed} emails processed`);
+
+      return {
+        success: true,
+        emails: [],
+        totalCount: totalProcessed,
+        newCount: totalProcessed,
+        historyId: historyId || undefined,
+      };
+    } catch (error: any) {
+      logger.error(`Full Gmail sync failed for ${emailAccount.emailAddress}:`, error);
+      throw error;
     }
   }
 
@@ -1306,91 +1434,138 @@ export class EmailFetchingService {
   }
 
   /**
-   * Store fetched emails in database with thread management
+   * Store fetched emails in database with thread management using bulk operations
    */
   private static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
-    for (const email of emails) {
-      try {
-        // Enhanced duplicate check with multiple criteria
-        const existingEmail = await EmailModel.findOne({
-          $or: [
-            { messageId: email.messageId },
-            {
-              $and: [
-                { accountId: emailAccount._id },
-                { "from.email": email.from.email },
-                { subject: email.subject },
-                { receivedAt: { $gte: new Date(email.date.getTime() - 300000) } }, // Within 5 minutes
-              ],
-            },
-          ],
-        });
+    if (emails.length === 0) return;
 
-        if (existingEmail) {
-          console.log(`💾 Skipping duplicate email: ${email.messageId} (existing: ${existingEmail._id})`);
-          continue; // Skip if already exists
+    try {
+      // Enhanced duplicate check with bulk operation
+      const messageIds = emails.map((email) => email.messageId);
+      const existingEmails = await EmailModel.find({
+        $or: [
+          { messageId: { $in: messageIds } },
+          {
+            $and: [
+              { accountId: emailAccount._id },
+              { "from.email": { $in: emails.map((e) => e.from.email) } },
+              { subject: { $in: emails.map((e) => e.subject) } },
+              { receivedAt: { $gte: new Date(Date.now() - 300000) } }, // Within 5 minutes
+            ],
+          },
+        ],
+      }).select("messageId");
+
+      const existingMessageIds = new Set(existingEmails.map((e) => e.messageId));
+      const newEmails = emails.filter((email) => !existingMessageIds.has(email.messageId));
+
+      if (newEmails.length === 0) {
+        console.log(`💾 All ${emails.length} emails already exist in database`);
+        return;
+      }
+
+      console.log(`💾 Processing ${newEmails.length} new emails out of ${emails.length} total`);
+
+      // Use the threading service to find or create threads
+      const { EmailThreadingService } = await import("@/services/email-threading.service");
+
+      // Prepare email data for bulk insertion
+      const emailDocs = [];
+
+      for (const email of newEmails) {
+        try {
+          // Prepare email data for threading service
+          const emailData: Partial<any | IEmail> = {
+            messageId: email.messageId,
+            threadId: email.threadId,
+            accountId: emailAccount._id,
+            direction: "inbound",
+            type: "general",
+            status: "received",
+            subject: email.subject,
+            normalizedSubject: this.normalizeSubject(email.subject),
+            textContent: email.textContent,
+            htmlContent: email.htmlContent,
+            from: email.from,
+            to: email.to,
+            cc: email.cc,
+            bcc: email.bcc,
+            replyTo: email.replyTo,
+            headers: email.headers,
+            attachments: email.attachments,
+            receivedAt: email.date,
+            isRead: email.isRead,
+            readAt: email.isRead ? new Date() : undefined,
+            // Threading headers
+            inReplyTo: email.inReplyTo,
+            references: email.references,
+            parentMessageId: email.parentMessageId,
+            folder: "INBOX",
+          };
+
+          // Find or create thread using the threading service
+          const threadId = await EmailThreadingService.findOrCreateThread(emailData as IEmail);
+
+          // Update email data with thread ID
+          emailData.threadId = threadId;
+
+          // Create email document for bulk insertion
+          const emailDoc = new EmailModel(emailData);
+          emailDocs.push(emailDoc);
+        } catch (error: any) {
+          logger.error(`Error preparing email ${email.messageId} for storage:`, error);
         }
+      }
 
-        // Use the new threading service to find or create thread
-        const { EmailThreadingService } = await import("@/services/email-threading.service");
-        // Prepare email data for threading service
-        const emailData: Partial<any | IEmail> = {
-          messageId: email.messageId,
-          threadId: email.threadId,
-          accountId: emailAccount._id,
-          direction: "inbound",
-          type: "general",
-          status: "received",
-          subject: email.subject,
-          normalizedSubject: this.normalizeSubject(email.subject),
-          textContent: email.textContent,
-          htmlContent: email.htmlContent,
-          from: email.from,
-          to: email.to,
-          cc: email.cc,
-          bcc: email.bcc,
-          replyTo: email.replyTo,
-          headers: email.headers,
-          attachments: email.attachments,
-          receivedAt: email.date,
-          isRead: email.isRead,
-          readAt: email.isRead ? new Date() : undefined,
-          // Threading headers
-          inReplyTo: email.inReplyTo,
-          references: email.references,
-          parentMessageId: email.parentMessageId,
-          folder: "INBOX",
-        };
+      // Bulk insert all emails
+      if (emailDocs.length > 0) {
+        await EmailModel.insertMany(emailDocs, { ordered: false });
+        console.log(`💾 Bulk inserted ${emailDocs.length} emails to database`);
 
-        // Find or create thread using the threading service
-        const threadId = await EmailThreadingService.findOrCreateThread(emailData as IEmail);
+        logger.info(`Bulk stored ${emailDocs.length} emails for account: ${emailAccount.emailAddress}`);
+      }
+    } catch (error: any) {
+      // Handle database connection errors gracefully
+      if (error.name === "MongoNotConnectedError" || error.message?.includes("Client must be connected")) {
+        logger.warn(`Database connection lost while storing emails, skipping...`);
+        return;
+      }
+      logger.error(`Error bulk storing emails:`, error);
 
-        // Update email data with thread ID
-        emailData.threadId = threadId;
-
-        // Create email document
-        const emailDoc = new EmailModel(emailData);
-        await emailDoc.save();
-
-        console.log(`💾 Email stored in database:`, {
-          messageId: email.messageId,
-          subject: email.subject,
-          category: emailData.category || "primary",
-          hasTextContent: !!email.textContent,
-          textContentLength: email.textContent?.length || 0,
-          hasHtmlContent: !!email.htmlContent,
-          htmlContentLength: email.htmlContent?.length || 0,
-          threadId: threadId,
-        });
-
-        logger.debug(`Stored email: ${email.subject} in thread: ${threadId}`);
-      } catch (error: any) {
-        // Handle database connection errors gracefully
-        if (error.name === "MongoNotConnectedError" || error.message?.includes("Client must be connected")) {
-          logger.warn(`Database connection lost while storing email ${email.messageId}, skipping...`);
-          break; // Stop processing more emails if DB is disconnected
+      // Fallback to individual saves if bulk operation fails
+      console.log(`🔄 Falling back to individual email storage due to bulk operation failure`);
+      for (const email of emails) {
+        try {
+          const emailDoc = new EmailModel({
+            messageId: email.messageId,
+            threadId: email.threadId,
+            accountId: emailAccount._id,
+            direction: "inbound",
+            type: "general",
+            status: "received",
+            subject: email.subject,
+            normalizedSubject: this.normalizeSubject(email.subject),
+            textContent: email.textContent,
+            htmlContent: email.htmlContent,
+            from: email.from,
+            to: email.to,
+            cc: email.cc,
+            bcc: email.bcc,
+            replyTo: email.replyTo,
+            headers: email.headers,
+            attachments: email.attachments,
+            receivedAt: email.date,
+            isRead: email.isRead,
+            readAt: email.isRead ? new Date() : undefined,
+            inReplyTo: email.inReplyTo,
+            references: email.references,
+            parentMessageId: email.parentMessageId,
+            folder: "INBOX",
+          });
+          await emailDoc.save();
+        } catch (saveError: any) {
+          logger.error(`Error storing email ${email.messageId}:`, saveError);
         }
-        logger.error(`Error storing email ${email.messageId}:`, error);
       }
     }
   }
