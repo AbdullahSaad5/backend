@@ -5,16 +5,7 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const blogController = {
   addblog: async (req: Request, res: Response) => {
     try {
-      const {
-        title,
-        content,
-        category,
-        altText,
-        seoTitle,
-        authorName,
-        coverImage,
-        focusKeyword,
-      } = req.body;
+      const { title, content, category, altText, seoTitle, authorName, coverImage, focusKeyword } = req.body;
       console.log(title, content, category);
       const newblog = await blogService.createblog(
         title,
@@ -26,13 +17,11 @@ export const blogController = {
         coverImage,
         focusKeyword
       );
-      res
-        .status(StatusCodes.CREATED)
-        .json({
-          success: true,
-          message: "Blog blog created successfully",
-          data: newblog,
-        });
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Blog blog created successfully",
+        data: newblog,
+      });
     } catch (error: any) {
       console.error(error);
       if (error.title === "MongoServerError" && error.code === 11000) {
@@ -43,9 +32,7 @@ export const blogController = {
         });
       } else {
         // console.error(error);
-        res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ message: "Error creating user blog" });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating user blog" });
       }
     }
   },
@@ -55,13 +42,11 @@ export const blogController = {
       const { id } = req.params;
       const { title, content, category } = req.body;
       const blog = await blogService.editblog(id, { title, content, category });
-      res
-        .status(StatusCodes.OK)
-        .json({
-          success: true,
-          message: "blog updated successfully",
-          data: blog,
-        });
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "blog updated successfully",
+        data: blog,
+      });
     } catch (error: any) {
       // console.error("Edit blog Error:", error);
       if (error.title === "MongoServerError" && error.code === 11000) {
@@ -73,9 +58,7 @@ export const blogController = {
           message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
         });
       } else {
-        res
-          .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json({ success: false, message: "Error updating Blog blog" });
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating Blog blog" });
       }
     }
   },
@@ -84,31 +67,59 @@ export const blogController = {
     try {
       const { id } = req.params;
       const result = await blogService.deleteblog(id);
-      res
-        .status(StatusCodes.OK)
-        .json({
-          success: true,
-          message: "blog deleted successfully",
-          deletedUser: result,
-        });
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "blog deleted successfully",
+        deletedUser: result,
+      });
     } catch (error) {
       console.error("Delete blog Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error deleting Blog blog" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error deleting Blog blog" });
     }
   },
 
   getAllblog: async (req: Request, res: Response) => {
     try {
-      const categories = await blogService.getAllblog();
-      console.log(categories);
-      res.status(StatusCodes.OK).json({ success: true, data: categories });
+      // Extract pagination and filter parameters from query string
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const sortBy = (req.query.sortBy as string) || "date";
+      const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+      const category = req.query.category as string;
+      const search = req.query.search as string;
+
+      // Validate pagination parameters
+      if (page < 1) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Page number must be greater than 0",
+        });
+      }
+
+      if (limit < 1 || limit > 100) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Limit must be between 1 and 100",
+        });
+      }
+
+      const result = await blogService.getAllblog({
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        category,
+        search,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: result.blogs,
+        pagination: result.pagination,
+      });
     } catch (error) {
-      console.error("View Categories Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting all Blog categories" });
+      console.error("Get All Blogs Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting all blogs" });
     }
   },
 
@@ -121,9 +132,7 @@ export const blogController = {
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error) {
       console.error("View blog Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error getting Blog blog" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error getting Blog blog" });
     }
   },
 };

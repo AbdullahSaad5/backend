@@ -1143,30 +1143,40 @@ export const attendanceService = {
 };
 
 /**
- * Cron: Mark employees absent if no check-in after shift end + grace period
- * Handles midnight/next-day edge cases: marks absent for the correct day (the day the shift ended),
- * even if the cron runs after midnight.
+ * Cron: Mark employees absent for shifts that ended before the current cron run
+ * Can run multiple times per day to handle different shift end times
+ * Each run processes shifts that ended before the current run time
  */
 export const markAbsentForUsers = async () => {
   const GRACE_MINUTES = 120;
   const now = new Date();
+
   const shifts = await Shift.find({ isBlocked: false }).populate("employees");
+
   for (const shift of shifts) {
     const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+
     for (const employeeId of shift.employees) {
-      // Try for both today and yesterday
-      for (let offset = 0; offset <= 1; offset++) {
+      // Check multiple days to find shifts that ended before current cron run
+      // We need to check today and previous days to catch all relevant shifts
+      for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
-        shiftDate.setDate(now.getDate() - offset);
+        shiftDate.setDate(now.getDate() - daysBack);
         shiftDate.setHours(0, 0, 0, 0);
+
+        // Calculate when the grace period ended for this shift
         const shiftEnd = new Date(shiftDate);
         shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
+
+        // Check if this shift ended before the current cron run
         if (now >= shiftEnd) {
           const attendance = await Attendance.findOne({
             employeeId,
             date: shiftDate,
           });
+
           if (!attendance) {
+            // No attendance record exists, create absent record
             await Attendance.create({
               employeeId,
               date: shiftDate,
@@ -1178,10 +1188,15 @@ export const markAbsentForUsers = async () => {
             attendance.status !== "leave" &&
             attendance.status !== "absent"
           ) {
+            // Update existing record to absent if it's not already marked
             attendance.status = "absent";
             attendance.shiftId = shift._id as Types.ObjectId;
             await attendance.save();
           }
+
+          // Break out of the days loop once we've processed this shift
+          // (since we're going backwards in time, this is the most recent occurrence)
+          break;
         }
       }
     }
@@ -1189,28 +1204,38 @@ export const markAbsentForUsers = async () => {
 };
 
 /**
- * Cron: Auto-checkout employees if checked in but not checked out after shift end + buffer
- * Handles midnight/next-day edge cases: auto-checkout for the correct day (the day the shift ended),
- * even if the cron runs after midnight.
+ * Cron: Auto-checkout employees for shifts that ended before the current cron run
+ * Can run multiple times per day to handle different shift end times
+ * Each run processes shifts that ended before the current run time
  */
 export const autoCheckoutForUsers = async () => {
   const BUFFER_MINUTES = 120;
   const now = new Date();
+
   const shifts = await Shift.find({ isBlocked: false }).populate("employees");
+
   for (const shift of shifts) {
     const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+
     for (const employeeId of shift.employees) {
-      for (let offset = 0; offset <= 1; offset++) {
+      // Check multiple days to find shifts that ended before current cron run
+      // We need to check today and previous days to catch all relevant shifts
+      for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
-        shiftDate.setDate(now.getDate() - offset);
+        shiftDate.setDate(now.getDate() - daysBack);
         shiftDate.setHours(0, 0, 0, 0);
+
+        // Calculate when the buffer period ended for this shift
         const shiftEnd = new Date(shiftDate);
         shiftEnd.setHours(endHour, endMinute + BUFFER_MINUTES, 0, 0);
+
+        // Check if this shift ended before the current cron run
         if (now >= shiftEnd) {
           const attendance = await Attendance.findOne({
             employeeId,
             date: shiftDate,
           });
+
           if (attendance && attendance.checkIn && !attendance.checkOut) {
             attendance.checkOut = shiftEnd;
             await attendance.save();
@@ -1219,6 +1244,10 @@ export const autoCheckoutForUsers = async () => {
             // Note: Overtime values are computed on-the-fly and not stored in the database
             // They will be recalculated each time the record is retrieved
           }
+
+          // Break out of the days loop once we've processed this shift
+          // (since we're going backwards in time, this is the most recent occurrence)
+          break;
         }
       }
     }

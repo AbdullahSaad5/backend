@@ -27,6 +27,21 @@ export const tickerControler = {
         orderStatus
       } = req.body;
 
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for ticket creation, proceeding without user tracking");
+        }
+      }
+
       const newTicket = await ticketService.createTicket(
         title,
         client,
@@ -42,7 +57,8 @@ export const tickerControler = {
         images,
         platform,
         orderReference,
-        orderStatus
+        orderStatus,
+        userId
       );
 
       res.status(StatusCodes.CREATED).json({
