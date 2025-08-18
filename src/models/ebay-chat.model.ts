@@ -142,7 +142,7 @@ const EbayConversationSchema = new Schema<IEbayConversation, IEbayConversationMo
 // Indexes for better query performance
 EbayChatSchema.index({ ebayItemId: 1, buyerUsername: 1, createdAt: -1 });
 EbayChatSchema.index({ sellerUsername: 1, createdAt: -1 });
-EbayChatSchema.index({ ebayMessageId: 1 }, { unique: true, sparse: true });
+
 EbayChatSchema.index({ content: "text" });
 
 EbayConversationSchema.index({ ebayItemId: 1, buyerUsername: 1 }, { unique: true });
