@@ -616,7 +616,7 @@ export class EmailAccountController {
   static async getAccountEmailsWithThreads(req: Request, res: Response) {
     try {
       const { accountId } = req.params;
-      const { folder = "INBOX", limit = 50, offset = 0, threadView = true, unreadOnly = false } = req.query;
+      const { folder = "INBOX", limit = 100, offset = 0, threadView = true, unreadOnly = false } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       if (!token) {
@@ -652,7 +652,8 @@ export class EmailAccountController {
         switch (folder) {
           case "INBOX":
             // For inbox threads, include emails received by this account
-            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            // to.email is an array of objects, so we need to check if any email in the array matches
+            threadEmailFilter["to.email"] = account.emailAddress;
             threadEmailFilter.isArchived = { $ne: true };
             threadEmailFilter.isSpam = { $ne: true };
             break;
@@ -670,8 +671,8 @@ export class EmailAccountController {
             threadEmailFilter.isSpam = true;
             break;
           default:
-            // Default to inbox behavior
-            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            // Default to inbox behavior - show ALL emails for this account
+            // Don't filter by to/from - just show all emails for the account
             threadEmailFilter.isArchived = { $ne: true };
             threadEmailFilter.isSpam = { $ne: true };
         }
@@ -795,15 +796,13 @@ export class EmailAccountController {
         // Build email filter with proper account-based filtering for individual emails
         const emailFilter: any = {
           accountId: account._id,
-          // Filter by direction based on folder
-          direction: folder === "SENT" ? "outbound" : "inbound",
         };
 
         // Additional filtering based on folder
         switch (folder) {
           case "INBOX":
             // For inbox, show emails received by this account
-            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            emailFilter["to.email"] = account.emailAddress;
             emailFilter.isArchived = { $ne: true };
             emailFilter.isSpam = { $ne: true };
             break;
@@ -825,8 +824,8 @@ export class EmailAccountController {
             emailFilter.isSpam = true;
             break;
           default:
-            // Default to inbox behavior
-            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            // Default to inbox behavior - show ALL emails for this account
+            // Don't filter by to/from - just show all emails for the account
             emailFilter.isArchived = { $ne: true };
             emailFilter.isSpam = { $ne: true };
         }
