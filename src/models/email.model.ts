@@ -5,8 +5,8 @@ import _ from "lodash";
 const EmailSchema = new Schema<IEmail>(
   {
     messageId: { type: String, required: true },
-    threadId: { type: String, index: true }, // Gmail threadId or generated thread ID
-    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount", required: true, index: true },
+    threadId: { type: String }, // Gmail threadId or generated thread ID
+    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount", required: true },
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
     type: {
       type: String,
@@ -36,11 +36,11 @@ const EmailSchema = new Schema<IEmail>(
     htmlContent: { type: String },
 
     // Addresses
-    from: { email: { type: String, required: true, index: true }, name: { type: String } },
-    to: [{ _id: false, email: { type: String, required: true, index: true }, name: { type: String } }],
-    cc: [{ _id: false, email: { type: String, index: true }, name: { type: String } }],
-    bcc: [{ _id: false, email: { type: String, index: true }, name: { type: String } }],
-    replyTo: { _id: false, email: { type: String, index: true }, name: { type: String } },
+    from: { email: { type: String, required: true }, name: { type: String } },
+    to: [{ _id: false, email: { type: String, required: true }, name: { type: String } }],
+    cc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    bcc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    replyTo: { _id: false, email: { type: String }, name: { type: String } },
 
     // Threading headers (RFC 2822 standard)
     inReplyTo: { type: String }, // Message-ID this email is replying to
