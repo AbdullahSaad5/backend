@@ -637,17 +637,50 @@ export class EmailAccountController {
         });
       }
 
-      // Build email filter
-      const emailFilter: any = { accountId: account._id };
-
-      if (unreadOnly === "true") {
-        emailFilter.isRead = false;
-      }
-
       if (threadView === "true") {
-        // Get threads with email counts
+        // Get threads with email counts - for threads, we need to include BOTH sent and received emails
         const { EmailThreadModel } = await import("@/models/email-thread.model");
         const { EmailModel } = await import("@/models/email.model");
+
+        // For thread view, we need a different filter that includes both sent and received emails
+        // but still respects the account and folder constraints
+        let threadEmailFilter: any = {
+          accountId: account._id,
+        };
+
+        // Apply folder-specific filtering for thread emails
+        switch (folder) {
+          case "INBOX":
+            // For inbox threads, include emails received by this account
+            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            threadEmailFilter.isArchived = { $ne: true };
+            threadEmailFilter.isSpam = { $ne: true };
+            break;
+          case "SENT":
+            // For sent threads, include emails sent from this account
+            threadEmailFilter["from.email"] = account.emailAddress;
+            break;
+          case "DRAFTS":
+            threadEmailFilter.status = "processing";
+            break;
+          case "ARCHIVE":
+            threadEmailFilter.isArchived = true;
+            break;
+          case "SPAM":
+            threadEmailFilter.isSpam = true;
+            break;
+          default:
+            // Default to inbox behavior
+            threadEmailFilter["to.email"] = { $in: [account.emailAddress] };
+            threadEmailFilter.isArchived = { $ne: true };
+            threadEmailFilter.isSpam = { $ne: true };
+        }
+
+        if (unreadOnly === "true") {
+          threadEmailFilter.isRead = false;
+        }
+
+        console.log(`🧵 Thread email filter for account ${account.emailAddress}, folder ${folder}:`, threadEmailFilter);
 
         const threads = await EmailThreadModel.aggregate([
           {
@@ -657,15 +690,16 @@ export class EmailAccountController {
               foreignField: "threadId",
               as: "emails",
               pipeline: [
-                { $match: emailFilter },
+                { $match: threadEmailFilter },
                 { $sort: { receivedAt: -1 } },
-                { $limit: 10 }, // Limit emails per thread for performance
+                { $limit: 20 }, // Increase limit to show more emails per thread
               ],
             },
           },
           {
             $match: {
               "emails.0": { $exists: true }, // Only threads with matching emails
+              accountId: account._id, // Ensure thread belongs to this account
             },
           },
           {
@@ -679,6 +713,21 @@ export class EmailAccountController {
                 },
               },
               latestEmail: { $arrayElemAt: ["$emails", 0] },
+              // Add thread metadata for better display
+              threadDirection: { $arrayElemAt: ["$emails.direction", 0] },
+              threadSubject: { $arrayElemAt: ["$emails.subject", 0] },
+              // Add email count for this thread
+              emailCount: { $size: "$emails" },
+              // Add participants from all emails in thread
+              participants: {
+                $reduce: {
+                  input: "$emails",
+                  initialValue: [],
+                  in: {
+                    $concatArrays: ["$$value", "$$this.from", "$$this.to"],
+                  },
+                },
+              },
             },
           },
           { $sort: { lastMessageAt: -1 } },
@@ -686,10 +735,13 @@ export class EmailAccountController {
           { $limit: parseInt(limit as string) },
         ]);
 
+        console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+
         res.json({
           success: true,
           data: {
             threads,
+            totalCount: threads.length, // Add totalCount for pagination
             account: {
               id: account._id,
               emailAddress: account.emailAddress,
@@ -699,8 +751,53 @@ export class EmailAccountController {
           },
         });
       } else {
-        // Get individual emails
+        // Get individual emails - use the original direction-based filtering
         const { EmailModel } = await import("@/models/email.model");
+
+        // Build email filter with proper account-based filtering for individual emails
+        const emailFilter: any = {
+          accountId: account._id,
+          // Filter by direction based on folder
+          direction: folder === "SENT" ? "outbound" : "inbound",
+        };
+
+        // Additional filtering based on folder
+        switch (folder) {
+          case "INBOX":
+            // For inbox, show emails received by this account
+            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            emailFilter.isArchived = { $ne: true };
+            emailFilter.isSpam = { $ne: true };
+            break;
+          case "SENT":
+            // For sent folder, show emails sent from this account
+            emailFilter["from.email"] = account.emailAddress;
+            // Don't filter by archived/spam for sent emails - they should all show
+            break;
+          case "DRAFTS":
+            // For drafts, show emails with processing status
+            emailFilter.status = "processing";
+            break;
+          case "ARCHIVE":
+            // For archive, show archived emails
+            emailFilter.isArchived = true;
+            break;
+          case "SPAM":
+            // For spam, show spam emails
+            emailFilter.isSpam = true;
+            break;
+          default:
+            // Default to inbox behavior
+            emailFilter["to.email"] = { $in: [account.emailAddress] };
+            emailFilter.isArchived = { $ne: true };
+            emailFilter.isSpam = { $ne: true };
+        }
+
+        if (unreadOnly === "true") {
+          emailFilter.isRead = false;
+        }
+
+        console.log(`📧 Individual email filter for account ${account.emailAddress}, folder ${folder}:`, emailFilter);
 
         const emails = await EmailModel.find(emailFilter)
           .sort({ receivedAt: -1 })
@@ -709,6 +806,8 @@ export class EmailAccountController {
           .populate("accountId", "emailAddress accountName");
 
         const totalCount = await EmailModel.countDocuments(emailFilter);
+
+        console.log(`📧 Found ${emails.length} individual emails for account ${account.emailAddress}`);
 
         res.json({
           success: true,
@@ -983,7 +1082,7 @@ export class EmailAccountController {
       const decoded = jwtVerify(token);
       const userId = decoded.id.toString();
       const account = await EmailAccountModel.findOne({ _id: accountId, userId });
-      
+
       if (!account) {
         return res.status(404).json({
           success: false,
@@ -1000,7 +1099,7 @@ export class EmailAccountController {
       }
 
       const { EmailFetchingService } = await import("@/services/email-fetching.service");
-      
+
       // Setup watch notifications
       await EmailFetchingService.setupGmailWatch(account);
 
@@ -1011,10 +1110,9 @@ export class EmailAccountController {
           accountId: account._id,
           emailAddress: account.emailAddress,
           watchExpiration: account.syncState?.watchExpiration,
-          isWatching: account.syncState?.isWatching
-        }
+          isWatching: account.syncState?.isWatching,
+        },
       });
-
     } catch (error: any) {
       console.error("Gmail watch setup error:", error);
       res.status(500).json({

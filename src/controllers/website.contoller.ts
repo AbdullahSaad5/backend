@@ -17,6 +17,50 @@ export const websiteController = {
     }
   },
 
+  getFeaturedListingsForWebsite: async (req: Request, res: Response) => {
+    try {
+      const categoriesWithListings = await websiteService.getFeaturedListingsForWebsite();
+      res.status(StatusCodes.OK).json({ success: true, data: categoriesWithListings });
+    } catch (error) {
+      console.error("Get Featured Listings Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting featured listings",
+      });
+    }
+  },
+
+  getFeaturedListingsByCategoryId: async (req: Request, res: Response) => {
+    try {
+      const { categoryId } = req.params;
+
+      // Validate categoryId
+      if (!mongoose.isValidObjectId(categoryId)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid category ID",
+        });
+      }
+
+      const result = await websiteService.getFeaturedListingsByCategoryId(categoryId);
+      res.status(StatusCodes.OK).json({ success: true, data: result });
+    } catch (error: any) {
+      console.error("Get Featured Listings By Category Error:", error);
+      
+      if (error.message === "Category not found or not featured") {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error getting featured listings for category",
+      });
+    }
+  },
+
   // Get all Website listings
   getWebsiteListings: async (req: Request, res: Response) => {
     try {
