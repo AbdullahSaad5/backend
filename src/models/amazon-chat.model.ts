@@ -72,6 +72,6 @@ const AmazonChatSchema = new Schema<IAmazonChat>(
 );
 
 AmazonChatSchema.index({ orderId: 1, buyerEmail: 1, createdAt: -1 });
-AmazonChatSchema.index({ amazonMessageId: 1 }, { unique: true, sparse: true });
+
 
 export const AmazonChatModel = models.AmazonChat || model<IAmazonChat>("AmazonChat", AmazonChatSchema);
