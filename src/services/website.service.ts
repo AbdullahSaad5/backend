@@ -124,6 +124,7 @@ export const websiteService = {
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
+        .populate("prodPricing.selectedVariations.variationId")
         .skip(skip)
         .limit(limitNumber)
         .lean();
@@ -197,9 +198,25 @@ export const websiteService = {
             purchasePrice:
               (listing as any).selectedStockId?.purchasePricePerUnit || 0,
             retailPrice: (listing as any).prodPricing?.retailPrice || 0,
+            listingQuantity: (listing as any).prodPricing?.listingQuantity || 0,
             discountType: (listing as any).prodPricing?.discountType || null,
             discountValue: (listing as any).prodPricing?.discountValue || 0,
             vat: (listing as any).prodPricing?.vat || 0,
+            selectedVariations: (listing as any).prodPricing?.selectedVariations?.map((variation: any) => ({
+              variationId: variation.variationId?._id || variation.variationId,
+              retailPrice: variation.retailPrice || 0,
+              listingQuantity: variation.listingQuantity || 0,
+              offerImages: variation.offerImages || [],
+              // Include populated variation details if available
+              variationDetails: variation.variationId ? {
+                id: variation.variationId._id,
+                attributes: variation.variationId.attributes || {},
+                isSelected: variation.variationId.isSelected || false,
+                isBundleVariation: variation.variationId.isBundleVariation || false,
+                createdAt: variation.variationId.createdAt,
+                updatedAt: variation.variationId.updatedAt,
+              } : null,
+            })) || [],
             currency: "GBP", // Default currency
           },
           stock: {
@@ -235,6 +252,7 @@ export const websiteService = {
             return filteredTechInfo;
           })(),
           status: (listing as any).status,
+          listingHasVariations: (listing as any).listingHasVariations || false,
           marketplace: marketplace,
           language: language,
           createdAt: (listing as any).createdAt,
@@ -272,6 +290,7 @@ export const websiteService = {
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
+        .populate("prodPricing.selectedVariations.variationId")
         .lean();
 
       if (!listing) {
@@ -340,9 +359,25 @@ export const websiteService = {
           costPrice: listing.selectedStockId?.costPricePerUnit || 0,
           purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
           retailPrice: listing.prodPricing?.retailPrice || 0,
+          listingQuantity: listing.prodPricing?.listingQuantity || 0,
           discountType: listing.prodPricing?.discountType || null,
           discountValue: listing.prodPricing?.discountValue || 0,
           vat: listing.prodPricing?.vat || 0,
+          selectedVariations: listing.prodPricing?.selectedVariations?.map((variation: any) => ({
+            variationId: variation.variationId?._id || variation.variationId,
+            retailPrice: variation.retailPrice || 0,
+            listingQuantity: variation.listingQuantity || 0,
+            offerImages: variation.offerImages || [],
+            // Include populated variation details if available
+            variationDetails: variation.variationId ? {
+              id: variation.variationId._id,
+              attributes: variation.variationId.attributes || {},
+              isSelected: variation.variationId.isSelected || false,
+              isBundleVariation: variation.variationId.isBundleVariation || false,
+              createdAt: variation.variationId.createdAt,
+              updatedAt: variation.variationId.updatedAt,
+            } : null,
+          })) || [],
           currency: "GBP", // Default currency
         },
         stock: {
