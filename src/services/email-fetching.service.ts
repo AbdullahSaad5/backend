@@ -1298,9 +1298,23 @@ export class EmailFetchingService {
   private static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
     for (const email of emails) {
       try {
-        // Check if email already exists
-        const existingEmail = await EmailModel.findOne({ messageId: email.messageId });
+        // Enhanced duplicate check with multiple criteria
+        const existingEmail = await EmailModel.findOne({
+          $or: [
+            { messageId: email.messageId },
+            {
+              $and: [
+                { accountId: emailAccount._id },
+                { "from.email": email.from.email },
+                { subject: email.subject },
+                { receivedAt: { $gte: new Date(email.date.getTime() - 300000) } }, // Within 5 minutes
+              ],
+            },
+          ],
+        });
+
         if (existingEmail) {
+          console.log(`💾 Skipping duplicate email: ${email.messageId} (existing: ${existingEmail._id})`);
           continue; // Skip if already exists
         }
 
@@ -1348,6 +1362,7 @@ export class EmailFetchingService {
         console.log(`💾 Email stored in database:`, {
           messageId: email.messageId,
           subject: email.subject,
+          category: emailData.category || "primary",
           hasTextContent: !!email.textContent,
           textContentLength: email.textContent?.length || 0,
           hasHtmlContent: !!email.htmlContent,
