@@ -1007,6 +1007,7 @@ export class EmailAccountController {
         includeBody: true,
         fetchAll: fetchAll === "true",
         useHistoryAPI: account.accountType === "gmail" && account.oauth, // Use History API for Gmail OAuth accounts
+        limit: fetchAll === "true" ? 1000 : 50, // Higher limit for fetchAll
       };
       console.log("📧 Fetch options:", options);
 
@@ -1167,6 +1168,7 @@ export class EmailAccountController {
       const result = await EmailFetchingService.syncGmailWithHistoryAPI(account, {
         useHistoryAPI: true,
         includeBody: true,
+        fetchAll: true, // Force fetch ALL emails
       });
 
       console.log("📤 Gmail History API sync response:", {
