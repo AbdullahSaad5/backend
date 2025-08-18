@@ -16,6 +16,7 @@ export const productCategoryController = {
         isBlocked,
         isPart,
         isFeatured,
+        categoryFieldsMapping,
       } = req.body;
 
       const newProductCategory = await productCategoryService.createCategory(
@@ -27,7 +28,8 @@ export const productCategoryController = {
         tags,
         isBlocked,
         isPart,
-        isFeatured
+        isFeatured,
+        categoryFieldsMapping
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -101,6 +103,7 @@ export const productCategoryController = {
         isBlocked,
         isPart,
         isFeatured,
+        categoryFieldsMapping,
       } = req.body;
 
       const category = await productCategoryService.editCategory(id, {
@@ -113,6 +116,7 @@ export const productCategoryController = {
         isBlocked,
         isPart,
         isFeatured,
+        categoryFieldsMapping,
       });
 
       res.status(StatusCodes.OK).json({

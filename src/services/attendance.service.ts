@@ -482,7 +482,7 @@ export const attendanceService = {
       });
 
       return {
-        ...record,
+        ...record.toObject(),
         isPaid: leaveRequest?.isPaid || false,
       };
     };
@@ -1142,10 +1142,17 @@ export const attendanceService = {
   },
 };
 
+// Helper function to check if a date is a weekend
+const isWeekend = (date: Date): boolean => {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+};
+
 /**
- * Cron: Mark employees absent for shifts that ended before the current cron run
+ * Cron: Mark employees as absent for shifts that ended before the current cron run
  * Can run multiple times per day to handle different shift end times
  * Each run processes shifts that ended before the current run time
+ * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const markAbsentForUsers = async () => {
   const GRACE_MINUTES = 120;
@@ -1163,6 +1170,11 @@ export const markAbsentForUsers = async () => {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
         shiftDate.setHours(0, 0, 0, 0);
+
+        // SKIP WEEKEND DATES - only process weekdays
+        if (isWeekend(shiftDate)) {
+          continue;
+        }
 
         // Calculate when the grace period ended for this shift
         const shiftEnd = new Date(shiftDate);
@@ -1207,6 +1219,7 @@ export const markAbsentForUsers = async () => {
  * Cron: Auto-checkout employees for shifts that ended before the current cron run
  * Can run multiple times per day to handle different shift end times
  * Each run processes shifts that ended before the current run time
+ * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const autoCheckoutForUsers = async () => {
   const BUFFER_MINUTES = 120;
@@ -1224,6 +1237,11 @@ export const autoCheckoutForUsers = async () => {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
         shiftDate.setHours(0, 0, 0, 0);
+
+        // SKIP WEEKEND DATES - only process weekdays
+        if (isWeekend(shiftDate)) {
+          continue;
+        }
 
         // Calculate when the buffer period ended for this shift
         const shiftEnd = new Date(shiftDate);

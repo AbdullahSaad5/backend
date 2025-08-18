@@ -12,7 +12,7 @@ export const ticket = (router: Router) => {
   router.patch("/:id/priority", tickerControler.toggleprioritystatus);
   router.patch("/:id/role", tickerControler.toggleRole); // Changed from department to role
   router.patch("/:id/assignment", tickerControler.updateAssignment); // New assignment endpoint
-  router.post("/:id/resolution", tickerControler.addResolution);       // Add resolution
+  router.post("/:id/resolution", uploadMultipleFiles("images", 10), tickerControler.addResolution);       // Add resolution with images
   router.patch("/:id/resolution", tickerControler.updateResolution);  // Update resolution
   router.delete("/:id/resolution", tickerControler.deleteResolution);
   // Multiple resolutions routes

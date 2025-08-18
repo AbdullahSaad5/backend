@@ -24,10 +24,9 @@ export class GmailSyncCron {
         logger.info("🔄 Starting Gmail watch subscription renewal");
 
         await EmailFetchingService.renewGmailWatchSubscriptions();
-        
+
         const duration = Date.now() - startTime;
         logger.info("✅ Gmail watch renewal completed", { durationMs: duration });
-
       } catch (error: any) {
         const duration = Date.now() - startTime;
         logger.error("💥 Gmail watch renewal failed", {
@@ -54,13 +53,21 @@ export class GmailSyncCron {
         logger.info("🔄 Starting Gmail sync for active accounts");
 
         const accountsNeedingSync = await EmailAccountModel.find({
-          accountType: 'gmail',
+          accountType: "gmail",
           isActive: true,
           oauth: { $exists: true },
           $or: [
-            { 'syncState.syncStatus': { $in: ['initial', 'historical'] } },
-            { 'syncState.syncStatus': 'complete', 'syncState.lastSyncAt': { $lt: new Date(Date.now() - 15 * 60 * 1000) } } // Sync every 15 minutes for complete accounts
-          ]
+            { "syncState.syncStatus": { $in: ["initial", "historical"] } },
+            {
+              "syncState.syncStatus": "complete",
+              "syncState.lastSyncAt": { $lt: new Date(Date.now() - 15 * 60 * 1000) },
+            }, // Sync every 15 minutes for complete accounts
+            { "syncState.syncStatus": { $exists: false } }, // No sync state - needs full sync
+            { "syncState.lastHistoryId": { $exists: false } }, // No historyId - needs full sync
+            { "syncState.syncStatus": "error" }, // Error state - needs recovery
+            { connectionStatus: "error" }, // Connection error - needs recovery
+            { status: "error" }, // Account error - needs recovery
+          ],
         }).limit(10); // Process max 10 accounts per run
 
         logger.info(`Found ${accountsNeedingSync.length} Gmail accounts needing sync`);
@@ -68,9 +75,14 @@ export class GmailSyncCron {
         for (const account of accountsNeedingSync) {
           try {
             logger.info(`Processing Gmail sync for ${account.emailAddress}`);
-            
+
+            // Check if account needs full sync (no historyId)
+            const needsFullSync = !account.syncState?.lastHistoryId;
+
             const result = await EmailFetchingService.syncGmailWithHistoryAPI(account, {
-              useHistoryAPI: true
+              useHistoryAPI: true,
+              fetchAll: needsFullSync, // Force fetch all if no historyId
+              includeBody: true,
             });
 
             if (result.success) {
@@ -78,28 +90,26 @@ export class GmailSyncCron {
                 historyId: result.historyId,
                 totalCount: result.totalCount,
                 newCount: result.newCount,
-                syncStatus: account.syncState?.syncStatus
+                syncStatus: account.syncState?.syncStatus,
               });
             } else {
               logger.error(`❌ Gmail sync failed for ${account.emailAddress}`, {
-                error: result.error
+                error: result.error,
               });
             }
 
             // Add delay between accounts to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
+            await new Promise((resolve) => setTimeout(resolve, 3000));
           } catch (error: any) {
             logger.error(`💥 Error syncing Gmail account ${account.emailAddress}:`, error);
           }
         }
 
         const duration = Date.now() - startTime;
-        logger.info("✅ Gmail sync completed", { 
+        logger.info("✅ Gmail sync completed", {
           accountsProcessed: accountsNeedingSync.length,
-          durationMs: duration 
+          durationMs: duration,
         });
-
       } catch (error: any) {
         const duration = Date.now() - startTime;
         logger.error("💥 Gmail sync failed", {
@@ -118,12 +128,15 @@ export class GmailSyncCron {
         logger.info("🔄 Starting Gmail error recovery");
 
         const errorAccounts = await EmailAccountModel.find({
-          accountType: 'gmail',
+          accountType: "gmail",
           isActive: true,
-          'syncState.syncStatus': 'error',
-          'syncState.lastErrorAt': { 
-            $lt: new Date(Date.now() - 30 * 60 * 1000) // Error older than 30 minutes
-          }
+          $or: [
+            { "syncState.syncStatus": "error" },
+            { "syncState.syncStatus": { $exists: false } },
+            { connectionStatus: "error" },
+            { status: "error" },
+            { "stats.lastError": { $exists: true, $ne: null } },
+          ],
         }).limit(5); // Process max 5 error accounts per run
 
         logger.info(`Found ${errorAccounts.length} Gmail accounts with errors to recover`);
@@ -131,23 +144,25 @@ export class GmailSyncCron {
         for (const account of errorAccounts) {
           try {
             logger.info(`Attempting error recovery for ${account.emailAddress}`);
-            
-            // Reset sync status to retry
+
+            // Reset sync status and account status to retry
             await EmailAccountModel.findByIdAndUpdate(account._id, {
               $set: {
-                'syncState.syncStatus': 'initial',
-                'syncState.lastError': null,
-                'syncState.lastErrorAt': null
-              }
+                "syncState.syncStatus": "initial",
+                "syncState.lastError": null,
+                "syncState.lastErrorAt": null,
+                "syncState.lastHistoryId": null, // Reset historyId to force full sync
+                connectionStatus: "connected",
+                status: "active",
+                "stats.lastError": null,
+              },
             });
 
             logger.info(`✅ Error recovery initiated for ${account.emailAddress}`);
-
           } catch (error: any) {
             logger.error(`💥 Error recovery failed for ${account.emailAddress}:`, error);
           }
         }
-
       } catch (error: any) {
         logger.error("💥 Gmail error recovery failed", { error: error.message });
       }
@@ -159,42 +174,44 @@ export class GmailSyncCron {
         logger.info("🏥 Running Gmail sync health check");
 
         const gmailAccounts = await EmailAccountModel.find({
-          accountType: 'gmail',
-          isActive: true
+          accountType: "gmail",
+          isActive: true,
         });
 
         const stats = {
           total: gmailAccounts.length,
-          complete: gmailAccounts.filter(a => a.syncState?.syncStatus === 'complete').length,
-          historical: gmailAccounts.filter(a => a.syncState?.syncStatus === 'historical').length,
-          initial: gmailAccounts.filter(a => a.syncState?.syncStatus === 'initial').length,
-          error: gmailAccounts.filter(a => a.syncState?.syncStatus === 'error').length,
-          needsSync: gmailAccounts.filter(a => 
-            a.syncState?.syncStatus === 'complete' && 
-            a.syncState.lastSyncAt && 
-            a.syncState.lastSyncAt < new Date(Date.now() - 30 * 60 * 1000) // Not synced in 30 minutes
-          ).length
+          complete: gmailAccounts.filter((a) => a.syncState?.syncStatus === "complete").length,
+          historical: gmailAccounts.filter((a) => a.syncState?.syncStatus === "historical").length,
+          initial: gmailAccounts.filter((a) => a.syncState?.syncStatus === "initial").length,
+          error: gmailAccounts.filter((a) => a.syncState?.syncStatus === "error").length,
+          needsSync: gmailAccounts.filter(
+            (a) =>
+              a.syncState?.syncStatus === "complete" &&
+              a.syncState.lastSyncAt &&
+              a.syncState.lastSyncAt < new Date(Date.now() - 30 * 60 * 1000) // Not synced in 30 minutes
+          ).length,
         };
 
         logger.info("Gmail sync health status", stats);
 
         // Alert if there are too many accounts in error state
-        if (stats.error > stats.total * 0.2) { // More than 20% in error
+        if (stats.error > stats.total * 0.2) {
+          // More than 20% in error
           logger.warn("🚨 High number of Gmail accounts in error state", {
             errorCount: stats.error,
             totalCount: stats.total,
-            errorPercentage: (stats.error / stats.total * 100).toFixed(1) + '%'
+            errorPercentage: ((stats.error / stats.total) * 100).toFixed(1) + "%",
           });
         }
 
         // Alert if many accounts need sync
-        if (stats.needsSync > stats.complete * 0.3) { // More than 30% of complete accounts
+        if (stats.needsSync > stats.complete * 0.3) {
+          // More than 30% of complete accounts
           logger.warn("🚨 Many Gmail accounts need sync", {
             needsSync: stats.needsSync,
-            completeCount: stats.complete
+            completeCount: stats.complete,
           });
         }
-
       } catch (error: any) {
         logger.error("❌ Gmail health check failed", { error: error.message });
       }
@@ -227,14 +244,13 @@ export class GmailSyncCron {
 
         logger.info(`Manual Gmail sync for ${account.emailAddress}`);
         await EmailFetchingService.syncGmailWithHistoryAPI(account, { useHistoryAPI: true });
-        
       } else {
         // Sync all accounts that need it
         const accountsNeedingSync = await EmailAccountModel.find({
-          accountType: 'gmail',
+          accountType: "gmail",
           isActive: true,
           oauth: { $exists: true },
-          'syncState.syncStatus': { $in: ['initial', 'historical'] }
+          "syncState.syncStatus": { $in: ["initial", "historical"] },
         });
 
         logger.info(`Manual Gmail sync for ${accountsNeedingSync.length} accounts`);
@@ -242,7 +258,7 @@ export class GmailSyncCron {
         for (const account of accountsNeedingSync) {
           try {
             await EmailFetchingService.syncGmailWithHistoryAPI(account, { useHistoryAPI: true });
-            await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+            await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
           } catch (error: any) {
             logger.error(`Manual sync failed for ${account.emailAddress}:`, error);
           }
@@ -250,7 +266,6 @@ export class GmailSyncCron {
       }
 
       logger.info("✅ Manual Gmail sync completed");
-
     } catch (error: any) {
       logger.error("💥 Manual Gmail sync failed:", error);
       throw error;

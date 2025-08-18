@@ -9,6 +9,178 @@ export const websiteService = {
     }).select("name description image tags isPart isFeatured");
   },
 
+  getFeaturedListingsForWebsite: async () => {
+    // First get all featured categories
+    const featuredCategories = await ProductCategory.find({
+      isFeatured: true,
+      isBlocked: false,
+    }).select("_id name description image tags isPart");
+
+    // For each featured category, get up to 6 featured listings
+    const categoriesWithListings = await Promise.all(
+      featuredCategories.map(async (category) => {
+        const featuredListings = await Listing.find({
+          'productInfo.productCategory': category._id,
+          isFeatured: true,
+          isBlocked: false,
+          publishToWebsite: true,
+        })
+        .populate('productInfo.productCategory')
+        .populate('selectedStockId')
+        .limit(6)
+        .lean();
+
+        // Transform listings to website format
+        const transformedListings = featuredListings.map((listing: any) => {
+          // Helper function to safely extract first value from marketplace arrays
+          const getFirstValue = (array: any[], field: string) => {
+            return array?.[0]?.[field] || "";
+          };
+
+          const itemName = getFirstValue(listing.productInfo?.item_name, "value");
+          const brand = getFirstValue(listing.productInfo?.brand, "value");
+          const description = getFirstValue(listing.productInfo?.product_description, "value");
+          const condition = getFirstValue(listing.productInfo?.condition_type, "value");
+          const cleanCondition = condition.replace(/^refurbished_/, "");
+
+          return {
+            id: listing._id,
+            sku: listing.productInfo?.sku || "",
+            name: itemName,
+            brand: brand,
+            description: description,
+            condition: cleanCondition,
+            pricing: {
+              costPrice: listing.selectedStockId?.costPricePerUnit || 0,
+              purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
+              retailPrice: listing.prodPricing?.retailPrice || 0,
+              listingQuantity: listing.prodPricing?.listingQuantity || 0,
+              discountType: listing.prodPricing?.discountType || null,
+              discountValue: listing.prodPricing?.discountValue || 0,
+              vat: listing.prodPricing?.vat || 0,
+              currency: "GBP",
+            },
+            stock: {
+              available: listing.selectedStockId?.usableUnits || 0,
+              threshold: listing.stockThreshold || 0,
+              inStock: (listing.selectedStockId?.usableUnits || 0) > 0,
+            },
+            media: {
+              images: listing.prodMedia?.images || [],
+              videos: listing.prodMedia?.videos || [],
+              offerImages: listing.prodMedia?.offerImages || [],
+            },
+            status: listing.status,
+            listingHasVariations: listing.listingHasVariations || false,
+            createdAt: listing.createdAt,
+            updatedAt: listing.updatedAt,
+            isFeatured: listing.isFeatured || false,
+          };
+        });
+
+        return {
+          category: {
+            id: category._id,
+            name: category.name,
+            description: category.description,
+            image: category.image,
+            tags: category.tags,
+            isPart: category.isPart,
+          },
+          listings: transformedListings,
+          totalListings: transformedListings.length,
+        };
+      })
+    );
+
+    return categoriesWithListings;
+  },
+
+  getFeaturedListingsByCategoryId: async (categoryId: string) => {
+    // First verify the category exists and is featured
+    const category = await ProductCategory.findOne({
+      _id: categoryId,
+      isFeatured: true,
+      isBlocked: false,
+    }).select("_id name description image tags isPart");
+
+    if (!category) {
+      throw new Error("Category not found or not featured");
+    }
+
+    // Get featured listings for this specific category
+    const featuredListings = await Listing.find({
+      'productInfo.productCategory': categoryId,
+      isFeatured: true,
+      isBlocked: false,
+      publishToWebsite: true,
+    })
+    .populate('productInfo.productCategory')
+    .populate('selectedStockId')
+    .lean();
+
+    // Transform listings to website format
+    const transformedListings = featuredListings.map((listing: any) => {
+      // Helper function to safely extract first value from marketplace arrays
+      const getFirstValue = (array: any[], field: string) => {
+        return array?.[0]?.[field] || "";
+      };
+
+      const itemName = getFirstValue(listing.productInfo?.item_name, "value");
+      const brand = getFirstValue(listing.productInfo?.brand, "value");
+      const description = getFirstValue(listing.productInfo?.product_description, "value");
+      const condition = getFirstValue(listing.productInfo?.condition_type, "value");
+      const cleanCondition = condition.replace(/^refurbished_/, "");
+
+      return {
+        id: listing._id,
+        sku: listing.productInfo?.sku || "",
+        name: itemName,
+        brand: brand,
+        description: description,
+        condition: cleanCondition,
+        pricing: {
+          costPrice: listing.selectedStockId?.costPricePerUnit || 0,
+          purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
+          retailPrice: listing.prodPricing?.retailPrice || 0,
+          listingQuantity: listing.prodPricing?.listingQuantity || 0,
+          discountType: listing.prodPricing?.discountType || null,
+          discountValue: listing.prodPricing?.discountValue || 0,
+          vat: listing.prodPricing?.vat || 0,
+          currency: "GBP",
+        },
+        stock: {
+          available: listing.selectedStockId?.usableUnits || 0,
+          threshold: listing.stockThreshold || 0,
+          inStock: (listing.selectedStockId?.usableUnits || 0) > 0,
+        },
+        media: {
+          images: listing.prodMedia?.images || [],
+          videos: listing.prodMedia?.videos || [],
+          offerImages: listing.prodMedia?.offerImages || [],
+        },
+        status: listing.status,
+        listingHasVariations: listing.listingHasVariations || false,
+        createdAt: listing.createdAt,
+        updatedAt: listing.updatedAt,
+        isFeatured: listing.isFeatured || false,
+      };
+    });
+
+    return {
+      category: {
+        id: category._id,
+        name: category.name,
+        description: category.description,
+        image: category.image,
+        tags: category.tags,
+        isPart: category.isPart,
+      },
+      listings: transformedListings,
+      totalListings: transformedListings.length,
+    };
+  },
+
   // Get all Published Listings for website
   allWebsiteListings: async (filters: any = {}) => {
     try {
@@ -124,6 +296,7 @@ export const websiteService = {
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
+        .populate("prodPricing.selectedVariations.variationId")
         .skip(skip)
         .limit(limitNumber)
         .lean();
@@ -197,9 +370,25 @@ export const websiteService = {
             purchasePrice:
               (listing as any).selectedStockId?.purchasePricePerUnit || 0,
             retailPrice: (listing as any).prodPricing?.retailPrice || 0,
+            listingQuantity: (listing as any).prodPricing?.listingQuantity || 0,
             discountType: (listing as any).prodPricing?.discountType || null,
             discountValue: (listing as any).prodPricing?.discountValue || 0,
             vat: (listing as any).prodPricing?.vat || 0,
+            selectedVariations: (listing as any).prodPricing?.selectedVariations?.map((variation: any) => ({
+              variationId: variation.variationId?._id || variation.variationId,
+              retailPrice: variation.retailPrice || 0,
+              listingQuantity: variation.listingQuantity || 0,
+              offerImages: variation.offerImages || [],
+              // Include populated variation details if available
+              variationDetails: variation.variationId ? {
+                id: variation.variationId._id,
+                attributes: variation.variationId.attributes || {},
+                isSelected: variation.variationId.isSelected || false,
+                isBundleVariation: variation.variationId.isBundleVariation || false,
+                createdAt: variation.variationId.createdAt,
+                updatedAt: variation.variationId.updatedAt,
+              } : null,
+            })) || [],
             currency: "GBP", // Default currency
           },
           stock: {
@@ -235,6 +424,7 @@ export const websiteService = {
             return filteredTechInfo;
           })(),
           status: (listing as any).status,
+          listingHasVariations: (listing as any).listingHasVariations || false,
           marketplace: marketplace,
           language: language,
           createdAt: (listing as any).createdAt,
@@ -272,6 +462,7 @@ export const websiteService = {
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
+        .populate("prodPricing.selectedVariations.variationId")
         .lean();
 
       if (!listing) {
@@ -340,9 +531,25 @@ export const websiteService = {
           costPrice: listing.selectedStockId?.costPricePerUnit || 0,
           purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
           retailPrice: listing.prodPricing?.retailPrice || 0,
+          listingQuantity: listing.prodPricing?.listingQuantity || 0,
           discountType: listing.prodPricing?.discountType || null,
           discountValue: listing.prodPricing?.discountValue || 0,
           vat: listing.prodPricing?.vat || 0,
+          selectedVariations: listing.prodPricing?.selectedVariations?.map((variation: any) => ({
+            variationId: variation.variationId?._id || variation.variationId,
+            retailPrice: variation.retailPrice || 0,
+            listingQuantity: variation.listingQuantity || 0,
+            offerImages: variation.offerImages || [],
+            // Include populated variation details if available
+            variationDetails: variation.variationId ? {
+              id: variation.variationId._id,
+              attributes: variation.variationId.attributes || {},
+              isSelected: variation.variationId.isSelected || false,
+              isBundleVariation: variation.variationId.isBundleVariation || false,
+              createdAt: variation.variationId.createdAt,
+              updatedAt: variation.variationId.updatedAt,
+            } : null,
+          })) || [],
           currency: "GBP", // Default currency
         },
         stock: {

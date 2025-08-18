@@ -1060,6 +1060,38 @@ export const listingController = {
       });
     }
   },
+  toggleFeaturedForListing: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { isFeatured } = req.body;
+      
+      console.log("Toggle featured for listing - id:", id, "isFeatured:", isFeatured);
+      
+      const result = await listingService.toggleFeaturedForListing(id, isFeatured);
+      
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Listing ${isFeatured ? "featured" : "unfeatured"} successfully`,
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Toggle Featured Listing Error:", error);
+      
+      if (error.message === "Maximum of 6 listings can be featured per category" ||
+          error.message === "Category must be featured before featuring listings within it" ||
+          error.message === "Listing must have a product category to be featured") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: error.message,
+        });
+      }
+      
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating listing featured status",
+      });
+    }
+  },
   getListingStats: async (req: Request, res: Response) => {
     try {
       const stats = await listingService.getListingStats();

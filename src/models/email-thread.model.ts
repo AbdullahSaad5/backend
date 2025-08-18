@@ -97,17 +97,14 @@ const EmailThreadSchema = new Schema<IEmailThread>(
     relatedOrderId: {
       type: Schema.Types.ObjectId,
       ref: "Order",
-      index: true,
     },
     relatedCustomerId: {
       type: Schema.Types.ObjectId,
       ref: "Customer",
-      index: true,
     },
     relatedTicketId: {
       type: Schema.Types.ObjectId,
       ref: "Ticket",
-      index: true,
     },
 
     // Thread statistics
@@ -118,12 +115,10 @@ const EmailThreadSchema = new Schema<IEmailThread>(
     hasAttachments: {
       type: Boolean,
       default: false,
-      index: true,
     },
     lastActivity: {
       type: Date,
       default: Date.now,
-      index: true,
     },
   },
   {

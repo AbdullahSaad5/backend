@@ -283,10 +283,16 @@ export const tickerControler = {
         });
       }
 
+      // If upload middleware attached files, map their URLs for resolution images
+      const uploadedImages = Array.isArray(req.files)
+        ? (req.files as any[]).map((f) => f.location)
+        : [];
+
       const resolvedTicket = await ticketService.addResolution(
         id,
         description,
-        userId
+        userId,
+        uploadedImages
       );
 
       return res.status(StatusCodes.OK).json({

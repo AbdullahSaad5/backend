@@ -439,46 +439,84 @@ const determineEmailCategory = (fromEmail, subject, textContent, htmlContent) =>
   const fromLower = fromEmail.toLowerCase();
   const subjectLower = subject.toLowerCase();
 
-  // Map to frontend tab categories
-  if (fromLower.includes("amazon") || content.includes("amazon") || subjectLower.includes("amazon")) {
-    return "primary"; // Amazon emails go to primary tab
+  // First, check for specific sender domains to avoid false positives
+  const senderDomain = fromLower.split("@")[1] || "";
+
+  // Map to frontend tab categories with improved logic
+  // Primary tab - Business critical emails
+  if (
+    fromLower.includes("amazon") ||
+    senderDomain.includes("amazon") ||
+    fromLower.includes("ebay") ||
+    senderDomain.includes("ebay") ||
+    fromLower.includes("support") ||
+    senderDomain.includes("support") ||
+    subjectLower.includes("order") ||
+    subjectLower.includes("invoice") ||
+    subjectLower.includes("confirmation") ||
+    subjectLower.includes("receipt") ||
+    subjectLower.includes("shipping") ||
+    subjectLower.includes("delivery") ||
+    subjectLower.includes("payment") ||
+    subjectLower.includes("refund") ||
+    subjectLower.includes("return") ||
+    content.includes("order confirmation") ||
+    content.includes("invoice") ||
+    content.includes("payment confirmation")
+  ) {
+    return "primary";
   }
-  if (fromLower.includes("ebay") || content.includes("ebay") || subjectLower.includes("ebay")) {
-    return "primary"; // eBay emails go to primary tab
-  }
-  if (subjectLower.includes("support") || subjectLower.includes("help") || fromLower.includes("support")) {
-    return "primary"; // Support emails go to primary tab
-  }
-  if (subjectLower.includes("order") || content.includes("order confirmation")) {
-    return "primary"; // Order emails go to primary tab
-  }
-  if (subjectLower.includes("invoice") || content.includes("invoice")) {
-    return "primary"; // Invoice emails go to primary tab
-  }
+
+  // Promotions tab - Marketing and promotional emails
   if (
     subjectLower.includes("newsletter") ||
     subjectLower.includes("marketing") ||
     subjectLower.includes("promotion") ||
     subjectLower.includes("offer") ||
     subjectLower.includes("sale") ||
-    content.includes("unsubscribe")
+    subjectLower.includes("discount") ||
+    subjectLower.includes("deal") ||
+    subjectLower.includes("coupon") ||
+    subjectLower.includes("special") ||
+    subjectLower.includes("limited time") ||
+    content.includes("unsubscribe") ||
+    content.includes("click here to") ||
+    content.includes("limited time offer") ||
+    content.includes("act now") ||
+    content.includes("don't miss out") ||
+    senderDomain.includes("newsletter") ||
+    senderDomain.includes("marketing") ||
+    senderDomain.includes("promo")
   ) {
-    return "promotions"; // Marketing emails go to promotions tab
+    return "promotions";
   }
 
-  // Social media domains
+  // Social tab - Social media notifications
   if (
     fromLower.includes("facebook") ||
     fromLower.includes("twitter") ||
     fromLower.includes("instagram") ||
     fromLower.includes("linkedin") ||
     fromLower.includes("youtube") ||
-    fromLower.includes("tiktok")
+    fromLower.includes("tiktok") ||
+    fromLower.includes("snapchat") ||
+    fromLower.includes("pinterest") ||
+    senderDomain.includes("facebook") ||
+    senderDomain.includes("twitter") ||
+    senderDomain.includes("instagram") ||
+    senderDomain.includes("linkedin") ||
+    senderDomain.includes("youtube") ||
+    senderDomain.includes("tiktok") ||
+    subjectLower.includes("friend request") ||
+    subjectLower.includes("new follower") ||
+    subjectLower.includes("like") ||
+    subjectLower.includes("comment") ||
+    subjectLower.includes("mention")
   ) {
-    return "social"; // Social media emails go to social tab
+    return "social";
   }
 
-  // System updates and notifications
+  // Updates tab - System notifications and updates
   if (
     subjectLower.includes("notification") ||
     subjectLower.includes("alert") ||
@@ -486,15 +524,29 @@ const determineEmailCategory = (fromEmail, subject, textContent, htmlContent) =>
     subjectLower.includes("update") ||
     subjectLower.includes("maintenance") ||
     subjectLower.includes("security") ||
+    subjectLower.includes("password") ||
+    subjectLower.includes("verification") ||
+    subjectLower.includes("confirm") ||
+    subjectLower.includes("activate") ||
     fromLower.includes("noreply") ||
     fromLower.includes("no-reply") ||
     fromLower.includes("system") ||
-    fromLower.includes("admin")
+    fromLower.includes("admin") ||
+    fromLower.includes("security") ||
+    fromLower.includes("verify") ||
+    senderDomain.includes("noreply") ||
+    senderDomain.includes("system") ||
+    senderDomain.includes("security") ||
+    content.includes("security alert") ||
+    content.includes("system maintenance") ||
+    content.includes("password reset") ||
+    content.includes("account verification")
   ) {
-    return "updates"; // System emails go to updates tab
+    return "updates";
   }
 
-  return "primary"; // Default to primary tab instead of "general"
+  // Default to primary for business emails
+  return "primary";
 };
 
 // Function to generate tags based on email content
@@ -611,13 +663,26 @@ exports.handler = async (event, context) => {
             );
             emailData.threadId = consistentThreadId;
 
-            // Avoid duplicates
-            const existingEmail = await EmailModel.findOne({ messageId: emailData.messageId });
+            // Avoid duplicates with improved logic
+            const existingEmail = await EmailModel.findOne({
+              $or: [
+                { messageId: emailData.messageId },
+                {
+                  $and: [
+                    { "from.email": emailData.from.email },
+                    { subject: emailData.subject },
+                    { receivedAt: { $gte: new Date(Date.now() - 60000) } }, // Within last minute
+                  ],
+                },
+              ],
+            });
+
             if (!existingEmail) {
-              console.log("Creating email with data:", {
+              console.log("Creating S3 email with data:", {
                 messageId: emailData.messageId,
                 threadId: emailData.threadId,
                 subject: emailData.subject,
+                category: emailData.category,
                 isReplied: emailData.isReplied,
                 isForwarded: emailData.isForwarded,
                 isSpam: emailData.isSpam,
@@ -625,9 +690,16 @@ exports.handler = async (event, context) => {
                 isArchived: emailData.isArchived,
               });
               await EmailModel.create(emailData);
-              console.log("Email saved from S3:", emailData.messageId, "Thread ID:", emailData.threadId);
+              console.log(
+                "Email saved from S3:",
+                emailData.messageId,
+                "Thread ID:",
+                emailData.threadId,
+                "Category:",
+                emailData.category
+              );
             } else {
-              console.log("Duplicate email from S3:", emailData.messageId);
+              console.log("Duplicate email from S3:", emailData.messageId, "Existing ID:", existingEmail._id);
             }
           } catch (s3Error) {
             console.error(`Failed to process S3 event for ${bucketName}/${objectKey}:`, s3Error.message);
@@ -691,6 +763,35 @@ exports.handler = async (event, context) => {
             const fromMatch = fromEmail.match(/<(.+?)>/);
             const fromNameMatch = fromEmail.match(/(.+?)\s*</);
 
+            // Determine which account this email belongs to based on recipients
+            const recipientEmails = mail.commonHeaders.to || [];
+            let targetAccountId = null;
+
+            // Try to find the account ID based on recipient emails
+            try {
+              const { EmailAccountModel } = await import("../models/email-account.model.js");
+              for (const recipientEmail of recipientEmails) {
+                const cleanRecipientEmail = recipientEmail.replace(/<(.+?)>/, "$1").trim();
+                const account = await EmailAccountModel.findOne({
+                  emailAddress: cleanRecipientEmail,
+                  isActive: true,
+                });
+                if (account) {
+                  targetAccountId = account._id;
+                  console.log(`📧 Email assigned to account: ${account.emailAddress} (${account._id})`);
+                  break;
+                }
+              }
+
+              // If no account found, log warning
+              if (!targetAccountId) {
+                console.log(`⚠️ No active account found for recipients: ${recipientEmails.join(", ")}`);
+                // Continue processing but without accountId
+              }
+            } catch (error) {
+              console.log(`❌ Error finding account for email: ${error.message}`);
+            }
+
             // Extract Amazon and eBay specific information (for SNS, we have limited content)
             const amazonInfo = extractAmazonInfo("", "", headers);
             const ebayInfo = extractEbayInfo("", "", headers);
@@ -736,56 +837,34 @@ exports.handler = async (event, context) => {
             const emailData = {
               messageId: mail.messageId,
               threadId: threadId,
-              direction: EmailDirection.INBOUND,
-              type: classifyEmailType(fromMatch ? fromMatch[1] : fromEmail),
-              status: EmailStatus.RECEIVED,
-              priority: determinePriority(mail.commonHeaders.subject),
+              accountId: targetAccountId, // Add the account ID
+              direction: "inbound",
+              type: "general",
+              status: "received",
+              priority: "normal",
               subject: mail.commonHeaders.subject || "No Subject",
-              textContent: "", // Will be populated if available in SES notification
-              htmlContent: "", // Will be populated if available in SES notification
+              textContent: textContent,
+              htmlContent: htmlContent,
               from: {
                 email: fromMatch ? fromMatch[1] : fromEmail,
                 name: fromNameMatch ? fromNameMatch[1].trim() : "",
               },
-              to: mail.commonHeaders.to.map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              cc: (mail.commonHeaders.cc || []).map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              bcc: (mail.commonHeaders.bcc || []).map((email) => {
-                const match = email.match(/<(.+?)>/);
-                const nameMatch = email.match(/(.+?)\s*</);
-                return {
-                  email: match ? match[1] : email,
-                  name: nameMatch ? nameMatch[1].trim() : "",
-                };
-              }),
-              replyTo: null, // Will be populated if available
-              headers: headers.map((h) => ({ name: h.name, value: h.value })),
-              attachments: [], // Will be populated if attachments are found
-              amazonOrderId: amazonInfo.amazonOrderId,
-              amazonBuyerId: amazonInfo.amazonBuyerId,
-              amazonMarketplace: amazonInfo.amazonMarketplace,
-              amazonASIN: amazonInfo.amazonASIN,
-              ebayItemId: ebayInfo.ebayItemId,
-              ebayTransactionId: ebayInfo.ebayTransactionId,
-              ebayBuyerId: ebayInfo.ebayBuyerId,
+              to: (mail.commonHeaders.to || []).map((to) => ({
+                email: to.replace(/<(.+?)>/, "$1").trim(),
+                name: to.match(/(.+?)\s*</) ? to.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              cc: (mail.commonHeaders.cc || []).map((cc) => ({
+                email: cc.replace(/<(.+?)>/, "$1").trim(),
+                name: cc.match(/(.+?)\s*</) ? cc.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              bcc: (mail.commonHeaders.bcc || []).map((bcc) => ({
+                email: bcc.replace(/<(.+?)>/, "$1").trim(),
+                name: bcc.match(/(.+?)\s*</) ? bcc.match(/(.+?)\s*</)[1].trim() : "",
+              })),
+              headers: headers,
+              attachments: [],
               receivedAt: new Date(mail.timestamp),
-              processedAt: new Date(), // Set to current time when processed
-              sentAt: null, // Not applicable for inbound emails
-              readAt: null, // Will be set when email is read
-              isRead: isRead,
+              isRead: false,
               isReplied: isReplied,
               isForwarded: isForwarded,
               isArchived: isArchived,
@@ -809,13 +888,26 @@ exports.handler = async (event, context) => {
             );
             emailData.threadId = consistentThreadId;
 
-            // Avoid duplicates
-            const existingEmail = await EmailModel.findOne({ messageId: emailData.messageId });
+            // Avoid duplicates with improved logic
+            const existingEmail = await EmailModel.findOne({
+              $or: [
+                { messageId: emailData.messageId },
+                {
+                  $and: [
+                    { "from.email": emailData.from.email },
+                    { subject: emailData.subject },
+                    { receivedAt: { $gte: new Date(Date.now() - 60000) } }, // Within last minute
+                  ],
+                },
+              ],
+            });
+
             if (!existingEmail) {
               console.log("Creating SNS email with data:", {
                 messageId: emailData.messageId,
                 threadId: emailData.threadId,
                 subject: emailData.subject,
+                category: emailData.category,
                 isReplied: emailData.isReplied,
                 isForwarded: emailData.isForwarded,
                 isSpam: emailData.isSpam,
@@ -823,9 +915,16 @@ exports.handler = async (event, context) => {
                 isArchived: emailData.isArchived,
               });
               await EmailModel.create(emailData);
-              console.log("Email saved from SNS:", emailData.messageId, "Thread ID:", emailData.threadId);
+              console.log(
+                "Email saved from SNS:",
+                emailData.messageId,
+                "Thread ID:",
+                emailData.threadId,
+                "Category:",
+                emailData.category
+              );
             } else {
-              console.log("Duplicate email from SNS:", emailData.messageId);
+              console.log("Duplicate email from SNS:", emailData.messageId, "Existing ID:", existingEmail._id);
             }
           } else {
             console.log("Skipping non-receipt event:", sesNotification.eventType);

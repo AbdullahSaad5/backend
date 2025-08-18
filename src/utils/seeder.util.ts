@@ -117,6 +117,8 @@ const seedData = async () => {
       "MANAGE_ACCOUNTING",
       "ADD_EXPENSE_CATEGORY",
       "VIEW_EXPENSE_CATEGORY",
+      "VIEW_RECURRING_EXPENSE",
+      "ADD_RECURRING_EXPENSE",
       "ADD_EXPENSE",
       "VIEW_EXPENSE",
       "VIEW_REVENUE",
