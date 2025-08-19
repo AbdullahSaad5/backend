@@ -213,7 +213,7 @@ export class ManualEmailSyncService {
         emailsProcessed: emails.length,
         totalEmailsInBatch: messageIds.length,
         hasMoreEmails,
-        nextPageToken: messagesResponse.data.nextPageToken,
+        nextPageToken: messagesResponse.data.nextPageToken || undefined,
         progress: {
           totalProcessed: newTotalProcessed,
           estimatedTotal,
