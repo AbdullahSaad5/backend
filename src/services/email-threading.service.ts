@@ -54,12 +54,46 @@ export class EmailThreadingService {
         return subjectMatch.threadId;
       }
 
-      // Priority 5: Create new thread
+      // Priority 5: Check for recent duplicate threads (within last 24 hours)
+      const recentDuplicate = await this.findRecentDuplicateThread(email);
+      if (recentDuplicate) {
+        await this.updateThread(recentDuplicate, email);
+        return recentDuplicate.threadId;
+      }
+
+      // Priority 6: Create new thread
       return await this.createNewThread(email);
     } catch (error: any) {
       logger.error("Error in findOrCreateThread:", error);
       // Fallback: create new thread
       return await this.createNewThread(email);
+    }
+  }
+
+  /**
+   * Find recent duplicate threads (within last 24 hours)
+   */
+  private static async findRecentDuplicateThread(email: IEmail): Promise<IEmailThread | null> {
+    try {
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+      // Look for threads with same subject and sender within last 24 hours
+      const existingThread = await EmailThreadModel.findOne({
+        accountId: email.accountId,
+        subject: email.subject,
+        "participants.email": email.from.email,
+        createdAt: { $gte: twentyFourHoursAgo },
+      });
+
+      if (existingThread) {
+        logger.debug(`Found recent duplicate thread: ${existingThread.threadId} for subject: ${email.subject}`);
+        return existingThread;
+      }
+
+      return null;
+    } catch (error: any) {
+      logger.error("Error finding recent duplicate thread:", error);
+      return null;
     }
   }
 
