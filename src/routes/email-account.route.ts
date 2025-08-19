@@ -125,4 +125,10 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.setupGmailWatch
   );
+
+  // Manual sync routes
+  router.post("/manual-sync/:accountId/start", EmailAccountController.startManualSync);
+  router.post("/manual-sync/:accountId/continue", EmailAccountController.continueManualSync);
+  router.post("/manual-sync/:accountId/stop", EmailAccountController.stopManualSync);
+  router.get("/manual-sync/:accountId/progress", EmailAccountController.getManualSyncProgress);
 };
