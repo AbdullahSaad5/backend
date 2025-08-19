@@ -47,7 +47,11 @@ export const guideService = {
     //   .sort({ createdAt: -1 });
 
     const [guides, totalCount] = await Promise.all([
-      GuideModel.find(query).skip(skip).limit(limitNum).sort({ createdAt: -1 }),
+      GuideModel.find(query)
+        .populate("category", "title _id")
+        .skip(skip)
+        .limit(limitNum)
+        .sort({ createdAt: -1 }),
       GuideModel.countDocuments(query),
     ]);
 
