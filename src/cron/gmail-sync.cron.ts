@@ -5,6 +5,8 @@ import { logger } from "@/utils/logger.util";
 
 export class GmailSyncCron {
   private static isRunning = false;
+  private static lastRunTime = 0;
+  private static readonly MIN_RUN_INTERVAL = 5 * 60 * 1000; // 5 minutes minimum between runs
 
   /**
    * Start the Gmail sync cron jobs
@@ -41,39 +43,62 @@ export class GmailSyncCron {
 
     // Run Gmail sync for accounts that need it every 15 minutes
     cron.schedule("*/15 * * * *", async () => {
+      // Prevent overlapping runs
       if (GmailSyncCron.isRunning) {
         logger.warn("Gmail sync already running, skipping...");
         return;
       }
 
+      // Prevent too frequent runs
+      const now = Date.now();
+      if (now - GmailSyncCron.lastRunTime < GmailSyncCron.MIN_RUN_INTERVAL) {
+        logger.warn("Gmail sync run too soon after last run, skipping...");
+        return;
+      }
+
       GmailSyncCron.isRunning = true;
+      GmailSyncCron.lastRunTime = now;
       const startTime = Date.now();
 
       try {
         logger.info("🔄 Starting Gmail sync for active accounts");
 
+        // More specific query to prevent infinite loops
         const accountsNeedingSync = await EmailAccountModel.find({
           accountType: "gmail",
           isActive: true,
           oauth: { $exists: true },
-          $or: [
-            { "syncState.syncStatus": { $in: ["initial", "historical"] } },
+          $and: [
+            // Only process accounts that haven't been processed recently
             {
-              "syncState.syncStatus": "complete",
-              "syncState.lastSyncAt": { $lt: new Date(Date.now() - 15 * 60 * 1000) },
-            }, // Sync every 15 minutes for complete accounts
-            { "syncState.syncStatus": { $exists: false } }, // No sync state - needs full sync
-            { "syncState.lastHistoryId": { $exists: false } }, // No historyId - needs full sync
-            { "syncState.syncStatus": "error" }, // Error state - needs recovery
-            { connectionStatus: "error" }, // Connection error - needs recovery
-            { status: "error" }, // Account error - needs recovery
+              $or: [
+                { "syncState.lastSyncAt": { $exists: false } },
+                { "syncState.lastSyncAt": { $lt: new Date(Date.now() - 15 * 60 * 1000) } },
+              ],
+            },
+            // Only process accounts that are in a valid state
+            {
+              $or: [
+                { "syncState.syncStatus": { $in: ["initial", "historical"] } },
+                { "syncState.syncStatus": "complete" },
+                { "syncState.syncStatus": { $exists: false } },
+                { "syncState.syncStatus": "error" },
+              ],
+            },
+            // Exclude accounts that are currently being processed
+            { "syncState.isProcessing": { $ne: true } },
           ],
-        }).limit(10); // Process max 10 accounts per run
+        }).limit(5); // Reduced limit to prevent overload
 
         logger.info(`Found ${accountsNeedingSync.length} Gmail accounts needing sync`);
 
         for (const account of accountsNeedingSync) {
           try {
+            // Mark account as being processed to prevent duplicate processing
+            await EmailAccountModel.findByIdAndUpdate(account._id, {
+              $set: { "syncState.isProcessing": true, "syncState.lastProcessingStart": new Date() },
+            });
+
             logger.info(`Processing Gmail sync for ${account.emailAddress}`);
 
             // Check if account needs full sync (no historyId)
@@ -99,9 +124,24 @@ export class GmailSyncCron {
             }
 
             // Add delay between accounts to avoid rate limiting
-            await new Promise((resolve) => setTimeout(resolve, 3000));
+            await new Promise((resolve) => setTimeout(resolve, 5000)); // Increased delay
           } catch (error: any) {
             logger.error(`💥 Error syncing Gmail account ${account.emailAddress}:`, error);
+
+            // Mark account as having an error
+            await EmailAccountModel.findByIdAndUpdate(account._id, {
+              $set: {
+                "syncState.syncStatus": "error",
+                "syncState.lastError": error.message,
+                "syncState.lastErrorAt": new Date(),
+                "syncState.isProcessing": false,
+              },
+            });
+          } finally {
+            // Always mark account as not being processed
+            await EmailAccountModel.findByIdAndUpdate(account._id, {
+              $set: { "syncState.isProcessing": false },
+            });
           }
         }
 
@@ -130,20 +170,39 @@ export class GmailSyncCron {
         const errorAccounts = await EmailAccountModel.find({
           accountType: "gmail",
           isActive: true,
-          $or: [
-            { "syncState.syncStatus": "error" },
-            { "syncState.syncStatus": { $exists: false } },
-            { connectionStatus: "error" },
-            { status: "error" },
-            { "stats.lastError": { $exists: true, $ne: null } },
+          $and: [
+            {
+              $or: [
+                { "syncState.syncStatus": "error" },
+                { "syncState.syncStatus": { $exists: false } },
+                { connectionStatus: "error" },
+                { status: "error" },
+                { "stats.lastError": { $exists: true, $ne: null } },
+              ],
+            },
+            // Only recover accounts that haven't been processed recently
+            {
+              $or: [
+                { "syncState.lastErrorRecoveryAttempt": { $exists: false } },
+                { "syncState.lastErrorRecoveryAttempt": { $lt: new Date(Date.now() - 30 * 60 * 1000) } },
+              ],
+            },
           ],
-        }).limit(5); // Process max 5 error accounts per run
+        }).limit(3); // Reduced limit
 
         logger.info(`Found ${errorAccounts.length} Gmail accounts with errors to recover`);
 
         for (const account of errorAccounts) {
           try {
             logger.info(`Attempting error recovery for ${account.emailAddress}`);
+
+            // Mark recovery attempt
+            await EmailAccountModel.findByIdAndUpdate(account._id, {
+              $set: {
+                "syncState.lastErrorRecoveryAttempt": new Date(),
+                "syncState.isProcessing": false,
+              },
+            });
 
             // Reset sync status and account status to retry
             await EmailAccountModel.findByIdAndUpdate(account._id, {
@@ -184,6 +243,7 @@ export class GmailSyncCron {
           historical: gmailAccounts.filter((a) => a.syncState?.syncStatus === "historical").length,
           initial: gmailAccounts.filter((a) => a.syncState?.syncStatus === "initial").length,
           error: gmailAccounts.filter((a) => a.syncState?.syncStatus === "error").length,
+          processing: gmailAccounts.filter((a) => a.syncState?.isProcessing === true).length,
           needsSync: gmailAccounts.filter(
             (a) =>
               a.syncState?.syncStatus === "complete" &&
@@ -211,6 +271,30 @@ export class GmailSyncCron {
             needsSync: stats.needsSync,
             completeCount: stats.complete,
           });
+        }
+
+        // Alert if accounts are stuck in processing state
+        if (stats.processing > 0) {
+          logger.warn("🚨 Some Gmail accounts are stuck in processing state", {
+            processingCount: stats.processing,
+          });
+
+          // Reset stuck processing accounts
+          await EmailAccountModel.updateMany(
+            {
+              accountType: "gmail",
+              isActive: true,
+              "syncState.isProcessing": true,
+              "syncState.lastProcessingStart": { $lt: new Date(Date.now() - 30 * 60 * 1000) }, // Stuck for more than 30 minutes
+            },
+            {
+              $set: {
+                "syncState.isProcessing": false,
+                "syncState.syncStatus": "error",
+                "syncState.lastError": "Account stuck in processing state - reset by health check",
+              },
+            }
+          );
         }
       } catch (error: any) {
         logger.error("❌ Gmail health check failed", { error: error.message });
@@ -251,6 +335,7 @@ export class GmailSyncCron {
           isActive: true,
           oauth: { $exists: true },
           "syncState.syncStatus": { $in: ["initial", "historical"] },
+          "syncState.isProcessing": { $ne: true },
         });
 
         logger.info(`Manual Gmail sync for ${accountsNeedingSync.length} accounts`);
@@ -258,7 +343,7 @@ export class GmailSyncCron {
         for (const account of accountsNeedingSync) {
           try {
             await EmailFetchingService.syncGmailWithHistoryAPI(account, { useHistoryAPI: true });
-            await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
+            await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 second delay
           } catch (error: any) {
             logger.error(`Manual sync failed for ${account.emailAddress}:`, error);
           }
