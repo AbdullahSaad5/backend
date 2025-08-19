@@ -1466,7 +1466,7 @@ export class EmailFetchingService {
   /**
    * Store fetched emails in database with thread management using bulk operations
    */
-  private static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
+  static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
     if (emails.length === 0) return;
 
     try {
@@ -1663,7 +1663,7 @@ export class EmailFetchingService {
     return headerArray;
   }
 
-  private static parseGmailMessage(msg: any, emailAccount: IEmailAccount): FetchedEmail {
+  static parseGmailMessage(msg: any, emailAccount: IEmailAccount): FetchedEmail {
     const headers = msg.payload?.headers || [];
     const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value;
 
@@ -1933,7 +1933,7 @@ export class EmailFetchingService {
   /**
    * Get Gmail OAuth client
    */
-  private static async getGmailAuthClient(emailAccount: IEmailAccount): Promise<any> {
+  static async getGmailAuthClient(emailAccount: IEmailAccount): Promise<any> {
     const { EmailOAuthService } = await import("@/services/emailOAuth.service");
 
     const oauth2Client = new google.auth.OAuth2(
