@@ -452,6 +452,8 @@ export class EmailFetchingService {
       let totalProcessed = 0;
       let pageToken: string | undefined;
       let batchCount = 0;
+      const MAX_BATCHES = 100; // Prevent infinite loops
+      const MAX_EMAILS = 10000; // Prevent excessive email fetching
 
       // Fetch ALL emails using pagination
       while (true) {
@@ -459,6 +461,17 @@ export class EmailFetchingService {
         logger.info(
           `Processing batch ${batchCount} for ${emailAccount.emailAddress} (total processed: ${totalProcessed})`
         );
+
+        // Safety checks to prevent infinite loops
+        if (batchCount > MAX_BATCHES) {
+          logger.warn(`Reached maximum batch limit (${MAX_BATCHES}) for ${emailAccount.emailAddress}, stopping sync`);
+          break;
+        }
+
+        if (totalProcessed >= MAX_EMAILS) {
+          logger.warn(`Reached maximum email limit (${MAX_EMAILS}) for ${emailAccount.emailAddress}, stopping sync`);
+          break;
+        }
 
         // Check quota before making API call
         if (!(await this.checkQuota(emailAccount))) {
@@ -654,10 +667,27 @@ export class EmailFetchingService {
       let currentHistoryId = startHistoryId;
       let totalProcessed = 0;
       let batchCount = 0;
+      const MAX_BATCHES = 50; // Prevent infinite loops
+      const MAX_HISTORY_ENTRIES = 5000; // Prevent excessive history processing
 
       while (true) {
         batchCount++;
         logger.info(`Processing batch ${batchCount} for ${emailAccount.emailAddress}`);
+
+        // Safety checks to prevent infinite loops
+        if (batchCount > MAX_BATCHES) {
+          logger.warn(
+            `Reached maximum batch limit (${MAX_BATCHES}) for historical sync of ${emailAccount.emailAddress}, stopping sync`
+          );
+          break;
+        }
+
+        if (totalProcessed >= MAX_HISTORY_ENTRIES) {
+          logger.warn(
+            `Reached maximum history entries limit (${MAX_HISTORY_ENTRIES}) for ${emailAccount.emailAddress}, stopping sync`
+          );
+          break;
+        }
 
         // Check quota before making API call
         if (!(await this.checkQuota(emailAccount))) {
