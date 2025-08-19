@@ -63,6 +63,14 @@ export const LeadService = {
     try {
       const [leads, total] = await Promise.all([
         LeadModel.find(filter)
+          .populate({
+            path: "leadCategory",
+            select: "title description image",
+          })
+          .populate({
+            path: "assignedTo",
+            select: "firstName lastName email",
+          })
           .skip(skip)
           .limit(limitNum)
           .sort({ createdAt: -1 }),

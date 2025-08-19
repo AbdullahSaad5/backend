@@ -1488,4 +1488,202 @@ export class EmailAccountController {
       });
     }
   }
+
+  // Manual sync endpoints
+  static async startManualSync(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Verify account belongs to user
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { ManualEmailSyncService } = await import("@/services/manual-email-sync.service");
+      const result = await ManualEmailSyncService.startManualSync(accountId);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          data: result.data,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.message,
+          error: result.error,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error starting manual sync:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to start manual sync",
+        error: error.message,
+      });
+    }
+  }
+
+  static async continueManualSync(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Verify account belongs to user
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { ManualEmailSyncService } = await import("@/services/manual-email-sync.service");
+      const result = await ManualEmailSyncService.continueManualSync(accountId);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+          data: result.data,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.message,
+          error: result.error,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error continuing manual sync:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to continue manual sync",
+        error: error.message,
+      });
+    }
+  }
+
+  static async stopManualSync(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Verify account belongs to user
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { ManualEmailSyncService } = await import("@/services/manual-email-sync.service");
+      const result = await ManualEmailSyncService.stopManualSync(accountId);
+
+      if (result.success) {
+        res.json({
+          success: true,
+          message: result.message,
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: result.message,
+          error: result.error,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error stopping manual sync:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to stop manual sync",
+        error: error.message,
+      });
+    }
+  }
+
+  static async getManualSyncProgress(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Verify account belongs to user
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const { ManualEmailSyncService } = await import("@/services/manual-email-sync.service");
+      const progress = await ManualEmailSyncService.getManualSyncProgress(accountId);
+
+      if (progress) {
+        res.json({
+          success: true,
+          data: progress,
+        });
+      } else {
+        res.status(404).json({
+          success: false,
+          message: "No manual sync progress found",
+        });
+      }
+    } catch (error: any) {
+      logger.error("Error getting manual sync progress:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get manual sync progress",
+        error: error.message,
+      });
+    }
+  }
 }
