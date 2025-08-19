@@ -27,91 +27,25 @@ const verifySESSignature = (notification: any): boolean => {
 
 export const MailboxController = {
   // Process incoming email (from webhooks)
+  // DISABLED: Auto-sync is disabled - manual sync only
   processEmail: async (req: Request, res: Response) => {
     const webhookRequestId = crypto.randomUUID();
-    const startTime = Date.now();
 
-    try {
-      const emailEvent = req.body;
-      const clientIP = req.ip || req.connection.remoteAddress || "unknown";
-      const userAgent = req.get("User-Agent") || "unknown";
+    logger.info(`[${webhookRequestId}] Webhook request received but auto-sync is disabled`, {
+      ip: req.ip || req.connection.remoteAddress || "unknown",
+      userAgent: req.get("User-Agent") || "unknown",
+      contentType: req.get("Content-Type"),
+      contentLength: req.get("Content-Length"),
+      hasBody: !!req.body,
+      bodyKeys: req.body ? Object.keys(req.body) : [],
+    });
 
-      logger.info(`[${webhookRequestId}] Webhook request received`, {
-        ip: clientIP,
-        userAgent,
-        contentType: req.get("Content-Type"),
-        contentLength: req.get("Content-Length"),
-        hasBody: !!emailEvent,
-        bodyKeys: emailEvent ? Object.keys(emailEvent) : [],
-      });
-
-      // Verify the notification signature (optional but recommended)
-      logger.info(`[${webhookRequestId}] Verifying webhook signature`);
-      const isSignatureValid = verifySESSignature(emailEvent);
-
-      if (!isSignatureValid) {
-        logger.warn(`[${webhookRequestId}] Invalid webhook signature`, {
-          ip: clientIP,
-          userAgent,
-          eventType: emailEvent?.Type,
-          hasMessage: !!emailEvent?.Message,
-        });
-
-        return res.status(StatusCodes.FORBIDDEN).json({
-          success: false,
-          message: "Invalid SES notification signature.",
-        });
-      }
-
-      logger.info(`[${webhookRequestId}] Webhook signature valid, processing email`);
-      const result: any = await EmailProcessingService.processIncomingEmail(emailEvent);
-
-      const processingTime = Date.now() - startTime;
-
-      if (result.success) {
-        logger.info(`[${webhookRequestId}] Webhook processing completed successfully`, {
-          processingTimeMs: processingTime,
-          emailId: result.email?._id,
-          messageId: result.email?.messageId,
-          threadId: result.email?.threadId,
-          from: result.email?.from?.email,
-          to: result.email?.to?.map((t: any) => t.email),
-          subject: result.email?.subject,
-        });
-
-        res.status(StatusCodes.CREATED).json({
-          success: true,
-          data: result.email,
-          processingTime: processingTime,
-        });
-      } else {
-        logger.error(`[${webhookRequestId}] Webhook processing failed`, {
-          error: result.error,
-          processingTimeMs: processingTime,
-          ip: clientIP,
-        });
-
-        res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: result.error,
-        });
-      }
-    } catch (error: any) {
-      const processingTime = Date.now() - startTime;
-
-      logger.error(`[${webhookRequestId}] Webhook processing exception`, {
-        error: error.message,
-        stack: error.stack,
-        processingTimeMs: processingTime,
-        ip: req.ip || "unknown",
-        userAgent: req.get("User-Agent") || "unknown",
-      });
-
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to process email.",
-      });
-    }
+    // Return success but don't process the email
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Webhook received but auto-sync is disabled - use manual sync",
+      requestId: webhookRequestId,
+    });
   },
 
   // Send a single email
