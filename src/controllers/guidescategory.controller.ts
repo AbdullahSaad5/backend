@@ -11,24 +11,24 @@ export const GuidesCategoryController = {
   createGuidesCategory: async (req: Request, res: Response) => {
     try {
       const { title, description, image } = req.body;
-      
+
       if (!title || !description) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Title and description are required fields"
+          message: "Title and description are required fields",
         });
       }
 
       const newCategory = await GuidesCategoryService.createGuidesCategory(
         title,
         description,
-        image,
+        image
       );
 
-      res.status(StatusCodes.CREATED).json({ 
-        success: true, 
-        message: "Guides category created successfully", 
-        data: newCategory 
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Guides category created successfully",
+        data: newCategory,
       });
     } catch (error: any) {
       if (error.name === "MongoServerError" && error.code === 11000) {
@@ -39,9 +39,9 @@ export const GuidesCategoryController = {
         });
       } else {
         console.error("Error creating Guides category:", error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: "Error creating Guides category" 
+          message: "Error creating Guides category",
         });
       }
     }
@@ -60,7 +60,7 @@ export const GuidesCategoryController = {
       if (!id) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Category ID is required"
+          message: "Category ID is required",
         });
       }
 
@@ -74,21 +74,24 @@ export const GuidesCategoryController = {
       if (title) updateData.title = title;
       if (description) updateData.description = description;
       if (image) updateData.image = image;
-      if (typeof isBlocked !== 'undefined') updateData.isBlocked = isBlocked;
+      if (typeof isBlocked !== "undefined") updateData.isBlocked = isBlocked;
 
-      const updatedCategory = await GuidesCategoryService.editGuidesCategory(id, updateData);
+      const updatedCategory = await GuidesCategoryService.editGuidesCategory(
+        id,
+        updateData
+      );
 
       if (!updatedCategory) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Guides category not found"
+          message: "Guides category not found",
         });
       }
 
-      res.status(StatusCodes.OK).json({ 
-        success: true, 
-        message: "Guides category updated successfully", 
-        data: updatedCategory 
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Guides category updated successfully",
+        data: updatedCategory,
       });
     } catch (error: any) {
       if (error.name === "MongoServerError" && error.code === 11000) {
@@ -99,9 +102,9 @@ export const GuidesCategoryController = {
         });
       } else {
         console.error("Error updating Guides category:", error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
           success: false,
-          message: "Error updating Guides category" 
+          message: "Error updating Guides category",
         });
       }
     }
@@ -119,29 +122,30 @@ export const GuidesCategoryController = {
       if (!id) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Category ID is required"
+          message: "Category ID is required",
         });
       }
 
-      const deletedCategory = await GuidesCategoryService.deleteGuidesCategory(id);
+      const deletedCategory =
+        await GuidesCategoryService.deleteGuidesCategory(id);
 
       if (!deletedCategory) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Guides category not found"
+          message: "Guides category not found",
         });
       }
 
-      res.status(StatusCodes.OK).json({ 
-        success: true, 
-        message: "Guides category deleted successfully", 
-        data: deletedCategory 
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Guides category deleted successfully",
+        data: deletedCategory,
       });
     } catch (error) {
       console.error("Error deleting Guides category:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Error deleting Guides category" 
+        message: "Error deleting Guides category",
       });
     }
   },
@@ -153,25 +157,40 @@ export const GuidesCategoryController = {
    */
   getAllGuidesCategories: async (req: Request, res: Response) => {
     try {
-      const { isBlocked } = req.query;
-      
-      const filter: { isBlocked?: boolean } = {};
-      if (isBlocked !== undefined) {
-        filter.isBlocked = isBlocked === 'true';
-      }
+      const { category, search, isBlocked, page = 1, limit = 10 } = req.query;
 
-      const categories = await GuidesCategoryService.getAllGuidesCategories();
+      // const filter: { isBlocked?: boolean } = {};
+      // if (isBlocked !== undefined) {
+      //   filter.isBlocked = isBlocked === "true";
+      // }
+      const pageNum = Number(page) || 1;
+      const limitNum = Number(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
 
-      res.status(StatusCodes.OK).json({ 
-        success: true, 
-        count: categories.length,
-        data: categories 
+      const { categories, totalCount } =
+        await GuidesCategoryService.getAllGuidesCategories(
+          {
+            ...(category && { category: category as string }),
+            ...(search && { search: search as string }),
+            ...(isBlocked !== undefined && { isBlocked: isBlocked === "true" }),
+          },
+          limitNum,
+          skip
+        );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: totalCount,
+        currentPage: pageNum,
+        totalPages: Math.ceil(totalCount / limitNum),
+        limit: limitNum,
+        data: categories,
       });
     } catch (error) {
       console.error("Error getting Guides categories:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Error getting Guides categories" 
+        message: "Error getting Guides categories",
       });
     }
   },
@@ -188,7 +207,7 @@ export const GuidesCategoryController = {
       if (!id) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Category ID is required"
+          message: "Category ID is required",
         });
       }
 
@@ -197,19 +216,19 @@ export const GuidesCategoryController = {
       if (!category) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Guides category not found"
+          message: "Guides category not found",
         });
       }
 
-      res.status(StatusCodes.OK).json({ 
-        success: true, 
-        data: category 
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: category,
       });
     } catch (error) {
       console.error("Error getting Guides category:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: "Error getting Guides category" 
+        message: "Error getting Guides category",
       });
     }
   },

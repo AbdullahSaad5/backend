@@ -4,32 +4,31 @@ import { LeadController } from "../controllers/lead.controller";
 import { Router } from "express";
 
 export const lead = (router: Router) => {
-    router.post("/", LeadController.createLead);
+  router.post("/", LeadController.createLead);
 
-    router.get("/search", LeadController.searchAndFilterUsers);
-    
-    // Get single lead
-    router.get("/:id", LeadController.getLead);
+  router.get("/search", LeadController.searchAndFilterLead);
 
-    // Get all leads
-    router.get("/", LeadController.getAllLeads);
+  // Get single lead
+  router.get("/:id", LeadController.getLead);
 
-    
-    // Update lead
-    router.patch("/:id", LeadController.updateLead);
+  // Get all leads
+  router.get("/", LeadController.getAllLeads);
 
-    // Delete lead
-    router.delete("/:id", LeadController.deleteLead);
+  // Update lead
+  router.patch("/:id", LeadController.updateLead);
 
-    // Update lead status (separate route as requested)
-    router.patch("/:id/status", LeadController.updateLeadStatus);
+  // Delete lead
+  router.delete("/:id", LeadController.deleteLead);
 
-    // Get leads by status
-    router.get("/status/:status", LeadController.getLeadsByStatus);
+  // Update lead status (separate route as requested)
+  router.patch("/:id/status", LeadController.updateLeadStatus);
 
-    // Get leads by category
-    router.get("/category/:categoryId", LeadController.getLeadsByCategory);
+  // Get leads by status
+  router.get("/status/:status", LeadController.getLeadsByStatus);
 
-    // Get leads by assigned user
-    router.get("/assigned/:userId", LeadController.getLeadsByAssignedUser);
-}; 
+  // Get leads by category
+  router.get("/category/:categoryId", LeadController.getLeadsByCategory);
+
+  // Get leads by assigned user
+  router.get("/assigned/:userId", LeadController.getLeadsByAssignedUser);
+};

@@ -1,5 +1,4 @@
-
-import { Document, Types ,Model} from "mongoose";
+import { Document, Types, Model } from "mongoose";
 
 export interface IGuide extends Document {
   title: string;
@@ -10,6 +9,11 @@ export interface IGuide extends Document {
   isBlocked: boolean;
   createdAt: Date;
   updatedAt: Date;
+  guides: any;
+}
+export interface IGuideResponse {
+  guides: IGuide[];
+  totalCount: number;
 }
 
 export type IGuideModel = Model<IGuide>;

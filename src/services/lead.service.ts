@@ -55,7 +55,7 @@ export const LeadService = {
         select: "firstName lastName email",
       });
   },
-  searchAndFilterUsers: async (
+  searchAndFilterLead: async (
     limitNum: number,
     skip: number,
     filter: Record<string, any>

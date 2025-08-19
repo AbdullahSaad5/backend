@@ -45,7 +45,7 @@ export const guideController = {
         data: newGuide,
       });
     } catch (error: any) {
-      if (error.name === 'CastError') {
+      if (error.name === "CastError") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Invalid category ID",
@@ -62,7 +62,7 @@ export const guideController = {
   getGuide: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      
+
       if (!isValidObjectId(id)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
@@ -94,7 +94,7 @@ export const guideController = {
 
   getAllGuides: async (req: Request, res: Response) => {
     try {
-      const { category, search, isBlocked } = req.query;
+      const { category, search, isBlocked, page = 1, limit = 10 } = req.query;
 
       // Validate category ID format if provided
       if (category && !isValidObjectId(category as string)) {
@@ -103,16 +103,23 @@ export const guideController = {
           message: "Invalid category ID format",
         });
       }
+      const pageNum = Number(page) || 1;
+      const limitNum = Number(limit) || 10;
+      const skip = (pageNum - 1) * limitNum;
 
-      const guides = await guideService.getAllGuides({
-        ...(category && { category: category as string }),
-        ...(search && { search: search as string }),
-        ...(isBlocked !== undefined && { isBlocked: isBlocked === "true" }),
-      });
+      const { guides, totalCount } = await guideService.getAllGuides(
+        {
+          ...(category && { category: category as string }),
+          ...(search && { search: search as string }),
+          ...(isBlocked !== undefined && { isBlocked: isBlocked === "true" }),
+        },
+        limitNum,
+        skip
+      );
 
       res.status(StatusCodes.OK).json({
         success: true,
-        count: guides.length,
+        count: totalCount,
         data: guides,
       });
     } catch (error) {
@@ -159,7 +166,7 @@ export const guideController = {
         data: updatedGuide,
       });
     } catch (error: any) {
-      if (error.name === 'CastError') {
+      if (error.name === "CastError") {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Invalid ID format",
@@ -206,6 +213,4 @@ export const guideController = {
       });
     }
   },
-
-  
 };
