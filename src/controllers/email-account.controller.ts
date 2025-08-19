@@ -740,7 +740,7 @@ export class EmailAccountController {
             { $limit: parseInt(limit as string) },
           ]);
 
-          console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+          // console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
 
           res.json({
             success: true,
