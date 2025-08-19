@@ -5,8 +5,8 @@ import _ from "lodash";
 const EmailSchema = new Schema<IEmail>(
   {
     messageId: { type: String, required: true },
-    threadId: { type: String, index: true }, // Gmail threadId or generated thread ID
-    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount", required: true, index: true },
+    threadId: { type: String }, // Gmail threadId or generated thread ID
+    accountId: { type: Schema.Types.ObjectId, ref: "EmailAccount", required: true },
     direction: { type: String, enum: ["inbound", "outbound"], required: true },
     type: {
       type: String,
@@ -28,24 +28,24 @@ const EmailSchema = new Schema<IEmail>(
       required: true,
     },
     priority: { type: String, enum: ["low", "normal", "high", "urgent"], default: "normal" },
-    subject: { type: String, required: true, index: true },
-    normalizedSubject: { type: String, index: true }, // Subject without Re:/Fwd: prefixes
+    subject: { type: String, required: true },
+    normalizedSubject: { type: String }, // Subject without Re:/Fwd: prefixes
 
     // Email content
     textContent: { type: String },
     htmlContent: { type: String },
 
     // Addresses
-    from: { email: { type: String, required: true, index: true }, name: { type: String } },
-    to: [{ _id: false, email: { type: String, required: true, index: true }, name: { type: String } }],
-    cc: [{ _id: false, email: { type: String, index: true }, name: { type: String } }],
-    bcc: [{ _id: false, email: { type: String, index: true }, name: { type: String } }],
-    replyTo: { _id: false, email: { type: String, index: true }, name: { type: String } },
+    from: { email: { type: String, required: true }, name: { type: String } },
+    to: [{ _id: false, email: { type: String, required: true }, name: { type: String } }],
+    cc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    bcc: [{ _id: false, email: { type: String }, name: { type: String } }],
+    replyTo: { _id: false, email: { type: String }, name: { type: String } },
 
     // Threading headers (RFC 2822 standard)
-    inReplyTo: { type: String, index: true }, // Message-ID this email is replying to
-    references: [{ type: String, index: true }], // Chain of message IDs in conversation
-    parentMessageId: { type: String, index: true }, // Direct parent message ID
+    inReplyTo: { type: String }, // Message-ID this email is replying to
+    references: [{ type: String }], // Chain of message IDs in conversation
+    parentMessageId: { type: String }, // Direct parent message ID
 
     // Headers and attachments
     headers: [{ _id: false, name: { type: String }, value: { type: String } }],
@@ -61,16 +61,16 @@ const EmailSchema = new Schema<IEmail>(
     ],
 
     // Platform-specific fields
-    amazonOrderId: { type: String, index: true },
-    amazonBuyerId: { type: String, index: true },
-    amazonMarketplace: { type: String, index: true },
-    amazonASIN: { type: String, index: true },
-    ebayItemId: { type: String, index: true },
-    ebayTransactionId: { type: String, index: true },
-    ebayBuyerId: { type: String, index: true },
+    amazonOrderId: { type: String },
+    amazonBuyerId: { type: String },
+    amazonMarketplace: { type: String },
+    amazonASIN: { type: String },
+    ebayItemId: { type: String },
+    ebayTransactionId: { type: String },
+    ebayBuyerId: { type: String },
 
     // Timestamps
-    receivedAt: { type: Date, required: true, default: Date.now, index: true },
+    receivedAt: { type: Date, required: true, default: Date.now },
     processedAt: { type: Date },
     sentAt: { type: Date },
     readAt: { type: Date },
@@ -80,7 +80,7 @@ const EmailSchema = new Schema<IEmail>(
     spamMarkedAt: { type: Date },
 
     // Email flags and status
-    isRead: { type: Boolean, default: false, index: true },
+    isRead: { type: Boolean, default: false },
     isReplied: { type: Boolean, default: false },
     isForwarded: { type: Boolean, default: false },
     isArchived: { type: Boolean, default: false },
@@ -88,17 +88,17 @@ const EmailSchema = new Schema<IEmail>(
     isStarred: { type: Boolean, default: false },
 
     // Labels and categorization
-    tags: [{ type: String, index: true }],
-    category: { type: String, index: true },
-    labels: [{ type: String, index: true }],
-    folder: { type: String, default: "INBOX", index: true },
+    tags: [{ type: String }],
+    category: { type: String },
+    labels: [{ type: String }],
+    folder: { type: String, default: "INBOX" },
 
     // Assignment and relationships
-    assignedTo: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assignedTo: { type: Schema.Types.ObjectId, ref: "User" },
     assignedAt: { type: Date },
-    relatedOrderId: { type: Schema.Types.ObjectId, ref: "Order", index: true },
-    relatedCustomerId: { type: Schema.Types.ObjectId, ref: "Customer", index: true },
-    relatedTicketId: { type: Schema.Types.ObjectId, ref: "Ticket", index: true },
+    relatedOrderId: { type: Schema.Types.ObjectId, ref: "Order" },
+    relatedCustomerId: { type: Schema.Types.ObjectId, ref: "Customer" },
+    relatedTicketId: { type: Schema.Types.ObjectId, ref: "Ticket" },
 
     // Raw data for debugging
     rawEmailData: { type: Schema.Types.Mixed },
@@ -133,4 +133,3 @@ EmailSchema.index({ accountId: 1, threadId: 1, receivedAt: -1 });
 
 export const EmailModel = models.Email || model<IEmail>("Email", EmailSchema);
 export { IEmail };
-

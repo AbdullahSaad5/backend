@@ -111,4 +111,24 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.reAuthenticateExistingAccount
   );
+
+  // Enhanced Gmail sync with History API
+  router.post(
+    "/accounts/:accountId/sync-gmail-history",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.syncGmailWithHistoryAPI
+  );
+
+  // Setup real-time Gmail watch
+  router.post(
+    "/accounts/:accountId/setup-gmail-watch",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.setupGmailWatch
+  );
+
+  // Manual sync routes
+  router.post("/manual-sync/:accountId/start", EmailAccountController.startManualSync);
+  router.post("/manual-sync/:accountId/continue", EmailAccountController.continueManualSync);
+  router.post("/manual-sync/:accountId/stop", EmailAccountController.stopManualSync);
+  router.get("/manual-sync/:accountId/progress", EmailAccountController.getManualSyncProgress);
 };

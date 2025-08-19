@@ -411,6 +411,42 @@ export const userController = {
     }
   },
 
+  toggleEmailVerification: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+      const { isEmailVerified } = req.body;
+      const result = await userService.toggleEmailVerification(userId, isEmailVerified);
+      const userEmailAddress = result?.email;
+      const userName = result?.firstName || "User";
+
+      console.log("Email verification result: ", userEmailAddress, userName);
+
+      const emailContent = `
+      <p>Dear ${userName},</p>
+      <p>Your email has been ${isEmailVerified ? "verified" : "unverified"} by the Build-My-Rig admin.</p>
+      <p>If you have any questions, please contact support.</p>
+    `;
+
+      // Send the email
+      if (userEmailAddress) {
+        await sendEmail({
+          to: userEmailAddress,
+          subject: `Your Build-My-Rig Email Has Been ${isEmailVerified ? "Verified" : "Unverified"}`,
+          html: emailContent,
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `User email ${isEmailVerified ? "verified" : "unverified"} successfully`,
+        data: result,
+      });
+    } catch (error) {
+      console.error("Toggle Email Verification Error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: "Error updating email verification status" });
+    }
+  },
+
   updatePermissions: async (req: Request, res: Response) => {
     try {
       const id = req.params.id;
@@ -452,6 +488,7 @@ export const userController = {
         searchQuery = "",
         userType,
         isBlocked,
+        isEmailVerified,
         startDate,
         endDate,
         additionalAccessRights,
@@ -464,6 +501,7 @@ export const userController = {
         searchQuery: searchQuery as string,
         userType: userType ? userType.toString() : undefined,
         isBlocked: isBlocked ? JSON.parse(isBlocked as string) : undefined, // Convert string to boolean
+        isEmailVerified: isEmailVerified ? JSON.parse(isEmailVerified as string) : undefined, // Convert string to boolean
         startDate: startDate ? new Date(startDate as string) : undefined,
         endDate: endDate ? new Date(endDate as string) : undefined,
         additionalAccessRights:

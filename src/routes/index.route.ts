@@ -80,6 +80,9 @@ import tokenManagement from "./token-management.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
+import { gmailWebhook } from "./gmail-webhook.route";
+import { multiInstanceGmail } from "./multi-instance-gmail.route";
+import { website } from "./website.route";
 
 const router: Router = Router();
 
@@ -165,6 +168,8 @@ const routes: {
   orderTaskTypes,
   productTypeWorkflows,
   globalPayrollSettings,
+  multiInstanceGmail,
+  website,
 };
 
 // Loop through all routes and pass the router to each route
@@ -177,6 +182,11 @@ for (const route in routes) {
   routeHandler(tempRouter);
   router.use(basePath, tempRouter);
 }
+
+// Add Gmail webhook route with correct path
+const gmailWebhookRouter = Router();
+gmailWebhook(gmailWebhookRouter);
+router.use("/gmail-webhook", gmailWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({

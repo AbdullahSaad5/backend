@@ -47,6 +47,30 @@ const TicketSchema = new Schema<ITicket>(
       required: true,
       trim: true,
     },
+    // Multiple resolutions support
+    resolutions: [{
+      description: {
+        type: String,
+        trim: true,
+        required: true,
+        minlength: [10, "Resolution must be at least 10 characters"],
+      },
+      resolvedBy: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      closedAt: {
+        type: Date,
+        default: Date.now
+      },
+      // Images specific to this resolution
+      images: {
+        type: [String],
+        default: [],
+      }
+    }],
+    // Keep single resolution for backward compatibility
     resolution: {
       description: {
         type: String,
@@ -65,6 +89,11 @@ const TicketSchema = new Schema<ITicket>(
       },
       closedAt: {
         type: Date
+      },
+      // Optional images for single resolution (backward compatibility)
+      images: {
+        type: [String],
+        default: undefined
       }
     },
     // Timeline to track status changes
@@ -85,6 +114,10 @@ const TicketSchema = new Schema<ITicket>(
       assignedUsers: {
         type: [Schema.Types.ObjectId],
         ref: "User",
+        default: undefined
+      },
+      resolutionDescription: {
+        type: String,
         default: undefined
       }
     }],
@@ -117,6 +150,30 @@ const TicketSchema = new Schema<ITicket>(
       type: String,
       enum: ["Fulfilled", "Not Fulfilled"],
     },
+    // Comments field
+    comments: [{
+      content: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+      author: {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      createdAt: {
+        type: Date,
+        default: Date.now,
+      },
+      updatedAt: {
+        type: Date,
+      },
+      parentComment: {
+        type: Schema.Types.ObjectId,
+        default: null,
+      },
+    }],
   },
   {
     timestamps: true,

@@ -1210,121 +1210,47 @@ export const listingService = {
     }
   },
 
-  // Get single Website product by ID
-  getWebsiteProductById: async (id: string) => {
-    try {
-      // Validate ID
-      if (!mongoose.isValidObjectId(id)) {
-        throw new Error("Invalid product ID");
-      }
-
-      const query = {
-        _id: new mongoose.Types.ObjectId(id),
-        publishToWebsite: true, // Only get listings published to website
-        isBlocked: false, // Only non-blocked listings
-      };
-
-      const listing: any = await Listing.findOne(query)
-        .populate("productInfo.productCategory")
-        .populate("productInfo.productSupplier")
-        .populate("selectedStockId")
-        .lean();
-
+  toggleFeaturedForListing: async (listingId: string, isFeatured: boolean) => {
+    // If trying to feature a listing, check if we already have 6 featured listings in the same category
+    if (isFeatured) {
+      const listing: any = await Listing.findById(listingId).populate('productInfo.productCategory');
       if (!listing) {
-        return null;
+        throw new Error("Listing not found");
       }
 
-      // Helper function to safely extract first value from marketplace arrays
-      const getFirstValue = (array: any[], field: string) => {
-        return array?.[0]?.[field] || "";
-      };
+      const categoryId = listing.productInfo?.productCategory;
+      if (!categoryId) {
+        throw new Error("Listing must have a product category to be featured");
+      }
 
-      // Extract item name from the first marketplace entry
-      const itemName = getFirstValue((listing as any).productInfo?.item_name, "value");
+      // Check if the category is featured
+      const category = await mongoose.model('ProductCategory').findById(categoryId);
+      if (!category || !category.isFeatured) {
+        throw new Error("Category must be featured before featuring listings within it");
+      }
 
-      // Extract brand from the first marketplace entry
-      const brand = getFirstValue((listing as any).productInfo?.brand, "value");
+      // Count featured listings in the same category
+      const featuredCount = await Listing.countDocuments({
+        'productInfo.productCategory': categoryId,
+        isFeatured: true,
+        _id: { $ne: listingId } // Exclude current listing from count
+      });
 
-      // Extract description from the first marketplace entry
-      const description = getFirstValue((listing as any).productInfo?.product_description, "value");
-
-      // Extract condition from the first marketplace entry
-      const condition = getFirstValue((listing as any).productInfo?.condition_type, "value");
-
-      // Extract marketplace and language from the first entry
-      const marketplace = getFirstValue((listing as any).productInfo?.item_name, "marketplace_id");
-      const language = getFirstValue((listing as any).productInfo?.item_name, "language_tag");
-
-      // Clean up condition value (remove marketplace prefix if present)
-      const cleanCondition = condition.replace(/^refurbished_/, "");
-
-      return {
-        id: listing._id,
-        sku: listing.productInfo?.sku || "",
-        name: itemName,
-        brand: brand,
-        category: listing.productInfo?.productCategory
-          ? {
-              id: listing.productInfo.productCategory._id,
-              name: listing.productInfo.productCategory.name || "",
-              description: listing.productInfo.productCategory.description || "",
-              image: listing.productInfo.productCategory.image || "",
-              tags: listing.productInfo.productCategory.tags || [],
-            }
-          : null,
-        description: description,
-        condition: cleanCondition,
-        pricing: {
-          costPrice: listing.selectedStockId?.costPricePerUnit || 0,
-          purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
-          retailPrice: listing.prodPricing?.retailPrice || 0,
-          discountType: listing.prodPricing?.discountType || null,
-          discountValue: listing.prodPricing?.discountValue || 0,
-          vat: listing.prodPricing?.vat || 0,
-          currency: "GBP", // Default currency
-        },
-        stock: {
-          available: listing.selectedStockId?.usableUnits || 0,
-          threshold: listing.stockThreshold || 0,
-          inStock: (listing.selectedStockId?.usableUnits || 0) > 0,
-        },
-        media: {
-          images: listing.prodMedia?.images || [],
-          videos: listing.prodMedia?.videos || [],
-          offerImages: listing.prodMedia?.offerImages || [],
-        },
-        platforms: {
-          website: listing.publishToWebsite || false,
-          ebay: listing.publishToEbay || false,
-          amazon: listing.publishToAmazon || false,
-        },
-        technicalInfo: (() => {
-          const techInfo = listing.prodTechInfo || {};
-          // Filter out unwanted fields
-          const {
-            unit_quantity,
-            unit_type,
-            item_height,
-            item_length,
-            item_width,
-            item_weight,
-            country_region_of_manufacture,
-            mpn,
-            hard_drive_capacity,
-            ...filteredTechInfo
-          } = techInfo;
-          return filteredTechInfo;
-        })(),
-        status: listing.status,
-        marketplace: marketplace,
-        language: language,
-        createdAt: listing.createdAt,
-        updatedAt: listing.updatedAt,
-        isFeatured: listing.isFeatured || false,
-      };
-    } catch (error) {
-      console.error("Error fetching Website product:", error);
-      throw new Error("Error fetching Website product");
+      if (featuredCount >= 6) {
+        throw new Error("Maximum of 6 listings can be featured per category");
+      }
     }
+
+    const updatedListing = await Listing.findByIdAndUpdate(
+      listingId, 
+      { isFeatured }, 
+      { new: true }
+    );
+    
+    if (!updatedListing) {
+      throw new Error("Listing not found");
+    }
+    
+    return updatedListing;
   },
 };
