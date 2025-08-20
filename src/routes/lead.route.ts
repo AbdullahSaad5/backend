@@ -1,7 +1,7 @@
 // src/routes/lead.route.ts
-import express from "express";
 import { LeadController } from "../controllers/lead.controller";
 import { Router } from "express";
+import { uploadMultipleFiles } from "@/middlewares/uploadMiddlewares";
 
 export const lead = (router: Router) => {
   router.post("/", LeadController.createLead);
@@ -31,4 +31,14 @@ export const lead = (router: Router) => {
 
   // Get leads by assigned user
   router.get("/assigned/:userId", LeadController.getLeadsByAssignedUser);
+
+  // Post notes in leads
+  router.post(
+    "/:id/notes",
+    uploadMultipleFiles("images", 10),
+    LeadController.addNote
+  );
+
+  //Delete notes
+  router.delete("/:id/notes/:noteId", LeadController.deleteNote);
 };

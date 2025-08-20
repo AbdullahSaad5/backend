@@ -12,12 +12,13 @@ export const LeadService = {
     description?: string;
     assignedTo?: Types.ObjectId;
     leadCategory: Types.ObjectId;
+    notes?: any[];
   }) => {
     const newLead = new LeadModel(leadData);
     return newLead.save();
   },
 
-  editLead: (
+  editLead: async (
     id: string,
     data: {
       name?: string;
@@ -26,14 +27,30 @@ export const LeadService = {
       source?: string;
       purpose?: string;
       description?: string;
-      assignedTo?: Types.ObjectId;
+      assignedTo?: Types.ObjectId[] | Types.ObjectId;
       leadCategory?: Types.ObjectId;
-    }
+    },
+    userId?: string
   ) => {
-    return LeadModel.findByIdAndUpdate(id, data, {
+    const updateOps: any = { $set: data };
+
+    // If assignedTo is being updated, do not push assigned users into timeline per requirements
+    // We only keep timeline entries for status changes.
+
+    return LeadModel.findByIdAndUpdate(id, updateOps, {
       new: true,
       runValidators: true,
-    });
+    })
+      .populate({
+        path: "leadCategory",
+        select: "title description image",
+      })
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName email",
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
 
   deleteLead: (id: string) => {
@@ -53,7 +70,9 @@ export const LeadService = {
       .populate({
         path: "assignedTo",
         select: "firstName lastName email",
-      });
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
   searchAndFilterLead: async (
     limitNum: number,
@@ -71,6 +90,8 @@ export const LeadService = {
             path: "assignedTo",
             select: "firstName lastName email",
           })
+          .populate("timeline.changedBy", "firstName lastName")
+          .populate("notes.notedBy", "firstName lastName")
           .skip(skip)
           .limit(limitNum)
           .sort({ createdAt: -1 }),
@@ -93,20 +114,105 @@ export const LeadService = {
       .populate({
         path: "assignedTo",
         select: "firstName lastName email",
-      });
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
 
-    updateLeadStatus: (id: string, status: "new" | "Contacted" | "Converted" | "Lost" |"Cold-Lead" | "Hot-Lead" | "Bad-Contact") => {
-        const updatedLead = LeadModel.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true }
-        );
-        if (!updatedLead) {
-            throw new Error("Lead not found");
-        }
-        return updatedLead;
-    },
+  updateLeadStatus: async (
+    id: string,
+    status:
+      | "new"
+      | "Contacted"
+      | "Converted"
+      | "Lost"
+      | "Cold-Lead"
+      | "Hot-Lead"
+      | "Bad-Contact",
+    userId?: string
+  ) => {
+    const updateData: any = { status };
+    if (userId && Types.ObjectId.isValid(userId)) {
+      updateData.$push = {
+        timeline: {
+          status,
+          changedAt: new Date(),
+          changedBy: new Types.ObjectId(userId),
+        },
+      };
+    }
+
+    const updatedLead = await LeadModel.findByIdAndUpdate(id, updateData, {
+      new: true,
+    })
+      .populate({
+        path: "leadCategory",
+        select: "title description image",
+      })
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName email",
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
+
+    if (!updatedLead) {
+      throw new Error("Lead not found");
+    }
+    return updatedLead;
+  },
+
+  // Notes methods
+  addNote: async (
+    ticketId: string,
+    description: string,
+    userId: string,
+    images?: string[]
+  ): Promise<ILead> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const noteData: any = {
+      description,
+      notedBy: new Types.ObjectId(userId),
+      notedAt: new Date(),
+    };
+
+    if (images && images.length > 0) {
+      noteData.image = images;
+    }
+
+    const updatedTicket = await LeadModel.findByIdAndUpdate(
+      ticketId,
+      { $push: { notes: noteData } },
+      { new: true, runValidators: true }
+    )
+      .populate("assignedTo", "firstName lastName")
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
+
+    if (!updatedTicket) throw new Error("Failed to add note");
+    return updatedTicket;
+  },
+
+  deleteNote: async (ticketId: string, noteId: string): Promise<ILead> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(noteId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await LeadModel.findByIdAndUpdate(
+      ticketId,
+      { $pull: { notes: { _id: new Types.ObjectId(noteId) } } },
+      { new: true }
+    )
+      .populate("assignedTo", "firstName lastName")
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
+
+    if (!updatedTicket) throw new Error("Failed to delete note");
+    return updatedTicket;
+  },
 
   getLeadsByStatus: (status: string) => {
     return LeadModel.find({ status })
@@ -117,7 +223,9 @@ export const LeadService = {
       .populate({
         path: "assignedTo",
         select: "firstName lastName email",
-      });
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
 
   getLeadsByCategory: (categoryId: string) => {
@@ -129,7 +237,9 @@ export const LeadService = {
       .populate({
         path: "assignedTo",
         select: "firstName lastName email",
-      });
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
 
   getLeadsByAssignedUser: (userId: string) => {
@@ -141,6 +251,9 @@ export const LeadService = {
       .populate({
         path: "assignedTo",
         select: "firstName lastName email",
-      });
+      })
+      .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
+      .populate("notes.notedBy", "firstName lastName");
   },
 };
