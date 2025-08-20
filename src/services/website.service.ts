@@ -108,16 +108,69 @@ export const websiteService = {
       throw new Error("Category not found or not featured");
     }
 
+    console.log("Found category:", {
+      id: category._id,
+      name: category.name,
+      isFeatured: category.isFeatured,
+      isBlocked: category.isBlocked
+    });
+
+    // Convert categoryId to ObjectId for proper MongoDB query
+    const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
+
     // Get featured listings for this specific category
     const featuredListings = await Listing.find({
-      'productInfo.productCategory': categoryId,
+      'productInfo.productCategory': categoryObjectId,
       isFeatured: true,
       isBlocked: false,
       publishToWebsite: true,
     })
     .populate('productInfo.productCategory')
     .populate('selectedStockId')
-    .lean();
+    .lean() as any[];
+
+    console.log("Featured Listings for Category:", categoryId, featuredListings);
+
+    // Debug: Check if there are any listings with this category at all
+    const allListingsWithCategory = await Listing.find({
+      'productInfo.productCategory': categoryObjectId,
+    }).select('_id isFeatured isBlocked publishToWebsite status').lean() as any[];
+    
+    console.log("All listings with category:", categoryId, ":", allListingsWithCategory.length);
+    console.log("Sample listings:", allListingsWithCategory.slice(0, 3));
+
+    // Debug: Check if there are any featured listings at all
+    const allFeaturedListings = await Listing.find({
+      isFeatured: true,
+      isBlocked: false,
+      publishToWebsite: true,
+    }).select('_id productInfo.productCategory').lean() as any[];
+    
+    console.log("Total featured listings:", allFeaturedListings.length);
+    console.log("Featured listings categories:", allFeaturedListings.map((l: any) => l.productInfo?.productCategory).slice(0, 5));
+
+    // Additional debug: Check the exact query being executed
+    console.log("Query being executed:", {
+      'productInfo.productCategory': categoryObjectId,
+      isFeatured: true,
+      isBlocked: false,
+      publishToWebsite: true,
+    });
+
+    // Debug: Check if there are any listings with this category without other filters
+    const listingsWithCategoryOnly = await Listing.find({
+      'productInfo.productCategory': categoryObjectId,
+    }).select('_id isFeatured isBlocked publishToWebsite status productInfo.productCategory').lean() as any[];
+    
+    console.log("Listings with category only (no other filters):", listingsWithCategoryOnly.length);
+    console.log("Sample of these listings:", listingsWithCategoryOnly.slice(0, 3).map((l: any) => ({
+      id: l._id,
+      isFeatured: l.isFeatured,
+      isBlocked: l.isBlocked,
+      publishToWebsite: l.publishToWebsite,
+      status: l.status,
+      category: l.productInfo?.productCategory
+    })));
 
     // Transform listings to website format
     const transformedListings = featuredListings.map((listing: any) => {
