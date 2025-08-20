@@ -6,6 +6,7 @@ import { EmailAccountConfigService } from "@/services/email-account-config.servi
 import { logger } from "@/utils/logger.util";
 import { jwtVerify } from "@/utils/jwt.util";
 import { authService } from "@/services/user-auth.service";
+import { DirectEmailFetchingService } from "../services/direct-email-fetching.service";
 
 export class EmailAccountController {
   // Get all email providers
@@ -1724,8 +1725,6 @@ export class EmailAccountController {
         });
       }
 
-      const { DirectEmailFetchingService } = await import("@/services/direct-email-fetching.service");
-
       const options = {
         folder: folder as string,
         page: parseInt(page as string),
@@ -1741,6 +1740,8 @@ export class EmailAccountController {
       };
 
       const result = await DirectEmailFetchingService.fetchEmailsDirectly(account, options);
+
+      logger.info(`Direct email fetch completed for ${account.emailAddress}: ${result.emails.length} emails fetched`);
 
       res.json({
         success: result.success,
