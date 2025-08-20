@@ -1146,7 +1146,7 @@ export const listingService = {
           description: description,
           condition: cleanCondition,
           pricing: {
-            costPrice: (listing as any).selectedStockId?.costPricePerUnit || 0,
+            costPrice: (listing as any).selectedStockId?.totalCostPrice || 0,
             purchasePrice: (listing as any).selectedStockId?.purchasePricePerUnit || 0,
             retailPrice: (listing as any).prodPricing?.retailPrice || 0,
             discountType: (listing as any).prodPricing?.discountType || null,
