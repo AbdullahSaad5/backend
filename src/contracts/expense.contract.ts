@@ -13,7 +13,11 @@ export interface IExpense extends Document {
   image: string;
   isSystemGenerated: boolean;
   systemType?: "inventory_purchase" | "payroll" | "recurring" | "adjustment";
-  referenceId?: Types.ObjectId;
+  // Separate reference fields for each system type
+  inventoryReferenceId?: Types.ObjectId;
+  payrollReferenceId?: Types.ObjectId;
+  recurringReferenceId?: Types.ObjectId;
+  adjustmentReferenceId?: Types.ObjectId;
   adjustments?: Array<{
     adjustmentId: Types.ObjectId;
     amount: number;
