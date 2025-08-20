@@ -11,6 +11,16 @@ export interface IExpense extends Document {
   date: Date;
   isBlocked: boolean;
   image: string;
+  isSystemGenerated: boolean;
+  systemType?: "inventory_purchase" | "payroll" | "recurring" | "adjustment";
+  referenceId?: Types.ObjectId;
+  adjustments?: Array<{
+    adjustmentId: Types.ObjectId;
+    amount: number;
+    reason: string;
+    date: Date;
+    adjustedBy?: string;
+  }>;
 }
 
 export type IExpenseModel = Model<IExpense>;
