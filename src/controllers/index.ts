@@ -39,3 +39,4 @@ export { featuredSaleController } from "./featured-sale.controller";
 export { teamController } from "./team.controller";
 export { productTypeWorkflowController } from "./product-type-workflow.controller";
 export { announcementBarController } from "./announcement-bar.controller";
+export {websiteController} from "./website.contoller";

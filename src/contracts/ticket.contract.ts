@@ -4,6 +4,8 @@ export interface IResolution {
   description: string;
   resolvedBy: Types.ObjectId;
   closedAt: Date;
+  _id?: Types.ObjectId;
+  images?: string[];
 }
 
 export interface ITimelineEntry {
@@ -11,6 +13,26 @@ export interface ITimelineEntry {
   changedAt: Date;
   changedBy: Types.ObjectId;
   assignedUsers?: Types.ObjectId[]; // For assignment changes
+  resolutionDescription?: string; // For resolution entries
+  resolutionImages?: string[]; // For resolution images
+}
+
+export interface INote {
+  image?: string[];
+  description?: string;
+  notedBy: Types.ObjectId;
+  notedAt: Date;
+  _id?: Types.ObjectId;
+}
+
+export interface IComment {
+  _id: Types.ObjectId;
+  content: string;
+  author: Types.ObjectId;
+  createdAt: Date;
+  updatedAt?: Date;
+  replies?: IComment[];
+  parentComment?: Types.ObjectId; // For replies
 }
 
 export interface ITicket extends Document {
@@ -23,12 +45,15 @@ export interface ITicket extends Document {
   priority: "Low" | "Medium" | "High" | "Urgent";
   role: Types.ObjectId;  // Changed from department to role (references UserCategory)
   description: string;
+  resolutions?: IResolution[]; // Multiple resolutions
   resolution?: {
     description: string;
     resolvedBy: Types.ObjectId;
     closedAt: Date;
-  };
+    images?: string[];
+  }; // Keep for backward compatibility
   timeline?: ITimelineEntry[];
+  comments?: IComment[]; // New comments field
   isEscalated?: boolean;
   isManuallyEscalated?: boolean;
   chatMessageId?: string;
@@ -37,6 +62,8 @@ export interface ITicket extends Document {
   platform?: string; // Platform name (e.g., "Amazon", "eBay", "Shopify")
   orderReference?: string; // Order reference number
   orderStatus?: "Fulfilled" | "Not Fulfilled"; // Order fulfillment status
+  category?: string; // Category for escalated complaints
+  notes?: INote[];
 }
 
 export type TicketModel = Model<ITicket>;

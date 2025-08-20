@@ -1,9 +1,10 @@
 import { TicketModel } from "@/models/ticket.model";
+import { User } from "@/models/user.model";
 import { IResolution, ITicket } from "@/contracts/ticket.contract";
 import { Types } from "mongoose";
 
 export const ticketService = {
-  createTicket: (
+  createTicket: async (
     title: string,
     client: string,
     assignedTo: Types.ObjectId[] | undefined,
@@ -18,13 +19,36 @@ export const ticketService = {
     images?: string[],
     platform?: string,
     orderReference?: string,
-    orderStatus?: "Fulfilled" | "Not Fulfilled"
+    orderStatus?: "Fulfilled" | "Not Fulfilled",
+    userId?: string,
+    resolutions?: any[],
+    notes?: any[],
+    category?: string
   ) => {
     // Determine initial status based on assignment
     let initialStatus = status;
     if (assignedTo && assignedTo.length > 0 && status === "Open") {
       initialStatus = "Assigned";
     }
+
+    // Use provided userId or fallback to system user
+    const timelineChangedBy = userId ? new Types.ObjectId(userId) : new Types.ObjectId("000000000000000000000000");
+
+    // Transform resolutions if provided (for escalated complaints)
+    const transformedResolutions = resolutions?.map((res: any) => ({
+      description: res.description,
+      resolvedBy: new Types.ObjectId(res.resolvedBy),
+      closedAt: new Date(res.closedAt),
+      images: res.images || []
+    })) || [];
+
+    // Transform notes if provided (for escalated complaints)
+    const transformedNotes = notes?.map((note: any) => ({
+      description: note.description,
+      notedBy: new Types.ObjectId(note.notedBy),
+      notedAt: new Date(note.notedAt),
+      image: note.image || []
+    })) || [];
 
     const newTicket = new TicketModel({
       title,
@@ -42,14 +66,29 @@ export const ticketService = {
       platform,
       orderReference,
       orderStatus,
-      // Initialize timeline with the actual initial status
+      category,
+      // Add resolutions and notes if provided (for escalated complaints)
+      ...(transformedResolutions.length > 0 && { resolutions: transformedResolutions }),
+      ...(transformedNotes.length > 0 && { notes: transformedNotes }),
+      // Initialize timeline with the actual initial status and proper user
       timeline: [{
         status: initialStatus,
         changedAt: createDate,
-        changedBy: new Types.ObjectId("000000000000000000000000") // System user
+        changedBy: timelineChangedBy,
+        ...(assignedTo && assignedTo.length > 0 && { assignedUsers: assignedTo })
       }]
     });
-    return newTicket.save();
+    
+    const savedTicket = await newTicket.save();
+    
+    // Return populated ticket data
+    return TicketModel.findById(savedTicket._id)
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
   },
 
   editTicket: (
@@ -94,8 +133,11 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
   },
 
   getById: (id: string) => {
@@ -103,8 +145,11 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
   },
 
   changeStatus: async (id: string, status: "Open" | "Assigned" | "In Progress" | "Closed" | "Resolved", userId?: string) => {
@@ -137,6 +182,63 @@ export const ticketService = {
     return updatedTicket;
   },
 
+  // Notes methods
+  addNote: async (ticketId: string, description: string, userId: string, images?: string[]): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const noteData: any = {
+      description,
+      notedBy: new Types.ObjectId(userId),
+      notedAt: new Date(),
+    };
+
+    if (images && images.length > 0) {
+      noteData.image = images;
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { $push: { notes: noteData } },
+      { new: true, runValidators: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to add note');
+    return updatedTicket;
+  },
+
+  deleteNote: async (ticketId: string, noteId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(noteId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { $pull: { notes: { _id: new Types.ObjectId(noteId) } } },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to delete note');
+    return updatedTicket;
+  },
+
   changePriority: (id: string, priority: "Low" | "Medium" | "High" | "Urgent") => {
     const updatedTicket = TicketModel.findByIdAndUpdate(
       id,
@@ -165,7 +267,7 @@ export const ticketService = {
     return updatedTicket;
   },
 
-  // Update assignment and automatically change status to "Assigned" if currently "Open"
+  // Update assignment and automatically change status to "Assigned" if currently "Open" or "Resolved"
   updateAssignment: async (id: string, assignedTo: Types.ObjectId[], userId?: string) => {
     const ticket = await TicketModel.findById(id);
     if (!ticket) {
@@ -173,33 +275,32 @@ export const ticketService = {
     }
 
     const updateData: any = { assignedTo };
+    let timelineStatus = "Assigned"; // Default timeline status
     
-    // Always add assignment change to timeline if userId is provided
+    // Always change status to "Assigned" when assigning users and show "Assigned" in timeline
+    if (assignedTo && assignedTo.length > 0) {
+      updateData.status = "Assigned";
+      timelineStatus = "Assigned";
+      
+      // Update role based on assigned users
+      // Get the first assigned user's role and use it for the ticket
+      const firstAssignedUser = await User.findById(assignedTo[0]).populate('userType');
+      
+      if (firstAssignedUser && firstAssignedUser.userType) {
+        updateData.role = firstAssignedUser.userType._id;
+      }
+    }
+    
+    // Add timeline entry if userId is provided
     if (userId) {
       updateData.$push = {
         timeline: {
-          status: "Assignment Changed",
+          status: timelineStatus,
           changedAt: new Date(),
           changedBy: new Types.ObjectId(userId),
           assignedUsers: assignedTo
         }
       };
-    }
-    
-    // If status is "Open" and we're assigning users, change to "Assigned"
-    if (ticket.status === "Open" && assignedTo && assignedTo.length > 0) {
-      updateData.status = "Assigned";
-      
-      // Add status change to timeline if userId is provided
-      if (userId) {
-        updateData.$push = {
-          timeline: {
-            status: "Assigned",
-            changedAt: new Date(),
-            changedBy: new Types.ObjectId(userId)
-          }
-        };
-      }
     }
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
@@ -221,7 +322,8 @@ export const ticketService = {
   addResolution: async (
     ticketId: string,
     description: string,
-    userId: string
+    userId: string,
+    images?: string[]
   ): Promise<ITicket> => {
     if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
       throw new Error("Invalid ID");
@@ -229,24 +331,28 @@ export const ticketService = {
 
     const ticket = await TicketModel.findById(ticketId);
     if (!ticket) throw new Error('Ticket not found');
-    if (ticket.status === 'Resolved') throw new Error('Ticket already resolved');
 
     const resolution: IResolution = {
       description,
       resolvedBy: new Types.ObjectId(userId),
-      closedAt: new Date()
+      closedAt: new Date(),
+      ...(images && images.length > 0 ? { images } : {})
     };
 
+    console.log('Adding resolution with images:', { description, images });
     const updatedTicket = await TicketModel.findByIdAndUpdate(
       ticketId,
       {
         status: 'Resolved',
-        resolution,
+        resolution, // Keep for backward compatibility
         $push: {
+          resolutions: resolution,
           timeline: {
             status: 'Resolved',
             changedAt: new Date(),
-            changedBy: new Types.ObjectId(userId)
+            changedBy: new Types.ObjectId(userId),
+            resolutionDescription: description,
+            resolutionImages: images || []
           }
         }
       },
@@ -255,10 +361,51 @@ export const ticketService = {
       .populate('role', 'role')
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
       .populate('timeline.assignedUsers', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to update ticket');
+    return updatedTicket;
+  },
+
+  // New method to get all resolutions for a ticket
+  getResolutions: async (ticketId: string): Promise<IResolution[]> => {
+    if (!Types.ObjectId.isValid(ticketId)) {
+      throw new Error("Invalid ticket ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId)
+      .populate('resolutions.resolvedBy', 'firstName lastName');
+    
+    if (!ticket) throw new Error('Ticket not found');
+    
+    return ticket.resolutions || [];
+  },
+
+  // New method to delete a specific resolution
+  deleteResolutionById: async (ticketId: string, resolutionId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(resolutionId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      {
+        $pull: { resolutions: { _id: resolutionId } }
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to remove resolution');
     return updatedTicket;
   },
 
@@ -349,9 +496,102 @@ export const ticketService = {
       .populate('assignedTo', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
       .populate('timeline.changedBy', 'firstName lastName')
-      .populate('timeline.assignedUsers', 'firstName lastName');
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
 
     if (!updatedTicket) throw new Error('Failed to add images to ticket');
+    return updatedTicket;
+  },
+
+  // Comment methods
+  addComment: async (ticketId: string, content: string, userId: string, parentCommentId?: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const commentData: any = {
+      content,
+      author: new Types.ObjectId(userId),
+      createdAt: new Date(),
+    };
+
+    if (parentCommentId && Types.ObjectId.isValid(parentCommentId)) {
+      commentData.parentComment = new Types.ObjectId(parentCommentId);
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { $push: { comments: commentData } },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to add comment');
+    return updatedTicket;
+  },
+
+  updateComment: async (ticketId: string, commentId: string, content: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(commentId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await TicketModel.findOneAndUpdate(
+      { 
+        _id: ticketId, 
+        'comments._id': commentId,
+        'comments.author': userId // Ensure user owns the comment
+      },
+      { 
+        $set: { 
+          'comments.$.content': content,
+          'comments.$.updatedAt': new Date()
+        } 
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('comments.parentComment');
+
+    if (!updatedTicket) throw new Error('Comment not found or unauthorized');
+    return updatedTicket;
+  },
+
+  deleteComment: async (ticketId: string, commentId: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(commentId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      { 
+        $pull: { 
+          comments: { 
+            _id: commentId,
+            author: userId // Ensure user owns the comment
+          } 
+        } 
+      },
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('comments.parentComment');
+
+    if (!updatedTicket) throw new Error('Comment not found or unauthorized');
     return updatedTicket;
   }
 };

@@ -2,6 +2,7 @@ import { listingController } from "@/controllers";
 import { listingValidation } from "@/validations";
 import { Router } from "express";
 import { uploadMiddleware } from "@/middlewares/multer.middleware";
+import { productCategoryController } from "@/controllers";
 
 export const listing = (router: Router) => {
   // TODO: listingValidation.addListing
@@ -31,19 +32,8 @@ export const listing = (router: Router) => {
   // Fetch all Draft listing  names
   router.get("/drafts", listingController.getAllDraftListingNames);
 
-  // Fetch all Website listings
-  router.get("/website", listingController.getWebsiteListings);
-  
-  // Fetch single Website product by ID
-  router.get("/website/:id", listingValidation.validateId, listingController.getWebsiteProductById);
-
-  
   // Update a draft listing by ID (subsequent steps)
-  router.patch(
-    "/:id",
-    // listingValidation.updateListing,
-    listingController.updateDraftListingController
-  );
+  router.patch("/:id", listingController.updateDraftListingController);
   router.get("/", listingController.getAllListing);
 
   router.get("/:id", listingValidation.validateId, listingController.getListingById);
@@ -59,8 +49,8 @@ export const listing = (router: Router) => {
   // route for toggle block status
   router.patch("/istemplate/:id", listingController.toggleIsTemplate);
 
-  // route for toggle featured status
-  router.patch("/isfeatured/:id", listingController.toggleIsFeatured);
+  // route for toggle featured status for listings
+  router.patch("/featured/:id", listingValidation.validateId, listingController.toggleFeaturedForListing);
 
   // Upsert (Create or Update) selected variations
   router.post("/:id/selected-parts", listingController.upsertListingParts);
@@ -68,4 +58,5 @@ export const listing = (router: Router) => {
   router.get("/:id/get-all-attributes", listingController.getAllAttributesById);
   // Get selected variations for listing
   router.get("/:id/selected-parts", listingController.getSelectedListingParts);
+
 };

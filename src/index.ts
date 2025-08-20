@@ -64,6 +64,7 @@ app.get("/", (req, res) => {
 // Setup API documentation
 const apiDoc = new ApiDocumentation(app, documentationConfig);
 
+// Admin API routes
 app.use("/api", router);
 
 initCron();

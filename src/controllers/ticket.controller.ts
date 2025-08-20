@@ -24,8 +24,26 @@ export const tickerControler = {
         images,
         platform,
         orderReference,
-        orderStatus
+        orderStatus,
+        resolutions,
+        notes,
+        category
       } = req.body;
+
+      // Get user ID from token for timeline tracking
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+      let userId: string | undefined;
+
+      if (token && typeof token === "string") {
+        try {
+          const decoded = jwtVerify(token);
+          userId = decoded.id.toString();
+        } catch (error) {
+          // If token is invalid, continue without user tracking
+          console.warn("Invalid token for ticket creation, proceeding without user tracking");
+        }
+      }
 
       const newTicket = await ticketService.createTicket(
         title,
@@ -42,7 +60,11 @@ export const tickerControler = {
         images,
         platform,
         orderReference,
-        orderStatus
+        orderStatus,
+        userId,
+        resolutions,
+        notes,
+        category
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -55,6 +77,74 @@ export const tickerControler = {
         success: false,
         message: "Error creating ticket",
         error: error.message
+      });
+    }
+  },
+
+  addNote: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { description } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!description?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Note description is required",
+        });
+      }
+
+      const uploadedImages = Array.isArray(req.files)
+        ? (req.files as any[]).map((f) => f.location)
+        : [];
+
+      const updatedTicket = await ticketService.addNote(
+        id,
+        description.trim(),
+        userId,
+        uploadedImages
+      );
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note added successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error adding note",
+      });
+    }
+  },
+
+  deleteNote: async (req: Request, res: Response) => {
+    try {
+      const { id, noteId } = req.params as any;
+
+      const updatedTicket = await ticketService.deleteNote(id, noteId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error deleting note",
       });
     }
   },
@@ -237,7 +327,7 @@ export const tickerControler = {
 
   addResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
       const { description } = req.body;
 
       const authHeader = req.headers["authorization"];
@@ -267,10 +357,16 @@ export const tickerControler = {
         });
       }
 
+      // If upload middleware attached files, map their URLs for resolution images
+      const uploadedImages = Array.isArray(req.files)
+        ? (req.files as any[]).map((f) => f.location)
+        : [];
+
       const resolvedTicket = await ticketService.addResolution(
-        ticketId,
+        id,
         description,
-        userId
+        userId,
+        uploadedImages
       );
 
       return res.status(StatusCodes.OK).json({
@@ -288,9 +384,9 @@ export const tickerControler = {
 
   deleteResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
 
-      const deletedResolutionTicket = await ticketService.deleteResolution(ticketId);
+      const deletedResolutionTicket = await ticketService.deleteResolution(id);
 
       return res.status(StatusCodes.OK).json({
         success: true,
@@ -311,7 +407,7 @@ export const tickerControler = {
 
   updateResolution: async (req: any, res: Response) => {
     try {
-      const { ticketId } = req.params;
+      const { id } = req.params;
       const { description } = req.body;
 
       const authHeader = req.headers["authorization"];
@@ -342,7 +438,7 @@ export const tickerControler = {
       }
 
       const updatedTicket = await ticketService.updateResolution(
-        ticketId,
+        id,
         description,
         userId
       );
@@ -360,6 +456,51 @@ export const tickerControler = {
       ).json({
         success: false,
         message: error.message || "Error updating resolution",
+      });
+    }
+  },
+
+  // New endpoints for multiple resolutions
+  getResolutions: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const resolutions = await ticketService.getResolutions(id);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolutions retrieved successfully",
+        data: resolutions,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error retrieving resolutions",
+      });
+    }
+  },
+
+  deleteResolutionById: async (req: Request, res: Response) => {
+    try {
+      const { id, resolutionId } = req.params;
+      const updatedTicket = await ticketService.deleteResolutionById(id, resolutionId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Resolution deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found')
+          ? StatusCodes.NOT_FOUND
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error deleting resolution",
       });
     }
   },
@@ -432,6 +573,122 @@ export const tickerControler = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error updating assignment",
+        error: error.message
+      });
+    }
+  },
+
+  // Comment methods
+  addComment: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { content, parentCommentId } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!content?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Comment content is required",
+        });
+      }
+
+      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment added successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error adding comment",
+        error: error.message
+      });
+    }
+  },
+
+  updateComment: async (req: Request, res: Response) => {
+    try {
+      const { id, commentId } = req.params;
+      const { content } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!content?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Comment content is required",
+        });
+      }
+
+      const updatedTicket = await ticketService.updateComment(id, commentId, content.trim(), userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment updated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating comment",
+        error: error.message
+      });
+    }
+  },
+
+  deleteComment: async (req: Request, res: Response) => {
+    try {
+      const { id, commentId } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.deleteComment(id, commentId, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Comment deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error deleting comment",
         error: error.message
       });
     }
