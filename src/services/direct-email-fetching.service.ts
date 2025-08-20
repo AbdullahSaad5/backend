@@ -698,46 +698,81 @@ export class DirectEmailFetchingService {
         process.env.GOOGLE_REDIRECT_URI
       );
 
-      // Decrypt refresh token
+      // Decrypt tokens
       const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
+      const decryptedAccessToken = emailAccount.oauth?.accessToken
+        ? EmailOAuthService.decryptData(emailAccount.oauth.accessToken)
+        : null;
 
-      // Set credentials with refresh token
-      oauth2Client.setCredentials({
-        refresh_token: decryptedRefreshToken,
-      });
+      // Check if we have a valid access token and if it's expired
+      let shouldRefreshToken = false;
 
-      // Try to get a fresh access token
-      try {
-        const { credentials } = await oauth2Client.refreshAccessToken();
+      if (decryptedAccessToken && emailAccount.oauth?.tokenExpiry) {
+        const now = new Date();
+        const expiryDate = new Date(emailAccount.oauth.tokenExpiry);
+        const timeUntilExpiry = expiryDate.getTime() - now.getTime();
 
-        if (credentials.access_token) {
-          // Update the account with the new access token
-          await this.updateAccessToken(emailAccount, credentials.access_token);
+        // Refresh token if it expires in less than 5 minutes (300,000 ms)
+        shouldRefreshToken = timeUntilExpiry < 300000;
 
-          oauth2Client.setCredentials({
-            access_token: credentials.access_token,
-            refresh_token: decryptedRefreshToken,
-          });
+        logger.info(
+          `Token expiry check for ${emailAccount.emailAddress}: expires in ${Math.round(timeUntilExpiry / 1000)}s, should refresh: ${shouldRefreshToken}`
+        );
+      } else if (!decryptedAccessToken) {
+        // No access token, need to refresh
+        shouldRefreshToken = true;
+        logger.info(`No access token available for ${emailAccount.emailAddress}, will refresh`);
+      }
 
-          logger.info(`Successfully refreshed Gmail access token for ${emailAccount.emailAddress}`);
-        } else {
-          throw new Error("Failed to obtain access token from refresh token");
+      if (shouldRefreshToken) {
+        // Only refresh when necessary
+        logger.info(`Refreshing access token for ${emailAccount.emailAddress}`);
+
+        // Set credentials with refresh token
+        oauth2Client.setCredentials({
+          refresh_token: decryptedRefreshToken,
+        });
+
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+
+          if (credentials.access_token) {
+            // Update the account with the new access token
+            const expiryDate = credentials.expiry_date ? new Date(credentials.expiry_date) : undefined;
+            await this.updateAccessToken(emailAccount, credentials.access_token, expiryDate);
+
+            oauth2Client.setCredentials({
+              access_token: credentials.access_token,
+              refresh_token: decryptedRefreshToken,
+            });
+
+            logger.info(`Successfully refreshed Gmail access token for ${emailAccount.emailAddress}`);
+          } else {
+            throw new Error("Failed to obtain access token from refresh token");
+          }
+        } catch (refreshError: any) {
+          logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, refreshError);
+
+          // If refresh fails, try to use existing access token if available
+          if (decryptedAccessToken) {
+            oauth2Client.setCredentials({
+              access_token: decryptedAccessToken,
+              refresh_token: decryptedRefreshToken,
+            });
+
+            logger.warn(`Using existing access token for ${emailAccount.emailAddress} (refresh failed)`);
+          } else {
+            throw new Error(`Gmail authentication failed: ${refreshError.message}`);
+          }
         }
-      } catch (refreshError: any) {
-        logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, refreshError);
+      } else {
+        // Use existing valid access token
+        logger.info(`Using existing valid access token for ${emailAccount.emailAddress}`);
 
-        // If refresh fails, try to use existing access token if available
-        if (emailAccount.oauth?.accessToken) {
-          const decryptedAccessToken = EmailOAuthService.decryptData(emailAccount.oauth.accessToken);
-          oauth2Client.setCredentials({
-            access_token: decryptedAccessToken,
-            refresh_token: decryptedRefreshToken,
-          });
-
-          logger.warn(`Using existing access token for ${emailAccount.emailAddress} (refresh failed)`);
-        } else {
-          throw new Error(`Gmail authentication failed: ${refreshError.message}`);
-        }
+        oauth2Client.setCredentials({
+          access_token: decryptedAccessToken,
+          refresh_token: decryptedRefreshToken,
+        });
       }
 
       return oauth2Client;
@@ -750,19 +785,19 @@ export class DirectEmailFetchingService {
   /**
    * Update access token in the email account
    */
-  private static async updateAccessToken(emailAccount: IEmailAccount, newAccessToken: string) {
+  private static async updateAccessToken(emailAccount: IEmailAccount, newAccessToken: string, expiryDate?: Date) {
     try {
       // Encrypt the new access token
       const encryptedAccessToken = EmailOAuthService.encryptData(newAccessToken);
 
-      // Update the account with the new encrypted access token
-      // Note: We need to use the model to update, not the document instance
+      // Update the account with the new encrypted access token and expiry
       const { EmailAccountModel } = await import("../models/email-account.model");
       await EmailAccountModel.updateOne(
         { _id: emailAccount._id },
         {
           $set: {
             "oauth.accessToken": encryptedAccessToken,
+            "oauth.tokenExpiry": expiryDate || new Date(Date.now() + 3600000), // Default 1 hour if no expiry provided
           },
         }
       );
@@ -770,6 +805,7 @@ export class DirectEmailFetchingService {
       // Update the local object
       if (emailAccount.oauth) {
         emailAccount.oauth.accessToken = encryptedAccessToken;
+        emailAccount.oauth.tokenExpiry = expiryDate || new Date(Date.now() + 3600000);
       }
 
       logger.info(`Updated access token for ${emailAccount.emailAddress}`);
