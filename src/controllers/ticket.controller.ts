@@ -24,7 +24,10 @@ export const tickerControler = {
         images,
         platform,
         orderReference,
-        orderStatus
+        orderStatus,
+        resolutions,
+        notes,
+        category
       } = req.body;
 
       // Get user ID from token for timeline tracking
@@ -58,7 +61,10 @@ export const tickerControler = {
         platform,
         orderReference,
         orderStatus,
-        userId
+        userId,
+        resolutions,
+        notes,
+        category
       );
 
       res.status(StatusCodes.CREATED).json({
@@ -71,6 +77,74 @@ export const tickerControler = {
         success: false,
         message: "Error creating ticket",
         error: error.message
+      });
+    }
+  },
+
+  addNote: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { description } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!description?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Note description is required",
+        });
+      }
+
+      const uploadedImages = Array.isArray(req.files)
+        ? (req.files as any[]).map((f) => f.location)
+        : [];
+
+      const updatedTicket = await ticketService.addNote(
+        id,
+        description.trim(),
+        userId,
+        uploadedImages
+      );
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note added successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error adding note",
+      });
+    }
+  },
+
+  deleteNote: async (req: Request, res: Response) => {
+    try {
+      const { id, noteId } = req.params as any;
+
+      const updatedTicket = await ticketService.deleteNote(id, noteId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error deleting note",
       });
     }
   },

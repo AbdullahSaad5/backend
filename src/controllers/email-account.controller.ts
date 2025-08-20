@@ -6,6 +6,7 @@ import { EmailAccountConfigService } from "@/services/email-account-config.servi
 import { logger } from "@/utils/logger.util";
 import { jwtVerify } from "@/utils/jwt.util";
 import { authService } from "@/services/user-auth.service";
+import { DirectEmailFetchingService } from "../services/direct-email-fetching.service";
 
 export class EmailAccountController {
   // Get all email providers
@@ -1682,6 +1683,85 @@ export class EmailAccountController {
       res.status(500).json({
         success: false,
         message: "Failed to get manual sync progress",
+        error: error.message,
+      });
+    }
+  }
+
+  // Fetch emails directly from account without storing in database (for real-time display)
+  static async fetchEmailsDirectly(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const {
+        folder = "INBOX",
+        page = "1",
+        pageSize = "20",
+        since,
+        before,
+        query,
+        labelIds,
+        includeBody = "true",
+        markAsRead = "false",
+        sortBy = "date",
+        sortOrder = "desc",
+      } = req.query;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const options = {
+        folder: folder as string,
+        page: parseInt(page as string),
+        pageSize: parseInt(pageSize as string),
+        since: since ? new Date(since as string) : undefined,
+        before: before ? new Date(before as string) : undefined,
+        query: query as string,
+        labelIds: labelIds ? (labelIds as string).split(",") : undefined,
+        includeBody: includeBody === "true",
+        markAsRead: markAsRead === "true",
+        sortBy: sortBy as "date" | "from" | "subject" | "size",
+        sortOrder: sortOrder as "asc" | "desc",
+      };
+
+      const result = await DirectEmailFetchingService.fetchEmailsDirectly(account, options);
+
+      logger.info(`Direct email fetch completed for ${account.emailAddress}: ${result.emails.length} emails fetched`);
+
+      res.json({
+        success: result.success,
+        data: {
+          emails: result.emails,
+          totalCount: result.totalCount,
+          pagination: result.pagination,
+          account: {
+            id: account._id,
+            emailAddress: account.emailAddress,
+            accountName: account.accountName,
+          },
+        },
+        error: result.error,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching emails directly:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch emails",
         error: error.message,
       });
     }

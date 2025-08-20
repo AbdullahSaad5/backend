@@ -78,6 +78,14 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.fetchAccountEmails
   );
+
+  // Direct email fetching without database storage (for real-time display)
+  router.get(
+    "/accounts/:accountId/emails-direct",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.fetchEmailsDirectly
+  );
+
   router.get(
     "/accounts/:accountId/emails",
     validateParams(emailAccountValidation.accountId),

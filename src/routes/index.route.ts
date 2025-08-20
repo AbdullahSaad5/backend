@@ -45,6 +45,7 @@ import { workshift } from "./workshift.route";
 import { expensecategory } from "./expensecategory.route";
 import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
+import { recurringExpense } from "./recurring-expense.route";
 import { guidescategory } from "./guidescategory.route";
 import { guide } from "./guide.route";
 import { faqcategory } from "./faqcategory.route";
@@ -135,6 +136,7 @@ const routes: {
   taxes,
   faqsPolicy,
   revenue,
+  recurringExpense,
   guidescategory,
   guide,
   faqcategory,
