@@ -37,7 +37,7 @@ const LeadSchema = new Schema<ILead, ILeadModel>({
     },
     status: {
         type: String,
-        enum: ["new", "Contacted", "Converted", "Lost"],
+        enum: ["new", "Contacted", "Converted", "Lost", "Hot-Lead", "Cold-Lead", "Bad-Contact"],
         default: "new",
     },
     assignedTo: [{

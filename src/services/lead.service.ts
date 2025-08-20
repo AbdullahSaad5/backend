@@ -68,7 +68,7 @@ export const LeadService = {
             });
     },
 
-    updateLeadStatus: (id: string, status: "new" | "Contacted" | "Converted" | "Lost") => {
+    updateLeadStatus: (id: string, status: "new" | "Contacted" | "Converted" | "Lost" |"Cold-Lead" | "Hot-Lead" | "Bad-Contact") => {
         const updatedLead = LeadModel.findByIdAndUpdate(
             id,
             { status },

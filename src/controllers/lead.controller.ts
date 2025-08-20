@@ -180,12 +180,12 @@ export const LeadController = {
             const { id } = req.params;
             const { status } = req.body;
 
-            const allowedStatuses = ["new", "Contacted", "Converted", "Lost"];
+            const allowedStatuses = ["new", "Contacted", "Converted", "Lost", "Cold-Lead","Hot-Lead", "Bad-Contact"];
 
             if (!status || !allowedStatuses.includes(status)) {
                 return res.status(StatusCodes.BAD_REQUEST).json({
                     success: false,
-                    message: "Status is required and must be one of: new, Contacted, Converted, Lost",
+                    message: "Status is required and must be one of: new, Contacted, Converted, Lost , Hot Lead, Cold Lead, Bad Contact",
                     allowedStatuses,
                 });
             }
