@@ -1,5 +1,5 @@
-import { IEmailAccount } from "@/models/email-account.model";
-import { logger } from "@/utils/logger.util";
+import { IEmailAccount } from "../models/email-account.model";
+import { logger } from "../utils/logger.util";
 import { google } from "googleapis";
 import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
@@ -89,7 +89,7 @@ export class DirectEmailFetchingService {
         if (!emailAccount.oauth.refreshToken) {
           throw new Error("Gmail account is missing refresh token. Please re-authenticate the account.");
         }
-        
+
         if (!emailAccount.oauth.clientId || !emailAccount.oauth.clientSecret) {
           throw new Error("Gmail account is missing OAuth client configuration. Please check your Google OAuth setup.");
         }
@@ -124,10 +124,10 @@ export class DirectEmailFetchingService {
       return result;
     } catch (error: any) {
       logger.error(`Direct email fetch failed for ${emailAccount.emailAddress}:`, error);
-      
+
       // Provide user-friendly error messages
       let userMessage = "Failed to fetch emails";
-      
+
       if (error.message.includes("authentication")) {
         userMessage = "Authentication failed. Please re-authenticate your email account.";
       } else if (error.message.includes("quota")) {
@@ -137,7 +137,7 @@ export class DirectEmailFetchingService {
       } else if (error.message.includes("Gmail API error")) {
         userMessage = "Gmail API error. Please check your account permissions.";
       }
-      
+
       return {
         success: false,
         emails: [],
@@ -150,43 +150,6 @@ export class DirectEmailFetchingService {
         },
         error: userMessage,
       };
-    }
-  }
-
-  /**
-   * Test Gmail authentication before fetching emails
-   */
-  static async testGmailAuthentication(emailAccount: IEmailAccount): Promise<{ success: boolean; error?: string }> {
-    try {
-      if (emailAccount.accountType !== "gmail" || !emailAccount.oauth) {
-        return { success: false, error: "Not a Gmail OAuth account" };
-      }
-
-      // Try to get an authenticated client
-      const authClient = await this.getGmailAuthClient(emailAccount);
-      
-      // Test the authentication by making a simple API call
-      const gmail = google.gmail({ version: "v1", auth: authClient });
-      const profileResponse = await gmail.users.getProfile({ userId: "me" });
-      
-      if (profileResponse.data.emailAddress === emailAccount.emailAddress) {
-        logger.info(`Gmail authentication test successful for ${emailAccount.emailAddress}`);
-        return { success: true };
-      } else {
-        return { success: false, error: "Email address mismatch" };
-      }
-    } catch (error: any) {
-      logger.error(`Gmail authentication test failed for ${emailAccount.emailAddress}:`, error);
-      
-      if (error.message.includes("invalid_grant")) {
-        return { success: false, error: "Refresh token expired. Please re-authenticate." };
-      } else if (error.message.includes("invalid_client")) {
-        return { success: false, error: "Invalid OAuth client configuration." };
-      } else if (error.message.includes("unauthorized")) {
-        return { success: false, error: "Access revoked. Please re-authenticate." };
-      } else {
-        return { success: false, error: `Authentication failed: ${error.message}` };
-      }
     }
   }
 
@@ -256,7 +219,7 @@ export class DirectEmailFetchingService {
           pageSize,
           totalPages,
           hasNextPage: page < totalPages,
-          nextPageToken: messagesResponse.data.nextPageToken,
+          nextPageToken: messagesResponse.data.nextPageToken || undefined,
         },
       };
     } catch (error: any) {
@@ -376,21 +339,25 @@ export class DirectEmailFetchingService {
                 msg.once("end", () => {
                   if (options.includeBody) {
                     // Parse the full message
-                    simpleParser(body).then((parsed) => {
+                    simpleParser(body).then((parsed: any) => {
                       const email: DirectEmailData = {
                         messageId: `imap_${seqno}_${Date.now()}`,
                         threadId: `imap_thread_${seqno}`,
                         subject: parsed.subject || "",
                         from: {
-                          email: Array.isArray(parsed.from?.value) ? parsed.from.value[0]?.address || "" : parsed.from?.value?.address || "",
-                          name: Array.isArray(parsed.from?.value) ? parsed.from.value[0]?.name || "" : parsed.from?.value?.name || "",
+                          email: Array.isArray(parsed.from?.value)
+                            ? parsed.from.value[0]?.address || ""
+                            : parsed.from?.value?.address || "",
+                          name: Array.isArray(parsed.from?.value)
+                            ? parsed.from.value[0]?.name || ""
+                            : parsed.from?.value?.name || "",
                         },
-                        to: Array.isArray(parsed.to?.value) 
+                        to: Array.isArray(parsed.to?.value)
                           ? parsed.to.value.map((to: any) => ({
                               email: to.address || "",
                               name: to.name || "",
                             }))
-                          : parsed.to?.value 
+                          : parsed.to?.value
                             ? [{ email: parsed.to.value.address || "", name: parsed.to.value.name || "" }]
                             : [],
                         cc: Array.isArray(parsed.cc?.value)
@@ -700,7 +667,7 @@ export class DirectEmailFetchingService {
 
       // Decrypt refresh token
       const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
-      
+
       // Set credentials with refresh token
       oauth2Client.setCredentials({
         refresh_token: decryptedRefreshToken,
@@ -709,23 +676,23 @@ export class DirectEmailFetchingService {
       // Try to get a fresh access token
       try {
         const { credentials } = await oauth2Client.refreshAccessToken();
-        
+
         if (credentials.access_token) {
           // Update the account with the new access token
           await this.updateAccessToken(emailAccount, credentials.access_token);
-          
+
           oauth2Client.setCredentials({
             access_token: credentials.access_token,
             refresh_token: decryptedRefreshToken,
           });
-          
+
           logger.info(`Successfully refreshed Gmail access token for ${emailAccount.emailAddress}`);
         } else {
           throw new Error("Failed to obtain access token from refresh token");
         }
       } catch (refreshError: any) {
         logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, refreshError);
-        
+
         // If refresh fails, try to use existing access token if available
         if (emailAccount.oauth?.accessToken) {
           const decryptedAccessToken = EmailOAuthService.decryptData(emailAccount.oauth.accessToken);
@@ -733,7 +700,7 @@ export class DirectEmailFetchingService {
             access_token: decryptedAccessToken,
             refresh_token: decryptedRefreshToken,
           });
-          
+
           logger.warn(`Using existing access token for ${emailAccount.emailAddress} (refresh failed)`);
         } else {
           throw new Error(`Gmail authentication failed: ${refreshError.message}`);
@@ -754,24 +721,24 @@ export class DirectEmailFetchingService {
     try {
       // Encrypt the new access token
       const encryptedAccessToken = EmailOAuthService.encryptData(newAccessToken);
-      
+
       // Update the account with the new encrypted access token
       // Note: We need to use the model to update, not the document instance
-      const { EmailAccountModel } = await import("@/models/email-account.model");
+      const { EmailAccountModel } = await import("../models/email-account.model");
       await EmailAccountModel.updateOne(
         { _id: emailAccount._id },
         {
           $set: {
             "oauth.accessToken": encryptedAccessToken,
-          }
+          },
         }
       );
-      
+
       // Update the local object
       if (emailAccount.oauth) {
         emailAccount.oauth.accessToken = encryptedAccessToken;
       }
-      
+
       logger.info(`Updated access token for ${emailAccount.emailAddress}`);
     } catch (error: any) {
       logger.error(`Failed to update access token for ${emailAccount.emailAddress}:`, error);
