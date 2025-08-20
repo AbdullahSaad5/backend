@@ -7,10 +7,16 @@ export const BlogCategoryController = {
     try {
       const { name, description, image } = req.body;
       console.log(name, description, image);
-      const newBlogCategory = await BlogCategoryService.createCategory(name, description, image);
-      res
-        .status(StatusCodes.CREATED)
-        .json({ success: true, message: "Blog category created successfully", data: newBlogCategory });
+      const newBlogCategory = await BlogCategoryService.createCategory(
+        name,
+        description,
+        image
+      );
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Blog category created successfully",
+        data: newBlogCategory,
+      });
     } catch (error: any) {
       console.error(error);
       if (error.name === "MongoServerError" && error.code === 11000) {
@@ -21,7 +27,9 @@ export const BlogCategoryController = {
         });
       } else {
         // console.error(error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Error creating user category" });
+        res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ message: "Error creating user category" });
       }
     }
   },
@@ -30,8 +38,16 @@ export const BlogCategoryController = {
     try {
       const { id } = req.params;
       const { name, description, image } = req.body;
-      const category = await BlogCategoryService.editCategory(id, { name, description, image });
-      res.status(StatusCodes.OK).json({ success: true, message: "Category updated successfully", data: category });
+      const category = await BlogCategoryService.editCategory(id, {
+        name,
+        description,
+        image,
+      });
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Category updated successfully",
+        data: category,
+      });
     } catch (error: any) {
       // console.error("Edit Category Error:", error);
       if (error.name === "MongoServerError" && error.code === 11000) {
@@ -54,7 +70,11 @@ export const BlogCategoryController = {
     try {
       const { id } = req.params;
       const result = await BlogCategoryService.deleteCategory(id);
-      res.status(StatusCodes.OK).json({ success: true, message: "Category deleted successfully", deletedUser: result });
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Category deleted successfully",
+        deletedUser: result,
+      });
     } catch (error) {
       console.error("Delete Category Error:", error);
       res
@@ -65,9 +85,47 @@ export const BlogCategoryController = {
 
   getAllCategory: async (req: Request, res: Response) => {
     try {
-      const categories = await BlogCategoryService.getAllCategory();
-      console.log(categories);
-      res.status(StatusCodes.OK).json({ success: true, data: categories });
+      // const categories = await BlogCategoryService.getAllCategory();
+      // console.log(categories);
+      // res.status(StatusCodes.OK).json({ success: true, data: categories });
+
+      // Extract pagination and filter parameters from query string
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const sortBy = (req.query.sortBy as string) || "date";
+      const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+      const category = req.query.category as string;
+      const search = req.query.search as string;
+
+      // Validate pagination parameters
+      if (page < 1) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Page number must be greater than 0",
+        });
+      }
+
+      if (limit < 1 || limit > 100) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Limit must be between 1 and 100",
+        });
+      }
+
+      const result = await BlogCategoryService.getAllCategory({
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        category,
+        search,
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: result.blogCategories,
+        pagination: result.pagination,
+      });
     } catch (error) {
       console.error("View Categories Error:", error);
       res
@@ -81,7 +139,8 @@ export const BlogCategoryController = {
       const id = req.params.id;
       const result = await BlogCategoryService.getById(id);
       //   console.log(result);
-      if (!result) return res.status(404).json({ message: "Category not found" });
+      if (!result)
+        return res.status(404).json({ message: "Category not found" });
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error) {
       console.error("View Category Error:", error);
@@ -104,9 +163,10 @@ export const BlogCategoryController = {
       });
     } catch (error) {
       console.error("Toggle Block Category Error:", error);
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json({ success: false, message: "Error updating Blog category status" });
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating Blog category status",
+      });
     }
   },
 };
