@@ -20,6 +20,9 @@ export const ticket = (router: Router) => {
   router.delete("/:id/resolutions/:resolutionId", tickerControler.deleteResolutionById); // Delete specific resolution
   // New route for uploading images
   router.post("/:id/upload-images", uploadMultipleFiles("images", 5), tickerControler.uploadImages);
+  // Notes routes
+  router.post("/:id/notes", uploadMultipleFiles("images", 10), tickerControler.addNote);
+  router.delete("/:id/notes/:noteId", tickerControler.deleteNote);
   // Comment routes
   router.post("/:id/comments", tickerControler.addComment);
   router.patch("/:id/comments/:commentId", tickerControler.updateComment);
