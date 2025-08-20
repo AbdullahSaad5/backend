@@ -12,6 +12,9 @@ export const expenseService = {
     category: string;
     date: Date;
     image: string;
+    isSystemGenerated?: boolean;
+    systemType?: "inventory_purchase" | "payroll" | "recurring";
+    referenceId?: string;
   }): Promise<IExpense> => {
     const expense = new ExpenseModel(data);
     return expense.save();
@@ -21,42 +24,20 @@ export const expenseService = {
    * Get expense by ID
    */
   getExpenseById: async (id: string): Promise<IExpense | null> => {
-    return ExpenseModel.findById(id);
+    return ExpenseModel.findById(id).populate({
+      path: "category",
+      select: "title",
+      ref: "IExpenseModel",
+    });
   },
 
-  /**
-   * Get all expenses with optional filters
-   */
-  getAllExpenses: async (
-    filters: {
-      category?: string;
-      startDate?: Date;
-      endDate?: Date;
-      minAmount?: number;
-      maxAmount?: number;
-    } = {}
-  ): Promise<IExpense[]> => {
-    const query: any = {};
-  
-    if (filters.category) query.category = filters.category;
-    if (filters.startDate || filters.endDate) {
-      query.date = {};
-      if (filters.startDate) query.date.$gte = filters.startDate;
-      if (filters.endDate) query.date.$lte = filters.endDate;
-    }
-    if (filters.minAmount || filters.maxAmount) {
-      query.amount = {};
-      if (filters.minAmount) query.amount.$gte = filters.minAmount;
-      if (filters.maxAmount) query.amount.$lte = filters.maxAmount;
-    }
-  
-    return ExpenseModel.find(query)
-      .populate({
-        path: 'category',
-        select: 'title', // Only get the title from Category
-        model: 'IExpenseModel' // The model name you used when creating the Category model
-      })
-      .sort({ date: -1 });
+  //  Get all expenses
+  getAllExpenses: async (): Promise<IExpense[]> => {
+    const Results = await ExpenseModel.find()
+      .populate("category")
+      .populate("referenceId");
+    console.log("Results of getAllExpenseshfghf:", Results);
+    return Results;
   },
 
   /**
@@ -69,6 +50,10 @@ export const expenseService = {
     return ExpenseModel.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
+    }).populate({
+      path: "category",
+      select: "title",
+      ref: "IExpenseModel",
     });
   },
 
