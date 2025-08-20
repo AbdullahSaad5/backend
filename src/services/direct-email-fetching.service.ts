@@ -63,9 +63,9 @@ export interface DirectEmailFetchOptions {
 }
 
 export class DirectEmailFetchingService {
-  private static readonly DEFAULT_PAGE_SIZE = 20;
-  private static readonly MAX_PAGE_SIZE = 100;
-  private static readonly RATE_LIMIT_DELAY = 1000; // 1 second between requests
+  private static readonly DEFAULT_PAGE_SIZE = 50; // Changed from 100 to 50 for faster responses
+  private static readonly MAX_PAGE_SIZE = 200;
+  private static readonly RATE_LIMIT_DELAY = 100; // Reduced from 1000ms to 100ms for faster processing
 
   /**
    * Main method to fetch emails directly from any configured account
