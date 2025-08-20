@@ -38,9 +38,36 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
     type: String,
     default: "",
   },
+  isSystemGenerated: {
+    type: Boolean,
+    default: false,
+  },
+  systemType: {
+    type: String,
+    enum: ["inventory_purchase", "payroll", "recurring", "adjustment"],
+    required: function() {
+      return this.isSystemGenerated;
+    },
+  },
+  referenceId: {
+    type: Schema.Types.ObjectId,
+    required: function() {
+      return this.isSystemGenerated;
+    },
+  },
+  adjustments: [{
+    adjustmentId: {
+      type: Schema.Types.ObjectId,
+      ref: "Expense"
+    },
+    amount: Number,
+    reason: String,
+    date: {
+      type: Date,
+      default: Date.now
+    },
+    adjustedBy: String
+  }],
 });
 
-export const ExpenseModel = model<IExpense, IExpenseModel>(
-  "Expense",
-  expenseSchema
-);
+export const ExpenseModel = model<IExpense, IExpenseModel>("Expense", expenseSchema);
