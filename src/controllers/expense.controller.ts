@@ -78,15 +78,7 @@ export const expenseController = {
 
   getAllExpenses: async (req: Request, res: Response) => {
     try {
-      const { category, startDate, endDate, minAmount, maxAmount } = req.query;
-
-      const expenses = await expenseService.getAllExpenses({
-        ...(category && { category: category as string }),
-        ...(startDate && { startDate: new Date(startDate as string) }),
-        ...(endDate && { endDate: new Date(endDate as string) }),
-        ...(minAmount && { minAmount: Number(minAmount) }),
-        ...(maxAmount && { maxAmount: Number(maxAmount) }),
-      });
+      const expenses = await expenseService.getAllExpenses();
 
       res.status(StatusCodes.OK).json({
         success: true,

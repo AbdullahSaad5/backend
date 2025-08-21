@@ -168,7 +168,11 @@ export const LeadController = {
   updateLead: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = req.body as any;
+
+      // extract user performing the update for timeline tracking
+      const authHeader = (req as any).headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
 
       // Convert ObjectId fields if provided
       if (updateData.assignedTo) {
@@ -181,7 +185,17 @@ export const LeadController = {
         updateData.leadCategory = new Types.ObjectId(updateData.leadCategory);
       }
 
-      const updatedLead = await LeadService.editLead(id, updateData);
+      const userId = (() => {
+        try {
+          if (!token || typeof token !== "string") return undefined;
+          const decoded: any = jwtVerify(token);
+          return decoded?.id?.toString();
+        } catch {
+          return undefined;
+        }
+      })();
+
+      const updatedLead = await LeadService.editLead(id, updateData, userId);
 
       if (!updatedLead) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -234,19 +248,37 @@ export const LeadController = {
     try {
       const { id } = req.params;
       const { status } = req.body;
+      const authHeader = (req as any).headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
 
-      const allowedStatuses = ["new", "Contacted", "Converted", "Lost"];
+      const allowedStatuses = [
+        "new",
+        "Contacted",
+        "Converted",
+        "Lost",
+        "Cold-Lead",
+        "Hot-Lead",
+        "Bad-Contact",
+      ];
 
       if (!status || !allowedStatuses.includes(status)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message:
-            "Status is required and must be one of: new, Contacted, Converted, Lost",
+            "Status is required and must be one of: new, Contacted, Converted, Lost , Hot Lead, Cold Lead, Bad Contact",
           allowedStatuses,
         });
       }
 
-      const result = await LeadService.updateLeadStatus(id, status);
+      let userId: string | undefined = undefined;
+      try {
+        if (token && typeof token === "string") {
+          const decoded: any = jwtVerify(token);
+          userId = decoded?.id?.toString();
+        }
+      } catch {}
+
+      const result = await LeadService.updateLeadStatus(id, status, userId);
 
       if (!result) {
         return res.status(StatusCodes.NOT_FOUND).json({
@@ -322,6 +354,73 @@ export const LeadController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to get leads by assigned user",
+      });
+    }
+  },
+  addNote: async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { description } = req.body;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      if (!description?.trim()) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Note description is required",
+        });
+      }
+
+      const uploadedImages = Array.isArray(req.files)
+        ? (req.files as any[]).map((f) => f.location)
+        : [];
+
+      const updatedTicket = await LeadService.addNote(
+        id,
+        description.trim(),
+        userId,
+        uploadedImages
+      );
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note added successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error adding note",
+      });
+    }
+  },
+
+  deleteNote: async (req: Request, res: Response) => {
+    try {
+      const { id, noteId } = req.params as any;
+
+      const updatedTicket = await LeadService.deleteNote(id, noteId);
+
+      return res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Note deleted successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || "Error deleting note",
       });
     }
   },
