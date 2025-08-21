@@ -42,3 +42,4 @@ export const lead = (router: Router) => {
   //Delete notes
   router.delete("/:id/notes/:noteId", LeadController.deleteNote);
 };
+
