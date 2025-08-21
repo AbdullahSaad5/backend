@@ -134,6 +134,18 @@ export class DirectEmailFetchingService {
       // Group emails by thread if requested
       if (options.groupByThread && result.success) {
         result.threads = this.groupEmailsByThread(result.emails);
+
+        // For single emails (not part of threads), keep them in the emails array
+        // For emails that are part of threads, remove them from the emails array
+        const threadEmailIds = new Set<string>();
+        result.threads.forEach((thread) => {
+          thread.emails.forEach((email) => {
+            threadEmailIds.add(email.messageId);
+          });
+        });
+
+        // Keep only single emails (not part of any thread) in the emails array
+        result.emails = result.emails.filter((email) => !threadEmailIds.has(email.messageId));
       }
 
       // Update account stats on successful fetch
@@ -225,7 +237,7 @@ export class DirectEmailFetchingService {
           const messageResponse = await gmail.users.messages.get({
             userId: "me",
             id: message.id!,
-            format: "full",
+            format: options.includeBody ? "full" : "metadata", // Use full format only if includeBody is true
           });
 
           const email = await this.parseGmailMessageDirect(messageResponse.data, currentAccount);
@@ -1002,9 +1014,11 @@ export class DirectEmailFetchingService {
       }
     });
 
+    // Only return threads that have multiple messages (actual conversations)
+    // Single emails should be handled separately as individual emails
+    const actualThreads = Array.from(threadMap.values()).filter((thread) => thread.messageCount > 1);
+
     // Sort threads by last message date (newest first)
-    return Array.from(threadMap.values()).sort(
-      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
-    );
+    return actualThreads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }
 }
