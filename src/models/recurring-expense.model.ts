@@ -53,15 +53,59 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
     type: Number,
     min: 0,
     max: 6,
+    set: function(value: any): number | undefined {
+      if (value === null || value === undefined || value === "") {
+        return undefined;
+      }
+      
+      // If it's already a number, validate and return
+      if (typeof value === "number") {
+        return value >= 0 && value <= 6 ? value : undefined;
+      }
+      
+      // If it's a string, convert to number
+      if (typeof value === "string") {
+        const trimmed = value.trim().toLowerCase();
+        const dayMap: Record<string, number> = {
+          sunday: 0,
+          sun: 0,
+          monday: 1,
+          mon: 1,
+          tuesday: 2,
+          tue: 2,
+          tues: 2,
+          wednesday: 3,
+          wed: 3,
+          thursday: 4,
+          thu: 4,
+          thur: 4,
+          thurs: 4,
+          friday: 5,
+          fri: 5,
+          saturday: 6,
+          sat: 6,
+        };
+        
+        if (trimmed in dayMap) {
+          return dayMap[trimmed];
+        }
+        
+        // Try to parse as number
+        const asNum = Number(trimmed);
+        return Number.isInteger(asNum) && asNum >= 0 && asNum <= 6 ? asNum : undefined;
+      }
+      
+      return undefined;
+    },
   },
   dayOfMonth: {
     type: Number,
     min: 1,
     max: 31,
   },
-  isActive: {
+  isBlocked: {
     type: Boolean,
-    default: true,
+    default: false,
   },
   lastRunAt: {
     type: Date,
@@ -77,7 +121,7 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
   timestamps: true,
 });
 
-RecurringExpenseSchema.index({ isActive: 1, nextRunAt: 1 });
+RecurringExpenseSchema.index({ isBlocked: 1, nextRunAt: 1 });
 
 export const RecurringExpense = model<IRecurringExpense, IRecurringExpenseModel>(
   "RecurringExpense",

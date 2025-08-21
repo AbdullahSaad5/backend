@@ -94,27 +94,4 @@ export const expenseService = {
     return ExpenseModel.findByIdAndDelete(id);
   },
 
-  /**
-   * Get expense statistics by category
-   */
-  getExpenseStatistics: async (): Promise<
-    { category: string; total: number }[]
-  > => {
-    return ExpenseModel.aggregate([
-      {
-        $group: {
-          _id: "$category",
-          total: { $sum: "$amount" },
-        },
-      },
-      {
-        $project: {
-          category: "$_id",
-          total: 1,
-          _id: 0,
-        },
-      },
-      { $sort: { total: -1 } },
-    ]);
-  },
 };
