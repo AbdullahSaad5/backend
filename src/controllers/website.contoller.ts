@@ -43,6 +43,7 @@ export const websiteController = {
       }
 
       const result = await websiteService.getFeaturedListingsByCategoryId(categoryId);
+      console.log("Featured Listings Result:", result);
       res.status(StatusCodes.OK).json({ success: true, data: result });
     } catch (error: any) {
       console.error("Get Featured Listings By Category Error:", error);

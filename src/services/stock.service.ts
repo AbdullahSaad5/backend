@@ -2,6 +2,7 @@ import { Stock } from "@/models/stock.model";
 import { Inventory, User, Variation } from "@/models";
 import { IStock } from "@/contracts/stock.contract";
 import mongoose from "mongoose";
+import { SystemExpenseService } from "./system-expense.service";
 
 export const stockService = {
   // 📌 Add New Stock Purchase Entry
@@ -85,6 +86,34 @@ export const stockService = {
       });
 
       await stock.save();
+      
+      // 🆕 EXPENSE TRACKING: Auto-create expense record for inventory purchase
+      // This ensures all inventory purchases are tracked in the accounting system
+      // for proper financial reporting and expense calculations
+      try {
+        const totalPurchaseAmount = variations.reduce((total: number, variation: any) => {
+          return total + (variation.totalUnits * variation.purchasePricePerUnit);
+        }, 0);
+        
+        // Get product name safely - productInfo only exists on discriminated models
+        const productName = (inventoryExists as any).productInfo?.item_name?.[0]?.value || "Unknown Product";
+        
+        console.log(`📊 Creating expense record for inventory purchase: ${productName} - Amount: ${totalPurchaseAmount}`);
+        
+        await SystemExpenseService.createInventoryPurchaseExpense({
+          productName: productName,
+          totalAmount: totalPurchaseAmount,
+          stockId: (stock._id as any).toString(),
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+        });
+        
+        console.log(`✅ Expense record created successfully for stock ID: ${(stock._id as any)}`);
+      } catch (expenseError) {
+        console.error("❌ Failed to create expense for inventory purchase:", expenseError);
+        // 🚨 IMPORTANT: Don't fail the stock creation if expense creation fails
+        // This ensures business operations continue even if accounting integration has issues
+      }
+      
       return { message: "Stock saved successfully", stock };
     } else {
       // Handle non-variation inventory
@@ -120,6 +149,32 @@ export const stockService = {
       });
 
       await stock.save();
+      
+      // 🆕 EXPENSE TRACKING: Auto-create expense record for inventory purchase (non-variation)
+      // This ensures all inventory purchases are tracked in the accounting system
+      // for proper financial reporting and expense calculations
+      try {
+        const totalPurchaseAmount = totalUnits * purchasePricePerUnit;
+        
+        // Get product name safely - productInfo only exists on discriminated models
+        const productName = (inventoryExists as any).productInfo?.item_name?.[0]?.value || "Unknown Product";
+        
+        console.log(`📊 Creating expense record for inventory purchase: ${productName} - Amount: ${totalPurchaseAmount}`);
+        
+        await SystemExpenseService.createInventoryPurchaseExpense({
+          productName: productName,
+          totalAmount: totalPurchaseAmount,
+          stockId: (stock._id as any).toString(),
+          purchaseDate: purchaseDate ? new Date(purchaseDate) : new Date(),
+        });
+        
+        console.log(`✅ Expense record created successfully for stock ID: ${(stock._id as any)}`);
+      } catch (expenseError) {
+        console.error("❌ Failed to create expense for inventory purchase:", expenseError);
+        // 🚨 IMPORTANT: Don't fail the stock creation if expense creation fails
+        // This ensures business operations continue even if accounting integration has issues
+      }
+      
       return { message: "Stock saved successfully", stock };
     }
   },

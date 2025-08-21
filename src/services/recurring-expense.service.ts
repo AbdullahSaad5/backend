@@ -1,7 +1,7 @@
 import { FilterQuery } from "mongoose";
 import { IRecurringExpense, RecurrenceFrequency } from "@/contracts/recurring-expense.contract";
 import { RecurringExpenseModel } from "@/models/recurring-expense.model";
-import { ExpenseModel } from "@/models/expense.model";
+import { SystemExpenseService } from "./system-expense.service";
 
 function addMonthsSafe(date: Date, months: number, desiredDay?: number) {
   const result = new Date(date);
@@ -108,15 +108,14 @@ export const RecurringExpenseService = {
 
     await Promise.all(
       dueItems.map(async (item) => {
-        // Create a concrete Expense from this recurring template
-        await new ExpenseModel({
+        // Create a concrete Expense from this recurring template using SystemExpenseService
+        await SystemExpenseService.createRecurringExpense({
           title: item.title,
           description: item.description || item.title,
           amount: item.amount,
-          category: "68a35f896286d84c0499eff2", // Recursive Expense category
+          recurringExpenseId: item._id.toString(),
           date: now,
-          image: item.image || "",
-        }).save();
+        });
 
         // Schedule next run
         const nextRun = computeNextRunAt(

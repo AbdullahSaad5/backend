@@ -1,6 +1,7 @@
 import { ProcessedPayroll } from "../models/processedpayroll.model";
 import { IProcessedPayroll } from "../contracts/processedpayroll.contract";
 import { PayrollType } from "../contracts/payroll.contract";
+import { SystemExpenseService } from "./system-expense.service";
 
 export const processedPayrollService = {
   async createProcessedPayroll(data: Partial<IProcessedPayroll>) {
@@ -143,6 +144,37 @@ export const processedPayrollService = {
     })
       .populate("employeeId", "firstName lastName email")
       .populate("processedBy", "firstName lastName email");
+
+    // 🆕 EXPENSE TRACKING: Auto-create expense record when payroll status changes to "paid"
+    // This ensures all paid salaries are tracked in the accounting system
+    // for proper financial reporting and expense calculations
+    if (update.status === "paid" && result) {
+      try {
+        // Get employee name safely - employeeId might be populated or just an ObjectId
+        const employeeName = result.employeeId && typeof result.employeeId === 'object' && 'firstName' in result.employeeId
+          ? `${(result.employeeId as any).firstName || ""} ${(result.employeeId as any).lastName || ""}`.trim()
+          : "Unknown Employee";
+        const payrollPeriod = result.payrollPeriod?.start && result.payrollPeriod?.end 
+          ? `${new Date(result.payrollPeriod.start).toLocaleDateString()} - ${new Date(result.payrollPeriod.end).toLocaleDateString()}`
+          : "";
+
+        console.log(`📊 Creating expense record for payroll payment: ${employeeName} - Amount: ${result.netPay}`);
+
+        await SystemExpenseService.createPayrollExpense({
+          employeeName: employeeName || "Unknown Employee",
+          netPay: result.netPay || 0,
+          payrollId: (result._id as any).toString(),
+          payrollDate: new Date(),
+          payrollPeriod,
+        });
+
+        console.log(`✅ Expense record created successfully for payroll ID: ${(result._id as any)}`);
+      } catch (expenseError) {
+        console.error("❌ Failed to create expense for payroll:", expenseError);
+        // 🚨 IMPORTANT: Don't fail the payroll update if expense creation fails
+        // This ensures HR operations continue even if accounting integration has issues
+      }
+    }
 
     return result;
   },
