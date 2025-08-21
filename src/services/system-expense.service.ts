@@ -95,7 +95,6 @@ export const SystemExpenseService = {
     title: string;
     description: string;
     amount: number;
-    recurringExpenseId: string;
     date?: Date;
   }) => {
     try {

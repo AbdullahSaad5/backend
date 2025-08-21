@@ -113,7 +113,6 @@ export const RecurringExpenseService = {
           title: item.title,
           description: item.description || item.title,
           amount: item.amount,
-          recurringExpenseId: item._id.toString(),
           date: now,
         });
 
