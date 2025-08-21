@@ -64,13 +64,6 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
       return this.isSystemGenerated && this.systemType === "payroll";
     },
   },
-  recurringReferenceId: {
-    type: Schema.Types.ObjectId,
-    ref: "RecurringExpenseModel",
-    required: function() {
-      return this.isSystemGenerated && this.systemType === "recurring";
-    },
-  },
   adjustmentReferenceId: {
     type: Schema.Types.ObjectId,
     ref: "Expense",

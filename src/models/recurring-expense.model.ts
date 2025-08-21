@@ -79,7 +79,7 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
 
 RecurringExpenseSchema.index({ isActive: 1, nextRunAt: 1 });
 
-export const RecurringExpenseModel = model<IRecurringExpense, IRecurringExpenseModel>(
+export const RecurringExpense = model<IRecurringExpense, IRecurringExpenseModel>(
   "RecurringExpense",
   RecurringExpenseSchema
 );
