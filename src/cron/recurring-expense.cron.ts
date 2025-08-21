@@ -9,9 +9,10 @@ export function startRecurringExpenseCron() {
   console.log("🔄 Starting RecurringExpenseCron - runs every 5 minutes");
   task = cron.schedule("*/5 * * * *", async () => {
     try {
-      console.log(`⏰ RecurringExpenseCron: Running at ${new Date().toISOString()}`);
       const { processed } = await RecurringExpenseService.processDue();
-      console.log(`✅ RecurringExpenseCron: processed ${processed} item(s)`);
+      if (processed > 0) {
+        console.log(`✅ RecurringExpenseCron: processed ${processed} item(s)`);
+      }
     } catch (err) {
       console.error("❌ RecurringExpenseCron error:", err);
     }
