@@ -5,6 +5,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { EmailOAuthService } from "./emailOAuth.service";
+import { EmailThreadingService } from "./email-threading.service";
 
 export interface DirectEmailData {
   messageId: string;
@@ -32,9 +33,24 @@ export interface DirectEmailData {
   parentMessageId?: string;
 }
 
+export interface DirectEmailThread {
+  threadId: string;
+  subject: string;
+  participants: { email: string; name?: string }[];
+  messageCount: number;
+  unreadCount: number;
+  firstMessageAt: Date;
+  lastMessageAt: Date;
+  status: "active" | "closed" | "archived" | "spam";
+  category?: string;
+  labels?: string[];
+  emails: DirectEmailData[];
+}
+
 export interface DirectEmailFetchResult {
   success: boolean;
   emails: DirectEmailData[];
+  threads: DirectEmailThread[];
   totalCount: number;
   pagination: {
     page: number;
@@ -45,7 +61,7 @@ export interface DirectEmailFetchResult {
     nextCursor?: string;
   };
   error?: string;
-  requiresReauth?: boolean; // New field to indicate if re-authentication is needed
+  requiresReauth?: boolean;
 }
 
 export interface DirectEmailFetchOptions {
@@ -54,18 +70,19 @@ export interface DirectEmailFetchOptions {
   pageSize?: number;
   since?: Date;
   before?: Date;
-  query?: string; // Search query
-  labelIds?: string[]; // Gmail labels
+  query?: string;
+  labelIds?: string[];
   includeBody?: boolean;
   markAsRead?: boolean;
   sortBy?: "date" | "from" | "subject" | "size";
   sortOrder?: "asc" | "desc";
+  groupByThread?: boolean; // New option to group emails by thread
 }
 
 export class DirectEmailFetchingService {
-  private static readonly DEFAULT_PAGE_SIZE = 50; // Changed from 100 to 50 for faster responses
+  private static readonly DEFAULT_PAGE_SIZE = 50;
   private static readonly MAX_PAGE_SIZE = 200;
-  private static readonly RATE_LIMIT_DELAY = 100; // Reduced from 1000ms to 100ms for faster processing
+  private static readonly RATE_LIMIT_DELAY = 100;
 
   /**
    * Main method to fetch emails directly from any configured account
@@ -114,6 +131,23 @@ export class DirectEmailFetchingService {
           break;
       }
 
+      // Group emails by thread if requested
+      if (options.groupByThread && result.success) {
+        result.threads = this.groupEmailsByThread(result.emails);
+
+        // For single emails (not part of threads), keep them in the emails array
+        // For emails that are part of threads, remove them from the emails array
+        const threadEmailIds = new Set<string>();
+        result.threads.forEach((thread) => {
+          thread.emails.forEach((email) => {
+            threadEmailIds.add(email.messageId);
+          });
+        });
+
+        // Keep only single emails (not part of any thread) in the emails array
+        result.emails = result.emails.filter((email) => !threadEmailIds.has(email.messageId));
+      }
+
       // Update account stats on successful fetch
       if (result.success) {
         await this.updateAccountSuccess(emailAccount);
@@ -143,6 +177,7 @@ export class DirectEmailFetchingService {
       return {
         success: false,
         emails: [],
+        threads: [],
         totalCount: 0,
         pagination: {
           page: options.page || 1,
@@ -202,7 +237,7 @@ export class DirectEmailFetchingService {
           const messageResponse = await gmail.users.messages.get({
             userId: "me",
             id: message.id!,
-            format: "full",
+            format: options.includeBody ? "full" : "metadata", // Use full format only if includeBody is true
           });
 
           const email = await this.parseGmailMessageDirect(messageResponse.data, currentAccount);
@@ -218,6 +253,7 @@ export class DirectEmailFetchingService {
       return {
         success: true,
         emails,
+        threads: [],
         totalCount,
         pagination: {
           page,
@@ -288,6 +324,7 @@ export class DirectEmailFetchingService {
               resolve({
                 success: false,
                 emails: [],
+                threads: [],
                 totalCount: 0,
                 pagination: {
                   page: options.page || 1,
@@ -316,6 +353,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: false,
                   emails: [],
+                  threads: [],
                   totalCount: 0,
                   pagination: {
                     page,
@@ -335,6 +373,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: true,
                   emails: [],
+                  threads: [],
                   totalCount,
                   pagination: {
                     page,
@@ -435,6 +474,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: false,
                   emails: [],
+                  threads: [],
                   totalCount: 0,
                   pagination: {
                     page,
@@ -451,6 +491,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: true,
                   emails,
+                  threads: [],
                   totalCount,
                   pagination: {
                     page,
@@ -469,6 +510,7 @@ export class DirectEmailFetchingService {
           resolve({
             success: false,
             emails: [],
+            threads: [],
             totalCount: 0,
             pagination: {
               page: options.page || 1,
@@ -485,6 +527,7 @@ export class DirectEmailFetchingService {
         resolve({
           success: false,
           emails: [],
+          threads: [],
           totalCount: 0,
           pagination: {
             page: options.page || 1,
@@ -916,5 +959,66 @@ export class DirectEmailFetchingService {
     } catch (error: any) {
       logger.error(`Failed to update account success status for ${emailAccount.emailAddress}:`, error);
     }
+  }
+
+  /**
+   * Group emails by thread for conversation view
+   */
+  private static groupEmailsByThread(emails: DirectEmailData[]): DirectEmailThread[] {
+    const threadMap = new Map<string, DirectEmailThread>();
+
+    emails.forEach((email) => {
+      const threadId = email.threadId || email.messageId;
+
+      if (!threadMap.has(threadId)) {
+        // Create new thread
+        const participants = new Set<string>();
+        participants.add(email.from.email);
+        email.to.forEach((recipient) => participants.add(recipient.email));
+
+        threadMap.set(threadId, {
+          threadId,
+          subject: email.subject,
+          participants: Array.from(participants).map((email) => ({ email })),
+          messageCount: 1,
+          unreadCount: email.isRead ? 0 : 1,
+          firstMessageAt: email.date,
+          lastMessageAt: email.date,
+          status: "active",
+          category: email.category,
+          labels: email.labels,
+          emails: [email],
+        });
+      } else {
+        // Add to existing thread
+        const thread = threadMap.get(threadId)!;
+        thread.messageCount++;
+        if (!email.isRead) thread.unreadCount++;
+        if (email.date > thread.lastMessageAt) {
+          thread.lastMessageAt = email.date;
+          thread.subject = email.subject; // Use most recent subject
+        }
+        if (email.date < thread.firstMessageAt) {
+          thread.firstMessageAt = email.date;
+        }
+
+        // Add new participants
+        email.to.forEach((recipient) => {
+          const exists = thread.participants.some((p) => p.email === recipient.email);
+          if (!exists) {
+            thread.participants.push({ email: recipient.email, name: recipient.name });
+          }
+        });
+
+        thread.emails.push(email);
+      }
+    });
+
+    // Only return threads that have multiple messages (actual conversations)
+    // Single emails should be handled separately as individual emails
+    const actualThreads = Array.from(threadMap.values()).filter((thread) => thread.messageCount > 1);
+
+    // Sort threads by last message date (newest first)
+    return actualThreads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }
 }

@@ -11,21 +11,34 @@ dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
 export const bulkImportUtility = {
-  processXLSXFile: async (xlsxFilePath: string) => {
+  processXLSXFile: async (xlsxFilePathOrBuffer: string | Buffer) => {
     try {
-      addLog(`📄 Processing XLSX file: ${xlsxFilePath}`);
+      addLog(`📄 Processing XLSX file: ${typeof xlsxFilePathOrBuffer === "string" ? xlsxFilePathOrBuffer : "Buffer"}`);
 
-      if (!fs.existsSync(xlsxFilePath)) {
-        addLog(`❌ XLSX file does not exist: ${xlsxFilePath}`);
-        throw new Error(`XLSX file does not exist: ${xlsxFilePath}`);
+      let workbook: XLSX.WorkBook;
+
+      if (typeof xlsxFilePathOrBuffer === "string") {
+        // Handle local file path
+        if (!fs.existsSync(xlsxFilePathOrBuffer)) {
+          addLog(`❌ XLSX file does not exist: ${xlsxFilePathOrBuffer}`);
+          throw new Error(`XLSX file does not exist: ${xlsxFilePathOrBuffer}`);
+        }
+
+        workbook = XLSX.readFile(xlsxFilePathOrBuffer, {
+          type: "file",
+          cellDates: true,
+          raw: false,
+          WTF: true,
+        });
+      } else {
+        // Handle file buffer (for cloud storage)
+        workbook = XLSX.read(xlsxFilePathOrBuffer, {
+          type: "buffer",
+          cellDates: true,
+          raw: false,
+          WTF: true,
+        });
       }
-
-      const workbook = XLSX.readFile(xlsxFilePath, {
-        type: "file",
-        cellDates: true,
-        raw: false,
-        WTF: true,
-      });
 
       const sheetNames = workbook.SheetNames;
 
