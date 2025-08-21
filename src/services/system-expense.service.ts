@@ -96,6 +96,7 @@ export const SystemExpenseService = {
     description: string;
     amount: number;
     date?: Date;
+    recurringExpenseId?: string; // ID of the recurring expense
   }) => {
     try {
       return await expenseService.createExpense({

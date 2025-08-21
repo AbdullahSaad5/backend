@@ -752,7 +752,7 @@ export const websiteService = {
           description: description,
           condition: cleanCondition,
           pricing: {
-            costPrice: listing.selectedStockId?.costPricePerUnit || 0,
+            costPrice: listing.selectedStockId?.totalCostPrice || 0,
             purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
             retailPrice: listing.prodPricing?.retailPrice || 0,
             listingQuantity: listing.prodPricing?.listingQuantity || 0,
