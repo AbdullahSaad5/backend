@@ -13,9 +13,11 @@ export const handleBulkImport = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No file uploaded", logs: getLogs() });
     }
     addLog("📂 File uploaded, processing started...");
-    const xlsxFilePath = req.file.path;
 
-    await bulkImportUtility.processXLSXFile(xlsxFilePath);
+    // Use file buffer instead of file path for cloud storage compatibility
+    const fileBuffer = req.file.buffer;
+
+    await bulkImportUtility.processXLSXFile(fileBuffer);
 
     // Send back detailed logs and status
     res.status(200).json({

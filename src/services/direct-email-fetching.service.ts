@@ -5,6 +5,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { EmailOAuthService } from "./emailOAuth.service";
+import { EmailThreadingService } from "./email-threading.service";
 
 export interface DirectEmailData {
   messageId: string;
@@ -32,9 +33,24 @@ export interface DirectEmailData {
   parentMessageId?: string;
 }
 
+export interface DirectEmailThread {
+  threadId: string;
+  subject: string;
+  participants: { email: string; name?: string }[];
+  messageCount: number;
+  unreadCount: number;
+  firstMessageAt: Date;
+  lastMessageAt: Date;
+  status: "active" | "closed" | "archived" | "spam";
+  category?: string;
+  labels?: string[];
+  emails: DirectEmailData[];
+}
+
 export interface DirectEmailFetchResult {
   success: boolean;
   emails: DirectEmailData[];
+  threads: DirectEmailThread[];
   totalCount: number;
   pagination: {
     page: number;
@@ -45,7 +61,7 @@ export interface DirectEmailFetchResult {
     nextCursor?: string;
   };
   error?: string;
-  requiresReauth?: boolean; // New field to indicate if re-authentication is needed
+  requiresReauth?: boolean;
 }
 
 export interface DirectEmailFetchOptions {
@@ -54,18 +70,19 @@ export interface DirectEmailFetchOptions {
   pageSize?: number;
   since?: Date;
   before?: Date;
-  query?: string; // Search query
-  labelIds?: string[]; // Gmail labels
+  query?: string;
+  labelIds?: string[];
   includeBody?: boolean;
   markAsRead?: boolean;
   sortBy?: "date" | "from" | "subject" | "size";
   sortOrder?: "asc" | "desc";
+  groupByThread?: boolean; // New option to group emails by thread
 }
 
 export class DirectEmailFetchingService {
-  private static readonly DEFAULT_PAGE_SIZE = 50; // Changed from 100 to 50 for faster responses
+  private static readonly DEFAULT_PAGE_SIZE = 50;
   private static readonly MAX_PAGE_SIZE = 200;
-  private static readonly RATE_LIMIT_DELAY = 100; // Reduced from 1000ms to 100ms for faster processing
+  private static readonly RATE_LIMIT_DELAY = 100;
 
   /**
    * Main method to fetch emails directly from any configured account
@@ -77,11 +94,25 @@ export class DirectEmailFetchingService {
     try {
       logger.info(`Starting direct email fetch for account: ${emailAccount.emailAddress}`);
 
-      // Check account status
-      if (!emailAccount.isActive || emailAccount.status === "error") {
-        const errorMsg = `Email account is not active or has errors`;
-        logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
-        throw new Error(errorMsg);
+      // Check account status - be more lenient for OAuth accounts
+      if (emailAccount.oauth) {
+        // For OAuth accounts, only block if they are inactive
+        if (emailAccount.status === "inactive") {
+          const errorMsg = `Email account is inactive`;
+          logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
+          throw new Error(errorMsg);
+        }
+        // For OAuth accounts with errors, log but continue
+        if (emailAccount.status === "error") {
+          logger.warn(`Account ${emailAccount.emailAddress} has errors but attempting to fetch anyway`);
+        }
+      } else {
+        // For non-OAuth accounts, use stricter checking
+        if (!emailAccount.isActive || emailAccount.status === "error") {
+          const errorMsg = `Email account is not active or has errors`;
+          logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
+          throw new Error(errorMsg);
+        }
       }
 
       let result: DirectEmailFetchResult;
@@ -114,6 +145,23 @@ export class DirectEmailFetchingService {
           break;
       }
 
+      // Group emails by thread if requested
+      if (options.groupByThread && result.success) {
+        result.threads = this.groupEmailsByThread(result.emails);
+
+        // For single emails (not part of threads), keep them in the emails array
+        // For emails that are part of threads, remove them from the emails array
+        const threadEmailIds = new Set<string>();
+        result.threads.forEach((thread) => {
+          thread.emails.forEach((email) => {
+            threadEmailIds.add(email.messageId);
+          });
+        });
+
+        // Keep only single emails (not part of any thread) in the emails array
+        result.emails = result.emails.filter((email) => !threadEmailIds.has(email.messageId));
+      }
+
       // Update account stats on successful fetch
       if (result.success) {
         await this.updateAccountSuccess(emailAccount);
@@ -143,6 +191,7 @@ export class DirectEmailFetchingService {
       return {
         success: false,
         emails: [],
+        threads: [],
         totalCount: 0,
         pagination: {
           page: options.page || 1,
@@ -202,7 +251,7 @@ export class DirectEmailFetchingService {
           const messageResponse = await gmail.users.messages.get({
             userId: "me",
             id: message.id!,
-            format: "full",
+            format: options.includeBody ? "full" : "metadata", // Use full format only if includeBody is true
           });
 
           const email = await this.parseGmailMessageDirect(messageResponse.data, currentAccount);
@@ -218,6 +267,7 @@ export class DirectEmailFetchingService {
       return {
         success: true,
         emails,
+        threads: [],
         totalCount,
         pagination: {
           page,
@@ -288,6 +338,7 @@ export class DirectEmailFetchingService {
               resolve({
                 success: false,
                 emails: [],
+                threads: [],
                 totalCount: 0,
                 pagination: {
                   page: options.page || 1,
@@ -316,6 +367,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: false,
                   emails: [],
+                  threads: [],
                   totalCount: 0,
                   pagination: {
                     page,
@@ -335,6 +387,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: true,
                   emails: [],
+                  threads: [],
                   totalCount,
                   pagination: {
                     page,
@@ -435,6 +488,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: false,
                   emails: [],
+                  threads: [],
                   totalCount: 0,
                   pagination: {
                     page,
@@ -451,6 +505,7 @@ export class DirectEmailFetchingService {
                 resolve({
                   success: true,
                   emails,
+                  threads: [],
                   totalCount,
                   pagination: {
                     page,
@@ -469,6 +524,7 @@ export class DirectEmailFetchingService {
           resolve({
             success: false,
             emails: [],
+            threads: [],
             totalCount: 0,
             pagination: {
               page: options.page || 1,
@@ -485,6 +541,7 @@ export class DirectEmailFetchingService {
         resolve({
           success: false,
           emails: [],
+          threads: [],
           totalCount: 0,
           pagination: {
             page: options.page || 1,
@@ -506,10 +563,113 @@ export class DirectEmailFetchingService {
     options: DirectEmailFetchOptions
   ): Promise<DirectEmailFetchResult> {
     try {
-      // Implementation for Outlook API direct fetching
-      // This would be similar to Gmail but using Microsoft Graph API
-      throw new Error("Outlook API direct fetching not yet implemented");
+      logger.info(`Starting Outlook API direct fetch for ${emailAccount.emailAddress}`);
+
+      // Get access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
+      }
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, accessToken);
+        },
+      });
+
+      // Build query parameters
+      const queryParams: any = {
+        $top: options.pageSize || 50,
+        $skip: ((options.page || 1) - 1) * (options.pageSize || 50),
+        $orderby: "receivedDateTime desc",
+        $select:
+          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink",
+      };
+
+      // Add folder filter if specified
+      let endpoint = "/me/messages";
+      if (options.folder && options.folder !== "INBOX") {
+        // Map folder names to Microsoft Graph folder IDs
+        const folderMap: { [key: string]: string } = {
+          SENT: "sentitems",
+          DRAFTS: "drafts",
+          ARCHIVE: "archive",
+          SPAM: "junkemail",
+          TRASH: "deleteditems",
+        };
+
+        const folderId = folderMap[options.folder.toUpperCase()];
+        if (folderId) {
+          endpoint = `/me/mailFolders/${folderId}/messages`;
+        }
+      }
+
+      // Add date filter if specified
+      if (options.since) {
+        queryParams.$filter = `receivedDateTime ge ${options.since.toISOString()}`;
+      }
+
+      // Build query string
+      const queryString = new URLSearchParams(queryParams).toString();
+      const fullEndpoint = `${endpoint}?${queryString}`;
+
+      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
+
+      // Fetch messages from Microsoft Graph
+      const response = await graphClient.api(fullEndpoint).get();
+
+      if (!response || !response.value) {
+        logger.warn("No messages found in Outlook API response");
+        return {
+          success: true,
+          emails: [],
+          threads: [],
+          totalCount: 0,
+          pagination: {
+            page: options.page || 1,
+            pageSize: options.pageSize || 50,
+            totalPages: 0,
+            hasNextPage: false,
+          },
+        };
+      }
+
+      // Parse messages
+      const emails: DirectEmailData[] = [];
+      for (const message of response.value) {
+        try {
+          const parsedEmail = await this.parseOutlookMessageDirect(message, emailAccount);
+          emails.push(parsedEmail);
+        } catch (parseError) {
+          logger.error("Error parsing Outlook message:", parseError);
+          continue;
+        }
+      }
+
+      // Get total count for pagination
+      const countResponse = await graphClient.api("/me/messages/$count").get();
+      const totalCount = parseInt(countResponse) || 0;
+
+      const totalPages = Math.ceil(totalCount / (options.pageSize || 50));
+      const hasNextPage = (options.page || 1) < totalPages;
+
+      logger.info(`Outlook API fetch completed: ${emails.length} emails fetched`);
+
+      return {
+        success: true,
+        emails,
+        threads: [], // Add empty threads array
+        totalCount,
+        pagination: {
+          page: options.page || 1,
+          pageSize: options.pageSize || 50,
+          totalPages,
+          hasNextPage,
+        },
+      };
     } catch (error: any) {
+      logger.error("Outlook API direct fetch error:", error);
       throw new Error(`Outlook API error: ${error.message}`);
     }
   }
@@ -588,6 +748,60 @@ export class DirectEmailFetchingService {
       labels,
       inReplyTo,
       references: references ? references.split(/\s+/) : [],
+    };
+  }
+
+  /**
+   * Parse Outlook message data for direct display
+   */
+  private static async parseOutlookMessageDirect(
+    messageData: any,
+    emailAccount: IEmailAccount
+  ): Promise<DirectEmailData> {
+    const headers: any = {};
+    let textContent = "";
+    let htmlContent = "";
+    let snippet = messageData.bodyPreview || "";
+
+    if (messageData.body) {
+      if (messageData.body.contentType === "text/plain") {
+        textContent = messageData.body.content || "";
+      } else if (messageData.body.contentType === "text/html") {
+        htmlContent = messageData.body.content || "";
+      }
+    }
+
+    // Parse sender and recipients
+    const from = messageData.from?.emailAddress || messageData.from;
+    const to = messageData.toRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const cc = messageData.ccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const bcc = messageData.bccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+
+    // Extract labels and category
+    const labels = messageData.flag?.flagStatus || messageData.importance || messageData.categories || [];
+    const category = this.determineEmailCategory(labels, messageData.subject, textContent);
+
+    return {
+      messageId: messageData.id,
+      threadId: messageData.conversationId,
+      subject: messageData.subject,
+      from: {
+        email: from.emailAddress || from.address || "",
+        name: from.name || "",
+      },
+      to: to || [],
+      cc: cc || [],
+      bcc: bcc || [],
+      date: new Date(messageData.receivedDateTime),
+      textContent,
+      htmlContent,
+      snippet,
+      isRead: messageData.isRead,
+      category,
+      labels,
+      inReplyTo: messageData.inReplyTo?.id,
+      references: messageData.references,
+      parentMessageId: messageData.replyTo?.id,
     };
   }
 
@@ -877,6 +1091,58 @@ export class DirectEmailFetchingService {
   }
 
   /**
+   * Get Outlook access token
+   */
+  private static async getOutlookAccessToken(emailAccount: IEmailAccount): Promise<string | null> {
+    try {
+      if (!emailAccount.oauth?.refreshToken) {
+        throw new Error("No refresh token available for Outlook authentication");
+      }
+
+      // Import the EmailOAuthService for decryption
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      // Decrypt refresh token and client secret
+      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
+      const decryptedClientSecret = EmailOAuthService.decryptData(emailAccount.oauth.clientSecret);
+
+      // Exchange refresh token for new access token using Microsoft OAuth
+      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: emailAccount.oauth.clientId || "",
+          client_secret: decryptedClientSecret,
+          refresh_token: decryptedRefreshToken,
+          grant_type: "refresh_token",
+          scope:
+            "https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access",
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logger.error("Outlook token refresh failed:", errorData);
+        throw new Error("Failed to refresh Outlook access token");
+      }
+
+      const tokens = await tokenResponse.json();
+
+      if (tokens.access_token) {
+        logger.info(`Successfully refreshed Outlook access token for ${emailAccount.emailAddress}`);
+        return tokens.access_token;
+      } else {
+        throw new Error("No access token received from Microsoft OAuth");
+      }
+    } catch (error: any) {
+      logger.error(`Failed to get Outlook access token for ${emailAccount.emailAddress}:`, error);
+      throw new Error(`Outlook authentication failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Update account status to reflect an error
    */
   private static async updateAccountError(emailAccount: IEmailAccount, errorMessage: string) {
@@ -916,5 +1182,66 @@ export class DirectEmailFetchingService {
     } catch (error: any) {
       logger.error(`Failed to update account success status for ${emailAccount.emailAddress}:`, error);
     }
+  }
+
+  /**
+   * Group emails by thread for conversation view
+   */
+  private static groupEmailsByThread(emails: DirectEmailData[]): DirectEmailThread[] {
+    const threadMap = new Map<string, DirectEmailThread>();
+
+    emails.forEach((email) => {
+      const threadId = email.threadId || email.messageId;
+
+      if (!threadMap.has(threadId)) {
+        // Create new thread
+        const participants = new Set<string>();
+        participants.add(email.from.email);
+        email.to.forEach((recipient) => participants.add(recipient.email));
+
+        threadMap.set(threadId, {
+          threadId,
+          subject: email.subject,
+          participants: Array.from(participants).map((email) => ({ email })),
+          messageCount: 1,
+          unreadCount: email.isRead ? 0 : 1,
+          firstMessageAt: email.date,
+          lastMessageAt: email.date,
+          status: "active",
+          category: email.category,
+          labels: email.labels,
+          emails: [email],
+        });
+      } else {
+        // Add to existing thread
+        const thread = threadMap.get(threadId)!;
+        thread.messageCount++;
+        if (!email.isRead) thread.unreadCount++;
+        if (email.date > thread.lastMessageAt) {
+          thread.lastMessageAt = email.date;
+          thread.subject = email.subject; // Use most recent subject
+        }
+        if (email.date < thread.firstMessageAt) {
+          thread.firstMessageAt = email.date;
+        }
+
+        // Add new participants
+        email.to.forEach((recipient) => {
+          const exists = thread.participants.some((p) => p.email === recipient.email);
+          if (!exists) {
+            thread.participants.push({ email: recipient.email, name: recipient.name });
+          }
+        });
+
+        thread.emails.push(email);
+      }
+    });
+
+    // Only return threads that have multiple messages (actual conversations)
+    // Single emails should be handled separately as individual emails
+    const actualThreads = Array.from(threadMap.values()).filter((thread) => thread.messageCount > 1);
+
+    // Sort threads by last message date (newest first)
+    return actualThreads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
   }
 }
