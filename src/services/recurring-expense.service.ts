@@ -1,6 +1,6 @@
 import { FilterQuery } from "mongoose";
 import { IRecurringExpense, RecurrenceFrequency } from "@/contracts/recurring-expense.contract";
-import { RecurringExpenseModel } from "@/models/recurring-expense.model";
+import { RecurringExpense } from "@/models/recurring-expense.model";
 import { SystemExpenseService } from "./system-expense.service";
 
 function addMonthsSafe(date: Date, months: number, desiredDay?: number) {
@@ -73,7 +73,7 @@ export const RecurringExpenseService = {
       }
     }
 
-    const doc = new RecurringExpenseModel({
+    const doc = new RecurringExpense({
       ...data,
       nextRunAt,
     });
@@ -81,24 +81,24 @@ export const RecurringExpenseService = {
   },
 
   update: (id: string, update: Partial<IRecurringExpense>) => {
-    return RecurringExpenseModel.findByIdAndUpdate(id, update, { new: true }).populate('category', 'title');
+    return RecurringExpense.findByIdAndUpdate(id, update, { new: true }).populate('category', 'title');
   },
 
   remove: (id: string) => {
-    return RecurringExpenseModel.findByIdAndDelete(id);
+    return RecurringExpense.findByIdAndDelete(id);
   },
 
   getById: (id: string) => {
-    return RecurringExpenseModel.findById(id).populate('category', 'title');
+    return RecurringExpense.findById(id).populate('category', 'title');
   },
 
   getAll: (filter: FilterQuery<IRecurringExpense> = {}) => {
-    return RecurringExpenseModel.find(filter).populate('category', 'title').sort({ nextRunAt: 1 });
+    return RecurringExpense.find(filter).populate('category', 'title').sort({ nextRunAt: 1 });
   },
 
   processDue: async () => {
     const now = new Date();
-    const dueItems = await RecurringExpenseModel.find({
+    const dueItems = await RecurringExpense.find({
       isActive: true,
       nextRunAt: { $lte: now },
       $or: [{ endDate: null }, { endDate: { $exists: false } }, { endDate: { $gte: now } }],
@@ -107,7 +107,7 @@ export const RecurringExpenseService = {
     if (!dueItems.length) return { processed: 0 };
 
     await Promise.all(
-      dueItems.map(async (item) => {
+      dueItems.map(async (item: any) => {
         // Create a concrete Expense from this recurring template using SystemExpenseService
         await SystemExpenseService.createRecurringExpense({
           title: item.title,

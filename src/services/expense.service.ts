@@ -13,8 +13,11 @@ export const expenseService = {
     date: Date;
     image: string;
     isSystemGenerated?: boolean;
-    systemType?: "inventory_purchase" | "payroll" | "recurring";
-    referenceId?: string;
+    systemType?: "inventory_purchase" | "payroll" | "recurring" | "adjustment";
+    inventoryReferenceId?: string;
+    payrollReferenceId?: string;
+    recurringReferenceId?: string;
+    adjustmentReferenceId?: string;
   }): Promise<IExpense> => {
     const expense = new ExpenseModel(data);
     return expense.save();
@@ -24,15 +27,23 @@ export const expenseService = {
    * Get expense by ID
    */
   getExpenseById: async (id: string): Promise<IExpense | null> => {
-    return ExpenseModel.findById(id).populate("category");
+    return ExpenseModel.findById(id)
+      .populate("category")
+      .populate("inventoryReferenceId")
+      .populate("payrollReferenceId")
+      .populate("recurringReferenceId")
+      .populate("adjustmentReferenceId");
   },
 
   //  Get all expenses
   getAllExpenses: async (): Promise<IExpense[]> => {
     const Results = await ExpenseModel.find()
       .populate("category")
-      .populate("referenceId");
-    console.log("Results of getAllExpenseshfghf:", Results);
+      .populate("inventoryReferenceId")
+      .populate("payrollReferenceId")
+      .populate("recurringReferenceId")
+      .populate("adjustmentReferenceId");
+    console.log("Results of getAllExpenses with populated references:", Results);
     return Results;
   },
 
@@ -46,7 +57,7 @@ export const expenseService = {
     return ExpenseModel.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("category");
+    }).populate("category")
   },
 
   /**

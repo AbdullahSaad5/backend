@@ -40,7 +40,7 @@ export const ExpenseAdjustmentService = {
         image: "",
         isSystemGenerated: true,
         systemType: "adjustment", // Now properly supported in enum
-        referenceId: data.originalExpenseId,
+        adjustmentReferenceId: data.originalExpenseId,
       });
 
       // Update original expense with adjustment reference
@@ -76,7 +76,7 @@ export const ExpenseAdjustmentService = {
     // Get all adjustments for this expense
     const adjustments = await ExpenseModel.find({
       systemType: "adjustment",
-      referenceId: expenseId,
+      adjustmentReferenceId: expenseId,
       isSystemGenerated: true
     }).lean();
 

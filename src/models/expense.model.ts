@@ -49,10 +49,26 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
       return this.isSystemGenerated;
     },
   },
-  referenceId: {
+  // Separate reference fields for each system type
+  inventoryReferenceId: {
     type: Schema.Types.ObjectId,
+    ref: "Stock",
     required: function() {
-      return this.isSystemGenerated;
+      return this.isSystemGenerated && this.systemType === "inventory_purchase";
+    },
+  },
+  payrollReferenceId: {
+    type: Schema.Types.ObjectId,
+    ref: "ProcessedPayroll",
+    required: function() {
+      return this.isSystemGenerated && this.systemType === "payroll";
+    },
+  },
+  adjustmentReferenceId: {
+    type: Schema.Types.ObjectId,
+    ref: "Expense",
+    required: function() {
+      return this.isSystemGenerated && this.systemType === "adjustment";
     },
   },
   adjustments: [{
