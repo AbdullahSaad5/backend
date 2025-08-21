@@ -1422,6 +1422,7 @@ export class EmailAccountController {
         markAsRead = "false",
         sortBy = "date",
         sortOrder = "desc",
+        groupByThread = "false", // New parameter for thread grouping
       } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
@@ -1455,6 +1456,7 @@ export class EmailAccountController {
         markAsRead: markAsRead === "true",
         sortBy: sortBy as "date" | "from" | "subject" | "size",
         sortOrder: sortOrder as "asc" | "desc",
+        groupByThread: groupByThread === "true", // New option
       };
 
       const result = await DirectEmailFetchingService.fetchEmailsDirectly(account, options);
@@ -1465,6 +1467,7 @@ export class EmailAccountController {
         success: result.success,
         data: {
           emails: result.emails,
+          threads: result.threads || [], // Include threads in response
           totalCount: result.totalCount,
           pagination: result.pagination,
           account: {
@@ -1474,6 +1477,7 @@ export class EmailAccountController {
           },
         },
         error: result.error,
+        requiresReauth: result.requiresReauth,
       });
     } catch (error: any) {
       logger.error("Error fetching emails directly:", error);
