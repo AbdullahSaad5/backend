@@ -315,14 +315,6 @@ export class EmailOAuthService {
       const provider = EMAIL_PROVIDERS.outlook;
 
       // Exchange code for tokens
-      logger.info("Outlook OAuth: Starting token exchange", {
-        tokenUrl: provider.oauth!.tokenUrl,
-        redirectUri: `${this.REDIRECT_URI}/outlook/callback`,
-        hasClientId: !!provider.oauth!.clientId,
-        hasClientSecret: !!provider.oauth!.clientSecret,
-        hasCode: !!code,
-        scopes: provider.oauth!.scopes,
-      });
 
       const tokenResponse = await fetch(provider.oauth!.tokenUrl, {
         method: "POST",
@@ -339,16 +331,9 @@ export class EmailOAuthService {
         }),
       });
 
-      logger.info(`Outlook OAuth: Token exchange response status: ${tokenResponse.status}`);
-
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text();
-        logger.error("Outlook token exchange failed:", {
-          status: tokenResponse.status,
-          statusText: tokenResponse.statusText,
-          error: errorData,
-          headers: Object.fromEntries(tokenResponse.headers.entries()),
-        });
+
         return {
           success: false,
           error: `Failed to exchange authorization code for tokens: ${tokenResponse.status} ${tokenResponse.statusText}`,
