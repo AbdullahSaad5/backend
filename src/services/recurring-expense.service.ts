@@ -107,7 +107,7 @@ export const RecurringExpenseService = {
     if (!dueItems.length) return { processed: 0 };
 
     await Promise.all(
-      dueItems.map(async (item) => {
+      dueItems.map(async (item: any) => {
         // Create a concrete Expense from this recurring template using SystemExpenseService
         await SystemExpenseService.createRecurringExpense({
           title: item.title,

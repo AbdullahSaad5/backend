@@ -200,37 +200,45 @@ export const FinancialReportingService = {
     if (!expense) return null;
 
     // If it's a system-generated expense, fetch reference data
-    if (expense.isSystemGenerated && expense.referenceId) {
+    if (expense.isSystemGenerated) {
       let referenceData = null;
       
       switch (expense.systemType) {
         case "inventory_purchase":
           // Fetch stock details
-          const Stock = require("@/models/stock.model").Stock;
-          referenceData = await Stock.findById(expense.referenceId)
-            .populate('inventoryId', 'productInfo')
-            .lean();
+          if (expense.inventoryReferenceId) {
+            const Stock = require("@/models/stock.model").Stock;
+            referenceData = await Stock.findById(expense.inventoryReferenceId)
+              .populate('inventoryId', 'productInfo')
+              .lean();
+          }
           break;
           
         case "payroll":
           // Fetch payroll details
-          const ProcessedPayroll = require("@/models/processedpayroll.model").ProcessedPayroll;
-          referenceData = await ProcessedPayroll.findById(expense.referenceId)
-            .populate('employeeId', 'firstName lastName email')
-            .lean();
+          if (expense.payrollReferenceId) {
+            const ProcessedPayroll = require("@/models/processedpayroll.model").ProcessedPayroll;
+            referenceData = await ProcessedPayroll.findById(expense.payrollReferenceId)
+              .populate('employeeId', 'firstName lastName email')
+              .lean();
+          }
           break;
           
         case "recurring":
           // Fetch recurring expense details
-          const RecurringExpenseModel = require("@/models/recurring-expense.model").RecurringExpenseModel;
-          referenceData = await RecurringExpenseModel.findById(expense.referenceId).lean();
+          if (expense.recurringReferenceId) {
+            const RecurringExpenseModel = require("@/models/recurring-expense.model").RecurringExpenseModel;
+            referenceData = await RecurringExpenseModel.findById(expense.recurringReferenceId).lean();
+          }
           break;
           
         case "adjustment":
           // Fetch original expense details
-          referenceData = await ExpenseModel.findById(expense.referenceId)
-            .populate('category', 'title')
-            .lean();
+          if (expense.adjustmentReferenceId) {
+            referenceData = await ExpenseModel.findById(expense.adjustmentReferenceId)
+              .populate('category', 'title')
+              .lean();
+          }
           break;
       }
 

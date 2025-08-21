@@ -19,15 +19,21 @@ dotenv.config({
 
 const app: Express = express();
 
-// Connect to MongoDB
-mongoose.run();
-
-seedData()
+// Connect to MongoDB and seed data
+mongoose
+  .run()
   .then(() => {
-    console.log("Database seeded successfully.");
+    seedData()
+      .then(() => {
+        console.log("Database seeded successfully.");
+      })
+      .catch((error) => {
+        console.error("Error seeding database:", error);
+      });
   })
   .catch((error) => {
-    console.error("Error seeding database:", error);
+    console.error("Error connecting to MongoDB:", error);
+    process.exit(1);
   });
 
 app.options("*", corsMiddleware);

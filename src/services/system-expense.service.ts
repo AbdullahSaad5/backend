@@ -22,7 +22,7 @@ export const SystemExpenseService = {
       // 🛡️ DUPLICATE PREVENTION: Check if expense already exists for this stock
       const existingExpense = await ExpenseModel.findOne({
         systemType: "inventory_purchase",
-        referenceId: data.stockId,
+        inventoryReferenceId: data.stockId,
         isSystemGenerated: true
       });
 
@@ -40,7 +40,7 @@ export const SystemExpenseService = {
         image: "",
         isSystemGenerated: true,
         systemType: "inventory_purchase",
-        referenceId: data.stockId,
+        inventoryReferenceId: data.stockId,
       });
     } catch (error) {
       console.error("Error creating inventory purchase expense:", error);
@@ -62,7 +62,7 @@ export const SystemExpenseService = {
       // 🛡️ DUPLICATE PREVENTION: Check if expense already exists for this payroll
       const existingExpense = await ExpenseModel.findOne({
         systemType: "payroll",
-        referenceId: data.payrollId,
+        payrollReferenceId: data.payrollId,
         isSystemGenerated: true
       });
 
@@ -80,7 +80,7 @@ export const SystemExpenseService = {
         image: "",
         isSystemGenerated: true,
         systemType: "payroll",
-        referenceId: data.payrollId,
+        payrollReferenceId: data.payrollId,
       });
     } catch (error) {
       console.error("Error creating payroll expense:", error);
@@ -108,11 +108,28 @@ export const SystemExpenseService = {
         image: "",
         isSystemGenerated: true,
         systemType: "recurring",
-        referenceId: data.recurringExpenseId,
+        recurringReferenceId: data.recurringExpenseId,
       });
     } catch (error) {
       console.error("Error creating recurring expense:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Check if an expense already exists for a given stock ID
+   */
+  checkExistingExpense: async (stockId: string) => {
+    try {
+      const existingExpense = await ExpenseModel.findOne({
+        systemType: "inventory_purchase",
+        inventoryReferenceId: stockId,
+        isSystemGenerated: true
+      });
+      return existingExpense;
+    } catch (error) {
+      console.error("Error checking existing expense:", error);
+      return null;
     }
   },
 
