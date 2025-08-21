@@ -154,20 +154,4 @@ export const expenseController = {
       });
     }
   },
-
-  getExpenseStatistics: async (req: Request, res: Response) => {
-    try {
-      const stats = await expenseService.getExpenseStatistics();
-      res.status(StatusCodes.OK).json({
-        success: true,
-        data: stats,
-      });
-    } catch (error) {
-      console.error("Error fetching expense statistics:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to fetch expense statistics",
-      });
-    }
-  },
 };

@@ -23,7 +23,7 @@ export interface IRecurringExpense extends Document {
   dayOfMonth?: number; // 1-31 for monthly
 
   // Runtime fields
-  isActive: boolean;
+  isBlocked: boolean;
   lastRunAt?: Date | null;
   nextRunAt: Date;
 }

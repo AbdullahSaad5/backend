@@ -26,17 +26,40 @@ export class EmailOAuthService {
   private static readonly REDIRECT_URI =
     process.env.OAUTH_REDIRECT_URI || "http://localhost:5000/api/email-account/oauth";
 
+  private static initialized = false;
+
+  // Initialize the service and validate environment
+  private static initialize(): void {
+    if (!this.initialized) {
+      this.validateEnvironment();
+      this.initialized = true;
+    }
+  }
+
   // Validate environment configuration
   private static validateEnvironment(): void {
+    logger.info("EmailOAuthService: Validating environment configuration");
+
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
       logger.warn("Google OAuth credentials not configured");
+    } else {
+      logger.info("Google OAuth credentials: ✅ Configured");
     }
+
     if (!process.env.OUTLOOK_CLIENT_ID || !process.env.OUTLOOK_CLIENT_SECRET) {
       logger.warn("Outlook OAuth credentials not configured");
+    } else {
+      logger.info("Outlook OAuth credentials: ✅ Configured");
+      logger.info("Outlook Client ID:", process.env.OUTLOOK_CLIENT_ID?.substring(0, 10) + "...");
     }
+
     if (this.ENCRYPTION_KEY === "default_encryption_key_change_in_production") {
       logger.warn("Using default encryption key - change in production!");
+    } else {
+      logger.info("Encryption key: ✅ Configured");
     }
+
+    logger.info("OAuth Redirect URI:", this.REDIRECT_URI);
   }
 
   // Encrypt sensitive data
@@ -134,6 +157,8 @@ export class EmailOAuthService {
     accountName?: string,
     isPrimary?: boolean
   ): string {
+    this.initialize();
+
     const provider = EMAIL_PROVIDERS.outlook;
     const state = this.generateOAuthState(userId, "outlook", emailAddress, accountName, isPrimary);
 
@@ -279,6 +304,8 @@ export class EmailOAuthService {
     code: string,
     state: string
   ): Promise<{ success: boolean; account?: IEmailAccount; error?: string }> {
+    this.initialize();
+
     try {
       const oauthState = this.parseOAuthState(state);
       if (!oauthState) {
@@ -288,6 +315,7 @@ export class EmailOAuthService {
       const provider = EMAIL_PROVIDERS.outlook;
 
       // Exchange code for tokens
+
       const tokenResponse = await fetch(provider.oauth!.tokenUrl, {
         method: "POST",
         headers: {
@@ -299,13 +327,17 @@ export class EmailOAuthService {
           code,
           redirect_uri: `${this.REDIRECT_URI}/outlook/callback`,
           grant_type: "authorization_code",
+          scope: provider.oauth!.scopes.join(" "),
         }),
       });
 
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text();
-        logger.error("Outlook token exchange failed:", errorData);
-        return { success: false, error: "Failed to exchange authorization code for tokens" };
+
+        return {
+          success: false,
+          error: `Failed to exchange authorization code for tokens: ${tokenResponse.status} ${tokenResponse.statusText}`,
+        };
       }
 
       const tokens: OAuthTokenResponse = await tokenResponse.json();
@@ -315,17 +347,36 @@ export class EmailOAuthService {
       }
 
       // Get user info from Microsoft Graph
+      logger.info("Outlook OAuth: Attempting to get user info from Microsoft Graph");
       const userInfoResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
+          "Content-Type": "application/json",
         },
       });
 
+      logger.info(`Outlook OAuth: Microsoft Graph response status: ${userInfoResponse.status}`);
+
       if (!userInfoResponse.ok) {
-        return { success: false, error: "Failed to get user info from Microsoft Graph" };
+        const errorText = await userInfoResponse.text();
+        logger.error("Outlook OAuth: Microsoft Graph API error", {
+          status: userInfoResponse.status,
+          statusText: userInfoResponse.statusText,
+          error: errorText,
+        });
+        return {
+          success: false,
+          error: `Failed to get user info from Microsoft Graph: ${userInfoResponse.status} ${userInfoResponse.statusText}`,
+        };
       }
 
       const userInfo = await userInfoResponse.json();
+      logger.info("Outlook OAuth: Received user info from Microsoft Graph", {
+        mail: userInfo.mail,
+        userPrincipalName: userInfo.userPrincipalName,
+        displayName: userInfo.displayName,
+      });
+
       const emailAddress = userInfo.mail || userInfo.userPrincipalName || oauthState.emailAddress;
 
       if (!emailAddress) {
