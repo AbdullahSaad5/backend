@@ -549,10 +549,113 @@ export class DirectEmailFetchingService {
     options: DirectEmailFetchOptions
   ): Promise<DirectEmailFetchResult> {
     try {
-      // Implementation for Outlook API direct fetching
-      // This would be similar to Gmail but using Microsoft Graph API
-      throw new Error("Outlook API direct fetching not yet implemented");
+      logger.info(`Starting Outlook API direct fetch for ${emailAccount.emailAddress}`);
+
+      // Get access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
+      }
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, accessToken);
+        },
+      });
+
+      // Build query parameters
+      const queryParams: any = {
+        $top: options.pageSize || 50,
+        $skip: ((options.page || 1) - 1) * (options.pageSize || 50),
+        $orderby: "receivedDateTime desc",
+        $select:
+          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink",
+      };
+
+      // Add folder filter if specified
+      let endpoint = "/me/messages";
+      if (options.folder && options.folder !== "INBOX") {
+        // Map folder names to Microsoft Graph folder IDs
+        const folderMap: { [key: string]: string } = {
+          SENT: "sentitems",
+          DRAFTS: "drafts",
+          ARCHIVE: "archive",
+          SPAM: "junkemail",
+          TRASH: "deleteditems",
+        };
+
+        const folderId = folderMap[options.folder.toUpperCase()];
+        if (folderId) {
+          endpoint = `/me/mailFolders/${folderId}/messages`;
+        }
+      }
+
+      // Add date filter if specified
+      if (options.since) {
+        queryParams.$filter = `receivedDateTime ge ${options.since.toISOString()}`;
+      }
+
+      // Build query string
+      const queryString = new URLSearchParams(queryParams).toString();
+      const fullEndpoint = `${endpoint}?${queryString}`;
+
+      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
+
+      // Fetch messages from Microsoft Graph
+      const response = await graphClient.api(fullEndpoint).get();
+
+      if (!response || !response.value) {
+        logger.warn("No messages found in Outlook API response");
+        return {
+          success: true,
+          emails: [],
+          threads: [],
+          totalCount: 0,
+          pagination: {
+            page: options.page || 1,
+            pageSize: options.pageSize || 50,
+            totalPages: 0,
+            hasNextPage: false,
+          },
+        };
+      }
+
+      // Parse messages
+      const emails: DirectEmailData[] = [];
+      for (const message of response.value) {
+        try {
+          const parsedEmail = await this.parseOutlookMessageDirect(message, emailAccount);
+          emails.push(parsedEmail);
+        } catch (parseError) {
+          logger.error("Error parsing Outlook message:", parseError);
+          continue;
+        }
+      }
+
+      // Get total count for pagination
+      const countResponse = await graphClient.api("/me/messages/$count").get();
+      const totalCount = parseInt(countResponse) || 0;
+
+      const totalPages = Math.ceil(totalCount / (options.pageSize || 50));
+      const hasNextPage = (options.page || 1) < totalPages;
+
+      logger.info(`Outlook API fetch completed: ${emails.length} emails fetched`);
+
+      return {
+        success: true,
+        emails,
+        threads: [], // Add empty threads array
+        totalCount,
+        pagination: {
+          page: options.page || 1,
+          pageSize: options.pageSize || 50,
+          totalPages,
+          hasNextPage,
+        },
+      };
     } catch (error: any) {
+      logger.error("Outlook API direct fetch error:", error);
       throw new Error(`Outlook API error: ${error.message}`);
     }
   }
@@ -631,6 +734,60 @@ export class DirectEmailFetchingService {
       labels,
       inReplyTo,
       references: references ? references.split(/\s+/) : [],
+    };
+  }
+
+  /**
+   * Parse Outlook message data for direct display
+   */
+  private static async parseOutlookMessageDirect(
+    messageData: any,
+    emailAccount: IEmailAccount
+  ): Promise<DirectEmailData> {
+    const headers: any = {};
+    let textContent = "";
+    let htmlContent = "";
+    let snippet = messageData.bodyPreview || "";
+
+    if (messageData.body) {
+      if (messageData.body.contentType === "text/plain") {
+        textContent = messageData.body.content || "";
+      } else if (messageData.body.contentType === "text/html") {
+        htmlContent = messageData.body.content || "";
+      }
+    }
+
+    // Parse sender and recipients
+    const from = messageData.from?.emailAddress || messageData.from;
+    const to = messageData.toRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const cc = messageData.ccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const bcc = messageData.bccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+
+    // Extract labels and category
+    const labels = messageData.flag?.flagStatus || messageData.importance || messageData.categories || [];
+    const category = this.determineEmailCategory(labels, messageData.subject, textContent);
+
+    return {
+      messageId: messageData.id,
+      threadId: messageData.conversationId,
+      subject: messageData.subject,
+      from: {
+        email: from.emailAddress || from.address || "",
+        name: from.name || "",
+      },
+      to: to || [],
+      cc: cc || [],
+      bcc: bcc || [],
+      date: new Date(messageData.receivedDateTime),
+      textContent,
+      htmlContent,
+      snippet,
+      isRead: messageData.isRead,
+      category,
+      labels,
+      inReplyTo: messageData.inReplyTo?.id,
+      references: messageData.references,
+      parentMessageId: messageData.replyTo?.id,
     };
   }
 
@@ -916,6 +1073,58 @@ export class DirectEmailFetchingService {
     } catch (error: any) {
       logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, error);
       throw new Error(`Gmail authentication failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get Outlook access token
+   */
+  private static async getOutlookAccessToken(emailAccount: IEmailAccount): Promise<string | null> {
+    try {
+      if (!emailAccount.oauth?.refreshToken) {
+        throw new Error("No refresh token available for Outlook authentication");
+      }
+
+      // Import the EmailOAuthService for decryption
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      // Decrypt refresh token and client secret
+      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
+      const decryptedClientSecret = EmailOAuthService.decryptData(emailAccount.oauth.clientSecret);
+
+      // Exchange refresh token for new access token using Microsoft OAuth
+      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: emailAccount.oauth.clientId || "",
+          client_secret: decryptedClientSecret,
+          refresh_token: decryptedRefreshToken,
+          grant_type: "refresh_token",
+          scope:
+            "https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access",
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logger.error("Outlook token refresh failed:", errorData);
+        throw new Error("Failed to refresh Outlook access token");
+      }
+
+      const tokens = await tokenResponse.json();
+
+      if (tokens.access_token) {
+        logger.info(`Successfully refreshed Outlook access token for ${emailAccount.emailAddress}`);
+        return tokens.access_token;
+      } else {
+        throw new Error("No access token received from Microsoft OAuth");
+      }
+    } catch (error: any) {
+      logger.error(`Failed to get Outlook access token for ${emailAccount.emailAddress}:`, error);
+      throw new Error(`Outlook authentication failed: ${error.message}`);
     }
   }
 
