@@ -47,6 +47,7 @@ import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
 import { recurringExpense } from "./recurring-expense.route";
 import { financialReporting } from "./financial-reporting.route";
+import { profitReporting } from "./profit-reporting.route";
 import { guidescategory } from "./guidescategory.route";
 import { guide } from "./guide.route";
 import { faqcategory } from "./faqcategory.route";
@@ -139,6 +140,7 @@ const routes: {
   revenue,
   recurringExpense,
   financialReporting,
+  profitReporting,
   guidescategory,
   guide,
   faqcategory,

@@ -118,10 +118,10 @@ export const RecurringExpenseController = {
 
   getAll: async (req: Request, res: Response) => {
     try {
-      const { isActive } = req.query;
+      const { isBlocked } = req.query;
       const filter: any = {};
-      if (typeof isActive !== "undefined") {
-        filter.isActive = isActive === "true";
+      if (typeof isBlocked !== "undefined") {
+        filter.isBlocked = isBlocked === "false";
       }
       const items = await RecurringExpenseService.getAll(filter);
       res
@@ -136,6 +136,25 @@ export const RecurringExpenseController = {
     }
   },
 
+  toggleBlock: async (req: Request, res: Response) => {
+      try {
+        const { id } = req.params;
+        const { isBlocked } = req.body;
+        const result = await RecurringExpenseService.toggleBlock(id, isBlocked);
+        res.status(StatusCodes.OK).json({
+          success: true,
+          message: `Recurring Expense ${isBlocked ? "blocked" : "unblocked"} successfully`,
+          data: result,
+        });
+      } catch (error) {
+        console.error("Toggle Block Recurring Expense Error:", error);
+        res
+          .status(StatusCodes.INTERNAL_SERVER_ERROR)
+          .json({ success: false, message: "Error updating Recurring Expense status" });
+      }
+    },
+
+  // Optional: manual trigger for processing due items instead of wait for cron
   triggerProcess: async (_req: Request, res: Response) => {
     try {
       const result = await RecurringExpenseService.processDue();
