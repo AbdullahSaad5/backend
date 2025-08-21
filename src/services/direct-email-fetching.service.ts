@@ -94,11 +94,25 @@ export class DirectEmailFetchingService {
     try {
       logger.info(`Starting direct email fetch for account: ${emailAccount.emailAddress}`);
 
-      // Check account status
-      if (!emailAccount.isActive || emailAccount.status === "error") {
-        const errorMsg = `Email account is not active or has errors`;
-        logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
-        throw new Error(errorMsg);
+      // Check account status - be more lenient for OAuth accounts
+      if (emailAccount.oauth) {
+        // For OAuth accounts, only block if they are inactive
+        if (emailAccount.status === "inactive") {
+          const errorMsg = `Email account is inactive`;
+          logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
+          throw new Error(errorMsg);
+        }
+        // For OAuth accounts with errors, log but continue
+        if (emailAccount.status === "error") {
+          logger.warn(`Account ${emailAccount.emailAddress} has errors but attempting to fetch anyway`);
+        }
+      } else {
+        // For non-OAuth accounts, use stricter checking
+        if (!emailAccount.isActive || emailAccount.status === "error") {
+          const errorMsg = `Email account is not active or has errors`;
+          logger.warn(`${errorMsg} for account: ${emailAccount.emailAddress}`);
+          throw new Error(errorMsg);
+        }
       }
 
       let result: DirectEmailFetchResult;
