@@ -35,7 +35,7 @@ const StockSchema = new Schema<IStockModel>(
             return (this as IStockModel).isVariation;
           },
         },
-        costPricePerUnit: { type: Number, required: true, min: 0 },
+        totalCostPrice: { type: Number, required: true, min: 0 },
         retailPricePerUnit: { type: Number, required: true, min: 0 },
         purchasePricePerUnit: { type: Number, required: true, min: 0 },
         totalUnits: { type: Number, required: true, min: 0 },
@@ -58,7 +58,7 @@ const StockSchema = new Schema<IStockModel>(
       },
       min: 0,
     },
-    costPricePerUnit: {
+    totalCostPrice: {
       type: Number,
       required: function () {
         return !(this as IStockModel).isVariation;

@@ -23,7 +23,7 @@ export const seedSystemExpenseCategories = async () => {
       },
       {
         _id: new mongoose.Types.ObjectId("68a35f896286d84c0499eff2"), // Existing Recursive Expense category
-        title: "Recursive Expense", 
+        title: "Recursive Expense",
         description: "System generated category for recurring expenses",
         isSystemGenerated: true,
         isBlocked: false,
@@ -32,7 +32,7 @@ export const seedSystemExpenseCategories = async () => {
 
     for (const categoryData of systemCategories) {
       const existingCategory = await IExpenseModel.findById(categoryData._id);
-      
+
       if (!existingCategory) {
         const category = new IExpenseModel(categoryData);
         await category.save();
@@ -55,11 +55,11 @@ if (require.main === module) {
   const runSeeder = async () => {
     try {
       // Connect to MongoDB
-      await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/bavit");
+      await mongoose.connect(process.env.MONGO_URI || "mongodb://localhost:27017/bavit");
       console.log("🔌 Connected to MongoDB");
 
       await seedSystemExpenseCategories();
-      
+
       console.log("🎉 Seeding completed successfully");
       process.exit(0);
     } catch (error) {
