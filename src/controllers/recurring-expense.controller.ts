@@ -136,6 +136,7 @@ export const RecurringExpenseController = {
     }
   },
 
+  // Optional: manual trigger for processing due items instead of wait for cron
   triggerProcess: async (_req: Request, res: Response) => {
     try {
       const result = await RecurringExpenseService.processDue();

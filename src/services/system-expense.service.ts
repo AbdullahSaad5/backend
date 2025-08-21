@@ -95,7 +95,6 @@ export const SystemExpenseService = {
     title: string;
     description: string;
     amount: number;
-    recurringExpenseId: string;
     date?: Date;
   }) => {
     try {
@@ -108,7 +107,6 @@ export const SystemExpenseService = {
         image: "",
         isSystemGenerated: true,
         systemType: "recurring",
-        referenceId: data.recurringExpenseId,
       });
     } catch (error) {
       console.error("Error creating recurring expense:", error);

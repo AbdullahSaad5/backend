@@ -24,11 +24,7 @@ export const expenseService = {
    * Get expense by ID
    */
   getExpenseById: async (id: string): Promise<IExpense | null> => {
-    return ExpenseModel.findById(id).populate({
-      path: "category",
-      select: "title",
-      ref: "IExpenseModel",
-    });
+    return ExpenseModel.findById(id).populate("category");
   },
 
   //  Get all expenses
@@ -50,11 +46,7 @@ export const expenseService = {
     return ExpenseModel.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate({
-      path: "category",
-      select: "title",
-      ref: "IExpenseModel",
-    });
+    }).populate("category");
   },
 
   /**
