@@ -77,7 +77,7 @@ export const ProfitReportingService = {
       const revenues = await RevenueModel.find({
         date: { $gte: startDate, $lte: endDate },
         isBlocked: false
-      }).populate('source');
+      });
 
       // Get expenses for the date range
       const expenses = await ExpenseModel.find({
@@ -105,9 +105,12 @@ export const ProfitReportingService = {
 
       // Expense breakdown by category
       const expenseByCategory = expenses.reduce((acc: Record<string, { amount: number; isSystemGenerated: boolean }>, expense) => {
-        const categoryName = typeof expense.category === 'object' && expense.category?.title 
-          ? expense.category.title 
-          : 'Uncategorized';
+        let categoryName = 'Uncategorized';
+        
+        // Handle populated category object
+        if (expense.category && typeof expense.category === 'object' && 'title' in expense.category) {
+          categoryName = (expense.category as any).title;
+        }
         
         if (!acc[categoryName]) {
           acc[categoryName] = { amount: 0, isSystemGenerated: !!expense.isSystemGenerated };

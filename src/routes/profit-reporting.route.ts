@@ -2,6 +2,9 @@ import { Router } from "express";
 import { ProfitReportingController } from "@/controllers/profit-reporting.controller";
 
 export const profitReporting = (router: Router) => {
+  // Debug revenue data
+  router.get("/debug-revenue", ProfitReportingController.debugRevenueData);
+
   // Generate profit report for date range
   router.post("/generate", ProfitReportingController.generateProfitReport);
 
