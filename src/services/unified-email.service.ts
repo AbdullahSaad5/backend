@@ -31,6 +31,30 @@ export class UnifiedEmailService {
    */
   static async sendEmail(emailAccount: IEmailAccount, message: UnifiedEmailMessage): Promise<UnifiedEmailResponse> {
     try {
+      // Validate input parameters
+      if (!emailAccount) {
+        return {
+          success: false,
+          error: "Email account is required",
+          provider: "unknown",
+        };
+      }
+
+      if (!message || !message.to || !message.subject || !message.body) {
+        return {
+          success: false,
+          error: "Invalid message: to, subject, and body are required",
+          provider: emailAccount.oauth?.provider || "smtp",
+        };
+      }
+
+      logger.info(`Sending email via unified service`, {
+        emailAddress: emailAccount.emailAddress,
+        provider: emailAccount.oauth?.provider || "smtp",
+        subject: message.subject,
+        to: message.to,
+      });
+
       if (emailAccount.oauth?.provider === "outlook") {
         // Use Outlook service for Microsoft Graph API
         logger.info(`Using Outlook service for ${emailAccount.emailAddress}`);
@@ -49,11 +73,16 @@ export class UnifiedEmailService {
         return await this.sendSMTPEmail(emailAccount, message);
       }
     } catch (error: any) {
-      logger.error("Unified email sending failed:", error);
+      logger.error("Unified email sending failed:", {
+        error: error.message,
+        stack: error.stack,
+        emailAddress: emailAccount?.emailAddress,
+        provider: emailAccount?.oauth?.provider || "smtp",
+      });
       return {
         success: false,
         error: error.message,
-        provider: emailAccount.oauth?.provider || "smtp",
+        provider: emailAccount?.oauth?.provider || "smtp",
       };
     }
   }

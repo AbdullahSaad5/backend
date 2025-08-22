@@ -155,7 +155,7 @@ export class EmailClientController {
 
         try {
           const savedEmail = await EmailModel.create(emailData);
-          
+
           res.status(200).json({
             success: true,
             message: "Email sent successfully",
@@ -168,7 +168,7 @@ export class EmailClientController {
           });
         } catch (dbError: any) {
           logger.error("Failed to save email to database", { dbError, emailData });
-          
+
           // Email was sent but failed to save to database
           res.status(200).json({
             success: true,

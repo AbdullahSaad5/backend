@@ -72,12 +72,12 @@ export class OutlookEmailService {
 
       // Generate a unique message ID since sendMail doesn't return one
       const messageId = this.generateMessageId();
-      
+
       logger.info(`Outlook email sent successfully: ${messageId}`, {
         emailAddress: emailAccount.emailAddress,
         subject: message.subject,
         to: message.to,
-        responseStatus: response ? 'success' : 'no-response',
+        responseStatus: response ? "success" : "no-response",
         responseData: response,
       });
 
@@ -139,14 +139,14 @@ export class OutlookEmailService {
 
       // Generate a unique message ID since sendMail doesn't return one
       const messageId = this.generateMessageId();
-      
+
       logger.info(`Outlook reply sent successfully: ${messageId}`, {
         emailAddress: emailAccount.emailAddress,
         subject: message.subject,
         to: message.to,
         originalMessageId,
         conversationId: originalMessage.conversationId,
-        responseStatus: response ? 'success' : 'no-response',
+        responseStatus: response ? "success" : "no-response",
         responseData: response,
       });
 
