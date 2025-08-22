@@ -115,30 +115,36 @@ export const ProfitReportingController = {
    */
   generateTimeBasedReport: async (req: Request, res: Response) => {
     try {
-      const { startDate, endDate, period = 'monthly' } = req.body;
+      const { startDate, endDate, period = 'all-time' } = req.body;
 
-      if (!startDate || !endDate) {
+      if (!['all-time', 'daily', 'monthly', 'yearly'].includes(period)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
-          message: "Start date and end date are required"
+          message: "Period must be one of: all-time, daily, monthly, yearly"
         });
       }
 
-      if (!['daily', 'weekly', 'monthly', 'yearly'].includes(period)) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Period must be one of: daily, weekly, monthly, yearly"
-        });
-      }
+      let start: Date | undefined;
+      let end: Date | undefined;
 
-      const start = new Date(startDate);
-      const end = new Date(endDate);
+      // Only validate dates for daily and monthly periods
+      if (period === 'daily' || period === 'monthly') {
+        if (!startDate || !endDate) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Start date and end date are required for daily and monthly reports"
+          });
+        }
 
-      if (start > end) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Start date must be before end date"
-        });
+        start = new Date(startDate);
+        end = new Date(endDate);
+
+        if (start > end) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Start date must be before end date"
+          });
+        }
       }
 
       const report = await ProfitReportingService.generateTimeBasedReport(start, end, period);
@@ -164,25 +170,37 @@ export const ProfitReportingController = {
    */
   downloadProfitReportPDF: async (req: Request, res: Response) => {
     try {
-      const { startDate, endDate, reportType = 'profit' } = req.body;
+      const { startDate, endDate, reportType = 'profit', period = 'all-time' } = req.body;
 
-      if (!startDate || !endDate) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          success: false,
-          message: "Start date and end date are required"
-        });
-      }
-
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
+      let start: Date | undefined;
+      let end: Date | undefined;
       let report;
       let title;
       
       if (reportType === 'time-based') {
-        report = await ProfitReportingService.generateTimeBasedReport(start, end, req.body.period || 'monthly');
-        title = `Time-Based Financial Report (${start.toDateString()} - ${end.toDateString()})`;
+        if (period === 'daily' || period === 'monthly') {
+          if (!startDate || !endDate) {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: "Start date and end date are required for daily and monthly reports"
+            });
+          }
+          start = new Date(startDate);
+          end = new Date(endDate);
+          title = `Time-Based Financial Report (${start.toDateString()} - ${end.toDateString()})`;
+        } else {
+          title = `Time-Based Financial Report (${period})`;
+        }
+        report = await ProfitReportingService.generateTimeBasedReport(start, end, period);
       } else {
+        if (!startDate || !endDate) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Start date and end date are required"
+          });
+        }
+        start = new Date(startDate);
+        end = new Date(endDate);
         report = await ProfitReportingService.generateProfitReport(start, end);
         title = `Profit Report (${start.toDateString()} - ${end.toDateString()})`;
       }

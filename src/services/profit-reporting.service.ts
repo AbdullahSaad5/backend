@@ -38,8 +38,8 @@ export interface ProfitReportData {
 }
 
 export interface TimeBasedReport {
-  period: 'daily' | 'weekly' | 'monthly' | 'yearly';
-  dateRange: {
+  period: 'all-time' | 'daily' | 'monthly' | 'yearly';
+  dateRange?: {
     startDate: Date;
     endDate: Date;
   };
@@ -154,43 +154,53 @@ export const ProfitReportingService = {
    * Generate time-based report with trends
    */
   generateTimeBasedReport: async (
-    startDate: Date, 
-    endDate: Date, 
-    period: 'daily' | 'weekly' | 'monthly' | 'yearly' = 'monthly'
+    startDate?: Date, 
+    endDate?: Date, 
+    period: 'all-time' | 'daily' | 'monthly' | 'yearly' = 'all-time'
   ): Promise<TimeBasedReport> => {
     try {
-      const profitReport = await ProfitReportingService.generateProfitReport(startDate, endDate);
-      
+      let profitReport;
       let trends: { period: string; revenue: number; expenses: number; profit: number; }[] = [];
       
       switch (period) {
-        case 'daily':
-          trends = profitReport.dailyTrends.map(day => ({
-            period: day.date,
-            revenue: day.revenue,
-            expenses: day.expenses,
-            profit: day.profit
-          }));
-          break;
-        case 'monthly':
-          trends = profitReport.monthlyTrends.map(month => ({
-            period: month.month,
-            revenue: month.revenue,
-            expenses: month.expenses,
-            profit: month.profit
-          }));
-          break;
-        case 'weekly':
-          trends = await ProfitReportingService.getWeeklyTrends(startDate, endDate);
+        case 'all-time':
+          // Get all data without date filters
+          profitReport = await ProfitReportingService.generateAllTimeReport();
+          trends = await ProfitReportingService.getAllTimeTrends();
           break;
         case 'yearly':
-          trends = await ProfitReportingService.getYearlyTrends(startDate, endDate);
+          // Get all data without date filters for yearly trends
+          profitReport = await ProfitReportingService.generateAllTimeReport();
+          trends = await ProfitReportingService.getYearlyTrends();
+          break;
+        case 'daily':
+        case 'monthly':
+          if (!startDate || !endDate) {
+            throw new Error('Start date and end date are required for daily and monthly reports');
+          }
+          profitReport = await ProfitReportingService.generateProfitReport(startDate, endDate);
+          
+          if (period === 'daily') {
+            trends = profitReport.dailyTrends.map(day => ({
+              period: day.date,
+              revenue: day.revenue,
+              expenses: day.expenses,
+              profit: day.profit
+            }));
+          } else {
+            trends = profitReport.monthlyTrends.map(month => ({
+              period: month.month,
+              revenue: month.revenue,
+              expenses: month.expenses,
+              profit: month.profit
+            }));
+          }
           break;
       }
 
       return {
         period,
-        dateRange: { startDate, endDate },
+        dateRange: startDate && endDate ? { startDate, endDate } : undefined,
         summary: {
           totalRevenue: profitReport.totalRevenue,
           totalExpenses: profitReport.totalExpenses,
@@ -345,12 +355,16 @@ export const ProfitReportingService = {
       });
     });
 
-    return Array.from(combinedData.values()).map(item => ({
+    // Convert to array and sort by date
+    const result = Array.from(combinedData.values()).map(item => ({
       date: item.date,
       revenue: item.revenue || 0,
       expenses: item.expenses || 0,
       profit: (item.revenue || 0) - (item.expenses || 0)
     }));
+
+    // Sort by date to ensure chronological order
+    return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   },
 
   /**
@@ -420,24 +434,29 @@ export const ProfitReportingService = {
       });
     });
 
-    return Array.from(combinedData.values()).map(item => ({
+    const result = Array.from(combinedData.values()).map(item => ({
       period: item.period,
       revenue: item.revenue || 0,
       expenses: item.expenses || 0,
       profit: (item.revenue || 0) - (item.expenses || 0)
     }));
+
+    // Sort by period to ensure chronological order
+    return result.sort((a, b) => a.period.localeCompare(b.period));
   },
 
   /**
    * Get yearly trends data
    */
-  getYearlyTrends: async (startDate: Date, endDate: Date) => {
+  getYearlyTrends: async (startDate?: Date, endDate?: Date) => {
+    const matchStage: any = { isBlocked: false };
+    if (startDate && endDate) {
+      matchStage.date = { $gte: startDate, $lte: endDate };
+    }
+
     const yearlyExpenses = await ExpenseModel.aggregate([
       {
-        $match: {
-          date: { $gte: startDate, $lte: endDate },
-          isBlocked: false
-        }
+        $match: matchStage
       },
       {
         $group: {
@@ -452,10 +471,7 @@ export const ProfitReportingService = {
 
     const yearlyRevenue = await RevenueModel.aggregate([
       {
-        $match: {
-          date: { $gte: startDate, $lte: endDate },
-          isBlocked: false
-        }
+        $match: matchStage
       },
       {
         $group: {
@@ -486,11 +502,95 @@ export const ProfitReportingService = {
       });
     });
 
-    return Array.from(combinedData.values()).map(item => ({
+    const result = Array.from(combinedData.values()).map(item => ({
       period: item.period,
       revenue: item.revenue || 0,
       expenses: item.expenses || 0,
       profit: (item.revenue || 0) - (item.expenses || 0)
     }));
+
+    // Sort by period to ensure chronological order
+    return result.sort((a, b) => a.period.localeCompare(b.period));
+  },
+
+  /**
+   * Generate all-time report without date filters
+   */
+  generateAllTimeReport: async (): Promise<ProfitReportData> => {
+    try {
+      // Get all revenues
+      const revenues = await RevenueModel.find({
+        isBlocked: false
+      });
+
+      // Get all expenses
+      const expenses = await ExpenseModel.find({
+        isBlocked: false
+      }).populate('category');
+
+      // Calculate totals
+      const totalRevenue = revenues.reduce((sum, revenue) => sum + revenue.amount, 0);
+      const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+      const profit = totalRevenue - totalExpenses;
+      const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+
+      // Revenue breakdown by source
+      const revenueBySource = revenues.reduce((acc: Record<string, number>, revenue) => {
+        acc[revenue.source] = (acc[revenue.source] || 0) + revenue.amount;
+        return acc;
+      }, {});
+
+      const revenueBreakdown = Object.entries(revenueBySource).map(([source, amount]) => ({
+        source,
+        amount,
+        percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0
+      })).sort((a, b) => b.amount - a.amount);
+
+      // Expense breakdown by category
+      const expenseByCategory = expenses.reduce((acc: Record<string, { amount: number; isSystemGenerated: boolean }>, expense) => {
+        let categoryName = 'Uncategorized';
+        
+        // Handle populated category object
+        if (expense.category && typeof expense.category === 'object' && 'title' in expense.category) {
+          categoryName = (expense.category as any).title;
+        }
+        
+        if (!acc[categoryName]) {
+          acc[categoryName] = { amount: 0, isSystemGenerated: !!expense.isSystemGenerated };
+        }
+        acc[categoryName].amount += expense.amount;
+        return acc;
+      }, {});
+
+      const expenseBreakdown = Object.entries(expenseByCategory).map(([category, data]) => ({
+        category,
+        amount: data.amount,
+        percentage: totalExpenses > 0 ? (data.amount / totalExpenses) * 100 : 0,
+        isSystemGenerated: data.isSystemGenerated
+      })).sort((a, b) => b.amount - a.amount);
+
+      return {
+        dateRange: { startDate: new Date(0), endDate: new Date() },
+        totalRevenue,
+        totalExpenses,
+        profit,
+        profitMargin,
+        revenueBreakdown,
+        expenseBreakdown,
+        monthlyTrends: [],
+        dailyTrends: []
+      };
+    } catch (error) {
+      console.error('Error generating all-time report:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all-time trends data
+   */
+  getAllTimeTrends: async () => {
+    // For all-time, we'll show yearly trends
+    return await ProfitReportingService.getYearlyTrends();
   }
 };
