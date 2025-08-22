@@ -87,6 +87,12 @@ export const emailAccount = (router: Router) => {
   );
 
   router.get(
+    "/accounts/:accountId/emails-direct/:messageId",
+    // validateParams(emailAccountValidation.accountId),
+    EmailAccountController.fetchEmailDirectly
+  );
+
+  router.get(
     "/accounts/:accountId/emails",
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.getAccountEmailsWithThreads

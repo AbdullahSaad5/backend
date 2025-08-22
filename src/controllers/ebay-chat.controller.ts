@@ -248,5 +248,80 @@ export const EbayChatController: IEbayChatController = {
         }
     },
 
+    getOrderList: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log("=== GET ORDER LIST DEBUG ===");
+            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
+            
+            console.log("Seller username:", sellerUsername);
+
+            if (!sellerUsername) {
+                res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Missing seller username"
+                });
+                return;
+            }
+
+            const orders = await EbayChatService.getOrderList(sellerUsername);
+
+            res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Order list retrieved successfully",
+                data: {
+                    orders,
+                    totalOrders: orders.length
+                }
+            });
+        } catch (error: any) {
+            console.error("Error getting order list:", error);
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Failed to retrieve order list",
+                error: error.message
+            });
+        }
+    },
+
+    getEbayOrders: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log("=== GET EBAY ORDERS DEBUG ===");
+            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
+            
+            console.log("Seller username:", sellerUsername);
+            console.log("Request params:", req.params);
+            console.log("Request query:", req.query);
+
+            if (!sellerUsername) {
+                res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Missing seller username"
+                });
+                return;
+            }
+
+            console.log("Calling EbayChatService.getEbayOrdersFromAPI...");
+            const orders = await EbayChatService.getEbayOrdersFromAPI(sellerUsername);
+            console.log("Orders received:", orders?.length || 0);
+
+            res.status(StatusCodes.OK).json({
+                success: true,
+                message: "eBay orders retrieved successfully",
+                data: {
+                    orders,
+                    totalOrders: orders.length
+                }
+            });
+        } catch (error: any) {
+            console.error("Error getting eBay orders:", error);
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Failed to retrieve eBay orders",
+                error: error.message,
+                stack: error.stack
+            });
+        }
+    },
+
 
 }; 

@@ -5,7 +5,6 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { EmailOAuthService } from "./emailOAuth.service";
-import { EmailThreadingService } from "./email-threading.service";
 
 export interface DirectEmailData {
   messageId: string;
@@ -202,6 +201,81 @@ export class DirectEmailFetchingService {
         error: userFriendlyError,
         requiresReauth: error.message.includes("re-authenticate") || error.message.includes("invalid_grant"),
       };
+    }
+  }
+
+  /**
+   * Fetch a specific message from Outlook using its ID
+   */
+  static async fetchOutlookMessageById(
+    emailAccount: IEmailAccount,
+    messageId: string
+  ): Promise<DirectEmailData | null> {
+    try {
+      logger.info(`Fetching Outlook message with ID: ${messageId} for account: ${emailAccount.emailAddress}`);
+
+      // Check if account supports Outlook
+      if (emailAccount.accountType !== "outlook" && emailAccount.accountType !== "exchange") {
+        throw new Error(`Account ${emailAccount.emailAddress} does not support Outlook API`);
+      }
+
+      // Check account status
+      if (emailAccount.status === "inactive") {
+        throw new Error(`Account ${emailAccount.emailAddress} is inactive`);
+      }
+
+      // Get access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
+      }
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, accessToken);
+        },
+      });
+
+      // Build the endpoint for fetching a specific message
+      const endpoint = `/me/messages/${messageId}`;
+
+      // Define the fields to select for the message
+      // const queryParams = {
+      //   $select:
+      //     "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink,inReplyTo,references,replyTo",
+      // };
+
+      // Build query string
+      // const queryString = new URLSearchParams(queryParams).toString();
+      // const fullEndpoint = `${endpoint}?${queryString}`;
+
+      const fullEndpoint = endpoint;
+      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
+
+      // Fetch the specific message from Microsoft Graph
+      const response = await graphClient.api(fullEndpoint).get();
+
+      if (!response) {
+        logger.warn(`Message with ID ${messageId} not found in Outlook API`);
+        return null;
+      }
+
+      // Parse the message
+      // const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
+
+      // logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
+
+      return response;
+    } catch (error: any) {
+      logger.error(`Error fetching Outlook message with ID ${messageId}:`, error);
+
+      // Update account status if there's an authentication error
+      if (error.message.includes("authentication") || error.message.includes("token")) {
+        await this.updateAccountError(emailAccount, `Authentication failed: ${error.message}`);
+      }
+
+      throw new Error(`Failed to fetch Outlook message: ${error.message}`);
     }
   }
 
@@ -777,13 +851,24 @@ export class DirectEmailFetchingService {
     const cc = messageData.ccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
     const bcc = messageData.bccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
 
+    // Extract threading information
+    const conversationId = messageData.conversationId;
+    const inReplyTo = messageData.inReplyTo;
+    const references = messageData.references || [];
+
+    // Determine if this is a reply
+    const isReply = this.isOutlookReply(messageData.subject, inReplyTo, references);
+
+    // Extract thread ID (use conversationId for Outlook)
+    const threadId = conversationId || this.generateOutlookThreadId(messageData);
+
     // Extract labels and category
     const labels = messageData.flag?.flagStatus || messageData.importance || messageData.categories || [];
     const category = this.determineEmailCategory(labels, messageData.subject, textContent);
 
     return {
       messageId: messageData.id,
-      threadId: messageData.conversationId,
+      threadId,
       subject: messageData.subject,
       from: {
         email: from.emailAddress || from.address || "",
@@ -799,10 +884,68 @@ export class DirectEmailFetchingService {
       isRead: messageData.isRead,
       category,
       labels,
-      inReplyTo: messageData.inReplyTo?.id,
-      references: messageData.references,
+      inReplyTo,
+      references,
       parentMessageId: messageData.replyTo?.id,
+      // Add Outlook-specific fields
+      // conversationId,
+      // isReply,
     };
+  }
+
+  /**
+   * Check if Outlook message is a reply
+   */
+  private static isOutlookReply(subject: string, inReplyTo: string, references: string[]): boolean {
+    // Check subject for reply indicators
+    const replyPatterns = [/^re:\s*/i, /^re\[.*?\]:\s*/i, /^re\s*\(.*?\):\s*/i];
+
+    const hasReplySubject = replyPatterns.some((pattern) => pattern.test(subject));
+
+    // Check for threading headers
+    const hasThreadingHeaders = inReplyTo || (references && references.length > 0);
+
+    return Boolean(hasReplySubject || hasThreadingHeaders);
+  }
+
+  /**
+   * Generate thread ID for Outlook messages when conversationId is not available
+   */
+  private static generateOutlookThreadId(messageData: any): string {
+    // Try to generate a consistent thread ID based on subject and sender
+    const subject = messageData.subject || "";
+    const fromEmail = messageData.from?.emailAddress?.address || messageData.from?.address || "";
+
+    if (subject && fromEmail) {
+      // Remove reply prefixes and normalize subject
+      const cleanSubject = subject
+        .replace(/^(re:|fwd?:|re\[.*?\]:|re\s*\(.*?\):)\s*/gi, "")
+        .trim()
+        .toLowerCase();
+
+      // Create a hash-like thread ID
+      const threadKey = `${cleanSubject}_${fromEmail}`;
+      return `outlook_thread_${this.hashString(threadKey)}`;
+    }
+
+    // Fallback to message ID
+    return `outlook_thread_${messageData.id || Date.now()}`;
+  }
+
+  /**
+   * Simple string hashing function
+   */
+  private static hashString(str: string): string {
+    let hash = 0;
+    if (str.length === 0) return hash.toString();
+
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    return Math.abs(hash).toString(36);
   }
 
   /**

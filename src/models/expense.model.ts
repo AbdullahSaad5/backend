@@ -22,7 +22,7 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
   },
   category: {
     type: Schema.Types.ObjectId,
-    ref:"IExpenseModel",
+    ref: "ExpenseCategory",
     required: [true, "Category is required"],
   },
   date: {

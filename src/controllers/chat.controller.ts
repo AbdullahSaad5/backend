@@ -471,6 +471,33 @@ export const ChatController = {
     }
   },
 
+  markGroupConversationAsRead: async (req: Request, res: Response) => {
+    try {
+      const { groupId } = req.params;
+      const userId = req.context?.user?.id;
+
+      if (!userId) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          success: false,
+          message: "Authentication required"
+        });
+      }
+
+      await ChatService.markGroupConversationAsRead(userId, groupId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Group conversation marked as read"
+      });
+    } catch (error) {
+      console.error("Mark group conversation as read error:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark group conversation as read"
+      });
+    }
+  },
+
   editMessage: async (req: Request, res: Response) => {
     try {
       const { messageId } = req.params;

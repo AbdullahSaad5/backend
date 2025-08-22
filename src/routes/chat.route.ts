@@ -23,6 +23,7 @@ export const chat = (router: Router) => {
   router.get("/history/:userId", ChatController.getChatHistory);
   router.patch("/messages/:messageId/read", ChatController.markAsRead);
   router.patch("/conversations/:userId/read", ChatController.markConversationAsRead);
+  router.patch("/conversations/group/:groupId/read", ChatController.markGroupConversationAsRead);
   router.patch("/messages/:messageId", ChatController.editMessage);
   router.delete("/messages/:messageId", ChatController.deleteMessage);
   router.post("/messages/:messageId/reactions", ChatController.addReaction);

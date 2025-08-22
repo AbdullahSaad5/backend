@@ -71,6 +71,115 @@ export class EmailThreadingService {
   }
 
   /**
+   * Enhanced thread finding for Outlook accounts using conversationId
+   */
+  static async findOrCreateOutlookThread(email: IEmail): Promise<string> {
+    try {
+      // For Outlook, conversationId is the primary thread identifier
+      if (email.threadId) {
+        const existingThread = await EmailThreadModel.findOne({
+          threadId: email.threadId,
+          accountId: email.accountId,
+        });
+
+        if (existingThread) {
+          await this.updateThread(existingThread, email);
+          return existingThread.threadId;
+        }
+      }
+
+      // Check if this is a reply by looking at subject patterns
+      const isReply = this.isReplyEmail(email.subject);
+
+      if (isReply) {
+        // Try to find the original thread by removing "Re:" prefix
+        const originalSubject = this.getOriginalSubject(email.subject);
+        const threadMatch = await this.findOutlookThreadBySubject(email, originalSubject);
+
+        if (threadMatch) {
+          await this.updateThread(threadMatch.existingThread!, email);
+          return threadMatch.threadId;
+        }
+      }
+
+      // Check References header for Outlook threading
+      if (email.references && email.references.length > 0) {
+        const threadMatch = await this.findThreadByReferences(email);
+        if (threadMatch) {
+          await this.updateThread(threadMatch.existingThread!, email);
+          return threadMatch.threadId;
+        }
+      }
+
+      // Check In-Reply-To header
+      if (email.inReplyTo) {
+        const threadMatch = await this.findThreadByInReplyTo(email);
+        if (threadMatch) {
+          await this.updateThread(threadMatch.existingThread!, email);
+          return threadMatch.threadId;
+        }
+      }
+
+      // Create new thread
+      return await this.createNewThread(email);
+    } catch (error: any) {
+      logger.error("Error in findOrCreateOutlookThread:", error);
+      return await this.createNewThread(email);
+    }
+  }
+
+  /**
+   * Check if email subject indicates it's a reply
+   */
+  private static isReplyEmail(subject: string): boolean {
+    const replyPatterns = [/^re:\s*/i, /^re\[.*?\]:\s*/i, /^re\s*\(.*?\):\s*/i];
+
+    return replyPatterns.some((pattern) => pattern.test(subject));
+  }
+
+  /**
+   * Extract original subject from reply subject
+   */
+  private static getOriginalSubject(subject: string): string {
+    return subject
+      .replace(/^re:\s*/i, "")
+      .replace(/^re\[.*?\]:\s*/i, "")
+      .replace(/^re\s*\(.*?\):\s*/i, "");
+  }
+
+  /**
+   * Find Outlook thread by subject (for replies)
+   */
+  private static async findOutlookThreadBySubject(
+    email: IEmail,
+    originalSubject: string
+  ): Promise<ThreadMatchResult | null> {
+    try {
+      // Look for threads with the original subject from the same sender
+      const existingThread = await EmailThreadModel.findOne({
+        accountId: email.accountId,
+        subject: originalSubject,
+        "participants.email": email.from.email,
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
+      });
+
+      if (existingThread) {
+        return {
+          threadId: existingThread.threadId,
+          confidence: 0.9,
+          matchType: "subject_sender",
+          existingThread,
+        };
+      }
+
+      return null;
+    } catch (error: any) {
+      logger.error("Error finding Outlook thread by subject:", error);
+      return null;
+    }
+  }
+
+  /**
    * Find recent duplicate threads (within last 24 hours)
    */
   private static async findRecentDuplicateThread(email: IEmail): Promise<IEmailThread | null> {

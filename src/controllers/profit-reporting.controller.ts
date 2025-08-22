@@ -1,10 +1,71 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ProfitReportingService } from "@/services/profit-reporting.service";
+import { RevenueModel } from "@/models/revenue.model";
 import PDFDocument from 'pdfkit';
 import { Readable } from 'stream';
 
 export const ProfitReportingController = {
+  /**
+   * @desc    Debug revenue data
+   * @route   GET /api/profit-reports/debug-revenue
+   * @access  Private/Admin
+   */
+  debugRevenueData: async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      let filter: any = {};
+      if (startDate && endDate) {
+        filter.date = { 
+          $gte: new Date(startDate as string), 
+          $lte: new Date(endDate as string) 
+        };
+      }
+      
+      // Get all revenues (including blocked ones for debugging)
+      const allRevenues = await RevenueModel.find(filter).sort({ date: -1 }).limit(10);
+      const activeRevenues = await RevenueModel.find({ ...filter, isBlocked: false }).sort({ date: -1 }).limit(10);
+      
+      // Get revenue counts
+      const totalCount = await RevenueModel.countDocuments(filter);
+      const activeCount = await RevenueModel.countDocuments({ ...filter, isBlocked: false });
+      const blockedCount = await RevenueModel.countDocuments({ ...filter, isBlocked: true });
+      
+      // Get date range info
+      const earliestRevenue = await RevenueModel.findOne({}).sort({ date: 1 });
+      const latestRevenue = await RevenueModel.findOne({}).sort({ date: -1 });
+      
+      res.status(StatusCodes.OK).json({
+        success: true,
+        debug: {
+          filter,
+          counts: {
+            total: totalCount,
+            active: activeCount,
+            blocked: blockedCount
+          },
+          dateRange: {
+            earliest: earliestRevenue?.date,
+            latest: latestRevenue?.date,
+            searchStart: startDate,
+            searchEnd: endDate
+          },
+          sampleRevenues: {
+            all: allRevenues,
+            active: activeRevenues
+          }
+        }
+      });
+    } catch (error) {
+      console.error("Error debugging revenue data:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to debug revenue data"
+      });
+    }
+  },
+
   /**
    * @desc    Generate profit report for date range
    * @route   POST /api/profit-reports/generate

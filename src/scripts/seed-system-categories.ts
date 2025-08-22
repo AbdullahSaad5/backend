@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IExpenseModel } from "@/models/expensecategory.model";
+import { ExpenseCategory } from "@/models/expensecategory.model";
 
 export const seedSystemExpenseCategories = async () => {
   try {
@@ -31,10 +31,10 @@ export const seedSystemExpenseCategories = async () => {
     ];
 
     for (const categoryData of systemCategories) {
-      const existingCategory = await IExpenseModel.findById(categoryData._id);
+      const existingCategory = await ExpenseCategory.findById(categoryData._id);
 
       if (!existingCategory) {
-        const category = new IExpenseModel(categoryData);
+        const category = new ExpenseCategory(categoryData);
         await category.save();
         console.log(`✅ Created system category: ${categoryData.title} (${categoryData._id})`);
       } else {
