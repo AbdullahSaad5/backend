@@ -219,6 +219,17 @@ const seedData = async () => {
 
       "MANAGE_DOCUMENTS",
 
+      "MANAGE_ACCOUNTING",
+      "ADD_EXPENSE_CATEGORY",
+      "VIEW_EXPENSE_CATEGORY",
+      "VIEW_RECURRING_EXPENSE",
+      "ADD_RECURRING_EXPENSE",
+      "ADD_EXPENSE",
+      "VIEW_EXPENSE",
+      "VIEW_REVENUE",
+      "ADD_REVENUE",
+      "VIEW_REPORT",
+
       // "MANAGE_POLICIES",
       // "VIEW_CUSTOM_POLICIES",
       // "ADD_CUSTOM_POLICIES",
@@ -469,7 +480,7 @@ const seedData = async () => {
 
   // Seed system expense categories
   await seedSystemExpenseCategories();
-  
+
   console.log("Seeder completed.");
 };
 
