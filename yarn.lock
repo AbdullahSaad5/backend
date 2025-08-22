@@ -6160,7 +6160,7 @@ pause@0.0.1:
 
 pdfkit@^0.17.1:
   version "0.17.1"
-  resolved "https://registry.npmjs.org/pdfkit/-/pdfkit-0.17.1.tgz"
+  resolved "https://registry.yarnpkg.com/pdfkit/-/pdfkit-0.17.1.tgz#df00ec822fa56d40a235d7493cba841dedba2e12"
   integrity sha512-Kkf1I9no14O/uo593DYph5u3QwiMfby7JsBSErN1WqeyTgCBNJE3K4pXBn3TgkdKUIVu+buSl4bYUNC+8Up4xg==
   dependencies:
     crypto-js "^4.2.0"
