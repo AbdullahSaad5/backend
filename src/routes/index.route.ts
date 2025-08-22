@@ -86,7 +86,7 @@ import { Comment } from "./comment.route";
 import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
 import { website } from "./website.route";
-
+import { deals } from "./deal.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -176,6 +176,7 @@ const routes: {
   globalPayrollSettings,
   multiInstanceGmail,
   website,
+  deals,
 };
 
 // Loop through all routes and pass the router to each route

@@ -23,7 +23,7 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
   },
   category: {
     type: Schema.Types.ObjectId,
-    ref: "IExpenseModel", // Expense Category model
+    ref: "ExpenseCategory", // Expense Category model
     required: [true, "Category is required"],
   },
   image: {
