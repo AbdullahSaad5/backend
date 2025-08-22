@@ -693,7 +693,7 @@ export class EmailAccountController {
 
           // Group emails by threadId
           const emailGroups = new Map<string, any[]>();
-          emails.forEach(email => {
+          emails.forEach((email) => {
             if (email.threadId) {
               if (!emailGroups.has(email.threadId)) {
                 emailGroups.set(email.threadId, []);
@@ -705,11 +705,11 @@ export class EmailAccountController {
           // Convert groups to thread objects
           threads = Array.from(emailGroups.entries()).map(([threadId, threadEmails]) => {
             const latestEmail = threadEmails[0]; // Already sorted by receivedAt desc
-            const unreadCount = threadEmails.filter(e => !e.isRead).length;
-            
+            const unreadCount = threadEmails.filter((e) => !e.isRead).length;
+
             // Get unique participants from all emails in thread
             const participants = new Map<string, { email: string; name?: string }>();
-            threadEmails.forEach(email => {
+            threadEmails.forEach((email) => {
               // Add sender
               if (email.from) {
                 participants.set(email.from.email, { email: email.from.email, name: email.from.name });
@@ -733,13 +733,13 @@ export class EmailAccountController {
               status: "active",
               latestEmail: {
                 ...latestEmail.toObject(),
-                date: latestEmail.receivedAt // Ensure date field is present for frontend
+                date: latestEmail.receivedAt, // Ensure date field is present for frontend
               },
-              emails: threadEmails.map(email => ({
+              emails: threadEmails.map((email) => ({
                 ...email.toObject(),
-                date: email.receivedAt // Ensure date field is present for frontend
+                date: email.receivedAt, // Ensure date field is present for frontend
               })),
-              accountId: account._id
+              accountId: account._id,
             };
           });
 
@@ -785,9 +785,9 @@ export class EmailAccountController {
           const totalCount = await EmailModel.countDocuments(fallbackFilter);
 
           // Transform emails to include date field for frontend compatibility
-          const transformedFallbackEmails = fallbackEmails.map(email => ({
+          const transformedFallbackEmails = fallbackEmails.map((email) => ({
             ...email.toObject(),
-            date: email.receivedAt // Ensure date field is present for frontend
+            date: email.receivedAt, // Ensure date field is present for frontend
           }));
 
           res.json({
@@ -862,9 +862,9 @@ export class EmailAccountController {
         console.log(`📧 Found ${emails.length} individual emails for account ${account.emailAddress}`);
 
         // Transform emails to include date field for frontend compatibility
-        const transformedEmails = emails.map(email => ({
+        const transformedEmails = emails.map((email) => ({
           ...email.toObject(),
-          date: email.receivedAt // Ensure date field is present for frontend
+          date: email.receivedAt, // Ensure date field is present for frontend
         }));
 
         res.json({
@@ -934,9 +934,9 @@ export class EmailAccountController {
       }).sort({ receivedAt: 1 }); // Chronological order for thread view
 
       // Transform emails to include date field for frontend compatibility
-      const transformedEmails = emails.map(email => ({
+      const transformedEmails = emails.map((email) => ({
         ...email.toObject(),
-        date: email.receivedAt // Ensure date field is present for frontend
+        date: email.receivedAt, // Ensure date field is present for frontend
       }));
 
       res.json({
@@ -1510,6 +1510,46 @@ export class EmailAccountController {
       res.status(500).json({
         success: false,
         message: "Failed to fetch emails",
+        error: error.message,
+      });
+    }
+  }
+
+  static async fetchEmailDirectly(req: Request, res: Response) {
+    console.log("🔄 FETCH EMAIL DIRECTLY REQUEST");
+    try {
+      const { accountId, messageId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      const result = await DirectEmailFetchingService.fetchOutlookMessageById(account, messageId);
+
+      res.json({
+        success: result ? true : false,
+        data: result,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching email directly:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch email",
         error: error.message,
       });
     }

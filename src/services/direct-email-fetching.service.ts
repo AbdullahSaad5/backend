@@ -205,6 +205,81 @@ export class DirectEmailFetchingService {
   }
 
   /**
+   * Fetch a specific message from Outlook using its ID
+   */
+  static async fetchOutlookMessageById(
+    emailAccount: IEmailAccount,
+    messageId: string
+  ): Promise<DirectEmailData | null> {
+    try {
+      logger.info(`Fetching Outlook message with ID: ${messageId} for account: ${emailAccount.emailAddress}`);
+
+      // Check if account supports Outlook
+      if (emailAccount.accountType !== "outlook" && emailAccount.accountType !== "exchange") {
+        throw new Error(`Account ${emailAccount.emailAddress} does not support Outlook API`);
+      }
+
+      // Check account status
+      if (emailAccount.status === "inactive") {
+        throw new Error(`Account ${emailAccount.emailAddress} is inactive`);
+      }
+
+      // Get access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
+      }
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, accessToken);
+        },
+      });
+
+      // Build the endpoint for fetching a specific message
+      const endpoint = `/me/messages/${messageId}`;
+
+      // Define the fields to select for the message
+      // const queryParams = {
+      //   $select:
+      //     "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink,inReplyTo,references,replyTo",
+      // };
+
+      // Build query string
+      // const queryString = new URLSearchParams(queryParams).toString();
+      // const fullEndpoint = `${endpoint}?${queryString}`;
+
+      const fullEndpoint = endpoint;
+      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
+
+      // Fetch the specific message from Microsoft Graph
+      const response = await graphClient.api(fullEndpoint).get();
+
+      if (!response) {
+        logger.warn(`Message with ID ${messageId} not found in Outlook API`);
+        return null;
+      }
+
+      // Parse the message
+      // const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
+
+      // logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
+
+      return response;
+    } catch (error: any) {
+      logger.error(`Error fetching Outlook message with ID ${messageId}:`, error);
+
+      // Update account status if there's an authentication error
+      if (error.message.includes("authentication") || error.message.includes("token")) {
+        await this.updateAccountError(emailAccount, `Authentication failed: ${error.message}`);
+      }
+
+      throw new Error(`Failed to fetch Outlook message: ${error.message}`);
+    }
+  }
+
+  /**
    * Direct Gmail API fetching without database storage
    */
   private static async fetchFromGmailAPIDirect(
@@ -813,8 +888,8 @@ export class DirectEmailFetchingService {
       references,
       parentMessageId: messageData.replyTo?.id,
       // Add Outlook-specific fields
-      conversationId,
-      isReply,
+      // conversationId,
+      // isReply,
     };
   }
 
@@ -830,7 +905,7 @@ export class DirectEmailFetchingService {
     // Check for threading headers
     const hasThreadingHeaders = inReplyTo || (references && references.length > 0);
 
-    return hasReplySubject || hasThreadingHeaders;
+    return Boolean(hasReplySubject || hasThreadingHeaders);
   }
 
   /**
