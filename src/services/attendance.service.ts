@@ -6,31 +6,48 @@ import { Location } from "@/models/location.model";
 import { Shift } from "@/models/workshift.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 import { Workmode } from "@/models/workmode.model";
+import { CronProcessingLog } from "@/models/cron-processing-log.model";
 
-// Simple in-memory processing log to prevent duplicate processing
-// In production, consider using a database table for this
-const processingLog = new Map<string, number>();
+// Helper function to check if already processed using database
+const isAlreadyProcessed = async (
+  jobType: string,
+  employeeId: string,
+  shiftId: string,
+  date: string
+): Promise<boolean> => {
+  try {
+    const existingLog = await CronProcessingLog.findOne({
+      jobType,
+      employeeId,
+      shiftId,
+      date,
+    });
 
-// Helper function to create a unique processing key
-const createProcessingKey = (employeeId: string, shiftId: string, date: string): string => {
-  return `${employeeId}-${shiftId}-${date}`;
-};
-
-// Helper function to check if already processed (within last 24 hours)
-const isAlreadyProcessed = (key: string): boolean => {
-  const lastProcessed = processingLog.get(key);
-  const now = Date.now();
-  const twentyFourHours = 24 * 60 * 60 * 1000;
-
-  if (!lastProcessed || now - lastProcessed > twentyFourHours) {
+    return !!existingLog;
+  } catch (error) {
+    console.error("Error checking processing log:", error);
+    // If there's an error checking, assume not processed to be safe
     return false;
   }
-  return true;
 };
 
-// Helper function to mark as processed
-const markAsProcessed = (key: string): void => {
-  processingLog.set(key, Date.now());
+// Helper function to mark as processed using database
+const markAsProcessed = async (jobType: string, employeeId: string, shiftId: string, date: string): Promise<void> => {
+  try {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // Expire after 24 hours
+
+    await CronProcessingLog.create({
+      jobType,
+      employeeId,
+      shiftId,
+      date,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error("Error marking as processed:", error);
+    // Don't throw error here as it would prevent the main operation
+  }
 };
 
 // Helper function to calculate grace period end for a shift
@@ -224,6 +241,42 @@ function calculateOvertime(record: any) {
 }
 
 export const attendanceService = {
+  // Clean up duplicate attendance records (run this once after deploying the fix)
+  cleanupDuplicateRecords: async () => {
+    try {
+      console.log("Starting cleanup of duplicate attendance records...");
+
+      // Find all attendance records
+      const allAttendance = await Attendance.find({}).sort({ employeeId: 1, date: 1, createdAt: 1 });
+
+      const duplicates = [];
+      const seen = new Set();
+
+      for (const record of allAttendance) {
+        const key = `${record.employeeId}-${record.date.toISOString().split("T")[0]}`;
+
+        if (seen.has(key)) {
+          duplicates.push(record._id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      if (duplicates.length > 0) {
+        console.log(`Found ${duplicates.length} duplicate records to remove`);
+        await Attendance.deleteMany({ _id: { $in: duplicates } });
+        console.log(`Successfully removed ${duplicates.length} duplicate records`);
+      } else {
+        console.log("No duplicate records found");
+      }
+
+      return { success: true, removedCount: duplicates.length };
+    } catch (error: any) {
+      console.error("Error cleaning up duplicate records:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Get employee punch-in details by employee ID
   getPunchInDetails: async (employeeId: string) => {
     try {
@@ -1203,6 +1256,8 @@ const isWeekend = (date: Date): boolean => {
  * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const markAbsentForUsers = async () => {
+  // GRACE_MINUTES: Grace period after shift end before marking as absent
+  // This is used to determine when to process absence marking
   const GRACE_MINUTES = 120;
   const now = new Date();
 
@@ -1227,15 +1282,15 @@ export const markAbsentForUsers = async () => {
 
         // Check if this shift ended before the current cron run
         if (now >= gracePeriodEnd) {
-          // Create unique processing key to prevent duplicates
-          const processingKey = createProcessingKey(
-            employeeId.toString(),
-            (shift._id as Types.ObjectId).toString(),
-            shiftDate.toISOString().split("T")[0]
-          );
-
           // Check if already processed
-          if (isAlreadyProcessed(processingKey)) {
+          if (
+            await isAlreadyProcessed(
+              "markAbsent",
+              employeeId.toString(),
+              (shift._id as Types.ObjectId).toString(),
+              shiftDate.toISOString().split("T")[0]
+            )
+          ) {
             continue;
           }
 
@@ -1264,7 +1319,12 @@ export const markAbsentForUsers = async () => {
           }
 
           // Mark as processed to prevent duplicates
-          markAsProcessed(processingKey);
+          await markAsProcessed(
+            "markAbsent",
+            employeeId.toString(),
+            (shift._id as Types.ObjectId).toString(),
+            shiftDate.toISOString().split("T")[0]
+          );
 
           // Break out of the days loop once we've processed this shift
           // (since we're going backwards in time, this is the most recent occurrence)
@@ -1282,6 +1342,8 @@ export const markAbsentForUsers = async () => {
  * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const autoCheckoutForUsers = async () => {
+  // BUFFER_MINUTES: Grace period after shift end before auto-checkout is triggered
+  // This is NOT the checkout time - it's just used to determine when to process auto-checkout
   const BUFFER_MINUTES = 120;
   const now = new Date();
 
@@ -1306,15 +1368,15 @@ export const autoCheckoutForUsers = async () => {
 
         // Check if this shift ended before the current cron run
         if (now >= bufferPeriodEnd) {
-          // Create unique processing key to prevent duplicates
-          const processingKey = createProcessingKey(
-            employeeId.toString(),
-            (shift._id as Types.ObjectId).toString(),
-            shiftDate.toISOString().split("T")[0]
-          );
-
           // Check if already processed
-          if (isAlreadyProcessed(processingKey)) {
+          if (
+            await isAlreadyProcessed(
+              "autoCheckout",
+              employeeId.toString(),
+              (shift._id as Types.ObjectId).toString(),
+              shiftDate.toISOString().split("T")[0]
+            )
+          ) {
             continue;
           }
 
@@ -1324,7 +1386,21 @@ export const autoCheckoutForUsers = async () => {
           });
 
           if (attendance && attendance.checkIn && !attendance.checkOut) {
-            attendance.checkOut = bufferPeriodEnd;
+            // Set checkout time to the actual shift end time, not the buffer period end
+            const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+            const actualShiftEndTime = new Date(shiftDate);
+
+            // Handle overnight shifts
+            if (
+              endHour < parseInt(shift.startTime.split(":")[0]) ||
+              (endHour === parseInt(shift.startTime.split(":")[0]) &&
+                endMinute < parseInt(shift.startTime.split(":")[1]))
+            ) {
+              actualShiftEndTime.setDate(shiftDate.getDate() + 1);
+            }
+
+            actualShiftEndTime.setUTCHours(endHour, endMinute, 0, 0);
+            attendance.checkOut = actualShiftEndTime;
             await attendance.save();
 
             // After auto-checkout, recalculate overtime if we have shift information
@@ -1333,7 +1409,12 @@ export const autoCheckoutForUsers = async () => {
           }
 
           // Mark as processed to prevent duplicates
-          markAsProcessed(processingKey);
+          await markAsProcessed(
+            "autoCheckout",
+            employeeId.toString(),
+            (shift._id as Types.ObjectId).toString(),
+            shiftDate.toISOString().split("T")[0]
+          );
 
           // Break out of the days loop once we've processed this shift
           // (since we're going backwards in time, this is the most recent occurrence)

@@ -206,15 +206,15 @@ export const orderService = {
   getOrderById: async (orderId: string) => {
     try {
       const order = await Order.findById(orderId)
-        .populate("customer", "firstName lastName email phoneNumber")
-        .populate("customerId", "firstName lastName email phoneNumber")
-        .populate("items.productId", "name sku description")
-        .populate("products.product", "name sku description")
-        .populate("taskIds", "name status priority estimatedTimeMinutes")
-        .populate("originalOrderId", "orderId orderNumber status")
-        .populate("replacementDetails.replacementOrderId", "orderId orderNumber status")
-        .populate("createdBy", "firstName lastName")
-        .populate("updatedBy", "firstName lastName");
+        .populate("customer")
+        .populate("customerId")
+        .populate("items.productId")
+        .populate("products.product")
+        .populate("taskIds")
+        .populate("originalOrderId")
+        .populate("replacementDetails.replacementOrderId")
+        .populate("createdBy")
+        .populate("updatedBy");
 
       if (!order) {
         throw new Error("Order not found");
@@ -230,15 +230,15 @@ export const orderService = {
   getOrderByOrderId: async (orderId: string) => {
     try {
       const order = await Order.findOne({ orderId })
-        .populate("customer", "firstName lastName email phoneNumber")
-        .populate("customerId", "firstName lastName email phoneNumber")
-        .populate("items.productId", "name sku description")
-        .populate("products.product", "name sku description")
-        .populate("taskIds", "name status priority estimatedTimeMinutes")
-        .populate("originalOrderId", "orderId orderNumber status")
-        .populate("replacementDetails.replacementOrderId", "orderId orderNumber status")
-        .populate("createdBy", "firstName lastName")
-        .populate("updatedBy", "firstName lastName");
+        .populate("customer")
+        .populate("customerId")
+        .populate("items.productId")
+        .populate("products.product")
+        .populate("taskIds")
+        .populate("originalOrderId")
+        .populate("replacementDetails.replacementOrderId")
+        .populate("createdBy")
+        .populate("updatedBy");
 
       if (!order) {
         throw new Error("Order not found");
