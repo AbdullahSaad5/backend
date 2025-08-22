@@ -196,11 +196,9 @@ const replyPatterns = [
 - **Mock testing** for Microsoft Graph API
 - **Error scenario testing** for edge cases
 
-### Test File
+### Test Coverage
 
-**Location:** `src/tests/outlook-flow.test.ts`
-
-**Coverage:**
+**Areas Covered:**
 
 - Email sending via Graph API
 - Reply handling with threading
