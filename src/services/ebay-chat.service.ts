@@ -363,4 +363,58 @@ export const EbayChatService: IEbayChatService = {
       { upsert: true }
     );
   },
+
+  // Buyer management
+  getBuyerList: async (sellerUsername: string): Promise<any[]> => {
+    try {
+      console.log("=== GETTING BUYER LIST ===");
+      console.log("Seller username:", sellerUsername);
+
+      // Get all conversations for this seller
+      const conversations = await EbayConversationModel.find({
+        sellerUsername,
+      }).sort({ lastMessageAt: -1 }).exec();
+
+      console.log("Found conversations:", conversations.length);
+
+      // Create a map to store unique buyers with their details
+      const buyerMap = new Map();
+
+      conversations.forEach(conv => {
+        if (!buyerMap.has(conv.buyerUsername)) {
+          buyerMap.set(conv.buyerUsername, {
+            username: conv.buyerUsername,
+            lastMessage: conv.lastMessage,
+            lastMessageAt: conv.lastMessageAt,
+            unreadCount: conv.unreadCount,
+            totalConversations: 1,
+            lastItemId: conv.ebayItemId,
+            lastItemTitle: conv.listingTitle
+          });
+        } else {
+          const existing = buyerMap.get(conv.buyerUsername);
+          existing.totalConversations += 1;
+          existing.unreadCount += conv.unreadCount;
+          
+          // Update with most recent conversation
+          if (conv.lastMessageAt > existing.lastMessageAt) {
+            existing.lastMessage = conv.lastMessage;
+            existing.lastMessageAt = conv.lastMessageAt;
+            existing.lastItemId = conv.ebayItemId;
+            existing.lastItemTitle = conv.listingTitle;
+          }
+        }
+      });
+
+      const buyers = Array.from(buyerMap.values());
+      
+      console.log("Unique buyers found:", buyers.length);
+      console.log("=== BUYER LIST COMPLETED ===");
+      
+      return buyers;
+    } catch (error) {
+      console.error("Error getting buyer list:", error);
+      throw error;
+    }
+  },
 };

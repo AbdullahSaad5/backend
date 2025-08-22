@@ -248,5 +248,40 @@ export const EbayChatController: IEbayChatController = {
         }
     },
 
+    getBuyerList: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log("=== GET BUYER LIST DEBUG ===");
+            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
+            
+            console.log("Seller username:", sellerUsername);
+
+            if (!sellerUsername) {
+                res.status(StatusCodes.BAD_REQUEST).json({
+                    success: false,
+                    message: "Missing seller username"
+                });
+                return;
+            }
+
+            const buyers = await EbayChatService.getBuyerList(sellerUsername);
+
+            res.status(StatusCodes.OK).json({
+                success: true,
+                message: "Buyer list retrieved successfully",
+                data: {
+                    buyers,
+                    totalBuyers: buyers.length
+                }
+            });
+        } catch (error: any) {
+            console.error("Error getting buyer list:", error);
+            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                message: "Failed to retrieve buyer list",
+                error: error.message
+            });
+        }
+    },
+
 
 }; 

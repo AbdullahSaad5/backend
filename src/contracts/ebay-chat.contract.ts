@@ -89,6 +89,9 @@ export interface IEbayChatService {
     updates: any
   ) => Promise<void>;
 
+  // Buyer management
+  getBuyerList: (sellerUsername: string) => Promise<any[]>;
+
   // Sandbox-specific methods (optional)
   generateMockMessages?: (sellerUsername: string) => Promise<Partial<IEbayChat>[]>;
   initializeSandboxData?: (sellerUsername: string) => Promise<void>;
@@ -103,6 +106,7 @@ export interface IEbayChatController {
   markConversationAsRead: (req: any, res: any) => Promise<void>;
   syncMessages: (req: any, res: any) => Promise<void>;
   searchMessages: (req: any, res: any) => Promise<void>;
+  getBuyerList: (req: any, res: any) => Promise<void>;
 
   // Sandbox-specific methods (optional)
   initializeSandbox?: (req: any, res: any) => Promise<void>;

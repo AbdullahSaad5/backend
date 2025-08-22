@@ -58,4 +58,8 @@ export const ebayChat = (router: Router) => {
     // Search messages
     router.get("/search", authGuard.isAuth as any, EbayChatController.searchMessages);
     router.get("/search/:sellerUsername", authGuard.isAuth as any, EbayChatController.searchMessages);
+
+    // Get buyer list
+    router.get("/buyers", authGuard.isAuth as any, EbayChatController.getBuyerList);
+    router.get("/buyers/:sellerUsername", authGuard.isAuth as any, EbayChatController.getBuyerList);
 }; 
