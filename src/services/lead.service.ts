@@ -164,12 +164,12 @@ export const LeadService = {
 
   // Notes methods
   addNote: async (
-    ticketId: string,
+    leadId: string,
     description: string,
     userId: string,
     images?: string[]
   ): Promise<ILead> => {
-    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+    if (!Types.ObjectId.isValid(leadId) || !Types.ObjectId.isValid(userId)) {
       throw new Error("Invalid ID");
     }
 
@@ -183,8 +183,8 @@ export const LeadService = {
       noteData.image = images;
     }
 
-    const updatedTicket = await LeadModel.findByIdAndUpdate(
-      ticketId,
+    const updatedLead = await LeadModel.findByIdAndUpdate(
+      leadId,
       { $push: { notes: noteData } },
       { new: true, runValidators: true }
     )
@@ -192,17 +192,17 @@ export const LeadService = {
       .populate("timeline.changedBy", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
 
-    if (!updatedTicket) throw new Error("Failed to add note");
-    return updatedTicket;
+    if (!updatedLead) throw new Error("Failed to add note");
+    return updatedLead;
   },
 
-  deleteNote: async (ticketId: string, noteId: string): Promise<ILead> => {
-    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(noteId)) {
+  deleteNote: async (leadId: string, noteId: string): Promise<ILead> => {
+    if (!Types.ObjectId.isValid(leadId) || !Types.ObjectId.isValid(noteId)) {
       throw new Error("Invalid ID");
     }
 
-    const updatedTicket = await LeadModel.findByIdAndUpdate(
-      ticketId,
+    const updatedLead = await LeadModel.findByIdAndUpdate(
+      leadId,
       { $pull: { notes: { _id: new Types.ObjectId(noteId) } } },
       { new: true }
     )
@@ -210,8 +210,8 @@ export const LeadService = {
       .populate("timeline.changedBy", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
 
-    if (!updatedTicket) throw new Error("Failed to delete note");
-    return updatedTicket;
+    if (!updatedLead) throw new Error("Failed to delete note");
+    return updatedLead;
   },
 
   getLeadsByStatus: (status: string) => {

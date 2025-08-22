@@ -2,7 +2,7 @@ import { inventoryController } from "@/controllers";
 import { inventoryValidation } from "@/validations";
 import { Router } from "express";
 import { handleBulkImport, handleBulkExport } from "@/controllers/inventory.controller.helper"; // Adjust import path as needed
-import { uploadMiddleware } from "@/middlewares/multer.middleware";
+import { uploadMiddlewareWithBuffer } from "@/middlewares/multer.middleware";
 import { bulkImportUtility } from "@/utils/bulkImport.util";
 import { inventoryService } from "@/services";
 import { bulkImportStandardTemplateGenerator } from "@/utils/bulkImportStandardTemplateGenerator.util";
@@ -25,8 +25,8 @@ export const inventory = (router: Router) => {
   router.get("/with-stock", inventoryController.getInventoriesWithStock);
   // New route for fetching inventory stats/ Widgets
   router.get("/stats", inventoryController.getInventoryStats);
-  // Route for bulk import (POST request)
-  router.post("/bulk-import", uploadMiddleware, handleBulkImport);
+  // Route for bulk import (POST request) - using buffer middleware
+  router.post("/bulk-import", uploadMiddlewareWithBuffer, handleBulkImport);
 
   // Route for bulk export (GET request)
   router.post("/bulk-export", handleBulkExport);

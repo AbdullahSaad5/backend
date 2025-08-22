@@ -66,7 +66,7 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
   },
   recurringReferenceId: {
     type: Schema.Types.ObjectId,
-    ref: "RecurringExpenseModel",
+    ref: "RecurringExpense",
     required: function() {
       return this.isSystemGenerated && this.systemType === "recurring";
     },

@@ -124,7 +124,7 @@ const seedData = async () => {
       "VIEW_EXPENSE",
       "VIEW_REVENUE",
       "ADD_REVENUE",
-      "VIEW_INVENTORY_PURCHASES",
+      "VIEW_REPORT",
 
       "MANAGE_GUIDES",
       "VIEW_GUIDES_CATEGORY",

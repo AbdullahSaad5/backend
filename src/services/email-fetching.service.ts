@@ -1411,13 +1411,17 @@ export class EmailFetchingService {
     fetchOptions: EmailFetchOptions
   ): Promise<EmailFetchResult> {
     try {
-      if (!emailAccount.oauth?.accessToken) {
-        throw new Error("Outlook OAuth access token not available");
+      logger.info(`Starting Outlook API fetch for ${emailAccount.emailAddress}`);
+
+      // Get fresh access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
       }
 
       const graphClient = Client.init({
         authProvider: (done) => {
-          done(null, emailAccount.oauth!.accessToken!);
+          done(null, accessToken);
         },
       });
 
@@ -1425,6 +1429,8 @@ export class EmailFetchingService {
       let queryParams: any = {
         $top: fetchOptions.limit || 50,
         $orderby: "receivedDateTime desc",
+        $select:
+          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink",
       };
 
       if (fetchOptions.since) {
@@ -1432,14 +1438,29 @@ export class EmailFetchingService {
       }
 
       // Determine folder
-      let folderPath = "me/mailFolders/inbox";
-      if (fetchOptions.folder && fetchOptions.folder.toLowerCase() !== "inbox") {
-        folderPath = `me/mailFolders/${fetchOptions.folder.toLowerCase()}`;
+      let endpoint = "/me/messages";
+      if (fetchOptions.folder && fetchOptions.folder !== "INBOX") {
+        // Map folder names to Microsoft Graph folder IDs
+        const folderMap: { [key: string]: string } = {
+          SENT: "sentitems",
+          DRAFTS: "drafts",
+          ARCHIVE: "archive",
+          SPAM: "junkemail",
+          TRASH: "deleteditems",
+        };
+
+        const folderId = folderMap[fetchOptions.folder.toUpperCase()];
+        if (folderId) {
+          endpoint = `/me/mailFolders/${folderId}/messages`;
+        }
       }
 
-      const messages = await graphClient.api(`${folderPath}/messages`).query(queryParams).get();
+      logger.info(`Outlook API endpoint: ${endpoint}`);
+
+      const messages = await graphClient.api(endpoint).query(queryParams).get();
 
       if (!messages.value || messages.value.length === 0) {
+        logger.info("No messages found in Outlook API response");
         return {
           success: true,
           emails: [],
@@ -1450,6 +1471,8 @@ export class EmailFetchingService {
 
       // Parse Outlook messages
       const emails: FetchedEmail[] = messages.value.map((msg: any) => this.parseOutlookMessage(msg, emailAccount));
+
+      logger.info(`Outlook API fetch completed: ${emails.length} emails fetched`);
 
       return {
         success: true,
@@ -1957,6 +1980,70 @@ export class EmailFetchingService {
     });
 
     return oauth2Client;
+  }
+
+  /**
+   * Get Outlook access token
+   */
+  private static async getOutlookAccessToken(emailAccount: IEmailAccount): Promise<string | undefined> {
+    try {
+      if (!emailAccount.oauth?.refreshToken) {
+        logger.error(`No refresh token available for Outlook account: ${emailAccount.emailAddress}`);
+        return undefined;
+      }
+
+      // Import the EmailOAuthService for decryption
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      // Decrypt refresh token and client secret
+      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
+      const decryptedClientSecret = EmailOAuthService.decryptData(emailAccount.oauth.clientSecret);
+
+      if (!decryptedRefreshToken || !decryptedClientSecret) {
+        throw new Error("Failed to decrypt OAuth credentials");
+      }
+
+      // Exchange refresh token for new access token using Microsoft OAuth
+      const tokenResponse = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: emailAccount.oauth.clientId || "",
+          client_secret: decryptedClientSecret,
+          refresh_token: decryptedRefreshToken,
+          grant_type: "refresh_token",
+          scope:
+            "https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send offline_access",
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.text();
+        logger.error("Outlook token refresh failed:", errorData);
+        throw new Error("Failed to refresh Outlook access token");
+      }
+
+      const tokens = await tokenResponse.json();
+
+      if (tokens.access_token) {
+        logger.info(`Successfully refreshed Outlook access token for ${emailAccount.emailAddress}`);
+        return tokens.access_token;
+      } else {
+        throw new Error("No access token received from Microsoft OAuth");
+      }
+    } catch (error: any) {
+      logger.error(`Failed to get Outlook access token for ${emailAccount.emailAddress}:`, error);
+      // Update account with error status
+      await EmailAccountModel.findByIdAndUpdate(emailAccount._id, {
+        $set: {
+          connectionStatus: "error",
+          "stats.lastError": `Token refresh failed: ${error.message}. Please re-authenticate this account.`,
+        },
+      });
+      return undefined;
+    }
   }
 
   /**

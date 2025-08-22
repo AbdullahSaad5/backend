@@ -39,11 +39,38 @@ export const expenseService = {
   getAllExpenses: async (): Promise<IExpense[]> => {
     const Results = await ExpenseModel.find()
       .populate("category")
-      .populate("inventoryReferenceId")
-      .populate("payrollReferenceId")
+      .populate({
+        path: "inventoryReferenceId",
+        populate: [
+          {
+            path: "inventoryId",
+            populate: {
+              path: "productInfo.productCategory",
+            },
+          },
+          {
+            path: "productSupplier",
+          },
+          {
+            path: "receivedBy",
+          },
+          {
+            path: "selectedVariations.variationId",
+          },
+        ],
+      })
+      .populate({
+        path: "payrollReferenceId",
+        populate: {
+          path: "employeeId",
+        },
+      })
       .populate("recurringReferenceId")
       .populate("adjustmentReferenceId");
-    console.log("Results of getAllExpenses with populated references:", Results);
+    console.log(
+      "Results of getAllExpenses with populated references:",
+      Results
+    );
     return Results;
   },
 
@@ -57,7 +84,7 @@ export const expenseService = {
     return ExpenseModel.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("category")
+    }).populate("category");
   },
 
   /**
@@ -67,27 +94,4 @@ export const expenseService = {
     return ExpenseModel.findByIdAndDelete(id);
   },
 
-  /**
-   * Get expense statistics by category
-   */
-  getExpenseStatistics: async (): Promise<
-    { category: string; total: number }[]
-  > => {
-    return ExpenseModel.aggregate([
-      {
-        $group: {
-          _id: "$category",
-          total: { $sum: "$amount" },
-        },
-      },
-      {
-        $project: {
-          category: "$_id",
-          total: 1,
-          _id: 0,
-        },
-      },
-      { $sort: { total: -1 } },
-    ]);
-  },
 };

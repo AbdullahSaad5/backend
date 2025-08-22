@@ -11,7 +11,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: FileFilterCallback)
     "application/vnd.ms-excel",
     // Images
     "image/jpeg",
-    "image/jpg", 
+    "image/jpg",
     "image/png",
     "image/gif",
     "image/webp",
@@ -30,9 +30,9 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: FileFilterCallback)
     "application/vnd.ms-powerpoint",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "text/plain",
-    "text/csv"
+    "text/csv",
   ];
-  
+
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
@@ -43,9 +43,19 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: FileFilterCallback)
 // Create multer upload instance with DigitalOcean Spaces
 const upload = multer({
   storage: digitalOceanSpacesStorage,
-  limits: { 
+  limits: {
     fileSize: 1024 * 1024 * 50, // 50MB limit (increased for videos)
-    files: 10 // Maximum 10 files
+    files: 10, // Maximum 10 files
+  },
+  fileFilter: fileFilter,
+});
+
+// Create multer upload instance with memory storage for bulk import
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 1024 * 1024 * 50, // 50MB limit
+    files: 10, // Maximum 10 files
   },
   fileFilter: fileFilter,
 });
@@ -78,4 +88,30 @@ const uploadMiddleware = (req: any, res: any, next: NextFunction) => {
   });
 };
 
-export { uploadMiddleware };
+// Middleware function for bulk import with memory storage
+const uploadMiddlewareWithBuffer = (req: any, res: any, next: NextFunction) => {
+  uploadMemory.single("file")(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      switch (err.code) {
+        case "LIMIT_FILE_SIZE":
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            status: StatusCodes.BAD_REQUEST,
+            error: "File size is too large. Max limit is 50MB",
+          });
+        default:
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            status: StatusCodes.BAD_REQUEST,
+            error: err.message,
+          });
+      }
+    } else if (err) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        status: StatusCodes.BAD_REQUEST,
+        error: err.message,
+      });
+    }
+    next();
+  });
+};
+
+export { uploadMiddleware, uploadMiddlewareWithBuffer };

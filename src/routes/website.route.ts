@@ -15,6 +15,15 @@ export const website = (router: Router) => {
   // Fetch all Website listings
   router.get("/allListings", websiteController.getWebsiteListings);
 
+  // Fetch filtered Website listings with category-specific filters
+  router.post("/allListings/filter", websiteController.getFilteredWebsiteListings);
+
+  // Get available filters for a specific category
+  router.get("/filters/:categoryId", websiteController.getCategoryFilters);
+
+  // Get all available filters across categories
+  router.get("/filters", websiteController.getAllAvailableFilters);
+
   // Fetch single Website product by ID
   router.get("/listing/:id", websiteController.getWebsiteProductById);
 

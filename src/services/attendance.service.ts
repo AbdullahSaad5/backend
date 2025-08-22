@@ -6,6 +6,71 @@ import { Location } from "@/models/location.model";
 import { Shift } from "@/models/workshift.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 import { Workmode } from "@/models/workmode.model";
+import { CronProcessingLog } from "@/models/cron-processing-log.model";
+
+// Helper function to check if already processed using database
+const isAlreadyProcessed = async (
+  jobType: string,
+  employeeId: string,
+  shiftId: string,
+  date: string
+): Promise<boolean> => {
+  try {
+    const existingLog = await CronProcessingLog.findOne({
+      jobType,
+      employeeId,
+      shiftId,
+      date,
+    });
+
+    return !!existingLog;
+  } catch (error) {
+    console.error("Error checking processing log:", error);
+    // If there's an error checking, assume not processed to be safe
+    return false;
+  }
+};
+
+// Helper function to mark as processed using database
+const markAsProcessed = async (jobType: string, employeeId: string, shiftId: string, date: string): Promise<void> => {
+  try {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24); // Expire after 24 hours
+
+    await CronProcessingLog.create({
+      jobType,
+      employeeId,
+      shiftId,
+      date,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error("Error marking as processed:", error);
+    // Don't throw error here as it would prevent the main operation
+  }
+};
+
+// Helper function to calculate grace period end for a shift
+const calculateGracePeriodEnd = (shift: any, shiftDate: Date, graceMinutes: number): Date => {
+  const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+  const [startHour, startMinute] = shift.startTime.split(":").map(Number);
+
+  // Check if this is an overnight shift
+  const isOvernight = endHour < startHour || (endHour === startHour && endMinute < startMinute);
+
+  const gracePeriodEnd = new Date(shiftDate);
+
+  if (isOvernight) {
+    // For overnight shifts, end time is on the next day
+    gracePeriodEnd.setDate(shiftDate.getDate() + 1);
+    gracePeriodEnd.setUTCHours(endHour, endMinute + graceMinutes, 0, 0);
+  } else {
+    // Regular shift ends same day
+    gracePeriodEnd.setUTCHours(endHour, endMinute + graceMinutes, 0, 0);
+  }
+
+  return gracePeriodEnd;
+};
 
 // Utility function to normalize dates to prevent timezone issues
 const normalizeDate = (date: Date): Date => {
@@ -176,6 +241,42 @@ function calculateOvertime(record: any) {
 }
 
 export const attendanceService = {
+  // Clean up duplicate attendance records (run this once after deploying the fix)
+  cleanupDuplicateRecords: async () => {
+    try {
+      console.log("Starting cleanup of duplicate attendance records...");
+
+      // Find all attendance records
+      const allAttendance = await Attendance.find({}).sort({ employeeId: 1, date: 1, createdAt: 1 });
+
+      const duplicates = [];
+      const seen = new Set();
+
+      for (const record of allAttendance) {
+        const key = `${record.employeeId}-${record.date.toISOString().split("T")[0]}`;
+
+        if (seen.has(key)) {
+          duplicates.push(record._id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      if (duplicates.length > 0) {
+        console.log(`Found ${duplicates.length} duplicate records to remove`);
+        await Attendance.deleteMany({ _id: { $in: duplicates } });
+        console.log(`Successfully removed ${duplicates.length} duplicate records`);
+      } else {
+        console.log("No duplicate records found");
+      }
+
+      return { success: true, removedCount: duplicates.length };
+    } catch (error: any) {
+      console.error("Error cleaning up duplicate records:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
   // Get employee punch-in details by employee ID
   getPunchInDetails: async (employeeId: string) => {
     try {
@@ -1155,33 +1256,44 @@ const isWeekend = (date: Date): boolean => {
  * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const markAbsentForUsers = async () => {
+  // GRACE_MINUTES: Grace period after shift end before marking as absent
+  // This is used to determine when to process absence marking
   const GRACE_MINUTES = 120;
   const now = new Date();
 
   const shifts = await Shift.find({ isBlocked: false }).populate("employees");
 
   for (const shift of shifts) {
-    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-
     for (const employeeId of shift.employees) {
       // Check multiple days to find shifts that ended before current cron run
       // We need to check today and previous days to catch all relevant shifts
       for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
-        shiftDate.setHours(0, 0, 0, 0);
+        shiftDate.setUTCHours(0, 0, 0, 0);
 
         // SKIP WEEKEND DATES - only process weekdays
         if (isWeekend(shiftDate)) {
           continue;
         }
 
-        // Calculate when the grace period ended for this shift
-        const shiftEnd = new Date(shiftDate);
-        shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
+        // Calculate when the grace period ended for this shift (handles overnight shifts)
+        const gracePeriodEnd = calculateGracePeriodEnd(shift, shiftDate, GRACE_MINUTES);
 
         // Check if this shift ended before the current cron run
-        if (now >= shiftEnd) {
+        if (now >= gracePeriodEnd) {
+          // Check if already processed
+          if (
+            await isAlreadyProcessed(
+              "markAbsent",
+              employeeId.toString(),
+              (shift._id as Types.ObjectId).toString(),
+              shiftDate.toISOString().split("T")[0]
+            )
+          ) {
+            continue;
+          }
+
           const attendance = await Attendance.findOne({
             employeeId,
             date: shiftDate,
@@ -1206,6 +1318,14 @@ export const markAbsentForUsers = async () => {
             await attendance.save();
           }
 
+          // Mark as processed to prevent duplicates
+          await markAsProcessed(
+            "markAbsent",
+            employeeId.toString(),
+            (shift._id as Types.ObjectId).toString(),
+            shiftDate.toISOString().split("T")[0]
+          );
+
           // Break out of the days loop once we've processed this shift
           // (since we're going backwards in time, this is the most recent occurrence)
           break;
@@ -1222,46 +1342,79 @@ export const markAbsentForUsers = async () => {
  * SKIPS WEEKEND DATES - only processes weekdays
  */
 export const autoCheckoutForUsers = async () => {
+  // BUFFER_MINUTES: Grace period after shift end before auto-checkout is triggered
+  // This is NOT the checkout time - it's just used to determine when to process auto-checkout
   const BUFFER_MINUTES = 120;
   const now = new Date();
 
   const shifts = await Shift.find({ isBlocked: false }).populate("employees");
 
   for (const shift of shifts) {
-    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-
     for (const employeeId of shift.employees) {
       // Check multiple days to find shifts that ended before current cron run
       // We need to check today and previous days to catch all relevant shifts
       for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
-        shiftDate.setHours(0, 0, 0, 0);
+        shiftDate.setUTCHours(0, 0, 0, 0);
 
         // SKIP WEEKEND DATES - only process weekdays
         if (isWeekend(shiftDate)) {
           continue;
         }
 
-        // Calculate when the buffer period ended for this shift
-        const shiftEnd = new Date(shiftDate);
-        shiftEnd.setHours(endHour, endMinute + BUFFER_MINUTES, 0, 0);
+        // Calculate when the buffer period ended for this shift (handles overnight shifts)
+        const bufferPeriodEnd = calculateGracePeriodEnd(shift, shiftDate, BUFFER_MINUTES);
 
         // Check if this shift ended before the current cron run
-        if (now >= shiftEnd) {
+        if (now >= bufferPeriodEnd) {
+          // Check if already processed
+          if (
+            await isAlreadyProcessed(
+              "autoCheckout",
+              employeeId.toString(),
+              (shift._id as Types.ObjectId).toString(),
+              shiftDate.toISOString().split("T")[0]
+            )
+          ) {
+            continue;
+          }
+
           const attendance = await Attendance.findOne({
             employeeId,
             date: shiftDate,
           });
 
           if (attendance && attendance.checkIn && !attendance.checkOut) {
-            attendance.checkOut = shiftEnd;
+            // Set checkout time to the actual shift end time, not the buffer period end
+            const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+            const actualShiftEndTime = new Date(shiftDate);
+
+            // Handle overnight shifts
+            if (
+              endHour < parseInt(shift.startTime.split(":")[0]) ||
+              (endHour === parseInt(shift.startTime.split(":")[0]) &&
+                endMinute < parseInt(shift.startTime.split(":")[1]))
+            ) {
+              actualShiftEndTime.setDate(shiftDate.getDate() + 1);
+            }
+
+            actualShiftEndTime.setUTCHours(endHour, endMinute, 0, 0);
+            attendance.checkOut = actualShiftEndTime;
             await attendance.save();
 
             // After auto-checkout, recalculate overtime if we have shift information
             // Note: Overtime values are computed on-the-fly and not stored in the database
             // They will be recalculated each time the record is retrieved
           }
+
+          // Mark as processed to prevent duplicates
+          await markAsProcessed(
+            "autoCheckout",
+            employeeId.toString(),
+            (shift._id as Types.ObjectId).toString(),
+            shiftDate.toISOString().split("T")[0]
+          );
 
           // Break out of the days loop once we've processed this shift
           // (since we're going backwards in time, this is the most recent occurrence)

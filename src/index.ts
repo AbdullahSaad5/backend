@@ -81,13 +81,6 @@ mongoose
 
     // Add socket.io to the server
     socketManager.run(httpServer);
-
-    console.log("✅ Application startup complete");
-    console.log("🔄 Server is now listening for requests...");
-    console.log("📊 Process ID:", process.pid);
-    console.log("📊 Node version:", process.version);
-    console.log("📊 Platform:", process.platform);
-    console.log("📊 Memory usage:", process.memoryUsage());
   })
   .catch((error) => {
     console.error("❌ Error during startup:", error);

@@ -4,6 +4,7 @@ import { expenseController } from "../controllers/expense.controller";
 const router = express.Router();
 
 export const expense = (router: Router) => {
+  // Create expense
   router.post("/", expenseController.createExpense);
 
   // Get single expense
@@ -17,11 +18,7 @@ export const expense = (router: Router) => {
 
   router.patch("/block/:id", expenseController.updateExpense);
 
-
   // Delete expense
   router.delete("/:id", expenseController.deleteExpense);
-
-  // Get expense statistics
-  router.get("/stats/summary", expenseController.getExpenseStatistics);
+  
 };
-// Create expense
