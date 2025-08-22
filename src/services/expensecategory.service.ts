@@ -1,16 +1,16 @@
-import { IExpenseModel } from "@/models/expensecategory.model";
+import { ExpenseCategory } from "@/models/expensecategory.model";
 
 export const ExpenseCategoryService = {
   createExpensecategory: (title: String, description: string, image: string, isSystemGenerated: boolean) => {
-    const newExpensecategory = new IExpenseModel({ title, description, image, isSystemGenerated });
+    const newExpensecategory = new ExpenseCategory({ title, description, image, isSystemGenerated });
     return newExpensecategory.save();
   },
 
   editExpensecategory: (id: string, data: { title?: string; description?: string; image?: string, isSystemGenerated?: boolean }) => {
-    return IExpenseModel.findByIdAndUpdate(id, data, { new: true });
+    return ExpenseCategory.findByIdAndUpdate(id, data, { new: true });
   },
   deleteExpensecategory: (id: string) => {
-    const Expensecategory = IExpenseModel.findByIdAndDelete(id);
+    const Expensecategory = ExpenseCategory.findByIdAndDelete(id);
     if (!Expensecategory) {
       throw new Error("Expensecategory not found");
     }
@@ -18,11 +18,11 @@ export const ExpenseCategoryService = {
   },
 
   getAllExpensecategory: () => {
-    return IExpenseModel.find();
+    return ExpenseCategory.find();
   },
 
   getById: (id: string) => {
-    return IExpenseModel.findById(id);
+    return ExpenseCategory.findById(id);
   },
 
   
