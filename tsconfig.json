@@ -14,7 +14,7 @@
     "strict": true,
     "noPropertyAccessFromIndexSignature": false,
     "skipLibCheck": true,
-    "types": []
+    "types": ["node"]
   },
   "exclude": ["node_modules"],
   "include": ["src/**/*.ts", "src/utils/validate.ts"]
