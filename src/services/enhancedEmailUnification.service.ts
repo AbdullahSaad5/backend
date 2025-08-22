@@ -1,8 +1,6 @@
 // Enhanced Email Unification System
 // Extends existing emailUnificationService with advanced features
 
-const BaseEmailUnificationService: any = require("./emailUnification.service");
-
 interface EmailAddress {
   email: string;
   name?: string;
@@ -515,4 +513,4 @@ class EnhancedEmailUnificationServiceExtended {
   }
 }
 
-module.exports = EnhancedEmailUnificationServiceExtended;
+export { EnhancedEmailUnificationServiceExtended };
