@@ -136,6 +136,7 @@ export const LeadController = {
           $or: [
             { name: { $regex: searchQuery as string, $options: "i" } },
             { email: { $regex: searchQuery as string, $options: "i" } },
+            { source: { $regex: searchQuery as string, $options: "i" } },
           ],
         };
       }
