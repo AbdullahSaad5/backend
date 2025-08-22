@@ -59,7 +59,67 @@ export const ebayChat = (router: Router) => {
     router.get("/search", authGuard.isAuth as any, EbayChatController.searchMessages);
     router.get("/search/:sellerUsername", authGuard.isAuth as any, EbayChatController.searchMessages);
 
-    // Get buyer list
-    router.get("/buyers", authGuard.isAuth as any, EbayChatController.getBuyerList);
-    router.get("/buyers/:sellerUsername", authGuard.isAuth as any, EbayChatController.getBuyerList);
+    // Get order list from local database
+    router.get("/orders", authGuard.isAuth as any, EbayChatController.getOrderList);
+    router.get("/orders/:sellerUsername", authGuard.isAuth as any, EbayChatController.getOrderList);
+
+    // Get eBay orders directly from API
+    router.get("/ebay-orders", authGuard.isAuth as any, EbayChatController.getEbayOrders);
+    router.get("/ebay-orders/:sellerUsername", authGuard.isAuth as any, EbayChatController.getEbayOrders);
+
+    // Get orders using existing eBay listing service (for comparison/testing)
+    router.get("/orders-listing-service", authGuard.isAuth as any, async (req, res) => {
+      try {
+        console.log("=== ORDERS LISTING SERVICE DEBUG ===");
+        console.log("Request headers:", req.headers);
+        console.log("Request query:", req.query);
+        console.log("Request params:", req.params);
+        
+        const { ebayListingService } = await import("@/services");
+        console.log("eBay listing service imported successfully");
+        
+        await ebayListingService.getOrders(req, res);
+        console.log("eBay listing service getOrders completed");
+      } catch (error: any) {
+        console.error("Error getting orders:", error);
+        console.error("Error stack:", error.stack);
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve orders",
+          error: error.message,
+          stack: error.stack
+        });
+      }
+    });
+
+    // Get orders using existing eBay listing service without auth (for testing)
+    router.get("/orders-listing-service-test", async (req, res) => {
+      try {
+        console.log("=== ORDERS LISTING SERVICE TEST (NO AUTH) ===");
+        const { ebayListingService } = await import("@/services");
+        await ebayListingService.getOrders(req, res);
+      } catch (error: any) {
+        console.error("Error getting orders (no auth):", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve orders",
+          error: error.message
+        });
+      }
+    });
+
+    // Get orders without auth for testing
+    router.get("/orders-test", async (req, res) => {
+      try {
+        const { ebayListingService } = await import("@/services");
+        await ebayListingService.getOrders(req, res);
+      } catch (error: any) {
+        console.error("Error getting orders:", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to retrieve orders",
+          error: error.message
+        });
+      }
+    });
 }; 
