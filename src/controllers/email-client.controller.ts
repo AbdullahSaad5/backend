@@ -3,6 +3,7 @@ import { EmailAccountModel, IEmailAccount } from "@/models/email-account.model";
 import { EmailModel } from "@/models/email.model";
 import { EmailAccountConfigService } from "@/services/email-account-config.service";
 import { EmailOAuthService } from "@/services/emailOAuth.service";
+import { UnifiedEmailService } from "@/services/unified-email.service";
 import { logger } from "@/utils/logger.util";
 import { jwtVerify } from "@/utils/jwt.util";
 import { authService } from "@/services/user-auth.service";
@@ -93,216 +94,235 @@ export class EmailClientController {
           }
           console.log("✅ Token refresh successful");
 
-          // Reload the account to get updated tokens
-          const updatedAccount = await EmailAccountModel.findOne({ _id: accountId, userId });
-          if (updatedAccount) {
-            account = updatedAccount;
-          }
+          // Update account with refreshed tokens
+          account = await EmailAccountModel.findById(accountId);
         }
       }
 
-      // Send email
-      const result = await EmailAccountConfigService.sendEmailWithAccount(account, {
+      // Use unified email service to send email
+      const result = await UnifiedEmailService.sendEmail(account, {
         to,
         subject,
-        text,
-        html,
+        body: text,
+        htmlBody: html,
         cc,
         bcc,
-        attachments,
+        replyTo,
         inReplyTo,
         references,
         threadId,
+        attachments,
       });
 
-      if (!result.success) {
-        // If sending failed and it's an OAuth account, it might be due to token issues
-        if (account.oauth) {
-          console.log("❌ Email sending failed for OAuth account:", result.error);
-          return res.status(400).json({
+      if (result.success) {
+        // Validate that we have a messageId
+        if (!result.messageId) {
+          logger.error("Email service returned success but no messageId", { result, accountId: account._id });
+          return res.status(500).json({
             success: false,
-            message: "Failed to send email. OAuth tokens may be invalid. Please re-authenticate your account.",
-            error: result.error,
-            requiresReauth: true,
-          });
-        } else {
-          console.log("❌ Email sending failed for SMTP account:", result.error);
-          return res.status(400).json({
-            success: false,
-            message: "Failed to send email",
-            error: result.error,
+            message: "Email sent but failed to generate message ID",
+            error: "Internal service error",
           });
         }
-      }
 
-      console.log("✅ Email sent successfully");
-
-      // Save sent email to database
-      try {
-        // Check if this is a reply or forward by analyzing subject
-        const isReply = subject.toLowerCase().includes("re:");
-        const isForward = subject.toLowerCase().includes("fwd:") || subject.toLowerCase().includes("fw:");
-        let finalThreadId = threadId; // Use provided threadId if available
-        let originalEmailId = null;
-
-        if (isReply || isForward) {
-          // If threadId is provided, use it (for proper threading)
-          if (threadId) {
-            finalThreadId = threadId;
-
-            // Find the original email in this thread
-            const originalEmail = await EmailModel.findOne({
-              threadId: threadId,
-              accountId: account._id,
-            }).sort({ receivedAt: 1 }); // Get the first email in the thread
-
-            if (originalEmail) {
-              originalEmailId = originalEmail._id;
-
-              // Mark original email as replied or forwarded
-              if (isReply) {
-                originalEmail.isReplied = true;
-                originalEmail.repliedAt = new Date();
-                if (!originalEmail.isRead) {
-                  originalEmail.isRead = true;
-                  originalEmail.readAt = new Date();
-                }
-              } else if (isForward) {
-                originalEmail.isForwarded = true;
-                originalEmail.forwardedAt = new Date();
-                if (!originalEmail.isRead) {
-                  originalEmail.isRead = true;
-                  originalEmail.readAt = new Date();
-                }
-              }
-              await originalEmail.save();
-
-              logger.info(`Original email updated for reply/forward`, {
-                originalEmailId: originalEmail._id,
-                isReply,
-                isForward,
-                threadId: finalThreadId,
-              });
-            }
-          } else {
-            // Fallback: Find the original email being replied to or forwarded
-            const cleanSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-
-            // Look for existing emails with similar subject
-            const originalEmail = await EmailModel.findOne({
-              $and: [
-                {
-                  $or: [{ subject: { $regex: cleanSubject, $options: "i" } }, { subject: cleanSubject }],
-                },
-                {
-                  $or: [{ "from.email": Array.isArray(to) ? to[0] : to }, { "to.email": account.emailAddress }],
-                },
-              ],
-            }).sort({ receivedAt: -1 });
-
-            if (originalEmail) {
-              finalThreadId = originalEmail.threadId;
-              originalEmailId = originalEmail._id;
-
-              // Mark original email as replied or forwarded
-              if (isReply) {
-                originalEmail.isReplied = true;
-                originalEmail.repliedAt = new Date();
-                if (!originalEmail.isRead) {
-                  originalEmail.isRead = true;
-                  originalEmail.readAt = new Date();
-                }
-              } else if (isForward) {
-                originalEmail.isForwarded = true;
-                originalEmail.forwardedAt = new Date();
-                if (!originalEmail.isRead) {
-                  originalEmail.isRead = true;
-                  originalEmail.readAt = new Date();
-                }
-              }
-              await originalEmail.save();
-
-              logger.info(`Original email updated for reply/forward`, {
-                originalEmailId: originalEmail._id,
-                isReply,
-                isForward,
-                threadId: finalThreadId,
-              });
-            } else {
-              // No original email found, create new thread
-              finalThreadId = `thread_${cleanSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
-            }
-          }
-        } else {
-          // New email thread
-          const normalizedSubject = subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
-          finalThreadId =
-            threadId || `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}_${Date.now()}`;
-        }
-
-        // Create email data for database storage
+        // Save email to database
         const emailData = {
-          messageId: result.data?.messageId || `sent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          threadId: finalThreadId,
+          messageId: result.messageId,
+          threadId: result.threadId || threadId,
           accountId: account._id,
           direction: EmailDirection.OUTBOUND,
-          type: "general" as EmailType,
-          status: EmailStatus.PROCESSED,
+          type: EmailType.GENERAL,
+          status: EmailStatus.RECEIVED,
           priority: EmailPriority.NORMAL,
           subject,
           textContent: text,
-          htmlContent: html,
-          from: {
-            email: account.emailAddress,
-            name: account.displayName || account.accountName,
-          },
+          htmlContent: html || text,
+          from: { email: account.emailAddress, name: account.displayName || account.accountName },
           to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
           cc: cc ? (Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }]) : [],
           bcc: bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : [],
-          replyTo: replyTo ? { email: replyTo } : undefined,
-          // Add threading headers
-          inReplyTo: inReplyTo,
-          references: references ? [references] : undefined,
           sentAt: new Date(),
           receivedAt: new Date(),
-          isRead: true, // Outbound emails are considered "read" by the sender
+          isRead: true,
           readAt: new Date(),
           isReplied: false,
           isForwarded: false,
           isArchived: false,
           isSpam: false,
-          folder: "Sent", // Mark as sent folder
+          inReplyTo,
+          references,
+        };
+
+        try {
+          const savedEmail = await EmailModel.create(emailData);
+          
+          res.status(200).json({
+            success: true,
+            message: "Email sent successfully",
+            data: {
+              messageId: result.messageId,
+              threadId: result.threadId,
+              email: savedEmail,
+              provider: result.provider,
+            },
+          });
+        } catch (dbError: any) {
+          logger.error("Failed to save email to database", { dbError, emailData });
+          
+          // Email was sent but failed to save to database
+          res.status(200).json({
+            success: true,
+            message: "Email sent successfully but failed to save to database",
+            data: {
+              messageId: result.messageId,
+              threadId: result.threadId,
+              provider: result.provider,
+              warning: "Email sent but not saved to database",
+            },
+          });
+        }
+      } else {
+        logger.error("Email service failed", { result, accountId: account._id });
+        res.status(400).json({
+          success: false,
+          message: "Failed to send email",
+          error: result.error,
+          provider: result.provider,
+        });
+      }
+    } catch (error: any) {
+      logger.error("Send email error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to send email",
+        error: error.message,
+      });
+    }
+  }
+
+  /**
+   * Send reply email using unified service
+   */
+  static async sendReply(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const { originalMessageId, to, subject, text, html, cc, bcc, attachments, replyTo } = req.body;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+      const user = await authService.findUserById(userId);
+
+      // Get the email account
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Check if account is active
+      if (!account.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: "Email account is not active",
+        });
+      }
+
+      // Get original message for threading information
+      const originalEmail = await EmailModel.findById(originalMessageId);
+      if (!originalEmail) {
+        return res.status(404).json({
+          success: false,
+          message: "Original message not found",
+        });
+      }
+
+      // Use unified email service to send reply
+      const result = await UnifiedEmailService.sendReply(account, originalMessageId, {
+        to,
+        subject: subject || `Re: ${originalEmail.subject}`,
+        body: text,
+        htmlBody: html,
+        cc,
+        bcc,
+        replyTo,
+        threadId: originalEmail.threadId,
+        inReplyTo: originalEmail.messageId,
+        references: originalEmail.references
+          ? [...originalEmail.references, originalEmail.messageId]
+          : [originalEmail.messageId],
+      });
+
+      if (result.success) {
+        // Save reply email to database
+        const emailData = {
+          messageId: result.messageId,
+          threadId: result.threadId || originalEmail.threadId,
+          accountId: account._id,
+          direction: EmailDirection.OUTBOUND,
+          type: EmailType.GENERAL,
+          status: EmailStatus.RECEIVED,
+          priority: EmailPriority.NORMAL,
+          subject: subject || `Re: ${originalEmail.subject}`,
+          textContent: text,
+          htmlContent: html || text,
+          from: { email: account.emailAddress, name: account.displayName || account.accountName },
+          to: Array.isArray(to) ? to.map((email: string) => ({ email })) : [{ email: to }],
+          cc: cc ? (Array.isArray(cc) ? cc.map((email: string) => ({ email })) : [{ email: cc }]) : [],
+          bcc: bcc ? (Array.isArray(bcc) ? bcc.map((email: string) => ({ email })) : [{ email: bcc }]) : [],
+          sentAt: new Date(),
+          receivedAt: new Date(),
+          isRead: true,
+          readAt: new Date(),
+          isReplied: false,
+          isForwarded: false,
+          isArchived: false,
+          isSpam: false,
+          inReplyTo: originalEmail.messageId,
+          references: originalEmail.references
+            ? [...originalEmail.references, originalEmail.messageId]
+            : [originalEmail.messageId],
         };
 
         const savedEmail = await EmailModel.create(emailData);
 
-        logger.info(`Sent email stored in database`, {
-          emailId: savedEmail._id,
-          messageId: result.data?.messageId,
-          threadId,
-          subject,
-          to: Array.isArray(to) ? to : [to],
-        });
-      } catch (dbError: any) {
-        logger.error("Error storing sent email in database:", dbError);
-        // Don't fail the email send if database storage fails
-        console.log("⚠️ Email sent successfully but failed to store in database:", dbError.message);
-      }
+        // Mark original email as replied
+        originalEmail.isReplied = true;
+        originalEmail.repliedAt = new Date();
+        await originalEmail.save();
 
-      res.json({
-        success: true,
-        message: "Email sent successfully",
-        data: {
-          messageId: result.data?.messageId,
-          accountId: account._id,
-          from: account.emailAddress,
-        },
-      });
+        res.status(200).json({
+          success: true,
+          message: "Reply sent successfully",
+          data: {
+            messageId: result.messageId,
+            threadId: result.threadId,
+            email: savedEmail,
+            provider: result.provider,
+          },
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          message: "Failed to send reply",
+          error: result.error,
+          provider: result.provider,
+        });
+      }
     } catch (error: any) {
-      logger.error("Error sending email:", error);
+      logger.error("Send reply error:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to send email",
+        message: "Failed to send reply",
         error: error.message,
       });
     }
