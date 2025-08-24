@@ -71,7 +71,11 @@ export const ProfitReportingService = {
   /**
    * Generate comprehensive profit report for date range
    */
-  generateProfitReport: async (startDate: Date, endDate: Date): Promise<ProfitReportData> => {
+  generateProfitReport: async (
+    startDate: Date, 
+    endDate: Date, 
+    payrollTypeFilter?: "ACTUAL" | "GOVERNMENT"
+  ): Promise<ProfitReportData> => {
     try {
       // Get revenues for the date range
       const revenues = await RevenueModel.find({
@@ -79,11 +83,21 @@ export const ProfitReportingService = {
         isBlocked: false
       });
 
-      // Get expenses for the date range
-      const expenses = await ExpenseModel.find({
+      // Get expenses for the date range with optional payroll type filter
+      const expenseFilter: any = {
         date: { $gte: startDate, $lte: endDate },
         isBlocked: false
-      }).populate('category');
+      };
+      
+      // 🆕 PAYROLL TYPE FILTERING: Filter payroll expenses by type if specified
+      if (payrollTypeFilter) {
+        expenseFilter.$or = [
+          { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+          { systemType: "payroll", payrollType: payrollTypeFilter } // Include only specified payroll type
+        ];
+      }
+      
+      const expenses = await ExpenseModel.find(expenseFilter).populate('category');
 
       // Calculate totals
       const totalRevenue = revenues.reduce((sum, revenue) => sum + revenue.amount, 0);
@@ -156,7 +170,8 @@ export const ProfitReportingService = {
   generateTimeBasedReport: async (
     startDate?: Date, 
     endDate?: Date, 
-    period: 'all-time' | 'daily' | 'monthly' | 'yearly' = 'all-time'
+    period: 'all-time' | 'daily' | 'monthly' | 'yearly' = 'all-time',
+    payrollTypeFilter?: "ACTUAL" | "GOVERNMENT"
   ): Promise<TimeBasedReport> => {
     try {
       let profitReport;
@@ -165,30 +180,32 @@ export const ProfitReportingService = {
       switch (period) {
         case 'all-time':
           // Get all data without date filters
-          profitReport = await ProfitReportingService.generateAllTimeReport();
-          trends = await ProfitReportingService.getAllTimeTrends();
+          profitReport = await ProfitReportingService.generateAllTimeReport(payrollTypeFilter);
+          trends = await ProfitReportingService.getAllTimeTrends(payrollTypeFilter);
           break;
         case 'yearly':
           // Get all data without date filters for yearly trends
-          profitReport = await ProfitReportingService.generateAllTimeReport();
-          trends = await ProfitReportingService.getYearlyTrends();
+          profitReport = await ProfitReportingService.generateAllTimeReport(payrollTypeFilter);
+          trends = await ProfitReportingService.getYearlyTrends(undefined, undefined, payrollTypeFilter);
           break;
         case 'daily':
         case 'monthly':
           if (!startDate || !endDate) {
             throw new Error('Start date and end date are required for daily and monthly reports');
           }
-          profitReport = await ProfitReportingService.generateProfitReport(startDate, endDate);
+          profitReport = await ProfitReportingService.generateProfitReport(startDate, endDate, payrollTypeFilter);
           
           if (period === 'daily') {
-            trends = profitReport.dailyTrends.map(day => ({
+            trends = await ProfitReportingService.getDailyTrends(startDate, endDate, payrollTypeFilter);
+            trends = trends.map(day => ({
               period: day.date,
               revenue: day.revenue,
               expenses: day.expenses,
               profit: day.profit
             }));
           } else {
-            trends = profitReport.monthlyTrends.map(month => ({
+            trends = await ProfitReportingService.getMonthlyTrends(startDate, endDate, payrollTypeFilter);
+            trends = trends.map(month => ({
               period: month.month,
               revenue: month.revenue,
               expenses: month.expenses,
@@ -220,13 +237,24 @@ export const ProfitReportingService = {
   /**
    * Get monthly trends data
    */
-  getMonthlyTrends: async (startDate: Date, endDate: Date) => {
+  getMonthlyTrends: async (startDate: Date, endDate: Date, payrollTypeFilter?: "ACTUAL" | "GOVERNMENT") => {
+    // Build match stage with payroll type filter
+    const matchStage: any = {
+      date: { $gte: startDate, $lte: endDate },
+      isBlocked: false
+    };
+    
+    // 🆕 PAYROLL TYPE FILTERING: Add payroll type filter if specified
+    if (payrollTypeFilter) {
+      matchStage.$or = [
+        { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+        { systemType: "payroll", payrollType: payrollTypeFilter } // Include only specified payroll type
+      ];
+    }
+
     const monthlyData = await ExpenseModel.aggregate([
       {
-        $match: {
-          date: { $gte: startDate, $lte: endDate },
-          isBlocked: false
-        }
+        $match: matchStage
       },
       {
         $group: {
@@ -299,13 +327,24 @@ export const ProfitReportingService = {
   /**
    * Get daily trends data
    */
-  getDailyTrends: async (startDate: Date, endDate: Date) => {
+  getDailyTrends: async (startDate: Date, endDate: Date, payrollTypeFilter?: "ACTUAL" | "GOVERNMENT") => {
+    // Build match stage with payroll type filter
+    const matchStage: any = {
+      date: { $gte: startDate, $lte: endDate },
+      isBlocked: false
+    };
+    
+    // 🆕 PAYROLL TYPE FILTERING: Add payroll type filter if specified
+    if (payrollTypeFilter) {
+      matchStage.$or = [
+        { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+        { systemType: "payroll", payrollType: payrollTypeFilter } // Include only specified payroll type
+      ];
+    }
+
     const dailyExpenses = await ExpenseModel.aggregate([
       {
-        $match: {
-          date: { $gte: startDate, $lte: endDate },
-          isBlocked: false
-        }
+        $match: matchStage
       },
       {
         $group: {
@@ -448,10 +487,18 @@ export const ProfitReportingService = {
   /**
    * Get yearly trends data
    */
-  getYearlyTrends: async (startDate?: Date, endDate?: Date) => {
+  getYearlyTrends: async (startDate?: Date, endDate?: Date, payrollTypeFilter?: "ACTUAL" | "GOVERNMENT") => {
     const matchStage: any = { isBlocked: false };
     if (startDate && endDate) {
       matchStage.date = { $gte: startDate, $lte: endDate };
+    }
+    
+    // 🆕 PAYROLL TYPE FILTERING: Add payroll type filter if specified
+    if (payrollTypeFilter) {
+      matchStage.$or = [
+        { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+        { systemType: "payroll", payrollType: payrollTypeFilter } // Include only specified payroll type
+      ];
     }
 
     const yearlyExpenses = await ExpenseModel.aggregate([
@@ -516,17 +563,25 @@ export const ProfitReportingService = {
   /**
    * Generate all-time report without date filters
    */
-  generateAllTimeReport: async (): Promise<ProfitReportData> => {
+  generateAllTimeReport: async (payrollTypeFilter?: "ACTUAL" | "GOVERNMENT"): Promise<ProfitReportData> => {
     try {
       // Get all revenues
       const revenues = await RevenueModel.find({
         isBlocked: false
       });
 
-      // Get all expenses
-      const expenses = await ExpenseModel.find({
-        isBlocked: false
-      }).populate('category');
+      // Get all expenses with optional payroll type filter
+      const expenseFilter: any = { isBlocked: false };
+      
+      // 🆕 PAYROLL TYPE FILTERING: Filter payroll expenses by type if specified
+      if (payrollTypeFilter) {
+        expenseFilter.$or = [
+          { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+          { systemType: "payroll", payrollType: payrollTypeFilter } // Include only specified payroll type
+        ];
+      }
+      
+      const expenses = await ExpenseModel.find(expenseFilter).populate('category');
 
       // Calculate totals
       const totalRevenue = revenues.reduce((sum, revenue) => sum + revenue.amount, 0);
@@ -589,8 +644,8 @@ export const ProfitReportingService = {
   /**
    * Get all-time trends data
    */
-  getAllTimeTrends: async () => {
+  getAllTimeTrends: async (payrollTypeFilter?: "ACTUAL" | "GOVERNMENT") => {
     // For all-time, we'll show yearly trends
-    return await ProfitReportingService.getYearlyTrends();
+    return await ProfitReportingService.getYearlyTrends(undefined, undefined, payrollTypeFilter);
   }
 };

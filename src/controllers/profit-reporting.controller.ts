@@ -115,12 +115,20 @@ export const ProfitReportingController = {
    */
   generateTimeBasedReport: async (req: Request, res: Response) => {
     try {
-      const { startDate, endDate, period = 'all-time' } = req.body;
+      const { startDate, endDate, period = 'all-time', payrollType } = req.body;
 
       if (!['all-time', 'daily', 'monthly', 'yearly'].includes(period)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Period must be one of: all-time, daily, monthly, yearly"
+        });
+      }
+
+      // 🆕 PAYROLL TYPE VALIDATION: Validate payrollType if provided
+      if (payrollType && !['ACTUAL', 'GOVERNMENT'].includes(payrollType)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "PayrollType must be either 'ACTUAL' or 'GOVERNMENT'"
         });
       }
 
@@ -147,7 +155,7 @@ export const ProfitReportingController = {
         }
       }
 
-      const report = await ProfitReportingService.generateTimeBasedReport(start, end, period);
+      const report = await ProfitReportingService.generateTimeBasedReport(start, end, period, payrollType);
 
       res.status(StatusCodes.OK).json({
         success: true,

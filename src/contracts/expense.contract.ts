@@ -13,6 +13,8 @@ export interface IExpense extends Document {
   image: string;
   isSystemGenerated: boolean;
   systemType?: "inventory_purchase" | "payroll" | "recurring" | "adjustment";
+  // Payroll type for payroll expenses (ACTUAL or GOVERNMENT)
+  payrollType?: "ACTUAL" | "GOVERNMENT";
   // Separate reference fields for each system type
   inventoryReferenceId?: Types.ObjectId;
   payrollReferenceId?: Types.ObjectId;
