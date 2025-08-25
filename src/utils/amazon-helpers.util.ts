@@ -95,7 +95,7 @@ const SCOPES = ["sellingpartnerapi::definitions", "sellingpartnerapi::catalog"];
 // Function to get Amazon access token using refresh token (same as your working project)
 export const getAmazonAccessToken = async () => {
   try {
-    console.log("🔐 Getting Amazon access token using refresh token...");
+    // console.log("🔐 Getting Amazon access token using refresh token...");
 
     // Validate credentials before attempting to get token
     if (!validateAmazonCredentials()) {
