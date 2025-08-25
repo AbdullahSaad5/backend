@@ -1847,7 +1847,7 @@ export class EmailFetchingService {
     if (messageData.body) {
       if (messageData.body.contentType === "text/plain") {
         textContent = messageData.body.content || "";
-      } else if (messageData.body.contentType === "text/html") {
+      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
         htmlContent = messageData.body.content || "";
       }
     }
