@@ -5,6 +5,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { EmailOAuthService } from "./emailOAuth.service";
+import { getStoredGmailAuthClient } from "@/utils/gmail-helpers.util";
 
 export interface DirectEmailData {
   messageId: string;
@@ -353,35 +354,34 @@ export class DirectEmailFetchingService {
         },
       };
     } catch (error: any) {
-      // Check if this is an authentication error that can be resolved with token refresh
-      if (this.isAuthenticationError(error) && currentAccount.oauth?.refreshToken) {
-        try {
-          console.log("🔑 Refreshing OAuth token...");
-          currentAccount = await this.refreshGmailToken(currentAccount);
-          console.log("✅ Token refresh successful, retrying fetch...");
+      // Check if this is an authentication error that requires re-authentication
+      if (error.message.includes("Gmail authentication expired") || error.message.includes("invalid_grant")) {
+        logger.error(`Gmail authentication error for ${currentAccount.emailAddress}: ${error.message}`);
 
-          // Retry the operation with refreshed token
-          logger.info(`Token refreshed successfully, retrying Gmail fetch for ${currentAccount.emailAddress}`);
-          return await this.fetchFromGmailAPIDirect(currentAccount, options);
-        } catch (refreshError: any) {
-          console.log("❌ Token refresh failed:", refreshError.message);
-          logger.error(`Token refresh failed for account ${currentAccount.emailAddress}:`, refreshError);
+        // Update account status to reflect the authentication failure
+        await this.updateAccountError(currentAccount, error.message);
 
-          // Update account status to reflect the authentication failure
-          await this.updateAccountError(
-            currentAccount,
-            `Authentication failed: ${refreshError.message}. Please re-authenticate this account.`
-          );
-
-          throw new Error(`Gmail authentication failed: ${refreshError.message}. Please re-authenticate this account.`);
-        }
+        return {
+          success: false,
+          emails: [],
+          threads: [],
+          totalCount: 0,
+          pagination: {
+            page: options.page || 1,
+            pageSize: options.pageSize || this.DEFAULT_PAGE_SIZE,
+            totalPages: 0,
+            hasNextPage: false,
+          },
+          error: error.message,
+          requiresReauth: true,
+        };
       }
 
       // Update account with the error
       console.log("💾 Updating account with error status");
       await this.updateAccountError(currentAccount, error.message);
 
-      throw new Error(`Gmail API error: ${error.message}`);
+      throw new Error(error.message);
     }
   }
 
@@ -1093,102 +1093,16 @@ export class DirectEmailFetchingService {
   }
 
   /**
-   * Get Gmail OAuth client
+   * Get Gmail OAuth client using centralized helper
    */
   private static async getGmailAuthClient(emailAccount: IEmailAccount) {
-    try {
-      if (!emailAccount.oauth?.refreshToken) {
-        throw new Error("No refresh token available for Gmail authentication");
-      }
+    const result = await getStoredGmailAuthClient(emailAccount);
 
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-      );
-
-      // Decrypt tokens
-      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
-      const decryptedAccessToken = emailAccount.oauth?.accessToken
-        ? EmailOAuthService.decryptData(emailAccount.oauth.accessToken)
-        : null;
-
-      // Check if we have a valid access token and if it's expired
-      let shouldRefreshToken = false;
-
-      if (decryptedAccessToken && emailAccount.oauth?.tokenExpiry) {
-        const now = new Date();
-        const expiryDate = new Date(emailAccount.oauth.tokenExpiry);
-        const timeUntilExpiry = expiryDate.getTime() - now.getTime();
-
-        // Refresh token if it expires in less than 5 minutes (300,000 ms)
-        shouldRefreshToken = timeUntilExpiry < 300000;
-
-        logger.info(
-          `Token expiry check for ${emailAccount.emailAddress}: expires in ${Math.round(timeUntilExpiry / 1000)}s, should refresh: ${shouldRefreshToken}`
-        );
-      } else if (!decryptedAccessToken) {
-        // No access token, need to refresh
-        shouldRefreshToken = true;
-        logger.info(`No access token available for ${emailAccount.emailAddress}, will refresh`);
-      }
-
-      if (shouldRefreshToken) {
-        // Only refresh when necessary
-        logger.info(`Refreshing access token for ${emailAccount.emailAddress}`);
-
-        // Set credentials with refresh token
-        oauth2Client.setCredentials({
-          refresh_token: decryptedRefreshToken,
-        });
-
-        try {
-          const { credentials } = await oauth2Client.refreshAccessToken();
-
-          if (credentials.access_token) {
-            // Update the account with the new access token
-            const expiryDate = credentials.expiry_date ? new Date(credentials.expiry_date) : undefined;
-            await this.updateAccessToken(emailAccount, credentials.access_token, expiryDate);
-
-            oauth2Client.setCredentials({
-              access_token: credentials.access_token,
-              refresh_token: decryptedRefreshToken,
-            });
-
-            logger.info(`Successfully refreshed Gmail access token for ${emailAccount.emailAddress}`);
-          } else {
-            throw new Error("Failed to obtain access token from refresh token");
-          }
-        } catch (refreshError: any) {
-          logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, refreshError);
-
-          // If refresh fails, try to use existing access token if available
-          if (decryptedAccessToken) {
-            oauth2Client.setCredentials({
-              access_token: decryptedAccessToken,
-              refresh_token: decryptedRefreshToken,
-            });
-
-            logger.warn(`Using existing access token for ${emailAccount.emailAddress} (refresh failed)`);
-          } else {
-            throw new Error(`Gmail authentication failed: ${refreshError.message}`);
-          }
-        }
-      } else {
-        // Use existing valid access token
-        logger.info(`Using existing valid access token for ${emailAccount.emailAddress}`);
-
-        oauth2Client.setCredentials({
-          access_token: decryptedAccessToken,
-          refresh_token: decryptedRefreshToken,
-        });
-      }
-
-      return oauth2Client;
-    } catch (error: any) {
-      logger.error(`Gmail authentication error for ${emailAccount.emailAddress}:`, error);
-      throw new Error(`Gmail authentication failed: ${error.message}`);
+    if (!result.success) {
+      throw new Error(result.error || "Gmail authentication failed");
     }
+
+    return result.oauth2Client;
   }
 
   /**
@@ -1281,6 +1195,18 @@ export class DirectEmailFetchingService {
       return emailAccount;
     } catch (error: any) {
       logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, error);
+
+      // Check if this is an invalid_grant error (refresh token expired/revoked)
+      if (error.message.includes("invalid_grant") || error.code === 400) {
+        // Update account status to indicate re-authentication is needed
+        await this.updateAccountError(
+          emailAccount,
+          "Gmail authentication expired. Please re-authenticate your account."
+        );
+
+        throw new Error("Gmail authentication expired. Please re-authenticate your account.");
+      }
+
       throw new Error(`Gmail authentication failed: ${error.message}`);
     }
   }
@@ -1444,6 +1370,19 @@ export class DirectEmailFetchingService {
    * Fetch Gmail message by ID
    */
   static async fetchGmailMessageById(emailAccount: IEmailAccount, messageId: string): Promise<DirectEmailData | null> {
+    return this.fetchGmailMessageWithRetry(emailAccount, messageId, 0);
+  }
+
+  /**
+   * Fetch Gmail message with automatic token refresh retry
+   */
+  private static async fetchGmailMessageWithRetry(
+    emailAccount: IEmailAccount,
+    messageId: string,
+    retryCount: number
+  ): Promise<DirectEmailData | null> {
+    const MAX_RETRIES = 1; // Only retry once with refreshed token
+
     try {
       // Clean the messageId - remove angle brackets if present and handle special characters
       let cleanMessageId = messageId.replace(/^<|>$/g, "");
@@ -1457,7 +1396,7 @@ export class DirectEmailFetchingService {
       }
 
       logger.info(
-        `Fetching Gmail message with ID: ${cleanMessageId} (original: ${messageId}) for account: ${emailAccount.emailAddress}`
+        `Fetching Gmail message with ID: ${cleanMessageId} (original: ${messageId}) for account: ${emailAccount.emailAddress} (attempt ${retryCount + 1})`
       );
 
       // Validate messageId format for Gmail API
@@ -1480,7 +1419,7 @@ export class DirectEmailFetchingService {
         throw new Error(`Account ${emailAccount.emailAddress} is inactive`);
       }
 
-      // Get Gmail auth client
+      // Get Gmail auth client (will auto-refresh if needed)
       const gmail = google.gmail({ version: "v1", auth: await this.getGmailAuthClient(emailAccount) });
 
       // If the provided ID looks like an RFC822 Message-ID (contains '@'),
@@ -1538,11 +1477,21 @@ export class DirectEmailFetchingService {
 
       return parsedEmail;
     } catch (error: any) {
-      logger.error(`Error fetching Gmail message with ID ${messageId}:`, error);
+      logger.error(`Error fetching Gmail message with ID ${messageId} (attempt ${retryCount + 1}):`, error);
 
-      // Update account status if there's an authentication error
-      if (error.message.includes("authentication") || error.message.includes("token")) {
+      // Check if this is an authentication error that requires re-authentication
+      const isAuthError =
+        error.message.includes("Gmail authentication expired") ||
+        error.message.includes("invalid_grant") ||
+        error.message.includes("authentication") ||
+        error.message.includes("token") ||
+        error.message.includes("unauthorized") ||
+        error.code === 401;
+
+      if (isAuthError) {
+        logger.error(`Gmail authentication error for ${emailAccount.emailAddress}: ${error.message}`);
         await this.updateAccountError(emailAccount, `Authentication failed: ${error.message}`);
+        throw new Error(`Gmail authentication failed: ${error.message}`);
       }
 
       throw new Error(`Failed to fetch Gmail message: ${error.message}`);
