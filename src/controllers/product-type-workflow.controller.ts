@@ -33,17 +33,46 @@ export const productTypeWorkflowController = {
 
       // Validate steps structure
       for (const step of steps) {
-        if (!step.stepOrder || typeof step.stepOrder !== "number") {
-          return res.status(StatusCodes.BAD_REQUEST).json({
-            success: false,
-            message: "Each step must have a valid stepOrder number",
-          });
-        }
-
         if (!step.taskTypeId || !isValidObjectId(step.taskTypeId)) {
           return res.status(StatusCodes.BAD_REQUEST).json({
             success: false,
             message: "Each step must have a valid taskTypeId",
+          });
+        }
+
+        // Validate dependsOnSteps if provided
+        if (step.dependsOnSteps) {
+          if (!Array.isArray(step.dependsOnSteps)) {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: "dependsOnSteps must be an array",
+            });
+          }
+
+          // Validate that all dependency IDs are valid ObjectIds
+          for (const dependencyId of step.dependsOnSteps) {
+            if (!isValidObjectId(dependencyId)) {
+              return res.status(StatusCodes.BAD_REQUEST).json({
+                success: false,
+                message: `Invalid dependency ID: ${dependencyId}`,
+              });
+            }
+          }
+
+          // Check for circular dependencies
+          if (step.dependsOnSteps.includes(step.id)) {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: "A step cannot depend on itself",
+            });
+          }
+        }
+
+        // Validate that step has an id
+        if (!step.id) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Each step must have a valid id",
           });
         }
       }
@@ -226,17 +255,46 @@ export const productTypeWorkflowController = {
         }
 
         for (const step of updateData.steps) {
-          if (!step.stepOrder || typeof step.stepOrder !== "number") {
-            return res.status(StatusCodes.BAD_REQUEST).json({
-              success: false,
-              message: "Each step must have a valid stepOrder number",
-            });
-          }
-
           if (!step.taskTypeId || !isValidObjectId(step.taskTypeId)) {
             return res.status(StatusCodes.BAD_REQUEST).json({
               success: false,
               message: "Each step must have a valid taskTypeId",
+            });
+          }
+
+          // Validate dependsOnSteps if provided
+          if (step.dependsOnSteps) {
+            if (!Array.isArray(step.dependsOnSteps)) {
+              return res.status(StatusCodes.BAD_REQUEST).json({
+                success: false,
+                message: "dependsOnSteps must be an array",
+              });
+            }
+
+            // Validate that all dependency IDs are valid ObjectIds
+            for (const dependencyId of step.dependsOnSteps) {
+              if (!isValidObjectId(dependencyId)) {
+                return res.status(StatusCodes.BAD_REQUEST).json({
+                  success: false,
+                  message: `Invalid dependency ID: ${dependencyId}`,
+                });
+              }
+            }
+
+            // Check for circular dependencies
+            if (step.dependsOnSteps.includes(step.id)) {
+              return res.status(StatusCodes.BAD_REQUEST).json({
+                success: false,
+                message: "A step cannot depend on itself",
+              });
+            }
+          }
+
+          // Validate that step has an id
+          if (!step.id) {
+            return res.status(StatusCodes.BAD_REQUEST).json({
+              success: false,
+              message: "Each step must have a valid id",
             });
           }
         }
