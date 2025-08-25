@@ -14,7 +14,7 @@ export class GmailSyncCron {
   static start(): void {
     // COMPLETELY DISABLED: All Gmail sync cron jobs
     // Manual sync only via frontend buttons
-    logger.info("🚫 Gmail sync cron jobs are completely disabled - manual sync only");
+    // logger.info("🚫 Gmail sync cron jobs are completely disabled - manual sync only");
     return;
   }
 
