@@ -57,6 +57,7 @@ export const SystemExpenseService = {
     payrollId: string;
     payrollDate?: Date;
     payrollPeriod?: string;
+    payrollType: "ACTUAL" | "GOVERNMENT"; // 🆕 Add payrollType parameter
   }) => {
     try {
       // 🛡️ DUPLICATE PREVENTION: Check if expense already exists for this payroll
@@ -71,15 +72,18 @@ export const SystemExpenseService = {
         return existingExpense;
       }
 
+      const typeLabel = data.payrollType === "ACTUAL" ? "Actual" : "Government";
+      
       return await expenseService.createExpense({
-        title: `Payroll - ${data.employeeName}`,
-        description: `System generated payroll expense for ${data.employeeName}${data.payrollPeriod ? ` (${data.payrollPeriod})` : ""}`,
+        title: `Payroll (${typeLabel}) - ${data.employeeName}`,
+        description: `System generated ${typeLabel.toLowerCase()} payroll expense for ${data.employeeName}${data.payrollPeriod ? ` (${data.payrollPeriod})` : ""}`,
         amount: data.netPay,
         category: SYSTEM_CATEGORIES.PAYROLL,
         date: data.payrollDate || new Date(),
         image: "",
         isSystemGenerated: true,
         systemType: "payroll",
+        payrollType: data.payrollType, // 🆕 Set payrollType in expense
         payrollReferenceId: data.payrollId,
       });
     } catch (error) {

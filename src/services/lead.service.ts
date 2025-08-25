@@ -43,7 +43,7 @@ export const LeadService = {
     })
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -65,7 +65,7 @@ export const LeadService = {
     return LeadModel.find()
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -84,7 +84,7 @@ export const LeadService = {
         LeadModel.find(filter)
           .populate({
             path: "leadCategory",
-            select: "title description image",
+            select: "name description image",
           })
           .populate({
             path: "assignedTo",
@@ -109,7 +109,7 @@ export const LeadService = {
     return LeadModel.findById(id)
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -147,7 +147,7 @@ export const LeadService = {
     })
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -218,7 +218,7 @@ export const LeadService = {
     return LeadModel.find({ status })
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -232,7 +232,7 @@ export const LeadService = {
     return LeadModel.find({ leadCategory: categoryId })
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",
@@ -246,7 +246,7 @@ export const LeadService = {
     return LeadModel.find({ assignedTo: userId })
       .populate({
         path: "leadCategory",
-        select: "title description image",
+        select: "name description image",
       })
       .populate({
         path: "assignedTo",

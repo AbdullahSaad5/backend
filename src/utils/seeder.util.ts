@@ -14,12 +14,12 @@ const seedData = async () => {
 
   // Initialize tokens using the new service if environment variables are available
   try {
-    console.log("🔧 Attempting to initialize tokens from credentials...");
+    // console.log("🔧 Attempting to initialize tokens from credentials...");
     const envValidation = TokenInitializationService.validateEnvironmentVariables();
 
     if (envValidation.valid) {
       await TokenInitializationService.initializeAllTokens();
-      console.log("✅ Tokens initialized from credentials");
+      // console.log("✅ Tokens initialized from credentials");
     } else {
       console.log("⚠️ Some environment variables missing, falling back to seeder...");
       await seedIntegrationTokens();
@@ -270,7 +270,7 @@ const seedData = async () => {
       await userCategory.save();
       console.log("Super Admin User Category updated.");
     } else {
-      console.log("Super Admin User Category already exists and matches.");
+      // console.log("Super Admin User Category already exists and matches.");
     }
   }
   if (!adminUserCategory) {
@@ -285,9 +285,9 @@ const seedData = async () => {
     ) {
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
-      console.log("Admin User Category updated.");
+      // console.log("Admin User Category updated.");
     } else {
-      console.log("Admin User Category already exists and matches.");
+      // console.log("Admin User Category already exists and matches.");
     }
   }
 
@@ -379,9 +379,9 @@ const seedData = async () => {
     ) {
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
-      console.log("Supplier User Category updated.");
+      // console.log("Supplier User Category updated.");
     } else {
-      console.log("Supplier User Category already exists and matches.");
+      // console.log("Supplier User Category already exists and matches.");
     }
   }
   const actualPassword: any = process.env.SYS_PASS; // Hardcoded password for seeding

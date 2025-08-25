@@ -20,7 +20,7 @@ dotenv.config({
 const app: Express = express();
 
 // Connect to MongoDB and seed data, then start server
-console.log("🚀 Starting application initialization...");
+// console.log("🚀 Starting application initialization...");
 
 mongoose
   .run()
@@ -30,7 +30,7 @@ mongoose
   })
   .then(() => {
     console.log("✅ Database seeded successfully.");
-    console.log("🌐 Starting HTTP server...");
+    // console.log("🌐 Starting HTTP server...");
 
     // Start the server only after seeding is complete
     app.options("*", corsMiddleware);
@@ -72,11 +72,11 @@ mongoose
 
     initCron();
     const port = process.env.PORT || 5000;
-    console.log(`🔧 Attempting to start server on port: ${port}`);
+    // console.log(`🔧 Attempting to start server on port: ${port}`);
 
     const httpServer = app.listen(port, () => {
       console.log(`🚀 Server is running on port: ${port}`);
-      console.log(`🌍 Server URL: http://localhost:${port}`);
+      // console.log(`🌍 Server URL: http://localhost:${port}`);
     });
 
     // Add socket.io to the server

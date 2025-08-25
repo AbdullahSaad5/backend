@@ -67,7 +67,7 @@ const initializeTransporter = () => {
 
       if (emailProvider === "gmail") {
         transporter = nodemailer.createTransport(gmailSmtpConfig);
-        console.log("✅ Email service initialized with Gmail SMTP");
+        // console.log("✅ Email service initialized with Gmail SMTP");
         return;
       }
     }
@@ -85,7 +85,7 @@ const initializeTransporter = () => {
         sendingRate: emailConfig.maxSendRate,
       });
 
-      console.log("✅ Email service initialized with AWS SES");
+      // console.log("✅ Email service initialized with AWS SES");
     }
   } catch (error) {
     console.error("❌ Failed to initialize email service:", error);

@@ -151,7 +151,7 @@ export const getAmazonAccessToken = async () => {
       { upsert: true }
     );
 
-    console.log(`✅ Amazon access token stored in DB for ${envVal}`);
+    // console.log(`✅ Amazon access token stored in DB for ${envVal}`);
     return tokenData;
   } catch (error: any) {
     console.error("❌ Failed to get Amazon access token:", error.message);

@@ -261,12 +261,12 @@ export class DirectEmailFetchingService {
         return null;
       }
 
-      // Parse the message
-      // const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
+      // Parse the message to match the expected frontend format
+      const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
 
-      // logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
+      logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
 
-      return response;
+      return parsedEmail;
     } catch (error: any) {
       logger.error(`Error fetching Outlook message with ID ${messageId}:`, error);
 
@@ -838,10 +838,15 @@ export class DirectEmailFetchingService {
     let snippet = messageData.bodyPreview || "";
 
     if (messageData.body) {
+      console.log("📧 Outlook message body content type:", messageData.body.contentType);
+      console.log("📧 Outlook message body content length:", messageData.body.content?.length || 0);
+
       if (messageData.body.contentType === "text/plain") {
         textContent = messageData.body.content || "";
-      } else if (messageData.body.contentType === "text/html") {
+        console.log("📧 Extracted text content length:", textContent.length);
+      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
         htmlContent = messageData.body.content || "";
+        console.log("📧 Extracted HTML content length:", htmlContent.length);
       }
     }
 
@@ -866,7 +871,7 @@ export class DirectEmailFetchingService {
     const labels = messageData.flag?.flagStatus || messageData.importance || messageData.categories || [];
     const category = this.determineEmailCategory(labels, messageData.subject, textContent);
 
-    return {
+    const parsedEmail = {
       messageId: messageData.id,
       threadId,
       subject: messageData.subject,
@@ -891,6 +896,17 @@ export class DirectEmailFetchingService {
       // conversationId,
       // isReply,
     };
+
+    console.log("📧 Parsed email result:", {
+      messageId: parsedEmail.messageId,
+      subject: parsedEmail.subject,
+      textContentLength: parsedEmail.textContent?.length || 0,
+      htmlContentLength: parsedEmail.htmlContent?.length || 0,
+      hasTextContent: !!parsedEmail.textContent,
+      hasHtmlContent: !!parsedEmail.htmlContent,
+    });
+
+    return parsedEmail;
   }
 
   /**
@@ -1386,5 +1402,106 @@ export class DirectEmailFetchingService {
 
     // Sort threads by last message date (newest first)
     return actualThreads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }
+
+  /**
+   * Fetch Gmail message by ID
+   */
+  static async fetchGmailMessageById(emailAccount: IEmailAccount, messageId: string): Promise<DirectEmailData | null> {
+    try {
+      logger.info(`Fetching Gmail message with ID: ${messageId} for account: ${emailAccount.emailAddress}`);
+
+      // Check if account supports Gmail
+      if (emailAccount.accountType !== "gmail") {
+        throw new Error(`Account ${emailAccount.emailAddress} does not support Gmail API`);
+      }
+
+      // Check account status
+      if (emailAccount.status === "inactive") {
+        throw new Error(`Account ${emailAccount.emailAddress} is inactive`);
+      }
+
+      // Get Gmail auth client
+      const gmail = google.gmail({ version: "v1", auth: await this.getGmailAuthClient(emailAccount) });
+
+      // Fetch the specific message from Gmail API
+      const response = await gmail.users.messages.get({
+        userId: "me",
+        id: messageId,
+        format: "full", // Get full message with body
+      });
+
+      if (!response.data) {
+        logger.warn(`Message with ID ${messageId} not found in Gmail API`);
+        return null;
+      }
+
+      // Parse the Gmail message
+      const parsedEmail = await this.parseGmailMessageDirect(response.data, emailAccount);
+
+      logger.info(`Successfully fetched Gmail message: ${parsedEmail.subject}`);
+
+      return parsedEmail;
+    } catch (error: any) {
+      logger.error(`Error fetching Gmail message with ID ${messageId}:`, error);
+
+      // Update account status if there's an authentication error
+      if (error.message.includes("authentication") || error.message.includes("token")) {
+        await this.updateAccountError(emailAccount, `Authentication failed: ${error.message}`);
+      }
+
+      throw new Error(`Failed to fetch Gmail message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Fetch email from database (for accounts that don't support direct API fetching)
+   */
+  static async fetchEmailFromDatabase(emailAccount: IEmailAccount, messageId: string): Promise<DirectEmailData | null> {
+    try {
+      logger.info(`Fetching email from database with ID: ${messageId} for account: ${emailAccount.emailAddress}`);
+
+      // Import the Email model
+      const { EmailModel } = await import("../models/email.model");
+
+      // Find the email in the database
+      const email = await EmailModel.findOne({
+        messageId: messageId,
+        accountId: emailAccount._id,
+      });
+
+      if (!email) {
+        logger.warn(`Email with messageId ${messageId} not found in database`);
+        return null;
+      }
+
+      // Convert database email to DirectEmailData format
+      const directEmailData: DirectEmailData = {
+        messageId: email.messageId,
+        threadId: email.threadId,
+        subject: email.subject,
+        from: email.from,
+        to: email.to,
+        cc: email.cc || [],
+        bcc: email.bcc || [],
+        date: email.receivedAt,
+        textContent: email.textContent,
+        htmlContent: email.htmlContent,
+        snippet: email.textContent?.substring(0, 200) || "",
+        isRead: email.isRead,
+        category: email.category || "general",
+        labels: email.labels || [],
+        inReplyTo: email.inReplyTo,
+        references: email.references || [],
+        parentMessageId: email.parentMessageId,
+      };
+
+      logger.info(`Successfully fetched email from database: ${directEmailData.subject}`);
+
+      return directEmailData;
+    } catch (error: any) {
+      logger.error(`Error fetching email from database with ID ${messageId}:`, error);
+      throw new Error(`Failed to fetch email from database: ${error.message}`);
+    }
   }
 }

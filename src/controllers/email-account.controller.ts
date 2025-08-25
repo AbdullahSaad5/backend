@@ -1539,7 +1539,40 @@ export class EmailAccountController {
         });
       }
 
-      const result = await DirectEmailFetchingService.fetchOutlookMessageById(account, messageId);
+      console.log("📧 Account details:", {
+        accountId: account._id,
+        emailAddress: account.emailAddress,
+        accountType: account.accountType,
+        oauthProvider: account.oauth?.provider,
+        messageId: messageId,
+      });
+
+      // Determine the account type and call the appropriate method
+      let result;
+      
+      if (account.accountType === "outlook" || account.accountType === "exchange") {
+        console.log("📧 Using Outlook API for message fetch");
+        // Use Outlook/Microsoft Graph API
+        result = await DirectEmailFetchingService.fetchOutlookMessageById(account, messageId);
+      } else if (account.accountType === "gmail" || account.accountType === "google") {
+        console.log("📧 Using Gmail API for message fetch");
+        // Use Gmail API
+        result = await DirectEmailFetchingService.fetchGmailMessageById(account, messageId);
+      } else {
+        console.log("📧 Using database lookup for message fetch");
+        // For other account types, try to find the email in the database
+        result = await DirectEmailFetchingService.fetchEmailFromDatabase(account, messageId);
+      }
+
+      console.log("📧 Fetch result:", {
+        success: !!result,
+        hasData: !!result,
+        subject: result?.subject,
+        hasHtmlContent: !!result?.htmlContent,
+        hasTextContent: !!result?.textContent,
+        htmlContentLength: result?.htmlContent?.length || 0,
+        textContentLength: result?.textContent?.length || 0,
+      });
 
       res.json({
         success: result ? true : false,

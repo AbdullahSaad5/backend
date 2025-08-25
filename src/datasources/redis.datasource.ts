@@ -1,5 +1,5 @@
 import Redis from "ioredis";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
 });
@@ -13,9 +13,8 @@ export const redis = new Redis({
   db: 0, // Enables SSL/TLS for secure connection);
 });
 
-
-console.log('REDIS_HOST:', process.env.REDIS_HOST);
-console.log('REDIS_PORT:', process.env.REDIS_PORT);
+// console.log('REDIS_HOST:', process.env.REDIS_HOST);
+// console.log('REDIS_PORT:', process.env.REDIS_PORT);
 //   {
 //   host: "localhost", // Replace with your Redis container's host
 //   port: 6379, // Default Redis port

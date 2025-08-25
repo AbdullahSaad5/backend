@@ -38,7 +38,7 @@ export const seedSystemExpenseCategories = async () => {
         await category.save();
         console.log(`✅ Created system category: ${categoryData.title} (${categoryData._id})`);
       } else {
-        console.log(`ℹ️ System category already exists: ${categoryData.title}`);
+        // console.log(`ℹ️ System category already exists: ${categoryData.title}`);
       }
     }
 
