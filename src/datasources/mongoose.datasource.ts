@@ -8,9 +8,6 @@ export const mongoose = {
         process.exit(1);
       }
 
-      console.log("MongoDB connection state:", connection.readyState);
-      console.log("MongoDB URI:", process.env.MONGO_URI.substring(0, 20) + "...");
-
       // Check if already connected
       if (connection.readyState === 1) {
         console.log("Already connected to MongoDB");

@@ -3,7 +3,7 @@ import { ExpenseCategory } from "@/models/expensecategory.model";
 
 export const seedSystemExpenseCategories = async () => {
   try {
-    console.log("🌱 Seeding system expense categories...");
+    // console.log("🌱 Seeding system expense categories...");
 
     // System categories to create
     const systemCategories = [
@@ -42,7 +42,7 @@ export const seedSystemExpenseCategories = async () => {
       }
     }
 
-    console.log("✅ System expense categories seeded successfully");
+    // console.log("✅ System expense categories seeded successfully");
     return true;
   } catch (error) {
     console.error("❌ Error seeding system expense categories:", error);
