@@ -172,45 +172,49 @@ export const ProfitReportingController = {
   },
 
   /**
-   * @desc    Download profit report as PDF
+   * @desc    Download financial report as PDF
    * @route   POST /api/profit-reports/download-pdf
    * @access  Private/Admin
    */
   downloadProfitReportPDF: async (req: Request, res: Response) => {
     try {
-      const { startDate, endDate, reportType = 'profit', period = 'all-time' } = req.body;
+      const { startDate, endDate, period = 'all-time', payrollType } = req.body;
+
+      // 🆕 PAYROLL TYPE VALIDATION: Validate payrollType if provided
+      if (payrollType && !['ACTUAL', 'GOVERNMENT'].includes(payrollType)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "PayrollType must be either 'ACTUAL' or 'GOVERNMENT'"
+        });
+      }
 
       let start: Date | undefined;
       let end: Date | undefined;
       let report;
       let title;
       
-      if (reportType === 'time-based') {
-        if (period === 'daily' || period === 'monthly') {
-          if (!startDate || !endDate) {
-            return res.status(StatusCodes.BAD_REQUEST).json({
-              success: false,
-              message: "Start date and end date are required for daily and monthly reports"
-            });
-          }
-          start = new Date(startDate);
-          end = new Date(endDate);
-          title = `Time-Based Financial Report (${start.toDateString()} - ${end.toDateString()})`;
-        } else {
-          title = `Time-Based Financial Report (${period})`;
-        }
-        report = await ProfitReportingService.generateTimeBasedReport(start, end, period);
-      } else {
+      // Handle different time periods
+      if (period === 'daily' || period === 'monthly') {
         if (!startDate || !endDate) {
           return res.status(StatusCodes.BAD_REQUEST).json({
             success: false,
-            message: "Start date and end date are required"
+            message: "Start date and end date are required for daily and monthly reports"
           });
         }
         start = new Date(startDate);
         end = new Date(endDate);
-        report = await ProfitReportingService.generateProfitReport(start, end);
-        title = `Profit Report (${start.toDateString()} - ${end.toDateString()})`;
+        title = `Financial Report (${start.toDateString()} - ${end.toDateString()})`;
+      } else {
+        // For all-time and yearly, no date range needed
+        title = `Financial Report (${period})`;
+      }
+
+      // Generate the report using time-based service
+      report = await ProfitReportingService.generateTimeBasedReport(start, end, period, payrollType);
+      
+      // Add payroll type to title if specified
+      if (payrollType) {
+        title += ` - ${payrollType} Payroll`;
       }
 
       // Create PDF
@@ -224,7 +228,7 @@ export const ProfitReportingController = {
       doc.pipe(res);
 
       // Add content to PDF
-      await ProfitReportingController.generatePDFContent(doc, report, title, reportType);
+      await ProfitReportingController.generatePDFContent(doc, report, title);
 
       // Finalize PDF
       doc.end();
@@ -244,7 +248,7 @@ export const ProfitReportingController = {
   /**
    * Generate PDF content for reports
    */
-  generatePDFContent: async (doc: PDFKit.PDFDocument, report: any, title: string, reportType: string) => {
+  generatePDFContent: async (doc: PDFKit.PDFDocument, report: any, title: string) => {
     try {
       // Title
       doc.fontSize(20).font('Helvetica-Bold').text(title, { align: 'center' });
@@ -256,27 +260,21 @@ export const ProfitReportingController = {
       
       doc.fontSize(12).font('Helvetica');
       
-      if (reportType === 'time-based') {
-        doc.text(`Total Revenue: £${report.summary.totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Total Expenses: £${report.summary.totalExpenses.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Net Profit: £${report.summary.profit.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Profit Margin: ${report.summary.profitMargin.toFixed(2)}%`);
-      } else {
-        doc.text(`Total Revenue: £${report.totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Total Expenses: £${report.totalExpenses.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Net Profit: £${report.profit.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
-        doc.text(`Profit Margin: ${report.profitMargin.toFixed(2)}%`);
-      }
+      // All reports now use the time-based structure
+      doc.text(`Total Revenue: £${report.summary.totalRevenue.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
+      doc.text(`Total Expenses: £${report.summary.totalExpenses.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
+      doc.text(`Net Profit: £${report.summary.profit.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`);
+      doc.text(`Profit Margin: ${report.summary.profitMargin.toFixed(2)}%`);
       
       doc.moveDown(2);
 
       // Revenue Breakdown
-      if (reportType === 'profit' && report.revenueBreakdown?.length > 0) {
+      if (report.topRevenueSources?.length > 0) {
         doc.fontSize(14).font('Helvetica-Bold').text('Revenue Breakdown by Source');
         doc.moveDown(0.5);
         doc.fontSize(10).font('Helvetica');
         
-        report.revenueBreakdown.forEach((item: any, index: number) => {
+        report.topRevenueSources.forEach((item: any, index: number) => {
           if (index < 10) { // Limit to top 10
             doc.text(`${item.source}: £${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} (${item.percentage.toFixed(1)}%)`);
           }
@@ -285,13 +283,12 @@ export const ProfitReportingController = {
       }
 
       // Expense Breakdown
-      const expenseData = reportType === 'time-based' ? report.topExpenseCategories : report.expenseBreakdown;
-      if (expenseData?.length > 0) {
+      if (report.topExpenseCategories?.length > 0) {
         doc.fontSize(14).font('Helvetica-Bold').text('Expense Breakdown by Category');
         doc.moveDown(0.5);
         doc.fontSize(10).font('Helvetica');
         
-        expenseData.forEach((item: any, index: number) => {
+        report.topExpenseCategories.forEach((item: any, index: number) => {
           if (index < 10) { // Limit to top 10
             const systemTag = item.isSystemGenerated ? ' (System)' : ' (Manual)';
             doc.text(`${item.category}: £${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })} (${item.percentage.toFixed(1)}%)${systemTag}`);
@@ -301,8 +298,7 @@ export const ProfitReportingController = {
       }
 
       // Trends Section
-      const trendsData = reportType === 'time-based' ? report.trends : report.monthlyTrends;
-      if (trendsData?.length > 0) {
+      if (report.trends?.length > 0) {
         doc.addPage();
         doc.fontSize(16).font('Helvetica-Bold').text('Financial Trends', { underline: true });
         doc.moveDown(0.5);
@@ -322,12 +318,11 @@ export const ProfitReportingController = {
         
         // Data rows
         doc.font('Helvetica');
-        trendsData.forEach((item: any, index: number) => {
+        report.trends.forEach((item: any, index: number) => {
           const y = tableTop + (index + 1) * itemHeight;
-          const period = reportType === 'time-based' ? item.period : item.month;
           const margin = item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : '0.0';
           
-          doc.text(period, 50, y);
+          doc.text(item.period, 50, y);
           doc.text(`£${item.revenue.toLocaleString('en-GB')}`, 150, y);
           doc.text(`£${item.expenses.toLocaleString('en-GB')}`, 250, y);
           doc.text(`£${item.profit.toLocaleString('en-GB')}`, 350, y);
