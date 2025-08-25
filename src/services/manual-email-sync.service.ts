@@ -2,6 +2,7 @@ import { EmailFetchingService } from "./email-fetching.service";
 import { EmailAccountModel } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";
 import { google } from "googleapis";
+import { getStoredGmailAuthClient } from "@/utils/gmail-helpers.util";
 
 export interface ManualSyncResult {
   success: boolean;
@@ -124,102 +125,123 @@ export class ManualEmailSyncService {
 
       logger.info(`Processing batch for account: ${account.emailAddress}`);
 
-      const gmail = google.gmail({ version: "v1", auth: await EmailFetchingService.getGmailAuthClient(account) });
+      try {
+        const gmail = google.gmail({ version: "v1", auth: await EmailFetchingService.getGmailAuthClient(account) });
 
-      // Get current sync state
-      const currentBatch = account.syncState?.currentBatch || 1;
-      const totalProcessed = account.syncState?.totalProcessed || 0;
-      const nextPageToken = account.syncState?.nextPageToken;
+        // Get current sync state
+        const currentBatch = account.syncState?.currentBatch || 1;
+        const totalProcessed = account.syncState?.totalProcessed || 0;
+        const nextPageToken = account.syncState?.nextPageToken;
 
-      // Fetch message IDs for this batch
-      const messagesResponse = await gmail.users.messages.list({
-        userId: "me",
-        maxResults: this.BATCH_SIZE,
-        pageToken: nextPageToken,
-        // No date filter - fetch emails in chronological order
-      });
+        // Fetch message IDs for this batch
+        const messagesResponse = await gmail.users.messages.list({
+          userId: "me",
+          maxResults: this.BATCH_SIZE,
+          pageToken: nextPageToken,
+          // No date filter - fetch emails in chronological order
+        });
 
-      if (!messagesResponse.data.messages || messagesResponse.data.messages.length === 0) {
-        // No more emails to process
-        await this.completeManualSync(accountId);
+        if (!messagesResponse.data.messages || messagesResponse.data.messages.length === 0) {
+          // No more emails to process
+          await this.completeManualSync(accountId);
+
+          return {
+            accountId,
+            emailAddress: account.emailAddress,
+            batchNumber: currentBatch,
+            emailsProcessed: 0,
+            totalEmailsInBatch: 0,
+            hasMoreEmails: false,
+            progress: {
+              totalProcessed,
+              estimatedTotal: totalProcessed,
+              percentage: 100,
+            },
+          };
+        }
+
+        // Process emails in this batch
+        const emails: any[] = [];
+        const messageIds = messagesResponse.data.messages.map((msg) => msg.id!);
+
+        // Fetch full message details for this batch
+        for (const messageId of messageIds) {
+          try {
+            const messageResponse = await gmail.users.messages.get({
+              userId: "me",
+              id: messageId,
+              format: "full",
+            });
+
+            const fetchedEmail = await EmailFetchingService.parseGmailMessage(messageResponse.data, account);
+            emails.push(fetchedEmail);
+
+            // Rate limiting
+            await this.delay(100); // 100ms between individual message fetches
+          } catch (error: any) {
+            logger.warn(`Failed to fetch message ${messageId}: ${error.message}`);
+          }
+        }
+
+        // Store emails in database
+        if (emails.length > 0) {
+          await EmailFetchingService.storeEmailsInDatabase(emails, account);
+        }
+
+        const newTotalProcessed = totalProcessed + emails.length;
+        const hasMoreEmails = !!messagesResponse.data.nextPageToken;
+
+        // Update sync state - ALWAYS stop processing after one batch
+        await EmailAccountModel.findByIdAndUpdate(accountId, {
+          $set: {
+            "syncState.currentBatch": currentBatch + 1,
+            "syncState.totalProcessed": newTotalProcessed,
+            "syncState.nextPageToken": messagesResponse.data.nextPageToken || null,
+            "syncState.lastProcessedAt": new Date(),
+            "syncState.isProcessing": false, // Always stop after one batch
+          },
+        });
+
+        // Calculate progress
+        const estimatedTotal = hasMoreEmails ? newTotalProcessed + this.BATCH_SIZE : newTotalProcessed;
+        const percentage = Math.min((newTotalProcessed / estimatedTotal) * 100, 100);
+
+        logger.info(`Batch ${currentBatch} completed for ${account.emailAddress}: ${emails.length} emails processed`);
 
         return {
           accountId,
           emailAddress: account.emailAddress,
           batchNumber: currentBatch,
-          emailsProcessed: 0,
-          totalEmailsInBatch: 0,
-          hasMoreEmails: false,
+          emailsProcessed: emails.length,
+          totalEmailsInBatch: messageIds.length,
+          hasMoreEmails,
+          nextPageToken: messagesResponse.data.nextPageToken || undefined,
           progress: {
-            totalProcessed,
-            estimatedTotal: totalProcessed,
-            percentage: 100,
+            totalProcessed: newTotalProcessed,
+            estimatedTotal,
+            percentage: Math.round(percentage),
           },
         };
-      }
+      } catch (authError: any) {
+        // Handle authentication errors specifically
+        if (authError.message.includes("Gmail authentication expired") || authError.message.includes("invalid_grant")) {
+          logger.error(`Gmail authentication error for account ${accountId}: ${authError.message}`);
 
-      // Process emails in this batch
-      const emails: any[] = [];
-      const messageIds = messagesResponse.data.messages.map((msg) => msg.id!);
-
-      // Fetch full message details for this batch
-      for (const messageId of messageIds) {
-        try {
-          const messageResponse = await gmail.users.messages.get({
-            userId: "me",
-            id: messageId,
-            format: "full",
+          // Reset processing state and mark as error
+          await EmailAccountModel.findByIdAndUpdate(accountId, {
+            $set: {
+              "syncState.isProcessing": false,
+              "syncState.lastError": authError.message,
+              "syncState.lastErrorAt": new Date(),
+            },
           });
 
-          const fetchedEmail = await EmailFetchingService.parseGmailMessage(messageResponse.data, account);
-          emails.push(fetchedEmail);
-
-          // Rate limiting
-          await this.delay(100); // 100ms between individual message fetches
-        } catch (error: any) {
-          logger.warn(`Failed to fetch message ${messageId}: ${error.message}`);
+          throw new Error(`Gmail authentication failed: ${authError.message}`);
         }
+
+        // Re-throw other errors
+        throw authError;
       }
-
-      // Store emails in database
-      if (emails.length > 0) {
-        await EmailFetchingService.storeEmailsInDatabase(emails, account);
-      }
-
-      const newTotalProcessed = totalProcessed + emails.length;
-      const hasMoreEmails = !!messagesResponse.data.nextPageToken;
-
-      // Update sync state - ALWAYS stop processing after one batch
-      await EmailAccountModel.findByIdAndUpdate(accountId, {
-        $set: {
-          "syncState.currentBatch": currentBatch + 1,
-          "syncState.totalProcessed": newTotalProcessed,
-          "syncState.nextPageToken": messagesResponse.data.nextPageToken || null,
-          "syncState.lastProcessedAt": new Date(),
-          "syncState.isProcessing": false, // Always stop after one batch
-        },
-      });
-
-      // Calculate progress
-      const estimatedTotal = hasMoreEmails ? newTotalProcessed + this.BATCH_SIZE : newTotalProcessed;
-      const percentage = Math.min((newTotalProcessed / estimatedTotal) * 100, 100);
-
-      logger.info(`Batch ${currentBatch} completed for ${account.emailAddress}: ${emails.length} emails processed`);
-
-      return {
-        accountId,
-        emailAddress: account.emailAddress,
-        batchNumber: currentBatch,
-        emailsProcessed: emails.length,
-        totalEmailsInBatch: messageIds.length,
-        hasMoreEmails,
-        nextPageToken: messagesResponse.data.nextPageToken || undefined,
-        progress: {
-          totalProcessed: newTotalProcessed,
-          estimatedTotal,
-          percentage: Math.round(percentage),
-        },
-      };
     } catch (error: any) {
       logger.error(`Batch processing failed for account ${accountId}:`, error);
 
@@ -347,23 +369,42 @@ export class ManualEmailSyncService {
       const account = await EmailAccountModel.findById(accountId);
       if (!account) return;
 
-      // Get the latest historyId for future incremental syncs
-      const gmail = google.gmail({ version: "v1", auth: await EmailFetchingService.getGmailAuthClient(account) });
-      const profileResponse = await gmail.users.getProfile({ userId: "me" });
-      const historyId = profileResponse.data.historyId;
+      try {
+        // Get the latest historyId for future incremental syncs
+        const gmail = google.gmail({ version: "v1", auth: await EmailFetchingService.getGmailAuthClient(account) });
+        const profileResponse = await gmail.users.getProfile({ userId: "me" });
+        const historyId = profileResponse.data.historyId;
 
-      await EmailAccountModel.findByIdAndUpdate(accountId, {
-        $set: {
-          "syncState.isProcessing": false,
-          "syncState.syncStatus": "complete",
-          "syncState.lastSyncAt": new Date(),
-          "syncState.lastHistoryId": historyId,
-          "syncState.manualSyncCompleted": new Date(),
-          "syncState.nextPageToken": null,
-        },
-      });
+        await EmailAccountModel.findByIdAndUpdate(accountId, {
+          $set: {
+            "syncState.isProcessing": false,
+            "syncState.syncStatus": "complete",
+            "syncState.lastSyncAt": new Date(),
+            "syncState.lastHistoryId": historyId,
+            "syncState.manualSyncCompleted": new Date(),
+            "syncState.nextPageToken": null,
+          },
+        });
 
-      logger.info(`Manual sync completed for account: ${account.emailAddress}`);
+        logger.info(`Manual sync completed for account: ${account.emailAddress}`);
+      } catch (authError: any) {
+        // Handle authentication errors
+        if (authError.message.includes("Gmail authentication expired") || authError.message.includes("invalid_grant")) {
+          logger.error(
+            `Gmail authentication error during manual sync completion for account ${accountId}: ${authError.message}`
+          );
+
+          await EmailAccountModel.findByIdAndUpdate(accountId, {
+            $set: {
+              "syncState.isProcessing": false,
+              "syncState.lastError": authError.message,
+              "syncState.lastErrorAt": new Date(),
+            },
+          });
+        } else {
+          throw authError;
+        }
+      }
     } catch (error: any) {
       logger.error(`Failed to complete manual sync for account ${accountId}:`, error);
     }

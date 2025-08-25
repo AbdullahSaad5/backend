@@ -61,11 +61,12 @@ const seedData = async () => {
       "ADD_LISTING",
       "MANAGE_DISCOUNTS",
 
-      "ORDER_PIPELINE",
-
       "MANAGE_BUNDLES",
       "ADD_BUNDLES",
       "VIEW_BUNDLES",
+
+      "ORDER_PIPELINE_MANAGEMENT",
+      "ORDER_MANAGEMENT",
 
       "GAMERS_COMMUNITY",
       "VIEW_BLOGS_CATEGORY",

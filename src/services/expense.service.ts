@@ -95,4 +95,125 @@ export const expenseService = {
     return ExpenseModel.findByIdAndDelete(id);
   },
 
+  /**
+   * Search expenses with pagination and filters
+   */
+  searchExpenses: async (filters: {
+    searchQuery?: string;
+    isBlocked?: boolean;
+    category?: string;
+    expenseType?: string;
+    payrollType?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const { searchQuery, isBlocked, category, expenseType, payrollType, page = 1, limit = 10 } = filters;
+    
+    // Build filter object
+    const filter: any = {};
+    
+    if (isBlocked !== undefined) {
+      filter.isBlocked = isBlocked;
+    }
+    
+    if (category) {
+      filter.category = category;
+    }
+    
+    if (expenseType && expenseType !== "all") {
+      if (expenseType === "manual") {
+        filter.isSystemGenerated = false;
+      } else if (expenseType === "system") {
+        filter.isSystemGenerated = true;
+      }
+    }
+    
+    // Special handling for payroll type filter
+    // We want to show all expenses but only show the selected payroll type for payroll expenses
+    if (payrollType) {
+      // For payroll expenses, filter by payroll type
+      // For non-payroll expenses, include them regardless of payroll type
+      filter.$or = [
+        { systemType: { $ne: "payroll" } }, // Include all non-payroll expenses
+        { 
+          systemType: "payroll", 
+          payrollType: payrollType 
+        } // Include only the selected payroll type for payroll expenses
+      ];
+    }
+    
+    // Build search query
+    if (searchQuery) {
+      const searchFilter = {
+        $or: [
+          { title: { $regex: searchQuery, $options: 'i' } },
+          { description: { $regex: searchQuery, $options: 'i' } }
+        ]
+      };
+      
+      // If we already have $or for payroll filter, combine them
+      if (filter.$or) {
+        filter.$and = [
+          { $or: filter.$or },
+          searchFilter
+        ];
+        delete filter.$or;
+      } else {
+        filter.$or = searchFilter.$or;
+      }
+    }
+    
+    // Calculate skip value for pagination
+    const skip = (page - 1) * limit;
+    
+    // Get total count for pagination
+    const totalExpenses = await ExpenseModel.countDocuments(filter);
+    
+    // Get paginated results with population
+    const expenses = await ExpenseModel.find(filter)
+      .populate("category")
+      .populate({
+        path: "inventoryReferenceId",
+        populate: [
+          {
+            path: "inventoryId",
+            populate: {
+              path: "productInfo.productCategory",
+            },
+          },
+          {
+            path: "productSupplier",
+          },
+          {
+            path: "receivedBy",
+          },
+          {
+            path: "selectedVariations.variationId",
+          },
+        ],
+      })
+      .populate({
+        path: "payrollReferenceId",
+        populate: {
+          path: "employeeId",
+        },
+      })
+      .populate("recurringReferenceId")
+      .populate("adjustmentReferenceId")
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    return {
+      expenses,
+      pagination: {
+        totalExpenses,
+        currentPage: page,
+        totalPages: Math.ceil(totalExpenses / limit),
+        limit,
+        hasNextPage: page < Math.ceil(totalExpenses / limit),
+        hasPrevPage: page > 1
+      }
+    };
+  },
 };

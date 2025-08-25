@@ -342,6 +342,23 @@ const complaintdata = {...req.body, userId};
         });
       }
 
+      // Check if complaint exists and get its status
+      const complaint = await complaintService.getComplaintById(id);
+      if (!complaint) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Complaint not found",
+        });
+      }
+
+      // Prevent adding notes to closed complaints
+      if (complaint.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add notes to closed complaints",
+        });
+      }
+
       const updatedComplaint = await complaintService.addNoteToComplaint(id, {
         image,
         description,
@@ -393,6 +410,23 @@ const complaintdata = {...req.body, userId};
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Resolution description is required",
+        });
+      }
+
+      // Check if complaint exists and get its status
+      const complaint = await complaintService.getComplaintById(id);
+      if (!complaint) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Complaint not found",
+        });
+      }
+
+      // Prevent adding resolutions to closed complaints
+      if (complaint.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add resolution to closed complaints",
         });
       }
 

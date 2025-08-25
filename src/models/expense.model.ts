@@ -98,6 +98,8 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
     },
     adjustedBy: String
   }],
+}, {
+  timestamps: true
 });
 
 export const ExpenseModel = model<IExpense, IExpenseModel>("Expense", expenseSchema);

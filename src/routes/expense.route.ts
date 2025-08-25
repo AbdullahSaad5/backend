@@ -7,11 +7,14 @@ export const expense = (router: Router) => {
   // Create expense
   router.post("/", expenseController.createExpense);
 
-  // Get single expense
-  router.get("/:id", expenseController.getExpense);
-
   // Get all expenses with optional filters
   router.get("/", expenseController.getAllExpenses);
+  
+  // Search expenses with pagination and filters
+  router.get("/search", expenseController.searchExpenses);
+
+  // Get single expense
+  router.get("/:id", expenseController.getExpense);
 
   // Update expense
   router.patch("/:id", expenseController.updateExpense);

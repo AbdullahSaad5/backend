@@ -9,6 +9,8 @@ export const expensecategory = (router: Router) => {
   );
 
   router.get("/", ExpenseCategoryController.getAllExpenseCategories);
+  
+  router.get("/search", ExpenseCategoryController.searchExpenseCategories);
 
   router.patch(
     "/:id",

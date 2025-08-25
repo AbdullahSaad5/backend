@@ -4,7 +4,8 @@ import { ENUMS } from "@/constants/enum";
 type ProductCondition = (typeof ENUMS.PRODUCT_CONDITIONS)[number];
 
 interface IWorkflowStep {
-  stepOrder: number;
+  id: string;
+  stepOrder?: number;
   taskTypeId: Types.ObjectId;
   overrideEstimatedTimeMinutes?: number;
   overridePriority?: 1 | 2 | 3;

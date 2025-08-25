@@ -4,6 +4,7 @@ import { RecurringExpenseController } from "@/controllers/recurring-expense.cont
 export const recurringExpense = (router: Router) => {
   router.post("/", RecurringExpenseController.create);
   router.get("/", RecurringExpenseController.getAll);
+  router.get("/search", RecurringExpenseController.searchRecurringExpenses);
   router.get("/:id", RecurringExpenseController.getById);
   router.patch("/:id", RecurringExpenseController.update);
   router.delete("/:id", RecurringExpenseController.remove);

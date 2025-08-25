@@ -159,6 +159,60 @@ export const RecurringExpenseService = {
       .sort({ nextRunAt: 1 });
   },
 
+  searchRecurringExpenses: async (filters: {
+    searchQuery?: string;
+    isBlocked?: boolean;
+    frequency?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    const { searchQuery, isBlocked, frequency, page = 1, limit = 10 } = filters;
+    
+    // Build filter object
+    const filter: any = {};
+    
+    if (isBlocked !== undefined) {
+      filter.isBlocked = isBlocked;
+    }
+    
+    if (frequency && frequency !== "all") {
+      filter.frequency = frequency;
+    }
+    
+    // Build search query
+    if (searchQuery) {
+      filter.$or = [
+        { title: { $regex: searchQuery, $options: 'i' } },
+        { description: { $regex: searchQuery, $options: 'i' } }
+      ];
+    }
+    
+    // Calculate skip value for pagination
+    const skip = (page - 1) * limit;
+    
+    // Get total count for pagination
+    const totalRecurringExpenses = await RecurringExpense.countDocuments(filter);
+    
+    // Get paginated results
+    const recurringExpenses = await RecurringExpense.find(filter)
+      .populate("category", "title")
+      .sort({ nextRunAt: 1 })
+      .skip(skip)
+      .limit(limit);
+    
+    return {
+      recurringExpenses,
+      pagination: {
+        totalRecurringExpenses,
+        currentPage: page,
+        totalPages: Math.ceil(totalRecurringExpenses / limit),
+        limit,
+        hasNextPage: page < Math.ceil(totalRecurringExpenses / limit),
+        hasPrevPage: page > 1
+      }
+    };
+  },
+
   toggleBlock: async (id: string, isBlocked: boolean) => {
     console.log("block : ", isBlocked);
     console.log("id : ", id);

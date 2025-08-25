@@ -40,12 +40,17 @@ export const permissionsController = {
             "VIEW_BUNDLES",
           ],
         },
-        orderManagement: {
-          parent: "ORDER_PIPELINE",
+        orderPipelineManagement: {
+          parent: "ORDER_PIPELINE_MANAGEMENT",
           // children: [
-          
           // ],
         },
+        orderManagement: {
+          parent: "ORDER_MANAGEMENT",
+          // children: [
+          // ],
+        },
+
         // discountAndTaxes: {
         //   parent: "MANAGE_TAXES_AND_DISCOUNTS",
         //   children: [

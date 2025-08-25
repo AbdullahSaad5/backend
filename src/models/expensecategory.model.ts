@@ -29,6 +29,8 @@ const IExpensecat = new Schema<IExpenseCategory, IExpenseCategoryModel>({
     type: Boolean,
     default: false,
   },
+}, {
+  timestamps: true
 });
 
 

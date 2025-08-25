@@ -6,7 +6,7 @@ let task: cron.ScheduledTask | null = null;
 export function startRecurringExpenseCron() {
   if (task) return task;
   // Run every 5 minutes
-  console.log("🔄 Starting RecurringExpenseCron - runs every 5 minutes");
+  // console.log("🔄 Starting RecurringExpenseCron - runs every 5 minutes");
   task = cron.schedule("*/5 * * * *", async () => {
     try {
       const { processed } = await RecurringExpenseService.processDue();
@@ -18,7 +18,7 @@ export function startRecurringExpenseCron() {
     }
   });
   task.start();
-  console.log("✅ RecurringExpenseCron started successfully");
+  // console.log("✅ RecurringExpenseCron started successfully");
   return task;
 }
 
@@ -28,5 +28,3 @@ export function stopRecurringExpenseCron() {
     task = null;
   }
 }
-
-

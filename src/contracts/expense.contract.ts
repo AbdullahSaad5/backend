@@ -27,6 +27,10 @@ export interface IExpense extends Document {
     date: Date;
     adjustedBy?: string;
   }>;
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type IExpenseModel = Model<IExpense>;
