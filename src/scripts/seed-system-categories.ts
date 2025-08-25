@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { IExpenseModel } from "@/models/expensecategory.model";
+import { ExpenseCategory } from "@/models/expensecategory.model";
 
 export const seedSystemExpenseCategories = async () => {
   try {
@@ -31,14 +31,14 @@ export const seedSystemExpenseCategories = async () => {
     ];
 
     for (const categoryData of systemCategories) {
-      const existingCategory = await IExpenseModel.findById(categoryData._id);
+      const existingCategory = await ExpenseCategory.findById(categoryData._id);
 
       if (!existingCategory) {
-        const category = new IExpenseModel(categoryData);
+        const category = new ExpenseCategory(categoryData);
         await category.save();
         console.log(`✅ Created system category: ${categoryData.title} (${categoryData._id})`);
       } else {
-        console.log(`ℹ️ System category already exists: ${categoryData.title}`);
+        // console.log(`ℹ️ System category already exists: ${categoryData.title}`);
       }
     }
 
@@ -61,7 +61,6 @@ if (require.main === module) {
       await seedSystemExpenseCategories();
 
       console.log("🎉 Seeding completed successfully");
-      // process.exit(0);
     } catch (error) {
       console.error("❌ Seeding failed:", error);
       process.exit(1);

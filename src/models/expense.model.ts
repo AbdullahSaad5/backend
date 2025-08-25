@@ -22,7 +22,7 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
   },
   category: {
     type: Schema.Types.ObjectId,
-    ref:"IExpenseModel",
+    ref: "ExpenseCategory",
     required: [true, "Category is required"],
   },
   date: {
@@ -49,6 +49,13 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
       return this.isSystemGenerated;
     },
   },
+  payrollType: {
+    type: String,
+    enum: ["ACTUAL", "GOVERNMENT"],
+    required: function() {
+      return this.isSystemGenerated && this.systemType === "payroll";
+    },
+  },
   // Separate reference fields for each system type
   inventoryReferenceId: {
     type: Schema.Types.ObjectId,
@@ -66,7 +73,7 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
   },
   recurringReferenceId: {
     type: Schema.Types.ObjectId,
-    ref: "RecurringExpenseModel",
+    ref: "RecurringExpense",
     required: function() {
       return this.isSystemGenerated && this.systemType === "recurring";
     },

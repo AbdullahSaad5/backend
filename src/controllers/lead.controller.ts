@@ -136,6 +136,7 @@ export const LeadController = {
           $or: [
             { name: { $regex: searchQuery as string, $options: "i" } },
             { email: { $regex: searchQuery as string, $options: "i" } },
+            { source: { $regex: searchQuery as string, $options: "i" } },
           ],
         };
       }
@@ -386,7 +387,7 @@ export const LeadController = {
         ? (req.files as any[]).map((f) => f.location)
         : [];
 
-      const updatedTicket = await LeadService.addNote(
+      const updatedLead = await LeadService.addNote(
         id,
         description.trim(),
         userId,
@@ -396,7 +397,7 @@ export const LeadController = {
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Note added successfully",
-        data: updatedTicket,
+        data: updatedLead,
       });
     } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -410,12 +411,12 @@ export const LeadController = {
     try {
       const { id, noteId } = req.params as any;
 
-      const updatedTicket = await LeadService.deleteNote(id, noteId);
+      const updatedLead = await LeadService.deleteNote(id, noteId);
 
       return res.status(StatusCodes.OK).json({
         success: true,
         message: "Note deleted successfully",
-        data: updatedTicket,
+        data: updatedLead,
       });
     } catch (error: any) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({

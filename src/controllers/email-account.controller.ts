@@ -686,68 +686,76 @@ export class EmailAccountController {
 
         let threads;
         try {
-          threads = await EmailThreadModel.aggregate([
-            {
-              $lookup: {
-                from: "emails",
-                localField: "threadId",
-                foreignField: "threadId",
-                as: "emails",
-                pipeline: [
-                  { $match: threadEmailFilter },
-                  { $sort: { receivedAt: -1 } },
-                  { $limit: 20 }, // Increase limit to show more emails per thread
-                ],
-              },
-            },
-            {
-              $match: {
-                "emails.0": { $exists: true }, // Only threads with matching emails
-                accountId: account._id, // Ensure thread belongs to this account
-              },
-            },
-            {
-              $addFields: {
-                unreadCount: {
-                  $size: {
-                    $filter: {
-                      input: "$emails",
-                      cond: { $eq: ["$$this.isRead", false] },
-                    },
-                  },
-                },
-                latestEmail: { $arrayElemAt: ["$emails", 0] },
-                // Add thread metadata for better display
-                threadDirection: { $arrayElemAt: ["$emails.direction", 0] },
-                threadSubject: { $arrayElemAt: ["$emails.subject", 0] },
-                // Add email count for this thread
-                emailCount: { $size: "$emails" },
-                // Add participants from all emails in thread (simplified to avoid $concatArrays issues)
-                participants: {
-                  $map: {
-                    input: { $slice: ["$emails", 5] }, // Limit to first 5 emails to avoid complexity
-                    as: "email",
-                    in: {
-                      from: "$$email.from",
-                      to: "$$email.to",
-                      emailId: "$$email._id",
-                    },
-                  },
-                },
-              },
-            },
-            { $sort: { lastMessageAt: -1 } },
-            { $skip: parseInt(offset as string) },
-            { $limit: parseInt(limit as string) },
-          ]);
+          // First, get all emails for this account that match the filter
+          const emails = await EmailModel.find(threadEmailFilter)
+            .sort({ receivedAt: -1 })
+            .limit(parseInt(limit as string) * 5); // Get more emails to ensure we have enough for threading
 
-          // console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+          // Group emails by threadId
+          const emailGroups = new Map<string, any[]>();
+          emails.forEach((email) => {
+            if (email.threadId) {
+              if (!emailGroups.has(email.threadId)) {
+                emailGroups.set(email.threadId, []);
+              }
+              emailGroups.get(email.threadId)!.push(email);
+            }
+          });
+
+          // Convert groups to thread objects
+          threads = Array.from(emailGroups.entries()).map(([threadId, threadEmails]) => {
+            const latestEmail = threadEmails[0]; // Already sorted by receivedAt desc
+            const unreadCount = threadEmails.filter((e) => !e.isRead).length;
+
+            // Get unique participants from all emails in thread
+            const participants = new Map<string, { email: string; name?: string }>();
+            threadEmails.forEach((email) => {
+              // Add sender
+              if (email.from) {
+                participants.set(email.from.email, { email: email.from.email, name: email.from.name });
+              }
+              // Add recipients
+              if (email.to) {
+                email.to.forEach((recipient: { email: string; name?: string }) => {
+                  participants.set(recipient.email, { email: recipient.email, name: recipient.name });
+                });
+              }
+            });
+
+            return {
+              _id: threadId,
+              threadId: threadId,
+              subject: latestEmail.subject,
+              participants: Array.from(participants.values()),
+              messageCount: threadEmails.length,
+              unreadCount: unreadCount,
+              lastMessageAt: latestEmail.receivedAt,
+              status: "active",
+              latestEmail: {
+                ...latestEmail.toObject(),
+                date: latestEmail.receivedAt, // Ensure date field is present for frontend
+              },
+              emails: threadEmails.map((email) => ({
+                ...email.toObject(),
+                date: email.receivedAt, // Ensure date field is present for frontend
+              })),
+              accountId: account._id,
+            };
+          });
+
+          // Sort threads by latest message date
+          threads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+
+          // Apply pagination
+          threads = threads.slice(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string));
+
+          console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
 
           res.json({
             success: true,
             data: {
               threads,
-              totalCount: threads.length, // Add totalCount for pagination
+              totalCount: threads.length,
               account: {
                 id: account._id,
                 emailAddress: account.emailAddress,
@@ -776,10 +784,16 @@ export class EmailAccountController {
 
           const totalCount = await EmailModel.countDocuments(fallbackFilter);
 
+          // Transform emails to include date field for frontend compatibility
+          const transformedFallbackEmails = fallbackEmails.map((email) => ({
+            ...email.toObject(),
+            date: email.receivedAt, // Ensure date field is present for frontend
+          }));
+
           res.json({
             success: true,
             data: {
-              emails: fallbackEmails,
+              emails: transformedFallbackEmails,
               totalCount,
               account: {
                 id: account._id,
@@ -847,10 +861,16 @@ export class EmailAccountController {
 
         console.log(`📧 Found ${emails.length} individual emails for account ${account.emailAddress}`);
 
+        // Transform emails to include date field for frontend compatibility
+        const transformedEmails = emails.map((email) => ({
+          ...email.toObject(),
+          date: email.receivedAt, // Ensure date field is present for frontend
+        }));
+
         res.json({
           success: true,
           data: {
-            emails,
+            emails: transformedEmails,
             totalCount,
             account: {
               id: account._id,
@@ -913,11 +933,17 @@ export class EmailAccountController {
         accountId: account._id,
       }).sort({ receivedAt: 1 }); // Chronological order for thread view
 
+      // Transform emails to include date field for frontend compatibility
+      const transformedEmails = emails.map((email) => ({
+        ...email.toObject(),
+        date: email.receivedAt, // Ensure date field is present for frontend
+      }));
+
       res.json({
         success: true,
         data: {
           thread,
-          emails,
+          emails: transformedEmails,
           account: {
             id: account._id,
             emailAddress: account.emailAddress,
@@ -1422,6 +1448,7 @@ export class EmailAccountController {
         markAsRead = "false",
         sortBy = "date",
         sortOrder = "desc",
+        groupByThread = "false", // New parameter for thread grouping
       } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
@@ -1455,6 +1482,7 @@ export class EmailAccountController {
         markAsRead: markAsRead === "true",
         sortBy: sortBy as "date" | "from" | "subject" | "size",
         sortOrder: sortOrder as "asc" | "desc",
+        groupByThread: groupByThread === "true", // New option
       };
 
       const result = await DirectEmailFetchingService.fetchEmailsDirectly(account, options);
@@ -1465,6 +1493,7 @@ export class EmailAccountController {
         success: result.success,
         data: {
           emails: result.emails,
+          threads: result.threads || [], // Include threads in response
           totalCount: result.totalCount,
           pagination: result.pagination,
           account: {
@@ -1474,12 +1503,86 @@ export class EmailAccountController {
           },
         },
         error: result.error,
+        requiresReauth: result.requiresReauth,
       });
     } catch (error: any) {
       logger.error("Error fetching emails directly:", error);
       res.status(500).json({
         success: false,
         message: "Failed to fetch emails",
+        error: error.message,
+      });
+    }
+  }
+
+  static async fetchEmailDirectly(req: Request, res: Response) {
+    console.log("🔄 FETCH EMAIL DIRECTLY REQUEST");
+    try {
+      const { accountId, messageId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      console.log("📧 Account details:", {
+        accountId: account._id,
+        emailAddress: account.emailAddress,
+        accountType: account.accountType,
+        oauthProvider: account.oauth?.provider,
+        messageId: messageId,
+      });
+
+      // Determine the account type and call the appropriate method
+      let result;
+      
+      if (account.accountType === "outlook" || account.accountType === "exchange") {
+        console.log("📧 Using Outlook API for message fetch");
+        // Use Outlook/Microsoft Graph API
+        result = await DirectEmailFetchingService.fetchOutlookMessageById(account, messageId);
+      } else if (account.accountType === "gmail" || account.accountType === "google") {
+        console.log("📧 Using Gmail API for message fetch");
+        // Use Gmail API
+        result = await DirectEmailFetchingService.fetchGmailMessageById(account, messageId);
+      } else {
+        console.log("📧 Using database lookup for message fetch");
+        // For other account types, try to find the email in the database
+        result = await DirectEmailFetchingService.fetchEmailFromDatabase(account, messageId);
+      }
+
+      console.log("📧 Fetch result:", {
+        success: !!result,
+        hasData: !!result,
+        subject: result?.subject,
+        hasHtmlContent: !!result?.htmlContent,
+        hasTextContent: !!result?.textContent,
+        htmlContentLength: result?.htmlContent?.length || 0,
+        textContentLength: result?.textContent?.length || 0,
+      });
+
+      res.json({
+        success: result ? true : false,
+        data: result,
+      });
+    } catch (error: any) {
+      logger.error("Error fetching email directly:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch email",
         error: error.message,
       });
     }

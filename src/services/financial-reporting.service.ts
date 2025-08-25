@@ -26,7 +26,7 @@ export const FinancialReportingService = {
       ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
       {
         $lookup: {
-          from: "iexpensemodels", // Expense category collection name
+          from: "ExpenseCategory", // Expense category collection name
           localField: "category",
           foreignField: "_id",
           as: "categoryInfo"
@@ -257,9 +257,9 @@ export const FinancialReportingService = {
       expenseBreakdown,
       typeBreakdown
     ] = await Promise.all([
-      this.getProfitLossStatement(startDate, endDate),
-      this.getExpenseBreakdownByCategory(startDate, endDate),
-      this.getExpenseBreakdownByType(startDate, endDate)
+      FinancialReportingService.getProfitLossStatement(startDate, endDate),
+      FinancialReportingService.getExpenseBreakdownByCategory(startDate, endDate),
+      FinancialReportingService.getExpenseBreakdownByType(startDate, endDate)
     ]);
 
     return {
@@ -267,8 +267,8 @@ export const FinancialReportingService = {
       expenseBreakdown,
       typeBreakdown,
       period: {
-        startDate: startDate || "All time",
-        endDate: endDate || "All time"
+        startDate: startDate ? startDate.toISOString() : "All time",
+        endDate: endDate ? endDate.toISOString() : "All time"
       }
     };
   }

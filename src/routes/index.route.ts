@@ -47,6 +47,7 @@ import { complaint } from "./complaint.routes";
 import { revenue } from "./revenue.routes";
 import { recurringExpense } from "./recurring-expense.route";
 import { financialReporting } from "./financial-reporting.route";
+import { profitReporting } from "./profit-reporting.route";
 import { guidescategory } from "./guidescategory.route";
 import { guide } from "./guide.route";
 import { faqcategory } from "./faqcategory.route";
@@ -85,7 +86,7 @@ import { Comment } from "./comment.route";
 import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
 import { website } from "./website.route";
-
+import { deals } from "./deal.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -139,6 +140,7 @@ const routes: {
   revenue,
   recurringExpense,
   financialReporting,
+  profitReporting,
   guidescategory,
   guide,
   faqcategory,
@@ -174,6 +176,7 @@ const routes: {
   globalPayrollSettings,
   multiInstanceGmail,
   website,
+  deals,
 };
 
 // Loop through all routes and pass the router to each route

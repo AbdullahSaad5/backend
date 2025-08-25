@@ -1411,13 +1411,17 @@ export class EmailFetchingService {
     fetchOptions: EmailFetchOptions
   ): Promise<EmailFetchResult> {
     try {
-      if (!emailAccount.oauth?.accessToken) {
-        throw new Error("Outlook OAuth access token not available");
+      logger.info(`Starting Outlook API fetch for ${emailAccount.emailAddress}`);
+
+      // Get fresh access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
       }
 
       const graphClient = Client.init({
         authProvider: (done) => {
-          done(null, emailAccount.oauth!.accessToken!);
+          done(null, accessToken);
         },
       });
 
@@ -1425,6 +1429,8 @@ export class EmailFetchingService {
       let queryParams: any = {
         $top: fetchOptions.limit || 50,
         $orderby: "receivedDateTime desc",
+        $select:
+          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink",
       };
 
       if (fetchOptions.since) {
@@ -1432,14 +1438,29 @@ export class EmailFetchingService {
       }
 
       // Determine folder
-      let folderPath = "me/mailFolders/inbox";
-      if (fetchOptions.folder && fetchOptions.folder.toLowerCase() !== "inbox") {
-        folderPath = `me/mailFolders/${fetchOptions.folder.toLowerCase()}`;
+      let endpoint = "/me/messages";
+      if (fetchOptions.folder && fetchOptions.folder !== "INBOX") {
+        // Map folder names to Microsoft Graph folder IDs
+        const folderMap: { [key: string]: string } = {
+          SENT: "sentitems",
+          DRAFTS: "drafts",
+          ARCHIVE: "archive",
+          SPAM: "junkemail",
+          TRASH: "deleteditems",
+        };
+
+        const folderId = folderMap[fetchOptions.folder.toUpperCase()];
+        if (folderId) {
+          endpoint = `/me/mailFolders/${folderId}/messages`;
+        }
       }
 
-      const messages = await graphClient.api(`${folderPath}/messages`).query(queryParams).get();
+      logger.info(`Outlook API endpoint: ${endpoint}`);
+
+      const messages = await graphClient.api(endpoint).query(queryParams).get();
 
       if (!messages.value || messages.value.length === 0) {
+        logger.info("No messages found in Outlook API response");
         return {
           success: true,
           emails: [],
@@ -1451,6 +1472,8 @@ export class EmailFetchingService {
       // Parse Outlook messages
       const emails: FetchedEmail[] = messages.value.map((msg: any) => this.parseOutlookMessage(msg, emailAccount));
 
+      logger.info(`Outlook API fetch completed: ${emails.length} emails fetched`);
+
       return {
         success: true,
         emails,
@@ -1460,6 +1483,114 @@ export class EmailFetchingService {
     } catch (error: any) {
       logger.error("Outlook API fetch error:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Fetch emails from Outlook account using Microsoft Graph API
+   */
+  static async fetchOutlookEmails(
+    emailAccount: IEmailAccount,
+    options: EmailFetchOptions = {}
+  ): Promise<EmailFetchResult> {
+    try {
+      logger.info(`Starting Outlook email fetch for ${emailAccount.emailAddress}`);
+
+      // Get access token
+      const accessToken = await this.getOutlookAccessToken(emailAccount);
+      if (!accessToken) {
+        throw new Error("Failed to get Outlook access token");
+      }
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, accessToken);
+        },
+      });
+
+      // Build query parameters
+      const queryParams: any = {
+        $top: options.limit || this.BATCH_SIZE,
+        $orderby: "receivedDateTime desc",
+        $select:
+          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink,inReplyTo,references",
+      };
+
+      // Add folder filter if specified
+      let endpoint = "/me/messages";
+      if (options.folder && options.folder !== "INBOX") {
+        const folderMap: { [key: string]: string } = {
+          SENT: "sentitems",
+          DRAFTS: "drafts",
+          ARCHIVE: "archive",
+          SPAM: "junkemail",
+          TRASH: "deleteditems",
+        };
+
+        const folderId = folderMap[options.folder.toUpperCase()];
+        if (folderId) {
+          endpoint = `/me/mailFolders/${folderId}/messages`;
+        }
+      }
+
+      // Add date filter if specified
+      if (options.since) {
+        queryParams.$filter = `receivedDateTime ge ${options.since.toISOString()}`;
+      }
+
+      // Build query string
+      const queryString = new URLSearchParams(queryParams).toString();
+      const fullEndpoint = `${endpoint}?${queryString}`;
+
+      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
+
+      // Fetch messages from Microsoft Graph
+      const response = await graphClient.api(fullEndpoint).get();
+
+      if (!response || !response.value) {
+        logger.warn("No messages found in Outlook API response");
+        return {
+          success: true,
+          emails: [],
+          totalCount: 0,
+          newCount: 0,
+        };
+      }
+
+      // Parse messages
+      const emails: FetchedEmail[] = [];
+      for (const message of response.value) {
+        try {
+          const parsedEmail = await this.parseOutlookMessage(message, emailAccount);
+          emails.push(parsedEmail);
+        } catch (parseError) {
+          logger.error("Error parsing Outlook message:", parseError);
+          continue;
+        }
+      }
+
+      // Get total count for pagination
+      const countResponse = await graphClient.api("/me/messages/$count").get();
+      const totalCount = parseInt(countResponse) || 0;
+
+      logger.info(`Outlook email fetch completed: ${emails.length} emails fetched`);
+
+      return {
+        success: true,
+        emails,
+        totalCount,
+        newCount: emails.length,
+      };
+    } catch (error: any) {
+      logger.error("Outlook email fetch error:", error);
+      return {
+        success: false,
+        emails: [],
+        totalCount: 0,
+        newCount: 0,
+        error: error.message,
+      };
     }
   }
 
@@ -1705,71 +1836,51 @@ export class EmailFetchingService {
     };
   }
 
-  private static parseOutlookMessage(msg: any, emailAccount: IEmailAccount): FetchedEmail {
-    // Extract content based on body type
-    let textContent: string | undefined;
-    let htmlContent: string | undefined;
+  /**
+   * Parse Outlook message data
+   */
+  private static async parseOutlookMessage(messageData: any, emailAccount: IEmailAccount): Promise<FetchedEmail> {
+    const headers: any = {};
+    let textContent = "";
+    let htmlContent = "";
 
-    if (msg.body) {
-      if (msg.body.contentType === "text") {
-        textContent = msg.body.content;
-      } else if (msg.body.contentType === "html") {
-        htmlContent = msg.body.content;
+    if (messageData.body) {
+      if (messageData.body.contentType === "text/plain") {
+        textContent = messageData.body.content || "";
+      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
+        htmlContent = messageData.body.content || "";
       }
     }
 
-    // If we have HTML but no text, try to extract text from HTML
-    if (htmlContent && !textContent) {
-      try {
-        // Simple HTML to text conversion (remove HTML tags)
-        textContent = htmlContent
-          .replace(/<[^>]*>/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-      } catch (error) {
-        console.log("Error converting HTML to text:", error);
-      }
-    }
+    // Parse sender and recipients
+    const from = messageData.from?.emailAddress || messageData.from;
+    const to = messageData.toRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const cc = messageData.ccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
+    const bcc = messageData.bccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
 
-    console.log(`📧 Outlook message parsed:`, {
-      messageId: msg.id,
-      hasTextContent: !!textContent,
-      textContentLength: textContent?.length || 0,
-      hasHtmlContent: !!htmlContent,
-      htmlContentLength: htmlContent?.length || 0,
-      subject: msg.subject,
-      from: msg.from?.emailAddress?.address,
-      bodyContentType: msg.body?.contentType,
-    });
+    // Extract threading information
+    const conversationId = messageData.conversationId;
+    const inReplyTo = messageData.inReplyTo;
+    const references = messageData.references || [];
 
     return {
-      messageId: msg.id,
-      threadId: msg.conversationId,
-      subject: msg.subject || "(No Subject)",
+      messageId: messageData.id,
+      threadId: conversationId,
+      subject: messageData.subject,
       from: {
-        email: msg.from?.emailAddress?.address || "",
-        name: msg.from?.emailAddress?.name,
+        email: from.emailAddress || from.address || "",
+        name: from.name || "",
       },
-      to:
-        msg.toRecipients?.map((r: any) => ({
-          email: r.emailAddress.address,
-          name: r.emailAddress.name,
-        })) || [],
-      cc:
-        msg.ccRecipients?.map((r: any) => ({
-          email: r.emailAddress.address,
-          name: r.emailAddress.name,
-        })) || [],
-      date: new Date(msg.receivedDateTime),
-      textContent: textContent,
-      htmlContent: htmlContent,
-      isRead: msg.isRead,
-      attachments:
-        msg.attachments?.map((att: any) => ({
-          fileName: att.name,
-          contentType: att.contentType,
-          size: att.size,
-        })) || [],
+      to: to || [],
+      cc: cc || [],
+      bcc: bcc || [],
+      date: new Date(messageData.receivedDateTime),
+      textContent,
+      htmlContent,
+      isRead: messageData.isRead,
+      inReplyTo,
+      references,
+      parentMessageId: messageData.replyTo?.id,
     };
   }
 
@@ -1957,6 +2068,37 @@ export class EmailFetchingService {
     });
 
     return oauth2Client;
+  }
+
+  /**
+   * Get Outlook access token
+   */
+  private static async getOutlookAccessToken(emailAccount: IEmailAccount): Promise<string | null> {
+    try {
+      // Check if current access token is still valid
+      if (emailAccount.oauth?.accessToken && emailAccount.oauth?.tokenExpiry) {
+        const now = new Date();
+        const expiry = new Date(emailAccount.oauth.tokenExpiry);
+
+        if (now < expiry) {
+          // Token is still valid, decrypt and return
+          const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+          return EmailOAuthService.getDecryptedAccessToken(emailAccount);
+        }
+      }
+
+      // Token expired or not available, refresh it
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const refreshResult = await EmailOAuthService.refreshTokens(emailAccount);
+      if (!refreshResult.success) {
+        throw new Error(`Failed to refresh Outlook tokens: ${refreshResult.error}`);
+      }
+
+      return EmailOAuthService.getDecryptedAccessToken(emailAccount);
+    } catch (error: any) {
+      logger.error("Error getting Outlook access token:", error);
+      return null;
+    }
   }
 
   /**

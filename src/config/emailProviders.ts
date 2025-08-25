@@ -96,8 +96,10 @@ export const COMMON_EMAIL_PROVIDERS: Record<string, EmailProviderConfig> = {
     oauth: {
       provider: "outlook",
       scopes: [
-        "https://outlook.office.com/IMAP.AccessAsUser.All",
-        "https://outlook.office.com/SMTP.Send",
+        "https://graph.microsoft.com/User.Read",
+        "https://graph.microsoft.com/Mail.Read",
+        "https://graph.microsoft.com/Mail.ReadWrite",
+        "https://graph.microsoft.com/Mail.Send",
         "offline_access",
       ],
       authUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
