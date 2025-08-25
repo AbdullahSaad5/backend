@@ -19,7 +19,7 @@ export class TokenInitializationService {
    * Initialize all tokens for both eBay and Amazon
    */
   static async initializeAllTokens(): Promise<TokenInitializationResult[]> {
-    console.log("🚀 Starting token initialization for all providers...");
+    // console.log("🚀 Starting token initialization for all providers...");
 
     const results: TokenInitializationResult[] = [];
 
@@ -34,7 +34,7 @@ export class TokenInitializationService {
     // Log summary
     const successful = results.filter((r) => r.success).length;
     const total = results.length;
-    console.log(`📊 Token initialization complete: ${successful}/${total} successful`);
+    // console.log(`📊 Token initialization complete: ${successful}/${total} successful`);
 
     return results;
   }
@@ -67,7 +67,7 @@ export class TokenInitializationService {
       }
 
       // Get new token
-      console.log(`🔄 Getting eBay ${envVal} token...`);
+      // console.log(`🔄 Getting eBay ${envVal} token...`);
       const token = await getApplicationAuthToken(process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production");
 
       if (token?.access_token) {
@@ -126,7 +126,7 @@ export class TokenInitializationService {
       }
 
       // Get new token
-      console.log(`🔄 Getting Amazon ${envVal} token...`);
+      // console.log(`🔄 Getting Amazon ${envVal} token...`);
       const token = await getAmazonAccessToken();
 
       if (token?.access_token) {
