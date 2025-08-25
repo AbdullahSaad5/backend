@@ -92,7 +92,7 @@ const options: EbayAuthOptions = { prompt: "consent" };
 // Function to get application token and store in DB
 export const getApplicationAuthToken = async (type: "production" | "sandbox" = "production") => {
   try {
-    console.log(`🔐 Getting eBay application token for ${type}...`);
+    // console.log(`🔐 Getting eBay application token for ${type}...`);
 
     // Validate credentials before attempting to get token
     if (!validateEbayCredentials(type)) {
@@ -107,14 +107,14 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
         console.error("❌ eBay production auth token instance not initialized");
         return null;
       }
-      console.log("🔵 [PRODUCTION] Getting application token for production");
+      // console.log("🔵 [PRODUCTION] Getting application token for production");
       token = await ebayAuthToken.getApplicationToken("PRODUCTION");
     } else {
       if (!ebayAuthTokenSandbox) {
         console.error("❌ eBay sandbox auth token instance not initialized");
         return null;
       }
-      console.log("🟣 [SANDBOX] Getting application token for sandbox");
+      // console.log("🟣 [SANDBOX] Getting application token for sandbox");
       token = await ebayAuthTokenSandbox.getApplicationToken("SANDBOX");
     }
 
@@ -275,10 +275,10 @@ export const getEbayApplicationToken = async (type: "production" | "sandbox") =>
   // Get the new access token using the refresh token
   let token;
   if (type === "production") {
-    console.log("🔵 [PRODUCTION] Getting application token for production");
+    // console.log("🔵 [PRODUCTION] Getting application token for production");
     token = await ebayAuthToken.getApplicationToken("PRODUCTION");
   } else {
-    console.log("🟣 [SANDBOX] Getting application token for sandbox");
+    // console.log("🟣 [SANDBOX] Getting application token for sandbox");
     token = await ebayAuthTokenSandbox.getApplicationToken("SANDBOX");
   }
 

@@ -14,6 +14,7 @@ export const expenseService = {
     image: string;
     isSystemGenerated?: boolean;
     systemType?: "inventory_purchase" | "payroll" | "recurring" | "adjustment";
+    payrollType?: "ACTUAL" | "GOVERNMENT";
     inventoryReferenceId?: string;
     payrollReferenceId?: string;
     recurringReferenceId?: string;

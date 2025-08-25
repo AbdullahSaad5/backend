@@ -166,6 +166,7 @@ export const processedPayrollService = {
           payrollId: (result._id as any).toString(),
           payrollDate: new Date(),
           payrollPeriod,
+          payrollType: result.payrollType || "ACTUAL", // 🆕 Pass payrollType to expense
         });
 
         console.log(`✅ Expense record created successfully for payroll ID: ${(result._id as any)}`);
