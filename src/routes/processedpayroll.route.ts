@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { processedPayrollController } from "../controllers/processedpayroll.controller";
 import { adminRoleCheck } from "@/middlewares/auth.middleware";
+import { uploadSingleFile } from "@/middlewares/uploadMiddlewares";
 
 export const processedpayroll = (router: Router) => {
   // Create processed payroll
@@ -50,6 +51,22 @@ export const processedpayroll = (router: Router) => {
     "/dual/:actualId/:governmentId",
     adminRoleCheck,
     processedPayrollController.updateDualProcessedPayrolls
+  );
+
+  // Upload receipt image for processed payroll
+  router.post(
+    "/:id/receipt-image",
+    adminRoleCheck,
+    uploadSingleFile("receiptImage"),
+    processedPayrollController.uploadReceiptImage
+  );
+
+  // Upload receipt image for dual processed payrolls
+  router.post(
+    "/dual/:actualId/:governmentId/receipt-image",
+    adminRoleCheck,
+    uploadSingleFile("receiptImage"),
+    processedPayrollController.uploadDualReceiptImage
   );
 
   // Get merged processed payroll by user and month

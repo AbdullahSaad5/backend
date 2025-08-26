@@ -225,4 +225,100 @@ export const processedPayrollController = {
       res.status(400).json({ success: false, message: error.message });
     }
   },
+
+  async uploadReceiptImage(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No receipt image was uploaded.",
+        });
+      }
+
+      const file = req.file as any;
+      const receiptImageUrl = file.location;
+
+      const updatedPayroll = await processedPayrollService.updateReceiptImage(
+        id,
+        receiptImageUrl
+      );
+
+      if (!updatedPayroll) {
+        return res.status(404).json({
+          success: false,
+          message: "Processed payroll not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Receipt image uploaded successfully",
+        data: {
+          receiptImage: receiptImageUrl,
+          payroll: updatedPayroll,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error uploading receipt image:", error);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
+
+  async uploadDualReceiptImage(req: Request, res: Response) {
+    try {
+      const { actualId, governmentId } = req.params;
+      const { payrollType } = req.body; // "ACTUAL" or "GOVERNMENT"
+
+      if (!req.file) {
+        return res.status(400).json({
+          success: false,
+          message: "No receipt image was uploaded.",
+        });
+      }
+
+      if (!payrollType || !["ACTUAL", "GOVERNMENT"].includes(payrollType)) {
+        return res.status(400).json({
+          success: false,
+          message: "Payroll type must be specified as 'ACTUAL' or 'GOVERNMENT'",
+        });
+      }
+
+      const file = req.file as any;
+      const receiptImageUrl = file.location;
+
+      let updatedPayroll;
+      if (payrollType === "ACTUAL") {
+        updatedPayroll = await processedPayrollService.updateReceiptImage(
+          actualId,
+          receiptImageUrl
+        );
+      } else {
+        updatedPayroll = await processedPayrollService.updateReceiptImage(
+          governmentId,
+          receiptImageUrl
+        );
+      }
+
+      if (!updatedPayroll) {
+        return res.status(404).json({
+          success: false,
+          message: "Processed payroll not found",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Receipt image uploaded successfully for ${payrollType} payroll`,
+        data: {
+          receiptImage: receiptImageUrl,
+          payroll: updatedPayroll,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error uploading dual receipt image:", error);
+      res.status(400).json({ success: false, message: error.message });
+    }
+  },
 };

@@ -57,7 +57,7 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
     ],
     leadCategory: {
       type: Schema.Types.ObjectId,
-      ref: "LeadsCategory",
+      ref: "ProductCategory",
       required: [true, "Lead category is required"],
     },
     notes: [

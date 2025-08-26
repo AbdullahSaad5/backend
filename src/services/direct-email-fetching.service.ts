@@ -5,6 +5,7 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import { EmailOAuthService } from "./emailOAuth.service";
+import { getStoredGmailAuthClient } from "@/utils/gmail-helpers.util";
 
 export interface DirectEmailData {
   messageId: string;
@@ -261,12 +262,12 @@ export class DirectEmailFetchingService {
         return null;
       }
 
-      // Parse the message
-      // const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
+      // Parse the message to match the expected frontend format
+      const parsedEmail = await this.parseOutlookMessageDirect(response, emailAccount);
 
-      // logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
+      logger.info(`Successfully fetched Outlook message: ${parsedEmail.subject}`);
 
-      return response;
+      return parsedEmail;
     } catch (error: any) {
       logger.error(`Error fetching Outlook message with ID ${messageId}:`, error);
 
@@ -329,6 +330,7 @@ export class DirectEmailFetchingService {
           });
 
           const email = await this.parseGmailMessageDirect(messageResponse.data, currentAccount);
+
           emails.push(email);
 
           // Rate limiting
@@ -352,35 +354,34 @@ export class DirectEmailFetchingService {
         },
       };
     } catch (error: any) {
-      // Check if this is an authentication error that can be resolved with token refresh
-      if (this.isAuthenticationError(error) && currentAccount.oauth?.refreshToken) {
-        try {
-          console.log("🔑 Refreshing OAuth token...");
-          currentAccount = await this.refreshGmailToken(currentAccount);
-          console.log("✅ Token refresh successful, retrying fetch...");
+      // Check if this is an authentication error that requires re-authentication
+      if (error.message.includes("Gmail authentication expired") || error.message.includes("invalid_grant")) {
+        logger.error(`Gmail authentication error for ${currentAccount.emailAddress}: ${error.message}`);
 
-          // Retry the operation with refreshed token
-          logger.info(`Token refreshed successfully, retrying Gmail fetch for ${currentAccount.emailAddress}`);
-          return await this.fetchFromGmailAPIDirect(currentAccount, options);
-        } catch (refreshError: any) {
-          console.log("❌ Token refresh failed:", refreshError.message);
-          logger.error(`Token refresh failed for account ${currentAccount.emailAddress}:`, refreshError);
+        // Update account status to reflect the authentication failure
+        await this.updateAccountError(currentAccount, error.message);
 
-          // Update account status to reflect the authentication failure
-          await this.updateAccountError(
-            currentAccount,
-            `Authentication failed: ${refreshError.message}. Please re-authenticate this account.`
-          );
-
-          throw new Error(`Gmail authentication failed: ${refreshError.message}. Please re-authenticate this account.`);
-        }
+        return {
+          success: false,
+          emails: [],
+          threads: [],
+          totalCount: 0,
+          pagination: {
+            page: options.page || 1,
+            pageSize: options.pageSize || this.DEFAULT_PAGE_SIZE,
+            totalPages: 0,
+            hasNextPage: false,
+          },
+          error: error.message,
+          requiresReauth: true,
+        };
       }
 
       // Update account with the error
       console.log("💾 Updating account with error status");
       await this.updateAccountError(currentAccount, error.message);
 
-      throw new Error(`Gmail API error: ${error.message}`);
+      throw new Error(error.message);
     }
   }
 
@@ -768,25 +769,60 @@ export class DirectEmailFetchingService {
     const inReplyTo = getHeader("in-reply-to");
     const references = getHeader("references");
 
-    // Extract email content
+    // Extract email content - handle complex Gmail message structures
     let textContent = "";
     let htmlContent = "";
     let snippet = messageData.snippet || "";
 
-    if (messageData.payload?.parts) {
-      for (const part of messageData.payload.parts) {
-        if (part.mimeType === "text/plain" && part.body?.data) {
-          textContent = Buffer.from(part.body.data, "base64").toString();
-        } else if (part.mimeType === "text/html" && part.body?.data) {
-          htmlContent = Buffer.from(part.body.data, "base64").toString();
+    // Helper function to extract content from a part
+    const extractContentFromPart = (part: any): { text: string; html: string } => {
+      let text = "";
+      let html = "";
+
+      if (part.body?.data) {
+        const content = Buffer.from(part.body.data, "base64").toString();
+        if (part.mimeType === "text/plain") {
+          text = content;
+        } else if (part.mimeType === "text/html") {
+          html = content;
         }
       }
-    } else if (messageData.payload?.body?.data) {
-      if (messageData.payload.mimeType === "text/plain") {
-        textContent = Buffer.from(messageData.payload.body.data, "base64").toString();
-      } else if (messageData.payload.mimeType === "text/html") {
-        htmlContent = Buffer.from(messageData.payload.body.data, "base64").toString();
+
+      // Recursively check nested parts
+      if (part.parts) {
+        for (const subPart of part.parts) {
+          const subContent = extractContentFromPart(subPart);
+          text += subContent.text;
+          html += subContent.html;
+        }
       }
+
+      return { text, html };
+    };
+
+    // Extract content from the main payload
+    if (messageData.payload) {
+      const content = extractContentFromPart(messageData.payload);
+      textContent = content.text;
+      htmlContent = content.html;
+    }
+
+    // If no content found, try alternative approaches
+    if (!textContent && !htmlContent) {
+      // Try to get content from the snippet if available
+      if (snippet && !textContent) {
+        textContent = snippet;
+      }
+
+      // Log the payload structure for debugging
+      logger.info("Gmail message payload structure:", {
+        hasPayload: !!messageData.payload,
+        payloadMimeType: messageData.payload?.mimeType,
+        hasParts: !!messageData.payload?.parts,
+        partsCount: messageData.payload?.parts?.length || 0,
+        hasBody: !!messageData.payload?.body,
+        bodyDataLength: messageData.payload?.body?.data?.length || 0,
+      });
     }
 
     // Parse sender and recipients
@@ -807,7 +843,7 @@ export class DirectEmailFetchingService {
     const category = this.determineEmailCategory(labels, subject, textContent);
 
     return {
-      messageId: messageId || messageData.id,
+      messageId: (messageId || messageData.id).replace(/^<|>$/g, ""),
       threadId: messageData.threadId,
       subject,
       from: fromParsed,
@@ -838,10 +874,15 @@ export class DirectEmailFetchingService {
     let snippet = messageData.bodyPreview || "";
 
     if (messageData.body) {
+      console.log("📧 Outlook message body content type:", messageData.body.contentType);
+      console.log("📧 Outlook message body content length:", messageData.body.content?.length || 0);
+
       if (messageData.body.contentType === "text/plain") {
         textContent = messageData.body.content || "";
-      } else if (messageData.body.contentType === "text/html") {
+        console.log("📧 Extracted text content length:", textContent.length);
+      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
         htmlContent = messageData.body.content || "";
+        console.log("📧 Extracted HTML content length:", htmlContent.length);
       }
     }
 
@@ -866,7 +907,7 @@ export class DirectEmailFetchingService {
     const labels = messageData.flag?.flagStatus || messageData.importance || messageData.categories || [];
     const category = this.determineEmailCategory(labels, messageData.subject, textContent);
 
-    return {
+    const parsedEmail = {
       messageId: messageData.id,
       threadId,
       subject: messageData.subject,
@@ -891,6 +932,17 @@ export class DirectEmailFetchingService {
       // conversationId,
       // isReply,
     };
+
+    console.log("📧 Parsed email result:", {
+      messageId: parsedEmail.messageId,
+      subject: parsedEmail.subject,
+      textContentLength: parsedEmail.textContent?.length || 0,
+      htmlContentLength: parsedEmail.htmlContent?.length || 0,
+      hasTextContent: !!parsedEmail.textContent,
+      hasHtmlContent: !!parsedEmail.htmlContent,
+    });
+
+    return parsedEmail;
   }
 
   /**
@@ -1041,102 +1093,16 @@ export class DirectEmailFetchingService {
   }
 
   /**
-   * Get Gmail OAuth client
+   * Get Gmail OAuth client using centralized helper
    */
   private static async getGmailAuthClient(emailAccount: IEmailAccount) {
-    try {
-      if (!emailAccount.oauth?.refreshToken) {
-        throw new Error("No refresh token available for Gmail authentication");
-      }
+    const result = await getStoredGmailAuthClient(emailAccount);
 
-      const oauth2Client = new google.auth.OAuth2(
-        process.env.GOOGLE_CLIENT_ID,
-        process.env.GOOGLE_CLIENT_SECRET,
-        process.env.GOOGLE_REDIRECT_URI
-      );
-
-      // Decrypt tokens
-      const decryptedRefreshToken = EmailOAuthService.decryptData(emailAccount.oauth.refreshToken);
-      const decryptedAccessToken = emailAccount.oauth?.accessToken
-        ? EmailOAuthService.decryptData(emailAccount.oauth.accessToken)
-        : null;
-
-      // Check if we have a valid access token and if it's expired
-      let shouldRefreshToken = false;
-
-      if (decryptedAccessToken && emailAccount.oauth?.tokenExpiry) {
-        const now = new Date();
-        const expiryDate = new Date(emailAccount.oauth.tokenExpiry);
-        const timeUntilExpiry = expiryDate.getTime() - now.getTime();
-
-        // Refresh token if it expires in less than 5 minutes (300,000 ms)
-        shouldRefreshToken = timeUntilExpiry < 300000;
-
-        logger.info(
-          `Token expiry check for ${emailAccount.emailAddress}: expires in ${Math.round(timeUntilExpiry / 1000)}s, should refresh: ${shouldRefreshToken}`
-        );
-      } else if (!decryptedAccessToken) {
-        // No access token, need to refresh
-        shouldRefreshToken = true;
-        logger.info(`No access token available for ${emailAccount.emailAddress}, will refresh`);
-      }
-
-      if (shouldRefreshToken) {
-        // Only refresh when necessary
-        logger.info(`Refreshing access token for ${emailAccount.emailAddress}`);
-
-        // Set credentials with refresh token
-        oauth2Client.setCredentials({
-          refresh_token: decryptedRefreshToken,
-        });
-
-        try {
-          const { credentials } = await oauth2Client.refreshAccessToken();
-
-          if (credentials.access_token) {
-            // Update the account with the new access token
-            const expiryDate = credentials.expiry_date ? new Date(credentials.expiry_date) : undefined;
-            await this.updateAccessToken(emailAccount, credentials.access_token, expiryDate);
-
-            oauth2Client.setCredentials({
-              access_token: credentials.access_token,
-              refresh_token: decryptedRefreshToken,
-            });
-
-            logger.info(`Successfully refreshed Gmail access token for ${emailAccount.emailAddress}`);
-          } else {
-            throw new Error("Failed to obtain access token from refresh token");
-          }
-        } catch (refreshError: any) {
-          logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, refreshError);
-
-          // If refresh fails, try to use existing access token if available
-          if (decryptedAccessToken) {
-            oauth2Client.setCredentials({
-              access_token: decryptedAccessToken,
-              refresh_token: decryptedRefreshToken,
-            });
-
-            logger.warn(`Using existing access token for ${emailAccount.emailAddress} (refresh failed)`);
-          } else {
-            throw new Error(`Gmail authentication failed: ${refreshError.message}`);
-          }
-        }
-      } else {
-        // Use existing valid access token
-        logger.info(`Using existing valid access token for ${emailAccount.emailAddress}`);
-
-        oauth2Client.setCredentials({
-          access_token: decryptedAccessToken,
-          refresh_token: decryptedRefreshToken,
-        });
-      }
-
-      return oauth2Client;
-    } catch (error: any) {
-      logger.error(`Gmail authentication error for ${emailAccount.emailAddress}:`, error);
-      throw new Error(`Gmail authentication failed: ${error.message}`);
+    if (!result.success) {
+      throw new Error(result.error || "Gmail authentication failed");
     }
+
+    return result.oauth2Client;
   }
 
   /**
@@ -1229,6 +1195,18 @@ export class DirectEmailFetchingService {
       return emailAccount;
     } catch (error: any) {
       logger.error(`Failed to refresh Gmail access token for ${emailAccount.emailAddress}:`, error);
+
+      // Check if this is an invalid_grant error (refresh token expired/revoked)
+      if (error.message.includes("invalid_grant") || error.code === 400) {
+        // Update account status to indicate re-authentication is needed
+        await this.updateAccountError(
+          emailAccount,
+          "Gmail authentication expired. Please re-authenticate your account."
+        );
+
+        throw new Error("Gmail authentication expired. Please re-authenticate your account.");
+      }
+
       throw new Error(`Gmail authentication failed: ${error.message}`);
     }
   }
@@ -1386,5 +1364,188 @@ export class DirectEmailFetchingService {
 
     // Sort threads by last message date (newest first)
     return actualThreads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+  }
+
+  /**
+   * Fetch Gmail message by ID
+   */
+  static async fetchGmailMessageById(emailAccount: IEmailAccount, messageId: string): Promise<DirectEmailData | null> {
+    return this.fetchGmailMessageWithRetry(emailAccount, messageId, 0);
+  }
+
+  /**
+   * Fetch Gmail message with automatic token refresh retry
+   */
+  private static async fetchGmailMessageWithRetry(
+    emailAccount: IEmailAccount,
+    messageId: string,
+    retryCount: number
+  ): Promise<DirectEmailData | null> {
+    const MAX_RETRIES = 1; // Only retry once with refreshed token
+
+    try {
+      // Clean the messageId - remove angle brackets if present and handle special characters
+      let cleanMessageId = messageId.replace(/^<|>$/g, "");
+
+      // Handle URL-encoded characters that might be in the messageId
+      try {
+        cleanMessageId = decodeURIComponent(cleanMessageId);
+      } catch (e) {
+        // If decodeURIComponent fails, use the original cleaned messageId
+        logger.warn(`Failed to decode messageId: ${cleanMessageId}, using as-is`);
+      }
+
+      logger.info(
+        `Fetching Gmail message with ID: ${cleanMessageId} (original: ${messageId}) for account: ${emailAccount.emailAddress} (attempt ${retryCount + 1})`
+      );
+
+      // Validate messageId format for Gmail API
+      if (!cleanMessageId || cleanMessageId.length === 0) {
+        throw new Error("Invalid messageId: empty or null");
+      }
+
+      // Gmail message IDs should not contain spaces or special characters that would cause issues
+      if (cleanMessageId.includes(" ") || cleanMessageId.includes("\n") || cleanMessageId.includes("\r")) {
+        cleanMessageId = cleanMessageId.replace(/[\s\n\r]/g, "");
+      }
+
+      // Check if account supports Gmail
+      if (emailAccount.accountType !== "gmail") {
+        throw new Error(`Account ${emailAccount.emailAddress} does not support Gmail API`);
+      }
+
+      // Check account status
+      if (emailAccount.status === "inactive") {
+        throw new Error(`Account ${emailAccount.emailAddress} is inactive`);
+      }
+
+      // Get Gmail auth client (will auto-refresh if needed)
+      const gmail = google.gmail({ version: "v1", auth: await this.getGmailAuthClient(emailAccount) });
+
+      // If the provided ID looks like an RFC822 Message-ID (contains '@'),
+      // resolve it to Gmail's internal message id via rfc822msgid search.
+      let gmailMessageId = cleanMessageId;
+      const looksLikeRfc822Id = /@/.test(cleanMessageId);
+      if (looksLikeRfc822Id) {
+        // Gmail expects the RFC822 id wrapped in angle brackets for the search
+        const wrapped =
+          cleanMessageId.startsWith("<") && cleanMessageId.endsWith(">") ? cleanMessageId : `<${cleanMessageId}>`;
+
+        const listResp = await gmail.users.messages.list({
+          userId: "me",
+          q: `rfc822msgid:${wrapped}`,
+          maxResults: 1,
+        });
+
+        const matched = listResp.data.messages && listResp.data.messages[0]?.id;
+        if (!matched) {
+          throw new Error(`No Gmail message found for RFC822 Message-ID ${wrapped}`);
+        }
+        gmailMessageId = matched;
+        logger.info(`Resolved RFC822 Message-ID to Gmail ID: ${gmailMessageId}`);
+      }
+
+      // Fetch the specific message from Gmail API
+      // According to Gmail API docs: https://developers.google.com/gmail/api/reference/rest/v1/users.messages/get
+      const response = await gmail.users.messages.get({
+        userId: "me",
+        id: gmailMessageId,
+        format: "full", // Get full message with body
+        metadataHeaders: ["Subject", "From", "To", "Cc", "Date", "Message-ID", "In-Reply-To", "References"],
+      });
+
+      if (!response.data) {
+        logger.warn(`Message with ID ${messageId} not found in Gmail API`);
+        return null;
+      }
+
+      // Parse the Gmail message
+      const parsedEmail = await this.parseGmailMessageDirect(response.data, emailAccount);
+
+      logger.info(`Successfully fetched Gmail message: ${parsedEmail.subject}`);
+      logger.info(`Gmail API response structure:`, {
+        hasPayload: !!response.data.payload,
+        payloadMimeType: response.data.payload?.mimeType,
+        hasParts: !!response.data.payload?.parts,
+        partsCount: response.data.payload?.parts?.length || 0,
+        hasBody: !!response.data.payload?.body,
+        bodyData: !!response.data.payload?.body?.data,
+        bodySize: response.data.payload?.body?.size,
+        snippet: response.data.snippet?.substring(0, 100) + "...",
+      });
+      logger.info(`Full Gmail API response data:`, JSON.stringify(response.data, null, 2));
+
+      return parsedEmail;
+    } catch (error: any) {
+      logger.error(`Error fetching Gmail message with ID ${messageId} (attempt ${retryCount + 1}):`, error);
+
+      // Check if this is an authentication error that requires re-authentication
+      const isAuthError =
+        error.message.includes("Gmail authentication expired") ||
+        error.message.includes("invalid_grant") ||
+        error.message.includes("authentication") ||
+        error.message.includes("token") ||
+        error.message.includes("unauthorized") ||
+        error.code === 401;
+
+      if (isAuthError) {
+        logger.error(`Gmail authentication error for ${emailAccount.emailAddress}: ${error.message}`);
+        await this.updateAccountError(emailAccount, `Authentication failed: ${error.message}`);
+        throw new Error(`Gmail authentication failed: ${error.message}`);
+      }
+
+      throw new Error(`Failed to fetch Gmail message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Fetch email from database (for accounts that don't support direct API fetching)
+   */
+  static async fetchEmailFromDatabase(emailAccount: IEmailAccount, messageId: string): Promise<DirectEmailData | null> {
+    try {
+      logger.info(`Fetching email from database with ID: ${messageId} for account: ${emailAccount.emailAddress}`);
+
+      // Import the Email model
+      const { EmailModel } = await import("../models/email.model");
+
+      // Find the email in the database
+      const email = await EmailModel.findOne({
+        messageId: messageId,
+        accountId: emailAccount._id,
+      });
+
+      if (!email) {
+        logger.warn(`Email with messageId ${messageId} not found in database`);
+        return null;
+      }
+
+      // Convert database email to DirectEmailData format
+      const directEmailData: DirectEmailData = {
+        messageId: email.messageId,
+        threadId: email.threadId,
+        subject: email.subject,
+        from: email.from,
+        to: email.to,
+        cc: email.cc || [],
+        bcc: email.bcc || [],
+        date: email.receivedAt,
+        textContent: email.textContent,
+        htmlContent: email.htmlContent,
+        snippet: email.textContent?.substring(0, 200) || "",
+        isRead: email.isRead,
+        category: email.category || "general",
+        labels: email.labels || [],
+        inReplyTo: email.inReplyTo,
+        references: email.references || [],
+        parentMessageId: email.parentMessageId,
+      };
+
+      logger.info(`Successfully fetched email from database: ${directEmailData.subject}`);
+
+      return directEmailData;
+    } catch (error: any) {
+      logger.error(`Error fetching email from database with ID ${messageId}:`, error);
+      throw new Error(`Failed to fetch email from database: ${error.message}`);
+    }
   }
 }

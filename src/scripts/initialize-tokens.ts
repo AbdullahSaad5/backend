@@ -20,7 +20,7 @@ import { TokenInitializationService } from "@/services/token-initialization.serv
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "dev"}` });
 
 async function main() {
-  console.log("🚀 Starting token initialization script...");
+  // console.log("🚀 Starting token initialization script...");
 
   try {
     // Connect to MongoDB

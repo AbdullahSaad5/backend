@@ -6,6 +6,8 @@ export interface IExpenseCategory extends Document {
     image?: string,
     isBlocked: boolean,
     isSystemGenerated: boolean,
+    createdAt: Date,
+    updatedAt: Date,
 }
 
 export type IExpenseCategoryModel = Model<IExpenseCategory>

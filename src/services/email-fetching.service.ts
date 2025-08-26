@@ -9,6 +9,7 @@ import { google } from "googleapis";
 import { Client } from "@microsoft/microsoft-graph-client";
 import crypto from "crypto";
 import { IEmail } from "@/contracts/mailbox.contract";
+import { getStoredGmailAuthClient } from "@/utils/gmail-helpers.util";
 
 export interface FetchedEmail {
   messageId: string;
@@ -1847,7 +1848,7 @@ export class EmailFetchingService {
     if (messageData.body) {
       if (messageData.body.contentType === "text/plain") {
         textContent = messageData.body.content || "";
-      } else if (messageData.body.contentType === "text/html") {
+      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
         htmlContent = messageData.body.content || "";
       }
     }
@@ -2042,32 +2043,16 @@ export class EmailFetchingService {
   }
 
   /**
-   * Get Gmail OAuth client
+   * Get Gmail OAuth client using centralized helper
    */
   static async getGmailAuthClient(emailAccount: IEmailAccount): Promise<any> {
-    const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+    const result = await getStoredGmailAuthClient(emailAccount);
 
-    const oauth2Client = new google.auth.OAuth2(
-      process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI
-    );
-
-    const decryptedAccessToken = EmailOAuthService.getDecryptedAccessToken(emailAccount);
-    const decryptedRefreshToken = emailAccount.oauth?.refreshToken
-      ? EmailOAuthService.decryptData(emailAccount.oauth.refreshToken)
-      : undefined;
-
-    if (!decryptedAccessToken) {
-      throw new Error("Failed to decrypt access token");
+    if (!result.success) {
+      throw new Error(result.error || "Gmail authentication failed");
     }
 
-    oauth2Client.setCredentials({
-      access_token: decryptedAccessToken,
-      refresh_token: decryptedRefreshToken,
-    });
-
-    return oauth2Client;
+    return result.oauth2Client;
   }
 
   /**

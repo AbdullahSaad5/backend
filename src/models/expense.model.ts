@@ -49,6 +49,13 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
       return this.isSystemGenerated;
     },
   },
+  payrollType: {
+    type: String,
+    enum: ["ACTUAL", "GOVERNMENT"],
+    required: function() {
+      return this.isSystemGenerated && this.systemType === "payroll";
+    },
+  },
   // Separate reference fields for each system type
   inventoryReferenceId: {
     type: Schema.Types.ObjectId,
@@ -91,6 +98,8 @@ const expenseSchema = new Schema<IExpense, IExpenseModel>({
     },
     adjustedBy: String
   }],
+}, {
+  timestamps: true
 });
 
 export const ExpenseModel = model<IExpense, IExpenseModel>("Expense", expenseSchema);
