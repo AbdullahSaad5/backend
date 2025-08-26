@@ -4,6 +4,7 @@ import {
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
+  importEbayUserTokenFromFile,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Request, Response } from "express";
@@ -21,6 +22,20 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
+  router.post("/auth/ebay/import-token", async (_req: Request, res: Response) => {
+    try {
+      const ok = await importEbayUserTokenFromFile();
+      return res.status(ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST).json({
+        status: ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST,
+        message: ok ? ReasonPhrases.OK : ReasonPhrases.BAD_REQUEST,
+      });
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
   router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
   router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
