@@ -23,6 +23,17 @@ const DocumentSchema = new Schema<IDocument, IDocumentModel>({
         type: Schema.Types.ObjectId,
         ref: "User",
         required: true
+    },
+    // Track the total number of versions for this document
+    totalVersions: { 
+        type: Number, 
+        default: 1 
+    },
+    // Reference to the current version in version history
+    currentVersionId: { 
+        type: Schema.Types.ObjectId, 
+        ref: 'DocumentVersion',
+        default: null 
     }
 }, { timestamps: true });
 
