@@ -1,6 +1,6 @@
 import { Inventory, Listing, ProductCategory } from "@/models";
 import mongoose from "mongoose";
-
+import dealsModel from "@/models/deals.model";
 // Request deduplication cache
 const pendingRequests = new Map();
 const filterCache = new Map();
@@ -444,12 +444,12 @@ export const websiteService = {
           brand: brand,
           category: (listing as any).productInfo?.productCategory
             ? {
-                id: (listing as any).productInfo.productCategory._id,
-                name: (listing as any).productInfo.productCategory.name || "",
-                description: (listing as any).productInfo.productCategory.description || "",
-                image: (listing as any).productInfo.productCategory.image || "",
-                tags: (listing as any).productInfo.productCategory.tags || [],
-              }
+              id: (listing as any).productInfo.productCategory._id,
+              name: (listing as any).productInfo.productCategory.name || "",
+              description: (listing as any).productInfo.productCategory.description || "",
+              image: (listing as any).productInfo.productCategory.image || "",
+              tags: (listing as any).productInfo.productCategory.tags || [],
+            }
             : null,
           description: description,
           condition: cleanCondition,
@@ -470,13 +470,13 @@ export const websiteService = {
                 // Include populated variation details if available
                 variationDetails: variation.variationId
                   ? {
-                      id: variation.variationId._id,
-                      attributes: variation.variationId.attributes || {},
-                      isSelected: variation.variationId.isSelected || false,
-                      isBundleVariation: variation.variationId.isBundleVariation || false,
-                      createdAt: variation.variationId.createdAt,
-                      updatedAt: variation.variationId.updatedAt,
-                    }
+                    id: variation.variationId._id,
+                    attributes: variation.variationId.attributes || {},
+                    isSelected: variation.variationId.isSelected || false,
+                    isBundleVariation: variation.variationId.isBundleVariation || false,
+                    createdAt: variation.variationId.createdAt,
+                    updatedAt: variation.variationId.updatedAt,
+                  }
                   : null,
               })) || [],
             currency: "GBP", // Default currency
@@ -956,12 +956,12 @@ export const websiteService = {
           brand: brand,
           category: listing.productInfo?.productCategory
             ? {
-                id: listing.productInfo.productCategory._id,
-                name: listing.productInfo.productCategory.name || "",
-                description: listing.productInfo.productCategory.description || "",
-                image: listing.productInfo.productCategory.image || "",
-                tags: listing.productInfo.productCategory.tags || [],
-              }
+              id: listing.productInfo.productCategory._id,
+              name: listing.productInfo.productCategory.name || "",
+              description: listing.productInfo.productCategory.description || "",
+              image: listing.productInfo.productCategory.image || "",
+              tags: listing.productInfo.productCategory.tags || [],
+            }
             : null,
           description: description,
           condition: cleanCondition,
@@ -981,13 +981,13 @@ export const websiteService = {
                 offerImages: variation.offerImages || [],
                 variationDetails: variation.variationId
                   ? {
-                      id: variation.variationId._id,
-                      attributes: variation.variationId.attributes || {},
-                      isSelected: variation.variationId.isSelected || false,
-                      isBundleVariation: variation.variationId.isBundleVariation || false,
-                      createdAt: variation.variationId.createdAt,
-                      updatedAt: variation.variationId.updatedAt,
-                    }
+                    id: variation.variationId._id,
+                    attributes: variation.variationId.attributes || {},
+                    isSelected: variation.variationId.isSelected || false,
+                    isBundleVariation: variation.variationId.isBundleVariation || false,
+                    createdAt: variation.variationId.createdAt,
+                    updatedAt: variation.variationId.updatedAt,
+                  }
                   : null,
               })) || [],
             currency: "GBP",
@@ -1392,12 +1392,12 @@ export const websiteService = {
         brand: brand,
         category: listing.productInfo?.productCategory
           ? {
-              id: listing.productInfo.productCategory._id,
-              name: listing.productInfo.productCategory.name || "",
-              description: listing.productInfo.productCategory.description || "",
-              image: listing.productInfo.productCategory.image || "",
-              tags: listing.productInfo.productCategory.tags || [],
-            }
+            id: listing.productInfo.productCategory._id,
+            name: listing.productInfo.productCategory.name || "",
+            description: listing.productInfo.productCategory.description || "",
+            image: listing.productInfo.productCategory.image || "",
+            tags: listing.productInfo.productCategory.tags || [],
+          }
           : null,
         description: description,
         condition: cleanCondition,
@@ -1418,13 +1418,13 @@ export const websiteService = {
               // Include populated variation details if available
               variationDetails: variation.variationId
                 ? {
-                    id: variation.variationId._id,
-                    attributes: variation.variationId.attributes || {},
-                    isSelected: variation.variationId.isSelected || false,
-                    isBundleVariation: variation.variationId.isBundleVariation || false,
-                    createdAt: variation.variationId.createdAt,
-                    updatedAt: variation.variationId.updatedAt,
-                  }
+                  id: variation.variationId._id,
+                  attributes: variation.variationId.attributes || {},
+                  isSelected: variation.variationId.isSelected || false,
+                  isBundleVariation: variation.variationId.isBundleVariation || false,
+                  createdAt: variation.variationId.createdAt,
+                  updatedAt: variation.variationId.updatedAt,
+                }
                 : null,
             })) || [],
           currency: "GBP", // Default currency
@@ -1473,5 +1473,60 @@ export const websiteService = {
       console.error("Error fetching Website product:", error);
       throw new Error("Error fetching Website product");
     }
+  },
+  getActiveDeals: async (
+    filter: any = {},
+    options: {
+      page: number;
+      limit: number;
+      sort?: any;
+    } = { page: 1, limit: 10 }
+  ) => {
+    const { page, limit, sort = { createdAt: -1 } } = options;
+
+    const baseFilter = {
+      isActive: true,
+      startDate: { $lte: new Date() },
+      endDate: { $gte: new Date() },
+      ...filter
+    };
+
+    const query = dealsModel
+      .find(baseFilter)
+      .select('-__v')
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Apply population based on selection type
+    if (baseFilter.selectionType === 'products') {
+      query.populate('products');
+    } else if (baseFilter.selectionType === 'categories') {
+      query.populate('categories');
+    } else {
+      // Populate both if no specific type is requested
+      query
+        .populate('products')
+        .populate('categories');
+    }
+
+    const [docs, total] = await Promise.all([
+      query.exec(),
+      dealsModel.countDocuments(baseFilter)
+    ]);
+
+    const pages = Math.ceil(total / limit);
+    const hasNextPage = page < pages;
+    const hasPrevPage = page > 1;
+
+    return {
+      docs,
+      total,
+      page,
+      pages,
+      limit,
+      hasNextPage,
+      hasPrevPage
+    };
   },
 };
