@@ -836,12 +836,23 @@ export const ebayListingService = {
 
   createWebhook: async (req: Request, res: Response): Promise<any> => {
     try {
+      const challengeCode = req.query.challenge_code;
+      // const verificationToken = process.env.EBAY_VERIFICATION_TOKEN;
+      // const endpoint = process.env.EBAY_ENDPOINT_URL;
+      const verificationToken = "EeNv89Ubsq8912NX6vJ5VP78D9cyeUlf";
+      const endpoint = "https://bavit-ebay-4d05ee8f0363.herokuapp.com/api/ebay/auth/ebay";
+      const hash = createHash("sha256");
+      hash.update(challengeCode as string);
+      hash.update(verificationToken);
+      hash.update(endpoint);
+      const responseHash = hash.digest("hex");
+      console.log(Buffer.from(responseHash).toString());
       console.log("🔍 Received eBay webhook notification");
       console.log("📝 Notification data:", req.body);
 
       // Return response in required JSON format
       return res.status(200).json({
-        message: "Webhook notification received",
+        challengeResponse: responseHash,
       });
     } catch (error: any) {
       console.error("Error creating webhook:", error.message);
