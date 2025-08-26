@@ -1,7 +1,7 @@
 // Enhanced Email API Controller - New Implementation
 // Handles all email operations with threading, categorization, and sync
 
-const EnhancedEmailServiceNew = require("../services/enhancedEmailNew.service");
+const EnhancedEmailService = require("../services/enhancedEmailIntegration.service");
 const emailService = new EnhancedEmailServiceNew();
 
 class EnhancedEmailControllerNew {
@@ -38,7 +38,7 @@ class EnhancedEmailControllerNew {
         useEnhancedUnification: useEnhancedUnification === "true",
       };
 
-      const result = await emailService.fetchEmailsForAccount(accountId, options);
+      const result: any = await emailService.fetchEmailsForAccount(accountId, options);
 
       if (result.success) {
         res.json({
@@ -102,7 +102,7 @@ class EnhancedEmailControllerNew {
         useEnhancedUnification: useEnhancedUnification === "true",
       };
 
-      const result = await emailService.fetchEmailsForAccount(accountId, options);
+      const result: any = await emailService.fetchEmailsForAccount(accountId, options);
 
       res.json({
         success: result.success,
@@ -206,7 +206,7 @@ class EnhancedEmailControllerNew {
         });
       }
 
-      const result = await emailService.sendEmail(accountId, emailData, useEnhancedUnification);
+      const result: any = await emailService.sendEmail(accountId, emailData, useEnhancedUnification);
 
       res.json({
         success: result.success,
@@ -237,7 +237,12 @@ class EnhancedEmailControllerNew {
         });
       }
 
-      const result = await emailService.replyToEmail(accountId, originalEmailId, replyData, useEnhancedUnification);
+      const result: any = await emailService.replyToEmail(
+        accountId,
+        originalEmailId,
+        replyData,
+        useEnhancedUnification
+      );
 
       res.json({
         success: result.success,
@@ -270,7 +275,7 @@ class EnhancedEmailControllerNew {
       }
 
       // Get the original email to extract content and attachments
-      const originalEmail = await emailService.getEmailById(accountId, originalEmailId);
+      const originalEmail: any = await emailService.getEmailById(accountId, originalEmailId);
       if (!originalEmail) {
         return res.status(404).json({
           success: false,
@@ -291,7 +296,7 @@ class EnhancedEmailControllerNew {
         references: originalEmail.references || [],
       };
 
-      const result = await emailService.sendEmail(accountId, forwardData, useEnhancedUnification);
+      const result: any = await emailService.sendEmail(accountId, forwardData, useEnhancedUnification);
 
       res.json({
         success: result.success,
@@ -318,7 +323,7 @@ class EnhancedEmailControllerNew {
 
       const syncMode = fullSync ? "full" : "incremental";
 
-      const result = await emailService.performEnhancedIncrementalSync(accountId, category);
+      const result: any = await emailService.performEnhancedIncrementalSync(accountId, category);
 
       res.json({
         success: result.success,
@@ -372,7 +377,7 @@ class EnhancedEmailControllerNew {
       // Fetch stats for all categories
       const categories = ["inbox", "sent", "drafts", "unread"];
       const statsPromises = categories.map(async (category) => {
-        const result = await emailService.fetchEmailsForAccount(accountId, {
+        const result: any = await emailService.fetchEmailsForAccount(accountId, {
           category,
           maxResults: 1,
           includeThreads: false,
@@ -391,7 +396,7 @@ class EnhancedEmailControllerNew {
 
       res.json({
         success: true,
-        stats: stats.reduce((acc, stat) => {
+        stats: stats.reduce((acc: { [key: string]: any }, stat) => {
           acc[stat.category] = {
             count: stat.count,
             hasMore: stat.hasMore,
@@ -502,7 +507,7 @@ class EnhancedEmailControllerNew {
         useEnhancedUnification: useEnhancedUnification === "true",
       };
 
-      const result = await emailService.fetchEmailsForAccount(accountId, options);
+      const result: any = await emailService.fetchEmailsForAccount(accountId, options);
 
       res.json({
         success: result.success,
@@ -547,7 +552,7 @@ class EnhancedEmailControllerNew {
         useEnhancedUnification: useEnhancedUnification === "true",
       };
 
-      const result = await emailService.fetchEmailsForAccount(accountId, options);
+      const result: any = await emailService.fetchEmailsForAccount(accountId, options);
 
       res.json({
         success: result.success,
