@@ -14,7 +14,6 @@ import {
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
 import { IParamsRequest, IQueryRequest } from "@/contracts/request.contract";
-import { EbayOrdersParserService } from "./ebay-orders-parser.service";
 const type: any =
   process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
     ? process.env.EBAY_TOKEN_ENV
@@ -832,6 +831,21 @@ export const ebayListingService = {
     } catch (error: any) {
       console.error("Error fetching order details:", error.message);
       throw new Error("Error fetching order details");
+    }
+  },
+
+  createWebhook: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("🔍 Received eBay webhook notification");
+      console.log("📝 Notification data:", req.body);
+
+      // Return response in required JSON format
+      return res.status(200).json({
+        message: "Webhook notification received",
+      });
+    } catch (error: any) {
+      console.error("Error creating webhook:", error.message);
+      throw new Error("Error creating webhook");
     }
   },
 

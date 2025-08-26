@@ -29,6 +29,7 @@ export const ebay = (router: Router) => {
   router.get("/orders/get-order-details/:orderId", ebayListingService.getOrderDetails);
   router.post("/account-deletion", ebayListingService.accountDeletion);
   router.get("/account-deletion", ebayListingService.accountDeletion);
+  router.post("/notifications", ebayListingService.createWebhook);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
