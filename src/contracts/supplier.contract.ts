@@ -22,4 +22,5 @@ export interface ISupplierAddress extends Document {
   city: string;
   postalCode: string;
   isDefault: boolean;
+  originalLocationMapSearch?: string; // Store the original location map search value
 }

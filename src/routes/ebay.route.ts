@@ -4,7 +4,9 @@ import {
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
+  importEbayUserTokenFromFile,
   refreshEbayAccessToken,
+  checkEbayUserAuthorization,
 } from "@/utils/ebay-helpers.util";
 import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
@@ -21,13 +23,95 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
+  router.post("/auth/ebay/import-token", async (_req: Request, res: Response) => {
+    try {
+      const ok = await importEbayUserTokenFromFile();
+      return res.status(ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST).json({
+        status: ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST,
+        message: ok ? ReasonPhrases.OK : ReasonPhrases.BAD_REQUEST,
+      });
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
+
+  router.get("/auth/ebay/check", async (_req: Request, res: Response) => {
+    try {
+      const authStatus = await checkEbayUserAuthorization();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        ...authStatus,
+      });
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
+
+  router.get("/auth/ebay/url", async (_req: Request, res: Response) => {
+    try {
+      const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
+      const authUrl = getEbayAuthURL(type);
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        authUrl,
+      });
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
+
+  router.post("/auth/ebay/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state } = req.body;
+      if (!code) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Authorization code is required",
+        });
+      }
+
+      const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
+      const token = await exchangeCodeForAccessToken(code, type, "true");
+      
+      if (token) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: "Authorization successful",
+          success: true,
+        });
+      } else {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Failed to exchange code for token",
+        });
+      }
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
   router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
   router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
+  router.get("/orders/get-order-details/:orderId", ebayListingService.getOrderDetails);
   router.post("/account-deletion", ebayListingService.accountDeletion);
   router.get("/account-deletion", ebayListingService.accountDeletion);
+  router.get("/notifications", ebayListingService.createWebhook);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);

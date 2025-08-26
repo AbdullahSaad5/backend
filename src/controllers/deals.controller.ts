@@ -95,6 +95,84 @@ export const dealsController = {
       });
     }
   },
+  updateDeals: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const {
+        dealType,
+        discountValue,
+        products,
+        categories,
+        startDate,
+        endDate,
+        minPurchaseAmount,
+        minQuantity,
+        isActive,
+        selectionType,
+        image,
+      } = req.body;
+
+      // Validate ID
+      if (!id) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Deal ID is required",
+        });
+      }
+
+      // Validate date range if both dates are provided
+      if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "End date must be after start date",
+        });
+      }
+
+      const updatedDeal = await dealsService.updateDeals(id, {
+        dealType,
+        discountValue,
+        products,
+        categories,
+        startDate,
+        endDate,
+        minPurchaseAmount,
+        minQuantity,
+        isActive,
+        selectionType,
+        image,
+      });
+
+      if (!updatedDeal) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Deal not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Deal updated successfully",
+        data: updatedDeal,
+      });
+    } catch (error: any) {
+      console.error("Error updating deal:", error);
+
+      if (error.name === 'CastError' || error.name === 'NotFoundError') {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Deal not found",
+        });
+      }
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating deal",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  },
+
+  
   deleteDeal: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

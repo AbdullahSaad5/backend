@@ -50,6 +50,14 @@ const markAsProcessed = async (jobType: string, employeeId: string, shiftId: str
   }
 };
 
+// Helper to format a local date as YYYY-MM-DD (using local timezone)
+const formatLocalDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // Helper function to calculate grace period end for a shift
 const calculateGracePeriodEnd = (shift: any, shiftDate: Date, graceMinutes: number): Date => {
   const [endHour, endMinute] = shift.endTime.split(":").map(Number);
@@ -63,10 +71,10 @@ const calculateGracePeriodEnd = (shift: any, shiftDate: Date, graceMinutes: numb
   if (isOvernight) {
     // For overnight shifts, end time is on the next day
     gracePeriodEnd.setDate(shiftDate.getDate() + 1);
-    gracePeriodEnd.setUTCHours(endHour, endMinute + graceMinutes, 0, 0);
+    gracePeriodEnd.setHours(endHour, endMinute + graceMinutes, 0, 0);
   } else {
     // Regular shift ends same day
-    gracePeriodEnd.setUTCHours(endHour, endMinute + graceMinutes, 0, 0);
+    gracePeriodEnd.setHours(endHour, endMinute + graceMinutes, 0, 0);
   }
 
   return gracePeriodEnd;
@@ -1270,7 +1278,7 @@ export const markAbsentForUsers = async () => {
       for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
-        shiftDate.setUTCHours(0, 0, 0, 0);
+        shiftDate.setHours(0, 0, 0, 0);
 
         // SKIP WEEKEND DATES - only process weekdays
         if (isWeekend(shiftDate)) {
@@ -1288,7 +1296,7 @@ export const markAbsentForUsers = async () => {
               "markAbsent",
               employeeId.toString(),
               (shift._id as Types.ObjectId).toString(),
-              shiftDate.toISOString().split("T")[0]
+              formatLocalDateKey(shiftDate)
             )
           ) {
             continue;
@@ -1323,7 +1331,7 @@ export const markAbsentForUsers = async () => {
             "markAbsent",
             employeeId.toString(),
             (shift._id as Types.ObjectId).toString(),
-            shiftDate.toISOString().split("T")[0]
+            formatLocalDateKey(shiftDate)
           );
 
           // Break out of the days loop once we've processed this shift
@@ -1356,7 +1364,7 @@ export const autoCheckoutForUsers = async () => {
       for (let daysBack = 0; daysBack <= 7; daysBack++) {
         const shiftDate = new Date(now);
         shiftDate.setDate(now.getDate() - daysBack);
-        shiftDate.setUTCHours(0, 0, 0, 0);
+        shiftDate.setHours(0, 0, 0, 0);
 
         // SKIP WEEKEND DATES - only process weekdays
         if (isWeekend(shiftDate)) {
@@ -1374,7 +1382,7 @@ export const autoCheckoutForUsers = async () => {
               "autoCheckout",
               employeeId.toString(),
               (shift._id as Types.ObjectId).toString(),
-              shiftDate.toISOString().split("T")[0]
+              formatLocalDateKey(shiftDate)
             )
           ) {
             continue;
@@ -1399,7 +1407,7 @@ export const autoCheckoutForUsers = async () => {
               actualShiftEndTime.setDate(shiftDate.getDate() + 1);
             }
 
-            actualShiftEndTime.setUTCHours(endHour, endMinute, 0, 0);
+            actualShiftEndTime.setHours(endHour, endMinute, 0, 0);
             attendance.checkOut = actualShiftEndTime;
             await attendance.save();
 
@@ -1413,7 +1421,7 @@ export const autoCheckoutForUsers = async () => {
             "autoCheckout",
             employeeId.toString(),
             (shift._id as Types.ObjectId).toString(),
-            shiftDate.toISOString().split("T")[0]
+            formatLocalDateKey(shiftDate)
           );
 
           // Break out of the days loop once we've processed this shift

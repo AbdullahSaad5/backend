@@ -18,6 +18,7 @@ const AddressSchema = new Schema<IUserAddress, UserAddressModel>(
     latitude: { type: Number,  },
     isDefault: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    originalLocationMapSearch: { type: String, trim: true }, // Store the original location map search value
   },
   {
     timestamps: true,

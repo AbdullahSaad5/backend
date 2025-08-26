@@ -6,6 +6,8 @@ const supplierCategorySchema = new Schema<ISupplierCategory, SupplierCategoryMod
   name: { type: String, required: true , lowercase: true},
   description: { type: String },
   image: { type: String },
+  productCategories: [{ type: Schema.Types.ObjectId, ref: 'ProductCategory' }],
+  productType: { type: String, enum: ['new', 'scrap'], required: true },
   isBlocked: { type: Boolean, default: false },
 });
 
