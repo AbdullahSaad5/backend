@@ -7,45 +7,6 @@ import { Types } from "mongoose";
 
 export const orderTaskTypeController = {
   createOrderTaskType: async (req: ICombinedRequest<IUserRequest, IOrderTaskTypeCreatePayload>, res: Response) => {
-    //     automationTriggerType
-    // :
-    // "MANUAL"
-    // defaultAssignedRole
-    // :
-    // "6765436750a73c088f09f551"
-    // defaultAssignedTeam
-    // :
-    // "6891123e9695821cf281be7b"
-    // defaultEstimatedTimeMinutes
-    // :
-    // 30
-    // defaultPriority
-    // :
-    // 2
-    // description
-    // :
-    // "KJAGSKLAJLGKJAG"
-    // isAutomated
-    // :
-    // true
-    // isOrderLevel
-    // :
-    // true
-    // name
-    // :
-    // "AKLSKAJSGK"
-    // relevantCategories
-    // :
-    // ["6870e106483be08a95a53426"]
-    // relevantConditions
-    // :
-    // ["collectible_like_new"]
-    // requiredSkills
-    // :
-    // ["test", "testtet"]
-    // taskCategory
-    // :
-
     try {
       const {
         name,
@@ -61,6 +22,21 @@ export const orderTaskTypeController = {
         automationTriggerType,
         taskCategory,
         defaultAssignedTeam,
+        taskType,
+        actionType,
+        notificationType,
+        emailTemplate,
+        emailSubject,
+        smsContent,
+        notificationContent,
+        webhookUrl,
+        webhookMethod,
+        webhookHeaders,
+        webhookBody,
+        retryAttempts,
+        retryDelayMinutes,
+        successCriteria,
+        failureCriteria,
       } = req.body;
 
       // Convert relevantCategories array to ObjectIds if present
@@ -80,11 +56,26 @@ export const orderTaskTypeController = {
         relevantCategories: processedRelevantCategories,
         relevantConditions,
         isOrderLevel,
-        defaultAssignedRole,
+        defaultAssignedRole: defaultAssignedRole || undefined,
         isAutomated,
         automationTriggerType,
         taskCategory,
-        defaultAssignedTeam,
+        defaultAssignedTeam: defaultAssignedTeam || undefined,
+        taskType,
+        actionType,
+        notificationType,
+        emailTemplate,
+        emailSubject,
+        smsContent,
+        notificationContent,
+        webhookUrl,
+        webhookMethod,
+        webhookHeaders,
+        webhookBody,
+        retryAttempts,
+        retryDelayMinutes,
+        successCriteria,
+        failureCriteria,
       });
 
       res.status(StatusCodes.CREATED).json({

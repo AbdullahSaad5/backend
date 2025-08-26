@@ -23,7 +23,7 @@ const ProductTypeWorkflowSchema = new Schema<IProductTypeWorkflow>(
     steps: [
       {
         _id: false,
-        stepOrder: { type: Number, required: true },
+        stepOrder: { type: Number, required: false },
         taskTypeId: { type: Schema.Types.ObjectId, ref: "OrderTaskType", required: true },
         overrideEstimatedTimeMinutes: { type: Number, min: 1 },
         overridePriority: { type: Number, enum: [1, 2, 3] },
