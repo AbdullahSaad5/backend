@@ -122,10 +122,20 @@ export const documentController = {
   getAllDocuments: async (req: Request, res: Response) => {
     try {
       const documents = await documentService.getAllDocuments();
+      
+      // Add debug information for employment documents
+      const employmentDocs = documents.filter((doc: any) => doc.docTags?.includes('employment'));
+      console.log(`API getAllDocuments: Returning ${documents.length} total documents, ${employmentDocs.length} employment documents`);
+      
       res.status(StatusCodes.OK).json({
         success: true,
         count: documents.length,
         data: documents,
+        debug: {
+          totalDocuments: documents.length,
+          employmentDocuments: employmentDocs.length,
+          employmentDocIds: employmentDocs.map((doc: any) => doc._id)
+        }
       });
     } catch (error) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({

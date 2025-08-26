@@ -52,6 +52,9 @@ export const user = (router: Router) => {
     userController.updateProfileCompletion
   );
 
+  // Employment Documents Sync Route
+  router.post("/:id/sync-employment-documents", userValidation.validateId, userController.syncEmploymentDocuments);
+
   // Team Assignment Routes
   router.patch("/:id/assign-teams", userValidation.validateId, userController.assignTeams);
   router.get("/:id/teams", userValidation.validateId, userController.getUserWithTeams);

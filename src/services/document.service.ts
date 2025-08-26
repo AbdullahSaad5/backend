@@ -44,7 +44,7 @@ export const documentService = {
 
     // Get all documents with populated visibleTo users
     getAllDocuments: async () => {
-        return await DocumentModel.find()
+        const documents = await DocumentModel.find()
             .populate({
                 path: "visibleTo.value",
                 select: "firstName lastName email"
@@ -53,6 +53,20 @@ export const documentService = {
                 path: "userId",
                 select: "firstName lastName email"
             });
+        
+        console.log(`getAllDocuments: Found ${documents.length} documents`);
+        const employmentDocs = documents.filter(doc => doc.docTags?.includes('employment'));
+        console.log(`getAllDocuments: Found ${employmentDocs.length} employment documents:`, 
+            employmentDocs.map(doc => ({ 
+                _id: doc._id, 
+                docTitle: doc.docTitle, 
+                docTags: doc.docTags,
+                userId: doc.userId?._id || doc.userId,
+                visibleTo: doc.visibleTo?.map(v => v.value?._id || v.value)
+            }))
+        );
+        
+        return documents;
     },
 
     // Get document by ID with populated visibleTo users
@@ -358,5 +372,117 @@ export const documentService = {
             versionHistory: versions,
             hasMultipleVersions: versions.length > 1
         };
+    },
+
+    // Sync employment documents from user profile to documents module
+    syncEmploymentDocuments: async (userId: string, employmentDocuments: any[], userData: any) => {
+        try {
+            if (!employmentDocuments || employmentDocuments.length === 0) {
+                console.log(`No employment documents to sync for user ${userId}`);
+                return [];
+            }
+
+            const syncedDocuments = [];
+
+            for (const doc of employmentDocuments) {
+                // Generate the document title with username and email format
+                const userName = `${userData.firstName}${userData.lastName}` || 'User';
+                const userEmail = userData.email || 'no-email';
+                const documentName = doc.name || 'Employment Document';
+                const docTitle = `${userName}(${userEmail})-${documentName}`;
+                
+                // Check if document already exists in documents module
+                const existingDoc = await DocumentModel.findOne({
+                    userId: new Types.ObjectId(userId),
+                    docTitle: docTitle,
+                    'document.url': doc.url
+                });
+
+                if (existingDoc) {
+                    console.log(`Document already exists in documents module: ${doc.name}`);
+                    syncedDocuments.push(existingDoc);
+                    continue;
+                }
+
+                // Create new document in documents module
+                
+                const documentData = {
+                    docCategory: 'hr',
+                    docTitle: docTitle,
+                    docTags: ['employment', 'profile-completion'],
+                    version: '1.0.0',
+                    document: [{
+                        url: doc.url,
+                        name: doc.name || 'Employment Document',
+                        type: doc.type || 'application/octet-stream',
+                        size: doc.size || 0
+                    }],
+                    author: `${userData.firstName} ${userData.lastName}`,
+                    visibleTo: [{
+                        label: `${userData.firstName} ${userData.lastName}`,
+                        value: new Types.ObjectId(userId),
+                        role: 'owner'
+                    }],
+                    userId: new Types.ObjectId(userId),
+                    totalVersions: 1
+                };
+
+                const createdDoc = await DocumentModel.create(documentData);
+                
+                // Create initial version
+                await documentVersionService.createInitialVersion(documentData, (createdDoc as any)._id.toString());
+                
+                syncedDocuments.push(createdDoc);
+                console.log(`Synced employment document to documents module: ${docTitle} (original: ${doc.name})`);
+                console.log('Created document details:', {
+                    _id: createdDoc._id,
+                    docTitle: createdDoc.docTitle,
+                    docTags: createdDoc.docTags,
+                    userId: createdDoc.userId,
+                    visibleTo: createdDoc.visibleTo
+                });
+            }
+
+            return syncedDocuments;
+        } catch (error) {
+            console.error('Error syncing employment documents:', error);
+            throw error;
+        }
+    },
+
+    // Remove employment documents from documents module when they are removed from user profile
+    removeEmploymentDocuments: async (userId: string, currentEmploymentDocuments: any[]) => {
+        try {
+            // Get all employment documents for this user in the documents module
+            const existingDocs = await DocumentModel.find({
+                userId: new Types.ObjectId(userId),
+                docTags: { $in: ['employment', 'profile-completion'] }
+            });
+
+            if (existingDocs.length === 0) {
+                console.log(`No employment documents found in documents module for user ${userId}`);
+                return;
+            }
+
+            // Get URLs of current employment documents
+            const currentUrls = currentEmploymentDocuments.map(doc => doc.url);
+
+            // Find documents that need to be removed (exist in documents module but not in current employment documents)
+            const docsToRemove = existingDocs.filter(doc => {
+                const docUrl = doc.document[0]?.url;
+                return docUrl && !currentUrls.includes(docUrl);
+            });
+
+            // Remove the documents
+            for (const doc of docsToRemove) {
+                await documentService.deleteDocument((doc as any)._id.toString());
+                console.log(`Removed employment document from documents module: ${doc.docTitle}`);
+            }
+
+            console.log(`Removed ${docsToRemove.length} employment documents from documents module for user ${userId}`);
+        } catch (error) {
+            console.error('Error removing employment documents:', error);
+            throw error;
+        }
     }
 };
