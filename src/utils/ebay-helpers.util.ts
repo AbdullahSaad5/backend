@@ -48,6 +48,7 @@ const scopes = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
+  // "https://api.ebay.com/oauth/api_scope/sell.messaging",
   "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
   "https://api.ebay.com/oauth/api_scope/sell.finances",
   "https://api.ebay.com/oauth/api_scope/sell.payment.dispute",
@@ -56,7 +57,6 @@ const scopes = [
   "https://api.ebay.com/oauth/api_scope/sell.stores",
   "https://api.ebay.com/oauth/scope/sell.edelivery",
   "https://api.ebay.com/oauth/api_scope/commerce.vero",
-  "https://api.ebay.com/oauth/api_scope/sell.messaging",
 ];
 
 // Create eBay auth token instances with validation
