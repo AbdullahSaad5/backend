@@ -24,9 +24,15 @@ const validateEbayCredentials = (type: "production" | "sandbox") => {
 
   if (missing.length > 0) {
     console.error(`❌ Missing eBay ${type} environment variables: ${missing.join(", ")}`);
+    console.error(`❌ Please check your .env file and ensure these variables are set:`);
+    missing.forEach((varName) => {
+      console.error(`   - ${varName}`);
+    });
     return false;
   }
 
+  // Log successful validation
+  console.log(`✅ eBay ${type} credentials validated successfully`);
   return true;
 };
 
@@ -382,26 +388,59 @@ export const exchangeCodeForAccessToken = async (
   type: "production" | "sandbox",
   useClient: "true" | "false"
 ) => {
-  if (type === "production") {
-    const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
-    const parsedToken: EbayToken = JSON.parse(token);
+  try {
+    console.log(`🔄 Exchanging authorization code for access token (${type}, useClient: ${useClient})...`);
 
-    // Store in DB
-    await IntegrationTokenModel.updateOne(
-      { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false },
-      { $set: { ...parsedToken, generated_at: Date.now() } },
-      { upsert: true }
-    );
-    return parsedToken;
-  } else {
-    const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
-    const parsedToken: EbayToken = JSON.parse(token);
-    await IntegrationTokenModel.updateOne(
-      { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false },
-      { $set: { ...parsedToken, generated_at: Date.now() } },
-      { upsert: true }
-    );
-    return parsedToken;
+    // Check if we can import the model (basic database connectivity check)
+    try {
+      const { IntegrationTokenModel } = await import("@/models/integration-token.model");
+      console.log("✅ Database model imported successfully");
+    } catch (importError) {
+      console.error("❌ Failed to import database model:", importError);
+      throw new Error("Database model not available");
+    }
+
+    if (type === "production") {
+      if (!ebayAuthToken) {
+        throw new Error("eBay production auth token instance not initialized");
+      }
+
+      console.log("🔵 [PRODUCTION] Exchanging code for access token...");
+      const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
+      const parsedToken: EbayToken = JSON.parse(token);
+
+      console.log("✅ Token received, storing in database...");
+      // Store in DB
+      await IntegrationTokenModel.updateOne(
+        { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false },
+        { $set: { ...parsedToken, generated_at: Date.now() } },
+        { upsert: true }
+      );
+
+      console.log("✅ Token successfully stored in database");
+      return parsedToken;
+    } else {
+      if (!ebayAuthTokenSandbox) {
+        throw new Error("eBay sandbox auth token instance not initialized");
+      }
+
+      console.log("🟣 [SANDBOX] Exchanging code for access token...");
+      const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
+      const parsedToken: EbayToken = JSON.parse(token);
+
+      console.log("✅ Token received, storing in database...");
+      await IntegrationTokenModel.updateOne(
+        { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false },
+        { $set: { ...parsedToken, generated_at: Date.now() } },
+        { upsert: true }
+      );
+
+      console.log("✅ Token successfully stored in database");
+      return parsedToken;
+    }
+  } catch (error) {
+    console.error(`❌ Error exchanging code for access token (${type}):`, error);
+    throw error;
   }
 };
 

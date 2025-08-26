@@ -12,6 +12,7 @@ import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import e, { Router } from "express";
 // import ebayToken from "../../ebay_tokens.json";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
 
 const baseURL = "https://api.sandbox.ebay.com";
 
@@ -54,6 +55,68 @@ export const ebay = (router: Router) => {
     }
   });
 
+  router.get("/auth/ebay/test-redirect", async (_req: Request, res: Response) => {
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
+    } catch (e) {
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+      });
+    }
+  });
+
+  router.get("/auth/ebay/test-db", async (_req: Request, res: Response) => {
+    try {
+      // Test database connectivity
+      const testToken = {
+        provider: "ebay" as const,
+        environment: "PRODUCTION" as const,
+        useClient: true,
+        access_token: "test_token_" + Date.now(),
+        token_type: "bearer",
+        expires_in: 3600,
+        generated_at: Date.now(),
+      };
+
+      await IntegrationTokenModel.updateOne(
+        { provider: "ebay", environment: "PRODUCTION", useClient: true },
+        { $set: testToken },
+        { upsert: true }
+      );
+
+      // Verify it was saved
+      const savedToken = await IntegrationTokenModel.findOne({
+        provider: "ebay",
+        environment: "PRODUCTION",
+        useClient: true,
+      });
+
+      if (savedToken) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: "Database connectivity test successful",
+          tokenSaved: true,
+          tokenId: savedToken._id,
+        });
+      } else {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: "Token was not saved to database",
+          tokenSaved: false,
+        });
+      }
+    } catch (error) {
+      console.error("Database test error:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Database connectivity test failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   router.get("/auth/ebay/url", async (_req: Request, res: Response) => {
     try {
       const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
@@ -83,7 +146,7 @@ export const ebay = (router: Router) => {
 
       const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
       const token = await exchangeCodeForAccessToken(code, type, "true");
-      
+
       if (token) {
         return res.status(StatusCodes.OK).json({
           status: StatusCodes.OK,
