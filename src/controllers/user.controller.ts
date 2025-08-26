@@ -679,6 +679,7 @@ export const userController = {
         profileData.annualLeaveEntitlement !== undefined &&
         profileData.annualLeaveCarriedForward !== undefined &&
         profileData.annualLeaveYear !== undefined;
+        // Note: skills field removed from completion check - commented out for future use
 
       res.status(StatusCodes.OK).json({
         message: isCompleteSubmission ? "Profile completion updated successfully" : "Profile data saved successfully",

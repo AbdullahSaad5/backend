@@ -176,23 +176,23 @@ const schema = new Schema<IUser, UserModel, IUserMethods>(
     },
 
     // Skills Information
-    skills: {
-      type: [String],
-      default: [],
-      validate: {
-        validator: function(skills: string[]) {
-          if (skills.length > 20) {
-            return false;
-          }
-          return skills.every(skill => 
-            skill && 
-            skill.trim().length >= 2 && 
-            skill.trim().length <= 50
-          );
-        },
-        message: "Skills must be between 2-50 characters and maximum 20 skills allowed"
-      }
-    },
+    // skills: {
+    //   type: [String],
+    //   default: [],
+    //   validate: {
+    //     validator: function(skills: string[]) {
+    //       if (skills.length > 20) {
+    //         return false;
+    //       }
+    //       return skills.every(skill => 
+    //         skill && 
+    //         skill.trim().length >= 2 && 
+    //         skill.trim().length <= 50
+    //       );
+    //     },
+    //     message: "Skills must be between 2-50 characters and maximum 20 skills allowed"
+    //   }
+    // },
 
     // Profile Completion Status
     profileCompleted: {
