@@ -45,7 +45,55 @@ export const dealsService = {
 
     return await deal.save();
   },
+  updateDeals: async (
+    id: string,
+    updateData: {
+      dealType?: string;
+      discountValue?: number;
+      products?: string[];
+      categories?: string[];
+      startDate?: string;
+      endDate?: string;
+      minPurchaseAmount?: number;
+      minQuantity?: number;
+      isActive?: boolean;
+      selectionType?: "products" | "categories";
+      image?: string;
+    }
+  ) => {
+    const updateObject: any = { ...updateData };
 
+    // Convert dates if provided
+    if (updateData.startDate) {
+      updateObject.startDate = new Date(updateData.startDate);
+    }
+    if (updateData.endDate) {
+      updateObject.endDate = new Date(updateData.endDate);
+    }
+
+    // Handle selectionType logic
+    if (updateData.selectionType) {
+      if (updateData.selectionType === "products") {
+        updateObject.products = updateData.products || [];
+        updateObject.categories = [];
+      } else if (updateData.selectionType === "categories") {
+        updateObject.categories = updateData.categories || [];
+        updateObject.products = [];
+      }
+    }
+
+    const updatedDeal = await dealsModel.findByIdAndUpdate(
+      id,
+      updateObject,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedDeal) {
+      throw new Error('Deal not found');
+    }
+
+    return updatedDeal;
+  },
   getDeals: async (options: {
     page?: number;
     limit?: number;
@@ -81,6 +129,61 @@ export const dealsService = {
         limit: limitNum,
         totalPages: Math.ceil(total / limitNum),
       },
+    };
+  },
+  getActiveDeals: async (
+    filter: any = {},
+    options: {
+      page: number;
+      limit: number;
+      sort?: any;
+    } = { page: 1, limit: 10 }
+  ) => {
+    const { page, limit, sort = { createdAt: -1 } } = options;
+
+    const baseFilter = {
+      isActive: true,
+      startDate: { $lte: new Date() },
+      endDate: { $gte: new Date() },
+      ...filter
+    };
+
+    const query = dealsModel
+      .find(baseFilter)
+      .select('-__v')
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Apply population based on selection type
+    if (baseFilter.selectionType === 'products') {
+      query.populate('products');
+    } else if (baseFilter.selectionType === 'categories') {
+      query.populate('categories');
+    } else {
+      // Populate both if no specific type is requested
+      query
+        .populate('products')
+        .populate('categories');
+    }
+
+    const [docs, total] = await Promise.all([
+      query.exec(),
+      dealsModel.countDocuments(baseFilter)
+    ]);
+
+    const pages = Math.ceil(total / limit);
+    const hasNextPage = page < pages;
+    const hasPrevPage = page > 1;
+
+    return {
+      docs,
+      total,
+      page,
+      pages,
+      limit,
+      hasNextPage,
+      hasPrevPage
     };
   },
   deleteDeal: async (id: string) => {

@@ -95,6 +95,130 @@ export const dealsController = {
       });
     }
   },
+  updateDeals: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const {
+        dealType,
+        discountValue,
+        products,
+        categories,
+        startDate,
+        endDate,
+        minPurchaseAmount,
+        minQuantity,
+        isActive,
+        selectionType,
+        image,
+      } = req.body;
+
+      // Validate ID
+      if (!id) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Deal ID is required",
+        });
+      }
+
+      // Validate date range if both dates are provided
+      if (startDate && endDate && new Date(startDate) >= new Date(endDate)) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "End date must be after start date",
+        });
+      }
+
+      const updatedDeal = await dealsService.updateDeals(id, {
+        dealType,
+        discountValue,
+        products,
+        categories,
+        startDate,
+        endDate,
+        minPurchaseAmount,
+        minQuantity,
+        isActive,
+        selectionType,
+        image,
+      });
+
+      if (!updatedDeal) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Deal not found",
+        });
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Deal updated successfully",
+        data: updatedDeal,
+      });
+    } catch (error: any) {
+      console.error("Error updating deal:", error);
+
+      if (error.name === 'CastError' || error.name === 'NotFoundError') {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Deal not found",
+        });
+      }
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error updating deal",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  },
+
+  getActiveDeals: async (req: Request, res: Response) => {
+    try {
+      const { page = 1, limit = 10, type } = req.query;
+
+      const options = {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        sort: { createdAt: -1 }
+      };
+
+      const filter: any = {
+        isActive: true,
+        startDate: { $lte: new Date() },
+        endDate: { $gte: new Date() }
+      };
+
+      // Handle selection type filter
+      if (type === 'product') {
+        filter.selectionType = 'products';
+      } else if (type === 'category') {
+        filter.selectionType = 'categories';
+      }
+      // If no type specified, return all active deals
+
+      const activeDeals = await dealsService.getActiveDeals(filter, options);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Active deals fetched successfully",
+        data: {
+          deals: activeDeals.docs,
+          total: activeDeals.total,
+          pages: activeDeals.pages,
+          currentPage: activeDeals.page,
+          hasNext: activeDeals.hasNextPage,
+          hasPrev: activeDeals.hasPrevPage
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching active deals:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching active deals",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  },
   deleteDeal: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
