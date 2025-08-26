@@ -388,6 +388,7 @@ export const userService = {
       isDefault = false,
       longitude,
       latitude,
+      originalLocationMapSearch,
     } = addressData;
 
     // If this is set as default, make sure no other address is default for this user
@@ -407,6 +408,7 @@ export const userService = {
       isActive: true,
       longitude,
       latitude,
+      originalLocationMapSearch, // Store the original location map search value
     });
     return newAddress.save();
   },
