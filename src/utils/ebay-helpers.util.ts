@@ -49,7 +49,7 @@ const scopes = [
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
   "https://api.ebay.com/oauth/api_scope/sell.messaging",
-  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  // "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
   // "https://api.ebay.com/oauth/api_scope/sell.marketing",
   // "https://api.ebay.com/oauth/api_scope/sell.analytics.readonly",
   // "https://api.ebay.com/oauth/api_scope/sell.finances",
@@ -138,62 +138,6 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
     return parsedToken;
   } catch (error) {
     console.error(`❌ Failed to get eBay application token for ${type}:`, error);
-    return null;
-  }
-};
-
-export const getStoredEbayUserAccessToken = async () => {
-  try {
-    const type =
-      process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
-        ? process.env.EBAY_TOKEN_ENV
-        : "production";
-
-    // Read user token from DB (useClient: true for user tokens)
-    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
-    const tokenDoc = await IntegrationTokenModel.findOne({
-      provider: "ebay",
-      environment: env,
-      useClient: true, // Use user tokens for messaging APIs
-    }).lean();
-
-    if (!tokenDoc) {
-      console.log(`❌ No eBay user token found in DB for ${env}. You need to authorize with eBay first.`);
-      console.log(`🔗 Get authorization URL: GET /api/ebay/auth/ebay`);
-      return null;
-    }
-
-    const credentials: any = tokenDoc;
-    const { access_token, generated_at, expires_in, refresh_token } = credentials;
-
-    if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
-      console.error("❌ Invalid or missing user token fields.");
-      return null;
-    }
-
-    const currentTime = Date.now();
-    const expiresAt = generated_at + expires_in * 1000;
-    const timeRemaining = expiresAt - currentTime;
-    const bufferTime = 5 * 60 * 1000; // 5 minutes
-
-    // 🔁 Refresh token if it's expired or will expire soon
-    if (timeRemaining <= bufferTime && refresh_token) {
-      console.warn("⚠️ User access token is expired or about to expire. Refreshing...");
-      const newToken = await refreshEbayAccessToken(type, "true"); // Use user token
-      if (newToken?.access_token) {
-        console.log("✅ User token refreshed.");
-        return newToken.access_token;
-      } else {
-        console.error("❌ Failed to refresh user token.");
-        return null;
-      }
-    }
-
-    const isProduction = type === "production";
-    console.log(`✅ [USER TOKEN - ${isProduction ? "PRODUCTION" : "SANDBOX"}] Access token is valid.`);
-    return access_token;
-  } catch (error) {
-    console.error("❌ Unexpected error reading user token:", error);
     return null;
   }
 };
