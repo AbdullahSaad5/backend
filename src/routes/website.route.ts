@@ -8,15 +8,13 @@ export const website = (router: Router) => {
 
   // Fetch featured listings grouped by category for website
   router.get("/featured-listings", websiteController.getFeaturedListingsForWebsite);
+  router.get("/deals/active", websiteController.getActiveDeals); //deals
 
   // Fetch featured listings for a specific category
   router.get("/:categoryId/featured-listings", websiteController.getFeaturedListingsByCategoryId);
 
-  // Fetch all Website listings
+  // Fetch all Website listings with query parameters (GET for SEO-friendly filtering)
   router.get("/allListings", websiteController.getWebsiteListings);
-
-  // Fetch filtered Website listings with category-specific filters
-  router.post("/allListings/filter", websiteController.getFilteredWebsiteListings);
 
   // Get available filters for a specific category
   router.get("/filters/:categoryId", websiteController.getCategoryFilters);

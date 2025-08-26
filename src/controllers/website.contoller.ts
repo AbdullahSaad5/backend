@@ -90,6 +90,18 @@ export const websiteController = {
         isFeatured,
         page = "1",
         limit = "10",
+        // Enhanced filters (previously in POST endpoint)
+        minPrice,
+        maxPrice,
+        priceMin, // Alternative parameter name
+        priceMax, // Alternative parameter name
+        brand,
+        condition,
+        inStock,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        // Dynamic attributes (comma-separated values)
+        attributes,
       } = req.query;
 
       console.log("Raw query params:", req.query);
@@ -109,12 +121,41 @@ export const websiteController = {
         isFeatured: isFeatured === "true" ? true : isFeatured === "false" ? false : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1),
         limit: parseInt(limit as string, 10) || 10,
+        // Enhanced filters - handle both parameter naming conventions
+        priceRange:
+          minPrice || maxPrice || priceMin || priceMax
+            ? {
+                min: minPrice || priceMin ? parseFloat((minPrice || priceMin) as string) : undefined,
+                max: maxPrice || priceMax ? parseFloat((maxPrice || priceMax) as string) : undefined,
+              }
+            : undefined,
+        brand: brand ? (Array.isArray(brand) ? brand : [brand]).map((b) => b.toString()) : undefined,
+        condition: condition
+          ? (Array.isArray(condition) ? condition : [condition]).map((c) => c.toString())
+          : undefined,
+        inStock: inStock === "true" ? true : inStock === "false" ? false : undefined,
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as "asc" | "desc",
+        // Parse dynamic attributes from comma-separated string
+        attributes: attributes
+          ? (() => {
+              try {
+                if (typeof attributes === "string") {
+                  const parsed = JSON.parse(attributes);
+                  return parsed;
+                }
+                return undefined;
+              } catch {
+                return undefined;
+              }
+            })()
+          : undefined,
       };
 
       console.log("Parsed filters:", filters);
 
       // Call the service to get Website listings
-      const result = await websiteService.allWebsiteListings(filters);
+      const result = await websiteService.getFilteredWebsiteListings(filters);
 
       // Return the results
       res.status(200).json({
@@ -213,9 +254,9 @@ export const websiteController = {
         // Category-specific filters
         priceRange: priceRange
           ? {
-              min: priceRange.min ? parseFloat(priceRange.min) : undefined,
-              max: priceRange.max ? parseFloat(priceRange.max) : undefined,
-            }
+            min: priceRange.min ? parseFloat(priceRange.min) : undefined,
+            max: priceRange.max ? parseFloat(priceRange.max) : undefined,
+          }
           : undefined,
         brand: brand ? (Array.isArray(brand) ? brand : [brand]) : undefined,
         condition: condition ? (Array.isArray(condition) ? condition : [condition]) : undefined,
@@ -319,6 +360,54 @@ export const websiteController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error getting available filters",
+      });
+    }
+  },
+
+  getActiveDeals: async (req: Request, res: Response) => {
+    try {
+      const { page = 1, limit = 10, type } = req.query;
+
+      const options = {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        sort: { createdAt: -1 }
+      };
+
+      const filter: any = {
+        isActive: true,
+        startDate: { $lte: new Date() },
+        endDate: { $gte: new Date() }
+      };
+
+      // Handle selection type filter
+      if (type === 'product') {
+        filter.selectionType = 'products';
+      } else if (type === 'category') {
+        filter.selectionType = 'categories';
+      }
+      // If no type specified, return all active deals
+
+      const activeDeals = await websiteService.getActiveDeals(filter, options);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Active deals fetched successfully",
+        data: {
+          deals: activeDeals.docs,
+          total: activeDeals.total,
+          pages: activeDeals.pages,
+          currentPage: activeDeals.page,
+          hasNext: activeDeals.hasNextPage,
+          hasPrev: activeDeals.hasPrevPage
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching active deals:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching active deals",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
       });
     }
   },

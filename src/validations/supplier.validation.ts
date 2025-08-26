@@ -20,6 +20,7 @@ const addressSchema = z.object({
   city: z.string().trim().optional(),
   postalCode: z.string().trim().optional(),
   isDefault: z.boolean().optional(),
+  originalLocationMapSearch: z.string().trim().optional(), // Store the original location map search value
 });
 
 // Document validation schema

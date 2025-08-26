@@ -45,7 +45,55 @@ export const dealsService = {
 
     return await deal.save();
   },
+  updateDeals: async (
+    id: string,
+    updateData: {
+      dealType?: string;
+      discountValue?: number;
+      products?: string[];
+      categories?: string[];
+      startDate?: string;
+      endDate?: string;
+      minPurchaseAmount?: number;
+      minQuantity?: number;
+      isActive?: boolean;
+      selectionType?: "products" | "categories";
+      image?: string;
+    }
+  ) => {
+    const updateObject: any = { ...updateData };
 
+    // Convert dates if provided
+    if (updateData.startDate) {
+      updateObject.startDate = new Date(updateData.startDate);
+    }
+    if (updateData.endDate) {
+      updateObject.endDate = new Date(updateData.endDate);
+    }
+
+    // Handle selectionType logic
+    if (updateData.selectionType) {
+      if (updateData.selectionType === "products") {
+        updateObject.products = updateData.products || [];
+        updateObject.categories = [];
+      } else if (updateData.selectionType === "categories") {
+        updateObject.categories = updateData.categories || [];
+        updateObject.products = [];
+      }
+    }
+
+    const updatedDeal = await dealsModel.findByIdAndUpdate(
+      id,
+      updateObject,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedDeal) {
+      throw new Error('Deal not found');
+    }
+
+    return updatedDeal;
+  },
   getDeals: async (options: {
     page?: number;
     limit?: number;
@@ -83,6 +131,7 @@ export const dealsService = {
       },
     };
   },
+  
   deleteDeal: async (id: string) => {
     const deletedDeal = await dealsModel.findByIdAndDelete(id);
     return deletedDeal;
