@@ -1,6 +1,8 @@
 // Enhanced Email Integration Service
 // Provides advanced features for email unification, threading, and sync
 
+export {};
+
 class EnhancedEmailIntegrationService {
   // ADVANCED THREAD MANAGEMENT METHODS
 
