@@ -49,6 +49,7 @@ const processedPayrollSchema = new Schema<IProcessedPayroll>(
     processedAt: { type: Date },
     notes: { type: String },
     pdfUrl: { type: String },
+    receiptImage: { type: String }, // Receipt image URL for proof of payment
   },
   {
     timestamps: true,
