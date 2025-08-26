@@ -13,7 +13,8 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
-import { IParamsRequest } from "@/contracts/request.contract";
+import { IParamsRequest, IQueryRequest } from "@/contracts/request.contract";
+import { EbayOrdersParserService } from "./ebay-orders-parser.service";
 const type: any =
   process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
     ? process.env.EBAY_TOKEN_ENV
@@ -769,12 +770,20 @@ export const ebayListingService = {
     }
   },
 
-  getOrders: async (req: Request, res: Response): Promise<any> => {
+  getOrders: async (
+    req: IQueryRequest<{ page?: number; limit?: number; orderId?: string }>,
+    res: Response
+  ): Promise<any> => {
     try {
-      const credentials = await getStoredEbayAccessToken();
+      const credentials = await getStoredEbayAccessToken("true");
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
-      const ebayUrl =
-        type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
+
+      const limit = req.query.limit || 10;
+      const page = req.query.page || 0;
+      const offset = (Math.max(page, 1) - 1) * limit;
+
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
+      // type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
       const currentDate = Date.now();
       const startDate = currentDate;
       // 90 days ago
@@ -782,37 +791,47 @@ export const ebayListingService = {
       const formattedStartDate = new Date(startDate).toISOString();
       const formattedEndDate = new Date(endDate).toISOString();
 
-      // console.log("formattedStartDate", formattedStartDate);
-      // console.log("formattedEndDate", formattedEndDate);
-
       const response = await fetch(ebayUrl, {
-        method: "POST",
+        method: "GET",
         headers: {
-          "X-EBAY-API-SITEID": "3", // UK site ID
-          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "GetOrders",
-          "X-EBAY-API-IAF-TOKEN": credentials?.access_token || "",
+          Authorization: `Bearer ${credentials?.access_token}`,
         },
-        body: `
-        <?xml version="1.0" encoding="utf-8"?>
-        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-          <ErrorLanguage>en_US</ErrorLanguage>
-          <WarningLevel>High</WarningLevel>
-          <CreateTimeFrom>${formattedEndDate}</CreateTimeFrom >
-          <CreateTimeTo>${formattedStartDate}</CreateTimeTo>
-          <OrderRole>Seller</OrderRole>
-          <OrderStatus>Active</OrderStatus>
-        </GetOrdersRequest>
-        `,
       });
-      const rawResponse = await response.text();
-      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
-      const jsonObj = parser.parse(rawResponse);
-      // console.log("jsonObj", jsonObj);
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: jsonObj });
+
+      const rawResponse = await response.json();
+
+      // console.log("parsedOrders", parsedOrders);
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: rawResponse,
+      });
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
       throw new Error("Error fetching orders");
+    }
+  },
+
+  getOrderDetails: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { orderId } = req.params;
+      const credentials = await getStoredEbayAccessToken("true");
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order/${orderId}`;
+      const response = await fetch(ebayUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${credentials?.access_token}`,
+        },
+      });
+      const rawResponse = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: rawResponse,
+      });
+    } catch (error: any) {
+      console.error("Error fetching order details:", error.message);
+      throw new Error("Error fetching order details");
     }
   },
 
