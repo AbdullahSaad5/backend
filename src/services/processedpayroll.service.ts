@@ -151,14 +151,20 @@ export const processedPayrollService = {
     if (update.status === "paid" && result) {
       try {
         // Get employee name safely - employeeId might be populated or just an ObjectId
-        const employeeName = result.employeeId && typeof result.employeeId === 'object' && 'firstName' in result.employeeId
-          ? `${(result.employeeId as any).firstName || ""} ${(result.employeeId as any).lastName || ""}`.trim()
-          : "Unknown Employee";
-        const payrollPeriod = result.payrollPeriod?.start && result.payrollPeriod?.end 
-          ? `${new Date(result.payrollPeriod.start).toLocaleDateString()} - ${new Date(result.payrollPeriod.end).toLocaleDateString()}`
-          : "";
+        const employeeName =
+          result.employeeId &&
+          typeof result.employeeId === "object" &&
+          "firstName" in result.employeeId
+            ? `${(result.employeeId as any).firstName || ""} ${(result.employeeId as any).lastName || ""}`.trim()
+            : "Unknown Employee";
+        const payrollPeriod =
+          result.payrollPeriod?.start && result.payrollPeriod?.end
+            ? `${new Date(result.payrollPeriod.start).toLocaleDateString()} - ${new Date(result.payrollPeriod.end).toLocaleDateString()}`
+            : "";
 
-        console.log(`📊 Creating expense record for payroll payment: ${employeeName} - Amount: ${result.netPay}`);
+        console.log(
+          `📊 Creating expense record for payroll payment: ${employeeName} - Amount: ${result.netPay}`
+        );
 
         await SystemExpenseService.createPayrollExpense({
           employeeName: employeeName || "Unknown Employee",
@@ -166,9 +172,12 @@ export const processedPayrollService = {
           payrollId: (result._id as any).toString(),
           payrollDate: new Date(),
           payrollPeriod,
+          payrollType: result.payrollType || "ACTUAL", // 🆕 Pass payrollType to expense
         });
 
-        console.log(`✅ Expense record created successfully for payroll ID: ${(result._id as any)}`);
+        console.log(
+          `✅ Expense record created successfully for payroll ID: ${result._id as any}`
+        );
       } catch (expenseError) {
         console.error("❌ Failed to create expense for payroll:", expenseError);
         // 🚨 IMPORTANT: Don't fail the payroll update if expense creation fails
@@ -355,6 +364,22 @@ export const processedPayrollService = {
       actual: updatedActual || actualPayroll,
       government: updatedGovernment || governmentPayroll,
     };
+
+    return result;
+  },
+
+  async updateReceiptImage(id: string, receiptImageUrl: string) {
+    const result = await ProcessedPayroll.findByIdAndUpdate(
+      id,
+      { receiptImage: receiptImageUrl },
+      { new: true }
+    )
+      .populate("employeeId", "firstName lastName email")
+      .populate("processedBy", "firstName lastName email");
+
+    if (!result) {
+      throw new Error("Processed payroll not found");
+    }
 
     return result;
   },

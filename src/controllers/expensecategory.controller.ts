@@ -180,6 +180,63 @@ export const ExpenseCategoryController = {
   },
 
   /**
+   * @desc    Search Expense categories with pagination and filters
+   * @route   GET /api/Expense-categories/search
+   * @access  Public
+   */
+  searchExpenseCategories: async (req: Request, res: Response) => {
+    try {
+      const { 
+        searchQuery, 
+        isBlocked, 
+        isSystemGenerated, 
+        page = 1, 
+        limit = 10 
+      } = req.query;
+
+      // Parse and validate parameters
+      const parsedPage = parseInt(page as string) || 1;
+      const parsedLimit = parseInt(limit as string) || 10;
+      const parsedIsBlocked = isBlocked !== undefined ? isBlocked === 'true' : undefined;
+      const parsedIsSystemGenerated = isSystemGenerated !== undefined ? isSystemGenerated === 'true' : undefined;
+
+      // Validate pagination parameters
+      if (parsedPage < 1) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Page must be greater than 0"
+        });
+      }
+
+      if (parsedLimit < 1 || parsedLimit > 100) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Limit must be between 1 and 100"
+        });
+      }
+
+      const result = await ExpenseCategoryService.searchExpenseCategories({
+        searchQuery: searchQuery as string,
+        isBlocked: parsedIsBlocked,
+        isSystemGenerated: parsedIsSystemGenerated,
+        page: parsedPage,
+        limit: parsedLimit
+      });
+
+      res.status(StatusCodes.OK).json({ 
+        success: true, 
+        data: result
+      });
+    } catch (error) {
+      console.error("Error searching Expense categories:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        success: false,
+        message: "Error searching Expense categories" 
+      });
+    }
+  },
+
+  /**
    * @desc    Get single Expense category by ID
    * @route   GET /api/Expense-categories/:id
    * @access  Public

@@ -149,60 +149,33 @@ export const getStoredEbayAccessToken = async () => {
         ? process.env.EBAY_TOKEN_ENV
         : "production";
 
-    // Read from DB instead of filesystem
+    // Prefer USER token for all eBay operations now
     const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
     const tokenDoc = await IntegrationTokenModel.findOne({
       provider: "ebay",
       environment: env,
-      useClient: false, // Always use application tokens for taxonomy APIs
+      useClient: true,
     }).lean();
 
-    // If no token found in DB, get application token automatically
     if (!tokenDoc) {
-      console.log(`❌ No eBay application token found in DB for ${env}. Getting application token...`);
-
-      // Validate credentials before attempting to get token
-      if (!validateEbayCredentials(type)) {
-        console.error(`❌ Invalid eBay ${type} credentials. Cannot get application token.`);
-        return null;
+      console.log(`❌ No eBay user token found in DB for ${env}. Attempting to get from env refresh token...`);
+      // Auto-get user token using env refresh token if available
+      const autoToken = await getEbayUserAccessTokenFromEnv();
+      if (autoToken?.access_token) {
+        console.log("✅ Auto-obtained user token from env refresh token. Using it...");
+        return autoToken.access_token;
       }
-
-      // Get application token and store in DB
-      const appToken = await getApplicationAuthToken(type);
-      if (appToken?.access_token) {
-        console.log("✅ Application token obtained and stored. Using it...");
-        return appToken.access_token;
-      } else {
-        console.error("❌ Failed to get application token. Please verify your eBay credentials.");
-        return null;
-      }
+      console.log("❌ No user token available. Re-authorization required.");
+      return null;
     }
 
-    const credentials: any = tokenDoc;
-
-    const { access_token, generated_at, expires_in } = credentials;
+    const { access_token, generated_at, expires_in, refresh_token } = tokenDoc as any;
 
     // Add detailed logging to debug the token structure
 
     if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
-      console.error("❌ Invalid or missing token fields. Clearing invalid token and getting new one...");
-
-      // Clear the invalid token from DB
-      await IntegrationTokenModel.deleteOne({
-        provider: "ebay",
-        environment: env,
-        useClient: false,
-      });
-
-      // Get new application token
-      const newToken = await getApplicationAuthToken(type);
-      if (newToken?.access_token) {
-        console.log("✅ New application token obtained and stored.");
-        return newToken.access_token;
-      } else {
-        console.error("❌ Failed to get new application token");
-        return null;
-      }
+      console.error("❌ Invalid or missing USER token fields. Re-authorization required.");
+      return null;
     }
 
     const currentTime = Date.now();
@@ -210,60 +183,71 @@ export const getStoredEbayAccessToken = async () => {
     const timeRemaining = expiresAt - currentTime;
     const bufferTime = 5 * 60 * 1000; // 5 minutes
 
-    // 🔁 Refresh token if it's expired or will expire soon
+    // 🔁 Refresh user token if it's expired or will expire soon
     if (timeRemaining <= bufferTime) {
-      console.warn("⚠️ Access token is expired or about to expire. Refreshing...");
-      const newToken = await refreshEbayAccessToken(type, "false"); // Always use application token
-      if (newToken?.access_token) {
-        console.log("✅ Token refreshed.");
-        return newToken.access_token;
-      } else {
-        console.error("❌ Failed to refresh token.");
+      console.warn("⚠️ User access token is expired or about to expire. Refreshing via refresh_token...");
+      if (!refresh_token) {
+        console.error("❌ Missing refresh_token for user token. Re-authorization required.");
         return null;
       }
+      const refreshed = await refreshEbayUserAccessToken(type as any, refresh_token);
+      if (refreshed?.access_token) {
+        console.log("✅ User token refreshed.");
+        return refreshed.access_token;
+      }
+      console.error("❌ Failed to refresh user token. Re-authorization required.");
+      return null;
     }
 
-    // Test the token with a simple API call to validate it
-    const testUrl =
-      type === "production"
-        ? "https://api.ebay.com/commerce/taxonomy/v1/category_tree/0"
-        : "https://api.sandbox.ebay.com/commerce/taxonomy/v1/category_tree/0";
+    // Validate token with Trading API GeteBayOfficialTime using IAF header
+    const tradingUrl =
+      type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
+    const getTimeBody = `<?xml version="1.0" encoding="utf-8"?>\n<GeteBayOfficialTimeRequest xmlns="urn:ebay:apis:eBLBaseComponents">\n  <RequesterCredentials/>\n</GeteBayOfficialTimeRequest>`;
 
     try {
-      const testResponse = await fetch(testUrl, {
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          Accept: "application/json",
-        },
-      });
-
-      // If token is invalid (401), get a new one
-      if (testResponse.status === 401) {
-        console.log("🔄 Token is invalid, getting new application token...");
-
-        // Clear the invalid token from DB
-        await IntegrationTokenModel.deleteOne({
-          provider: "ebay",
-          environment: env,
-          useClient: false,
+      const maxAttempts = 3;
+      let attempt = 0;
+      let lastText = "";
+      while (attempt < maxAttempts) {
+        attempt++;
+        const tradingResponse = await fetch(tradingUrl, {
+          method: "POST",
+          headers: {
+            "X-EBAY-API-CALL-NAME": "GeteBayOfficialTime",
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-IAF-TOKEN": access_token,
+            "Content-Type": "text/xml",
+            Accept: "text/xml",
+          },
+          body: getTimeBody,
         });
 
-        // Get new application token
-        const newToken = await getApplicationAuthToken(type);
-        if (newToken?.access_token) {
-          console.log("✅ New application token obtained and stored.");
-          return newToken.access_token;
-        } else {
-          console.error("❌ Failed to get new application token");
+        lastText = await tradingResponse.text();
+        const isUnauthorized = tradingResponse.status === 401;
+        const isInvalidIaf = lastText.includes("21916984") || lastText.toLowerCase().includes("invalid iaf token");
+        const isServiceUnavailable = tradingResponse.status === 503 || /service\s+unavailable/i.test(lastText);
+
+        if (isUnauthorized || isInvalidIaf) {
+          // Do not delete user tokens; this validation is for application token only
+          // Do not delete user tokens automatically; require re-authorization
+          console.error("❌ Stored eBay user token invalid. Re-authorization required.");
           return null;
         }
+
+        if (!isServiceUnavailable) {
+          break;
+        }
+
+        const backoffMs = Math.min(1000 * Math.pow(2, attempt - 1), 8000);
+        await new Promise((r) => setTimeout(r, backoffMs));
       }
     } catch (error) {
-      console.warn("⚠️ Could not validate token, using existing token:", error);
+      console.warn("⚠️ Could not validate token via Trading API, proceeding with existing token:", error);
     }
 
     const isProduction = type === "production";
-    console.log(`✅ [APPLICATION TOKEN - ${isProduction ? "PRODUCTION" : "SANDBOX"}] Access token is valid.`);
+    console.log(`✅ [USER TOKEN - ${isProduction ? "PRODUCTION" : "SANDBOX"}] Access token is valid.`);
     return access_token;
   } catch (error) {
     console.error("❌ Unexpected error reading token:", error);
@@ -384,5 +368,221 @@ export const exchangeCodeForAccessToken = async (
       { upsert: true }
     );
     return parsedToken;
+  }
+};
+
+// =====================
+// User token management
+// =====================
+
+/**
+ * Returns a valid user access token from DB. If the access token is near expiry, it uses the refresh_token
+ * to obtain a new access token and updates the DB. If refresh_token is missing/expired, returns null
+ * so caller can initiate re-authorization.
+ */
+export const getStoredEbayUserAccessToken = async (): Promise<string | null> => {
+  try {
+    const type =
+      process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+        ? (process.env.EBAY_TOKEN_ENV as "production" | "sandbox")
+        : "production";
+
+    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+
+    // Fetch user token (useClient: true)
+    const tokenDoc = await IntegrationTokenModel.findOne({
+      provider: "ebay",
+      environment: env,
+      useClient: true,
+    }).lean();
+
+    if (!tokenDoc) {
+      console.warn(`❌ No eBay user token found in DB for ${env}. User authorization is required.`);
+      return null;
+    }
+
+    const { access_token, refresh_token, generated_at, expires_in, refresh_token_expires_in } = tokenDoc as any;
+
+    if (!access_token || !generated_at || !expires_in) {
+      console.warn("❌ Invalid stored user token fields. Re-authorization required.");
+      return null;
+    }
+
+    const now = Date.now();
+    const accessExpiresAt = generated_at + expires_in * 1000;
+    const refreshExpiresAt =
+      refresh_token_expires_in && generated_at ? generated_at + refresh_token_expires_in * 1000 : undefined;
+    const buffer = 5 * 60 * 1000; // 5 minutes
+
+    // If token valid, return
+    if (accessExpiresAt - now > buffer) {
+      return access_token;
+    }
+
+    // Need to refresh using refresh_token
+    if (!refresh_token) {
+      console.warn("❌ Missing refresh_token for eBay user token. Re-authorization required.");
+      return null;
+    }
+
+    if (refreshExpiresAt && refreshExpiresAt <= now) {
+      console.warn("❌ eBay refresh_token expired. Re-authorization required.");
+      return null;
+    }
+
+    // Perform refresh
+    const refreshed = await refreshEbayUserAccessToken(type, refresh_token);
+    if (refreshed?.access_token) {
+      return refreshed.access_token;
+    }
+
+    return null;
+  } catch (error) {
+    console.error("❌ Unexpected error reading user token:", error);
+    return null;
+  }
+};
+
+/**
+ * Refreshes the user access token using the given refresh_token and updates the DB.
+ */
+export const refreshEbayUserAccessToken = async (
+  type: "production" | "sandbox",
+  refreshToken: string
+): Promise<EbayToken | null> => {
+  try {
+    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+    const oauthClient = type === "production" ? ebayAuthToken : ebayAuthTokenSandbox;
+    if (!oauthClient) {
+      console.error("❌ eBay auth client not initialized for", type);
+      return null;
+    }
+
+    const token = await oauthClient.getAccessToken(env, refreshToken);
+    if (!token) return null;
+    const parsed: EbayToken = JSON.parse(token);
+
+    await IntegrationTokenModel.updateOne(
+      { provider: "ebay", environment: env, useClient: true },
+      { $set: { ...parsed, generated_at: Date.now() } },
+      { upsert: true }
+    );
+
+    return parsed;
+  } catch (error) {
+    console.error("❌ Failed to refresh eBay user access token:", error);
+    return null;
+  }
+};
+
+/**
+ * One-time helper to import a user token saved in client_EBAY_token.json
+ * and persist it into IntegrationTokenModel with useClient=true.
+ */
+export const importEbayUserTokenFromFile = async (): Promise<boolean> => {
+  try {
+    const candidates = [
+      `${process.cwd()}/bavit-backend/client_EBAY_token.json`,
+      `${process.cwd()}/client_EBAY_token.json`,
+      `${__dirname}/../../client_EBAY_token.json`,
+      `${__dirname}/../client_EBAY_token.json`,
+      `${__dirname}/client_EBAY_token.json`,
+      "/Users/mac/Desktop/BAVIT/bavit-backend/client_EBAY_token.json",
+    ];
+
+    const resolvedPath = candidates.find((p) => {
+      try {
+        return fs.existsSync(p);
+      } catch {
+        return false;
+      }
+    });
+
+    if (!resolvedPath) {
+      console.warn("client_EBAY_token.json not found in expected locations. Skipping import.");
+      return false;
+    }
+
+    const raw = fs.readFileSync(resolvedPath, "utf8");
+    const parsed = JSON.parse(raw);
+    const tokenObj = parsed?.accessToken || parsed?.access_token || parsed;
+    if (!tokenObj?.access_token) {
+      console.warn("Invalid client_EBAY_token.json format. Skipping import.");
+      return false;
+    }
+
+    const type =
+      process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+        ? (process.env.EBAY_TOKEN_ENV as "production" | "sandbox")
+        : "production";
+    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+
+    await IntegrationTokenModel.updateOne(
+      { provider: "ebay", environment: env, useClient: true },
+      {
+        $set: {
+          access_token: tokenObj.access_token,
+          refresh_token: tokenObj.refresh_token,
+          token_type: tokenObj.token_type,
+          expires_in: tokenObj.expires_in,
+          refresh_token_expires_in: tokenObj.refresh_token_expires_in,
+          generated_at: Date.now(),
+        },
+      },
+      { upsert: true }
+    );
+
+    console.log("✅ Imported eBay user token from file into DB (useClient=true)");
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to import eBay user token from file:", error);
+    return false;
+  }
+};
+
+/**
+ * Obtain and store a USER access token using a refresh_token from environment variables
+ * (use when you already have a valid user refresh token from prior consent).
+ */
+export const getEbayUserAccessTokenFromEnv = async (): Promise<EbayToken | null> => {
+  try {
+    const type: "production" | "sandbox" = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
+    const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
+    const oauthClient = type === "production" ? ebayAuthToken : ebayAuthTokenSandbox;
+    if (!oauthClient) {
+      console.error("❌ eBay auth client not initialized for", type);
+      return null;
+    }
+
+    const refreshToken =
+      type === "production" ? process.env.EBAY_USER_REFRESH_TOKEN : process.env.EBAY_USER_REFRESH_TOKEN_SANDBOX;
+
+    if (!refreshToken) {
+      console.error(`❌ Missing eBay USER refresh token env for ${env}. Set EBAY_USER_REFRESH_TOKEN(_SANDBOX).`);
+      return null;
+    }
+
+    const token = await oauthClient.getAccessToken(env, refreshToken);
+    if (!token) return null;
+    const parsed: EbayToken = JSON.parse(token);
+
+    await IntegrationTokenModel.updateOne(
+      { provider: "ebay", environment: env, useClient: true },
+      {
+        $set: {
+          ...parsed,
+          // persist the refresh_token from env so subsequent refreshes work even if response omits it
+          refresh_token: parsed.refresh_token || refreshToken,
+          generated_at: Date.now(),
+        },
+      },
+      { upsert: true }
+    );
+
+    console.log(`✅ Stored eBay USER token in DB for ${env} using env refresh token`);
+    return parsed;
+  } catch (error) {
+    console.error("❌ Failed to get eBay USER access token from env:", error);
+    return null;
   }
 };

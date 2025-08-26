@@ -19,7 +19,7 @@ export class TokenInitializationService {
    * Initialize all tokens for both eBay and Amazon
    */
   static async initializeAllTokens(): Promise<TokenInitializationResult[]> {
-    console.log("🚀 Starting token initialization for all providers...");
+    // console.log("🚀 Starting token initialization for all providers...");
 
     const results: TokenInitializationResult[] = [];
 
@@ -34,7 +34,7 @@ export class TokenInitializationService {
     // Log summary
     const successful = results.filter((r) => r.success).length;
     const total = results.length;
-    console.log(`📊 Token initialization complete: ${successful}/${total} successful`);
+    // console.log(`📊 Token initialization complete: ${successful}/${total} successful`);
 
     return results;
   }
@@ -48,11 +48,11 @@ export class TokenInitializationService {
     try {
       const envVal = process.env.EBAY_TOKEN_ENV === "sandbox" ? "SANDBOX" : "PRODUCTION";
 
-      // Check if token already exists
+      // Check if USER token already exists
       const existingToken = await IntegrationTokenModel.findOne({
         provider: "ebay",
         environment: envVal,
-        useClient: false,
+        useClient: true,
       });
 
       if (existingToken) {
@@ -66,25 +66,13 @@ export class TokenInitializationService {
         return results;
       }
 
-      // Get new token
-      console.log(`🔄 Getting eBay ${envVal} token...`);
-      const token = await getApplicationAuthToken(process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production");
-
-      if (token?.access_token) {
-        results.push({
-          success: true,
-          provider: "ebay",
-          environment: envVal,
-          tokenObtained: true,
-        });
-      } else {
-        results.push({
-          success: false,
-          provider: "ebay",
-          environment: envVal,
-          error: "Failed to obtain token - check credentials and network connection",
-        });
-      }
+      // Do not auto-create user tokens here; require OAuth consent
+      results.push({
+        success: true,
+        provider: "ebay",
+        environment: envVal,
+        tokenObtained: false,
+      });
     } catch (error) {
       const envVal = process.env.EBAY_TOKEN_ENV === "sandbox" ? "SANDBOX" : "PRODUCTION";
       results.push({
@@ -126,7 +114,7 @@ export class TokenInitializationService {
       }
 
       // Get new token
-      console.log(`🔄 Getting Amazon ${envVal} token...`);
+      // console.log(`🔄 Getting Amazon ${envVal} token...`);
       const token = await getAmazonAccessToken();
 
       if (token?.access_token) {

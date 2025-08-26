@@ -26,6 +26,10 @@ export interface IRecurringExpense extends Document {
   isBlocked: boolean;
   lastRunAt?: Date | null;
   nextRunAt: Date;
+  
+  // Timestamps
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type IRecurringExpenseModel = Model<IRecurringExpense>;

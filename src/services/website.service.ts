@@ -578,28 +578,57 @@ export const websiteService = {
 
       // Basic filters
       if (searchQuery) {
-        query.$or = [
-          {
-            "productInfo.item_name.value": {
-              $regex: searchQuery,
-              $options: "i",
+        const searchRegex = { $regex: searchQuery, $options: "i" };
+        const searchFilter: any = {
+          $or: [
+            // Search in item name (handle both array and direct value)
+            {
+              $or: [
+                { "productInfo.item_name.value": searchRegex },
+                { "productInfo.item_name": searchRegex },
+                { "productInfo.name": searchRegex },
+              ],
             },
-          },
-          { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
-          { "prodPricing.condition": { $regex: searchQuery, $options: "i" } },
-        ];
+            // Search in brand (handle both array and direct value)
+            {
+              $or: [{ "productInfo.brand.value": searchRegex }, { "productInfo.brand": searchRegex }],
+            },
+            // Search in description
+            {
+              $or: [
+                { "productInfo.product_description.value": searchRegex },
+                { "productInfo.product_description": searchRegex },
+                { "productInfo.description": searchRegex },
+              ],
+            },
+            // Search in SKU
+            { "productInfo.sku": searchRegex },
+          ],
+        };
 
-        const [productCategories] = await Promise.all([
-          ProductCategory.find({
-            name: { $regex: searchQuery, $options: "i" },
-          }).select("_id"),
-        ]);
+        // Search in category names
+        try {
+          const productCategories = await ProductCategory.find({
+            name: searchRegex,
+          }).select("_id");
 
-        query.$or.push({
-          "productInfo.productCategory": {
-            $in: productCategories.map((c) => c._id),
-          },
-        });
+          if (productCategories.length > 0) {
+            searchFilter.$or.push({
+              "productInfo.productCategory": {
+                $in: productCategories.map((c) => c._id),
+              },
+            });
+          }
+        } catch (error) {
+          console.warn("Error searching categories:", error);
+        }
+
+        // Add search filter to main query
+        if (query.$and) {
+          query.$and.push(searchFilter);
+        } else {
+          query.$and = [searchFilter];
+        }
       }
 
       if (status && ["draft", "published"].includes(status)) {
@@ -619,15 +648,20 @@ export const websiteService = {
         if (mongoose.isValidObjectId(productCategory)) {
           query["productInfo.productCategory"] = new mongoose.Types.ObjectId(productCategory);
         } else {
-          const categoryIds = await ProductCategory.find({
-            name: { $regex: productCategory, $options: "i" },
-          }).select("_id");
+          try {
+            const categoryIds = await ProductCategory.find({
+              name: { $regex: productCategory, $options: "i" },
+            }).select("_id");
 
-          if (categoryIds.length > 0) {
-            query["productInfo.productCategory"] = {
-              $in: categoryIds.map((c) => c._id),
-            };
-          } else {
+            if (categoryIds.length > 0) {
+              query["productInfo.productCategory"] = {
+                $in: categoryIds.map((c) => c._id),
+              };
+            } else {
+              query["productInfo.productCategory"] = null;
+            }
+          } catch (error) {
+            console.warn("Error filtering by category:", error);
             query["productInfo.productCategory"] = null;
           }
         }
@@ -647,36 +681,97 @@ export const websiteService = {
         }
       }
 
-      // Price range filter
+      // Price range filter - handle multiple possible price fields
       if (priceRange) {
         const priceQuery: any = {};
         if (priceRange.min !== undefined) {
-          priceQuery.$gte = priceRange.min;
+          priceQuery.$gte = parseFloat(priceRange.min);
         }
         if (priceRange.max !== undefined) {
-          priceQuery.$lte = priceRange.max;
+          priceQuery.$lte = parseFloat(priceRange.max);
         }
         if (Object.keys(priceQuery).length > 0) {
-          query["prodPricing.retailPrice"] = priceQuery;
+          // Create price filter that ensures products have at least one price within range
+          const priceFilter = {
+            $or: [
+              // Main product price fields
+              { "prodPricing.retailPrice": priceQuery },
+              { "prodPricing.price": priceQuery },
+              { price: priceQuery },
+              // Variation prices - ensure at least one variation is within range
+              {
+                "prodPricing.selectedVariations": {
+                  $elemMatch: {
+                    retailPrice: priceQuery,
+                  },
+                },
+              },
+            ],
+          };
+
+          // Add price filter to main query
+          if (query.$and) {
+            query.$and.push(priceFilter);
+          } else {
+            query.$and = [priceFilter];
+          }
+
+          console.log("Price filter applied:", JSON.stringify(priceFilter, null, 2));
         }
       }
 
-      // Brand filter
+      // Brand filter - handle both array and direct value structures
       if (brand && brand.length > 0) {
-        query["productInfo.brand.value"] = { $in: brand };
-      }
+        const brandQuery = { $in: brand };
+        const brandFilter = {
+          $or: [{ "productInfo.brand.value": brandQuery }, { "productInfo.brand": brandQuery }],
+        };
 
-      // Condition filter
-      if (condition && condition.length > 0) {
-        query["productInfo.condition_type.value"] = { $in: condition };
-      }
-
-      // Stock filter
-      if (inStock !== undefined) {
-        if (inStock) {
-          query["selectedStockId.usableUnits"] = { $gt: 0 };
+        if (query.$and) {
+          query.$and.push(brandFilter);
         } else {
-          query["selectedStockId.usableUnits"] = { $lte: 0 };
+          query.$and = [brandFilter];
+        }
+      }
+
+      // Condition filter - handle both array and direct value structures
+      if (condition && condition.length > 0) {
+        const conditionQuery = { $in: condition };
+        const conditionFilter = {
+          $or: [
+            { "productInfo.condition_type.value": conditionQuery },
+            { "productInfo.condition_type": conditionQuery },
+            { condition: conditionQuery },
+          ],
+        };
+
+        if (query.$and) {
+          query.$and.push(conditionFilter);
+        } else {
+          query.$and = [conditionFilter];
+        }
+      }
+
+      // Stock filter - handle multiple possible stock fields
+      if (inStock !== undefined) {
+        const stockFilter = {
+          $or: inStock
+            ? [
+                { "selectedStockId.usableUnits": { $gt: 0 } },
+                { "stock.available": { $gt: 0 } },
+                { availableStock: { $gt: 0 } },
+              ]
+            : [
+                { "selectedStockId.usableUnits": { $lte: 0 } },
+                { "stock.available": { $lte: 0 } },
+                { availableStock: { $lte: 0 } },
+              ],
+        };
+
+        if (query.$and) {
+          query.$and.push(stockFilter);
+        } else {
+          query.$and = [stockFilter];
         }
       }
 
@@ -693,14 +788,84 @@ export const websiteService = {
         });
       }
 
+      // Clean up query structure
+      if (query.$and && query.$and.length === 0) {
+        delete query.$and;
+      }
+
       console.log("Filtered Website listings query:", JSON.stringify(query, null, 2));
+      console.log("Query structure breakdown:");
+      console.log("- Base query:", { publishToWebsite: query.publishToWebsite, isBlocked: query.isBlocked });
+      console.log("- $and conditions:", query.$and ? query.$and.length : 0);
+      if (query.$and) {
+        query.$and.forEach((condition: any, index: number) => {
+          console.log(`  $and[${index}]:`, JSON.stringify(condition, null, 2));
+        });
+      }
+
+      // Test: Check what the base query returns
+      const baseQuery = { publishToWebsite: true, isBlocked: false };
+      const baseResults = await Listing.countDocuments(baseQuery);
+      console.log("Base query count (no filters):", baseResults);
+
+      // Test: Check price filtering specifically
+      if (priceRange) {
+        console.log("Price filter debug:");
+        console.log("- Applied price range:", priceRange);
+
+        // Test price filtering separately
+        const priceTestQuery = {
+          publishToWebsite: true,
+          isBlocked: false,
+          $or: [
+            {
+              "prodPricing.retailPrice":
+                priceRange.min || priceRange.max
+                  ? {
+                      $gte: priceRange.min || 0,
+                      $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                    }
+                  : {},
+            },
+            {
+              "prodPricing.selectedVariations": {
+                $elemMatch: {
+                  retailPrice:
+                    priceRange.min || priceRange.max
+                      ? {
+                          $gte: priceRange.min || 0,
+                          $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                        }
+                      : {},
+                },
+              },
+            },
+          ],
+        };
+        const priceTestResults = await Listing.countDocuments(priceTestQuery);
+        console.log("- Price filter test count:", priceTestResults);
+      }
 
       // Build sort object
       const sortObj: any = {};
       if (sortBy === "price") {
+        // Try multiple possible price fields for sorting
+        // Use a compound sort to handle cases where some price fields might be missing
         sortObj["prodPricing.retailPrice"] = sortOrder === "asc" ? 1 : -1;
+        sortObj["prodPricing.price"] = sortOrder === "asc" ? 1 : -1;
+        sortObj["price"] = sortOrder === "asc" ? 1 : -1;
+        // For products with variations, we need to handle the case where main price is 0
+        // but variations have real prices
+        sortObj["prodPricing.selectedVariations.retailPrice"] = sortOrder === "asc" ? 1 : -1;
+        // Add a fallback sort to ensure consistent ordering
+        sortObj["_id"] = 1;
       } else if (sortBy === "name") {
+        // Try multiple possible name fields for sorting
         sortObj["productInfo.item_name.value"] = sortOrder === "asc" ? 1 : -1;
+        sortObj["productInfo.item_name"] = sortOrder === "asc" ? 1 : -1;
+        sortObj["productInfo.name"] = sortOrder === "asc" ? 1 : -1;
+        // Add a fallback sort to ensure consistent ordering
+        sortObj["_id"] = 1;
       } else if (sortBy === "createdAt") {
         sortObj.createdAt = sortOrder === "asc" ? 1 : -1;
       } else if (sortBy === "updatedAt") {
@@ -721,18 +886,67 @@ export const websiteService = {
 
       const totalListings = await Listing.countDocuments(query);
 
+      // Post-process: Filter variations based on price range if specified
+      let processedListings = listings;
+      if (priceRange) {
+        processedListings = listings
+          .map((listing: any) => {
+            if (listing.prodPricing?.selectedVariations?.length > 0) {
+              // Filter variations to only include those within price range
+              const filteredVariations = listing.prodPricing.selectedVariations.filter((variation: any) => {
+                const price = variation.retailPrice || 0;
+                if (priceRange.min !== undefined && price < priceRange.min) return false;
+                if (priceRange.max !== undefined && price > priceRange.max) return false;
+                return true;
+              });
+
+              // Only return the listing if it has at least one variation within price range
+              if (filteredVariations.length > 0) {
+                return {
+                  ...listing,
+                  prodPricing: {
+                    ...listing.prodPricing,
+                    selectedVariations: filteredVariations,
+                  },
+                };
+              }
+              return null; // Exclude listings with no valid variations
+            }
+            return listing;
+          })
+          .filter(Boolean); // Remove null entries
+      }
+
+      // Update total count to reflect filtered results
+      const actualTotal = processedListings.length;
+
       // Transform listings (reuse the same transformation logic)
-      const transformedProducts = listings.map((listing: any) => {
-        const getFirstValue = (array: any[], field: string) => {
-          return array?.[0]?.[field] || "";
+      const transformedProducts = processedListings.map((listing: any) => {
+        const getFirstValue = (array: any, field: string) => {
+          if (Array.isArray(array) && array.length > 0) {
+            return array[0]?.[field] || "";
+          }
+          return (array as any)?.[field] || "";
         };
 
-        const itemName = getFirstValue(listing.productInfo?.item_name, "value");
-        const brand = getFirstValue(listing.productInfo?.brand, "value");
-        const description = getFirstValue(listing.productInfo?.product_description, "value");
-        const condition = getFirstValue(listing.productInfo?.condition_type, "value");
-        const marketplace = getFirstValue(listing.productInfo?.item_name, "marketplace_id");
-        const language = getFirstValue(listing.productInfo?.item_name, "language_tag");
+        const itemName =
+          getFirstValue(listing.productInfo?.item_name || listing.productInfo?.name, "value") ||
+          listing.productInfo?.item_name ||
+          listing.productInfo?.name ||
+          "";
+        const brand = getFirstValue(listing.productInfo?.brand, "value") || listing.productInfo?.brand || "";
+        const description =
+          getFirstValue(listing.productInfo?.product_description, "value") ||
+          listing.productInfo?.product_description ||
+          listing.productInfo?.description ||
+          "";
+        const condition =
+          getFirstValue(listing.productInfo?.condition_type, "value") ||
+          listing.productInfo?.condition_type ||
+          listing.condition ||
+          "";
+        const marketplace = getFirstValue(listing.productInfo?.item_name, "marketplace_id") || "";
+        const language = getFirstValue(listing.productInfo?.item_name, "language_tag") || "";
         const cleanCondition = condition.replace(/^refurbished_/, "");
 
         return {
@@ -754,7 +968,7 @@ export const websiteService = {
           pricing: {
             costPrice: listing.selectedStockId?.totalCostPrice || 0,
             purchasePrice: listing.selectedStockId?.purchasePricePerUnit || 0,
-            retailPrice: listing.prodPricing?.retailPrice || 0,
+            retailPrice: listing.prodPricing?.retailPrice || listing.prodPricing?.price || listing.price || 0,
             listingQuantity: listing.prodPricing?.listingQuantity || 0,
             discountType: listing.prodPricing?.discountType || null,
             discountValue: listing.prodPricing?.discountValue || 0,
@@ -779,9 +993,10 @@ export const websiteService = {
             currency: "GBP",
           },
           stock: {
-            available: listing.selectedStockId?.usableUnits || 0,
+            available: listing.selectedStockId?.usableUnits || listing.stock?.available || listing.availableStock || 0,
             threshold: listing.stockThreshold || 0,
-            inStock: (listing.selectedStockId?.usableUnits || 0) > 0,
+            inStock:
+              (listing.selectedStockId?.usableUnits || listing.stock?.available || listing.availableStock || 0) > 0,
           },
           media: {
             images: listing.prodMedia?.images || [],
@@ -822,9 +1037,9 @@ export const websiteService = {
       return {
         products: transformedProducts,
         pagination: {
-          total: totalListings,
+          total: actualTotal,
           page: pageNumber,
-          totalPages: Math.ceil(totalListings / limitNumber),
+          totalPages: Math.ceil(actualTotal / limitNumber),
           perPage: limitNumber,
         },
         appliedFilters: filters,
@@ -874,22 +1089,56 @@ export const websiteService = {
           };
         }
 
-        // Extract filter values
+        // Extract filter values with better error handling
         const prices = listings
-          .map((listing: any) => listing.prodPricing?.retailPrice || 0)
+          .map((listing: any) => {
+            const price = listing.prodPricing?.retailPrice || listing.prodPricing?.price || listing.price || 0;
+            return typeof price === "number" && !isNaN(price) ? price : 0;
+          })
           .filter((price: number) => price > 0);
 
-        const brands = [
-          ...new Set(listings.map((listing: any) => listing.productInfo?.brand?.[0]?.value).filter(Boolean)),
-        ];
+        // Extract brands with better handling of different data structures
+        const brands = new Set<string>();
+        listings.forEach((listing: any) => {
+          let brand = "";
+          if (listing.productInfo?.brand) {
+            if (Array.isArray(listing.productInfo.brand)) {
+              brand = (listing.productInfo.brand[0] as any)?.value || listing.productInfo.brand[0] || "";
+            } else {
+              brand = (listing.productInfo.brand as any)?.value || listing.productInfo.brand || "";
+            }
+          }
+          if (brand && typeof brand === "string") {
+            brands.add(brand.trim());
+          }
+        });
 
-        const conditions = [
-          ...new Set(listings.map((listing: any) => listing.productInfo?.condition_type?.[0]?.value).filter(Boolean)),
-        ];
+        // Extract conditions with better handling of different data structures
+        const conditions = new Set<string>();
+        listings.forEach((listing: any) => {
+          let condition = "";
+          if (listing.productInfo?.condition_type) {
+            if (Array.isArray(listing.productInfo.condition_type)) {
+              condition =
+                (listing.productInfo.condition_type[0] as any)?.value || listing.productInfo.condition_type[0] || "";
+            } else {
+              condition =
+                (listing.productInfo.condition_type as any)?.value || listing.productInfo.condition_type || "";
+            }
+          } else if (listing.condition) {
+            condition = listing.condition;
+          }
+          if (condition && typeof condition === "string") {
+            conditions.add(condition.trim());
+          }
+        });
 
-        const stockStatus = [
-          ...new Set(listings.map((listing: any) => (listing.selectedStockId?.usableUnits || 0) > 0).filter(Boolean)),
-        ];
+        // Extract stock status
+        const stockStatus = new Set<boolean>();
+        listings.forEach((listing: any) => {
+          const stock = listing.selectedStockId?.usableUnits || listing.stock?.available || listing.availableStock || 0;
+          stockStatus.add(stock > 0);
+        });
 
         // Extract dynamic attributes from technical info
         const attributes: any = {};
@@ -901,9 +1150,13 @@ export const websiteService = {
                   attributes[key] = new Set();
                 }
                 if (Array.isArray(value)) {
-                  value.forEach((v) => attributes[key].add(v));
+                  value.forEach((v) => {
+                    if (v !== undefined && v !== null && v !== "") {
+                      attributes[key].add(String(v));
+                    }
+                  });
                 } else {
-                  attributes[key].add(value);
+                  attributes[key].add(String(value));
                 }
               }
             });
@@ -912,7 +1165,7 @@ export const websiteService = {
 
         // Convert sets to arrays
         Object.keys(attributes).forEach((key) => {
-          attributes[key] = Array.from(attributes[key]);
+          attributes[key] = Array.from(attributes[key]).sort();
         });
 
         return {
@@ -923,12 +1176,12 @@ export const websiteService = {
           },
           filters: {
             priceRange: {
-              min: Math.min(...prices),
-              max: Math.max(...prices),
+              min: prices.length > 0 ? Math.min(...prices) : 0,
+              max: prices.length > 0 ? Math.max(...prices) : 0,
             },
-            brands: brands.sort(),
-            conditions: conditions.sort(),
-            stockStatus: stockStatus,
+            brands: Array.from(brands).sort(),
+            conditions: Array.from(conditions).sort(),
+            stockStatus: Array.from(stockStatus).sort(),
             attributes: attributes,
           },
           totalProducts: listings.length,

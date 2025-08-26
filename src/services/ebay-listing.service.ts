@@ -10,6 +10,7 @@ import {
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
+  getStoredEbayUserAccessToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
@@ -132,7 +133,7 @@ export const ebayListingService = {
     try {
       const { code } = req.query;
 
-      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "false");
+      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.log(error);
@@ -165,7 +166,7 @@ export const ebayListingService = {
     try {
       const { code } = req.query;
 
-      const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "false");
+      const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "true");
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
     } catch (error) {
       console.log(error);
@@ -381,8 +382,8 @@ export const ebayListingService = {
     }
   },
   addItemOnEbay: async (listing: any): Promise<string> => {
-    // const useClient = req.query.useClient as "true" | "false";
-    const token = await getStoredEbayAccessToken();
+    // Use user access token for Trading API
+    const token = await getStoredEbayUserAccessToken();
     try {
       // const token = await getStoredEbayAccessToken();
       if (!token) {
@@ -552,9 +553,8 @@ export const ebayListingService = {
   },
   reviseItemOnEbay: async (listing: any): Promise<string> => {
     try {
-      //   const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayAccessToken();
+      // Use user access token for Trading API
+      const token = await getStoredEbayUserAccessToken();
       // const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -771,19 +771,29 @@ export const ebayListingService = {
 
   getOrders: async (req: Request, res: Response): Promise<any> => {
     try {
-      const credentials = await getStoredEbayAccessToken();
+      const accessToken = await getStoredEbayUserAccessToken();
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
       const ebayUrl =
         type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
       const currentDate = Date.now();
-      const startDate = currentDate;
-      // 90 days ago
-      const endDate = currentDate - 90 * 24 * 60 * 60 * 1000;
+      const startDate = currentDate - 25 * 24 * 60 * 60 * 1000;
+      // 25 days ago
+      const endDate = currentDate;
       const formattedStartDate = new Date(startDate).toISOString();
       const formattedEndDate = new Date(endDate).toISOString();
 
       // console.log("formattedStartDate", formattedStartDate);
       // console.log("formattedEndDate", formattedEndDate);
+
+      // Require a valid user token for Trading API calls
+      if (!accessToken) {
+        const authUrl = getEbayAuthURL(type);
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "eBay user authorization required",
+          authUrl,
+        });
+      }
 
       const response = await fetch(ebayUrl, {
         method: "POST",
@@ -791,24 +801,52 @@ export const ebayListingService = {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetOrders",
-          "X-EBAY-API-IAF-TOKEN": credentials?.access_token || "",
+          "X-EBAY-API-IAF-TOKEN": accessToken,
         },
         body: `
         <?xml version="1.0" encoding="utf-8"?>
         <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
           <ErrorLanguage>en_US</ErrorLanguage>
           <WarningLevel>High</WarningLevel>
-          <CreateTimeFrom>${formattedEndDate}</CreateTimeFrom >
-          <CreateTimeTo>${formattedStartDate}</CreateTimeTo>
+          <CreateTimeFrom>${formattedStartDate}</CreateTimeFrom>
+          <CreateTimeTo>${formattedEndDate}</CreateTimeTo>
           <OrderRole>Seller</OrderRole>
-          <OrderStatus>Active</OrderStatus>
+          <OrderStatus>All</OrderStatus>
+          <NumberOfDays>25</NumberOfDays>
         </GetOrdersRequest>
         `,
       });
       const rawResponse = await response.text();
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
-      // console.log("jsonObj", jsonObj);
+      console.log("jsonObj", jsonObj);
+      // If token invalid, surface 401 with re-auth URL to client
+      if (response.status === 401 || /invalid\s+iaf\s+token/i.test(rawResponse)) {
+        const authUrl = getEbayAuthURL(type);
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "Invalid or expired eBay user token",
+          authUrl,
+          details: rawResponse,
+        });
+      }
+
+      // Detect eBay Trading API error codes for expired/invalid auth
+      try {
+        const errors = jsonObj?.GetOrdersResponse?.Errors;
+        const errorList = Array.isArray(errors) ? errors : errors ? [errors] : [];
+        const hasAuthError = errorList.some((e: any) => ["931", "932", 931, 932].includes(e?.ErrorCode));
+        if (hasAuthError) {
+          const authUrl = getEbayAuthURL(type);
+          return res.status(StatusCodes.UNAUTHORIZED).json({
+            status: StatusCodes.UNAUTHORIZED,
+            message: "eBay user token hard expired or invalid. Please re-authorize using the provided URL.",
+            authUrl,
+            details: jsonObj,
+          });
+        }
+      } catch {}
+
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, data: jsonObj });
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);

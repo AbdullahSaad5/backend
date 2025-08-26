@@ -90,6 +90,18 @@ export const websiteController = {
         isFeatured,
         page = "1",
         limit = "10",
+        // Enhanced filters (previously in POST endpoint)
+        minPrice,
+        maxPrice,
+        priceMin, // Alternative parameter name
+        priceMax, // Alternative parameter name
+        brand,
+        condition,
+        inStock,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+        // Dynamic attributes (comma-separated values)
+        attributes,
       } = req.query;
 
       console.log("Raw query params:", req.query);
@@ -109,12 +121,41 @@ export const websiteController = {
         isFeatured: isFeatured === "true" ? true : isFeatured === "false" ? false : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1),
         limit: parseInt(limit as string, 10) || 10,
+        // Enhanced filters - handle both parameter naming conventions
+        priceRange:
+          minPrice || maxPrice || priceMin || priceMax
+            ? {
+                min: minPrice || priceMin ? parseFloat((minPrice || priceMin) as string) : undefined,
+                max: maxPrice || priceMax ? parseFloat((maxPrice || priceMax) as string) : undefined,
+              }
+            : undefined,
+        brand: brand ? (Array.isArray(brand) ? brand : [brand]).map((b) => b.toString()) : undefined,
+        condition: condition
+          ? (Array.isArray(condition) ? condition : [condition]).map((c) => c.toString())
+          : undefined,
+        inStock: inStock === "true" ? true : inStock === "false" ? false : undefined,
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as "asc" | "desc",
+        // Parse dynamic attributes from comma-separated string
+        attributes: attributes
+          ? (() => {
+              try {
+                if (typeof attributes === "string") {
+                  const parsed = JSON.parse(attributes);
+                  return parsed;
+                }
+                return undefined;
+              } catch {
+                return undefined;
+              }
+            })()
+          : undefined,
       };
 
       console.log("Parsed filters:", filters);
 
       // Call the service to get Website listings
-      const result = await websiteService.allWebsiteListings(filters);
+      const result = await websiteService.getFilteredWebsiteListings(filters);
 
       // Return the results
       res.status(200).json({
