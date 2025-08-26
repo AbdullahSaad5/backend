@@ -37,6 +37,7 @@ export const userValidation = {
       longitude: z.number().optional(),
       latitude: z.number().optional(),
       isDefault: z.boolean().optional(),
+      originalLocationMapSearch: z.string().trim().optional(), // Store the original location map search value
     });
 
     const schema: ZodSchema = z.object({
@@ -89,6 +90,22 @@ export const userValidation = {
     res: Response,
     next: NextFunction
   ) => {
+    // Define the address schema for updates
+    const addressSchema = z.object({
+      _id: z.string().optional(), // For existing addresses
+      userId: z.string().optional(),
+      country: z.string().trim().optional(),
+      address: z.string().trim().optional(),
+      county: z.string().trim().optional(),
+      appartment: z.string().trim().optional(),
+      city: z.string().trim().optional(),
+      postalCode: z.string().trim().optional(),
+      longitude: z.number().optional(),
+      latitude: z.number().optional(),
+      isDefault: z.boolean().optional(),
+      originalLocationMapSearch: z.string().trim().optional(), // Store the original location map search value
+    });
+
     // Create a partial schema for updates
     const schema: ZodSchema = z
       .object({
@@ -127,6 +144,7 @@ export const userValidation = {
         restrictedAccessRights: z.array(z.string()).optional(),
         phoneNumber: z.string().optional(),
         dob: z.string().optional(),
+        addresses: z.array(addressSchema).optional(), // Add addresses array for updates
       })
       .partial(); // Use `.partial()` to allow partial updates
     try {

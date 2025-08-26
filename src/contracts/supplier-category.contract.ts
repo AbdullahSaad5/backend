@@ -5,6 +5,8 @@ export interface ISupplierCategory extends Document {
     name: string;
     description?: string;
     image: string;
+    productCategories?: Types.ObjectId[];
+    productType: 'new' | 'scrap';
     isBlocked: boolean;
 }
 
