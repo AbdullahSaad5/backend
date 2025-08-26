@@ -131,61 +131,7 @@ export const dealsService = {
       },
     };
   },
-  getActiveDeals: async (
-    filter: any = {},
-    options: {
-      page: number;
-      limit: number;
-      sort?: any;
-    } = { page: 1, limit: 10 }
-  ) => {
-    const { page, limit, sort = { createdAt: -1 } } = options;
-
-    const baseFilter = {
-      isActive: true,
-      startDate: { $lte: new Date() },
-      endDate: { $gte: new Date() },
-      ...filter
-    };
-
-    const query = dealsModel
-      .find(baseFilter)
-      .select('-__v')
-      .sort(sort)
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    // Apply population based on selection type
-    if (baseFilter.selectionType === 'products') {
-      query.populate('products');
-    } else if (baseFilter.selectionType === 'categories') {
-      query.populate('categories');
-    } else {
-      // Populate both if no specific type is requested
-      query
-        .populate('products')
-        .populate('categories');
-    }
-
-    const [docs, total] = await Promise.all([
-      query.exec(),
-      dealsModel.countDocuments(baseFilter)
-    ]);
-
-    const pages = Math.ceil(total / limit);
-    const hasNextPage = page < pages;
-    const hasPrevPage = page > 1;
-
-    return {
-      docs,
-      total,
-      page,
-      pages,
-      limit,
-      hasNextPage,
-      hasPrevPage
-    };
-  },
+  
   deleteDeal: async (id: string) => {
     const deletedDeal = await dealsModel.findByIdAndDelete(id);
     return deletedDeal;
