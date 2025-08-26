@@ -865,7 +865,7 @@ export const ebayListingService = {
   getOrderDetails: async (req: Request, res: Response): Promise<any> => {
     try {
       const { orderId } = req.params;
-      const credentials = await getStoredEbayAccessToken("true");
+      const credentials = await getStoredEbayAccessToken();
       const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order/${orderId}`;
       const response = await fetch(ebayUrl, {
         method: "GET",
@@ -956,7 +956,7 @@ export const ebayListingService = {
 
       // Your endpoint URL (the same URL you provided to eBay)
       const ENDPOINT_URL =
-        process.env.EBAY_ENDPOINT_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/ebay/account-deletion";
+        process.env.EBAY_ENDPOINT_URL || "https://backend.buildmyrig.co.uk/api/ebay/account-deletion";
 
       // Create hash: challengeCode + verificationToken + endpoint
       const hash = createHash("sha256");
