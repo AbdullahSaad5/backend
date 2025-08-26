@@ -5,9 +5,9 @@ import { StatusCodes, ReasonPhrases } from "http-status-codes";
 export const supplierCategoryController = {
   addCategory: async (req: Request, res: Response) => {
     try {
-      const { name, description, image } = req.body;
-      console.log(name, description, image);
-      const newSupplierCategory = await supplierCategoryService.createCategory(name, description, image);
+      const { name, description, image, productCategories, productType } = req.body;
+      console.log(name, description, image, productCategories, productType);
+      const newSupplierCategory = await supplierCategoryService.createCategory(name, description, image, productCategories, productType);
       res
         .status(StatusCodes.CREATED)
         .json({ success: true, message: "Supplier category created successfully", data: newSupplierCategory });
@@ -29,8 +29,8 @@ export const supplierCategoryController = {
   editCategory: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name, description, image } = req.body;
-      const category = await supplierCategoryService.editCategory(id, { name, description, image });
+      const { name, description, image, productCategories, productType } = req.body;
+      const category = await supplierCategoryService.editCategory(id, { name, description, image, productCategories, productType });
       res.status(StatusCodes.OK).json({ success: true, message: "Category updated successfully", data: category });
     } catch (error: any) {
       // console.error("Edit Category Error:", error);

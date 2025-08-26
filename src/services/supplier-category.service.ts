@@ -2,12 +2,12 @@ import { IFile } from "@/contracts/user.contract";
 import { User, SupplierCategory } from "@/models";
 
 export const supplierCategoryService = {
-  createCategory: (name: String, description: string, image: string) => {
-    const newSupplierCategory = new SupplierCategory({ name, description, image });
+  createCategory: (name: String, description: string, image: string, productCategories?: string[], productType?: string) => {
+    const newSupplierCategory = new SupplierCategory({ name, description, image, productCategories, productType });
     return newSupplierCategory.save();
   },
 
-  editCategory: (id: string, data: { name?: string; description?: string; image?: string }) => {
+  editCategory: (id: string, data: { name?: string; description?: string; image?: string; productCategories?: string[]; productType?: string }) => {
     return SupplierCategory.findByIdAndUpdate(id, data, { new: true });
   },
 
@@ -20,11 +20,11 @@ export const supplierCategoryService = {
   },
 
   getAllCategory: () => {
-    return SupplierCategory.find();
+    return SupplierCategory.find().populate('productCategories', 'name image');
   },
 
   getById: (id: string) => {
-    return SupplierCategory.findById(id);
+    return SupplierCategory.findById(id).populate('productCategories', 'name image');
   },
 
   toggleBlock: async (id: string, isBlocked: boolean) => {
