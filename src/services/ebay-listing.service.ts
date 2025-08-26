@@ -14,7 +14,7 @@ import {
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
-import { IParamsRequest } from "@/contracts/request.contract";
+import { IParamsRequest, IQueryRequest } from "@/contracts/request.contract";
 const type: any =
   process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
     ? process.env.EBAY_TOKEN_ENV
@@ -769,12 +769,20 @@ export const ebayListingService = {
     }
   },
 
-  getOrders: async (req: Request, res: Response): Promise<any> => {
+  getOrders: async (
+    req: IQueryRequest<{ page?: number; limit?: number; orderId?: string }>,
+    res: Response
+  ): Promise<any> => {
     try {
       const accessToken = await getStoredEbayUserAccessToken();
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
-      const ebayUrl =
-        type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
+
+      const limit = req.query.limit || 10;
+      const page = req.query.page || 0;
+      const offset = (Math.max(page, 1) - 1) * limit;
+
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
+      // type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
       const currentDate = Date.now();
       const startDate = currentDate - 25 * 24 * 60 * 60 * 1000;
       // 25 days ago
@@ -796,7 +804,7 @@ export const ebayListingService = {
       }
 
       const response = await fetch(ebayUrl, {
-        method: "POST",
+        method: "GET",
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
@@ -851,6 +859,55 @@ export const ebayListingService = {
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
       throw new Error("Error fetching orders");
+    }
+  },
+
+  getOrderDetails: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const { orderId } = req.params;
+      const credentials = await getStoredEbayAccessToken("true");
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order/${orderId}`;
+      const response = await fetch(ebayUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${credentials?.access_token}`,
+        },
+      });
+      const rawResponse = await response.json();
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: rawResponse,
+      });
+    } catch (error: any) {
+      console.error("Error fetching order details:", error.message);
+      throw new Error("Error fetching order details");
+    }
+  },
+
+  createWebhook: async (req: Request, res: Response): Promise<any> => {
+    try {
+      const challengeCode = req.query.challenge_code;
+      // const verificationToken = process.env.EBAY_VERIFICATION_TOKEN;
+      // const endpoint = process.env.EBAY_ENDPOINT_URL;
+      const verificationToken = "EeNv89Ubsq8912NX6vJ5VP78D9cyeUlf";
+      const endpoint = "https://bavit-ebay-4d05ee8f0363.herokuapp.com/api/ebay/auth/ebay";
+      const hash = createHash("sha256");
+      hash.update(challengeCode as string);
+      hash.update(verificationToken);
+      hash.update(endpoint);
+      const responseHash = hash.digest("hex");
+      console.log(Buffer.from(responseHash).toString());
+      console.log("🔍 Received eBay webhook notification");
+      console.log("📝 Notification data:", req.body);
+
+      // Return response in required JSON format
+      return res.status(200).json({
+        challengeResponse: responseHash,
+      });
+    } catch (error: any) {
+      console.error("Error creating webhook:", error.message);
+      throw new Error("Error creating webhook");
     }
   },
 

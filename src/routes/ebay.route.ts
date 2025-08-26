@@ -108,8 +108,10 @@ export const ebay = (router: Router) => {
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
+  router.get("/orders/get-order-details/:orderId", ebayListingService.getOrderDetails);
   router.post("/account-deletion", ebayListingService.accountDeletion);
   router.get("/account-deletion", ebayListingService.accountDeletion);
+  router.get("/notifications", ebayListingService.createWebhook);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
