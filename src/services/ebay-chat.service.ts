@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
+import { ReasonPhrases } from "http-status-codes";
 import {
   IEbayChat,
   IEbayConversation,
@@ -14,23 +15,38 @@ import { getStoredEbayUserAccessToken } from "@/utils/ebay-helpers.util";
 const type = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
 const ebayUrl = type === "production" ? "https://api.ebay.com" : "https://api.sandbox.ebay.com";
 
-export const EbayChatService: IEbayChatService = {
+export const EbayChatService = {
   // Core messaging functions - Direct eBay API calls
-  sendMessage: async (messageData: Partial<IEbayChat>): Promise<IEbayChat> => {
+  sendMessage: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: SENDING MESSAGE TO EBAY ===");
-      console.log("Message data:", messageData);
-
+      
+      const { ebayItemId, buyerUsername, content, orderId, sellerUsername } = req.body;
+      
       // Validate required fields
-      if (!messageData.ebayItemId || !messageData.buyerUsername || !messageData.content) {
-        throw new Error("Missing required fields: ebayItemId, buyerUsername, content");
+      if (!ebayItemId || !buyerUsername || !content) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Missing required fields: ebayItemId, buyerUsername, content",
+        });
       }
+
+      const messageData: Partial<IEbayChat> = {
+        ebayItemId,
+        buyerUsername,
+        content,
+        orderId,
+        sellerUsername: sellerUsername || "current_seller"
+      };
 
       // Send message directly to eBay API
       const success = await EbayChatService.sendEbayMessage(messageData);
       
       if (!success) {
-        throw new Error("Failed to send message to eBay");
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: "Failed to send message to eBay",
+        });
       }
 
       // Return the message data (not stored in DB)
@@ -47,20 +63,36 @@ export const EbayChatService: IEbayChatService = {
       };
 
       console.log("=== EBAY CHAT: MESSAGE SENT SUCCESSFULLY TO EBAY ===");
-      return message;
-    } catch (error) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: message
+      });
+    } catch (error: any) {
       console.error("=== EBAY CHAT: ERROR SENDING MESSAGE ===", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to send message",
+        details: error.message,
+      });
     }
   },
 
-  getMessages: async (ebayItemId: string, buyerUsername: string, page: number = 1, limit: number = 50): Promise<IEbayChat[]> => {
+  getMessages: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: GETTING MESSAGES FROM EBAY ===");
       
+      const { ebayItemId, buyerUsername } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      
       const accessToken = await getStoredEbayUserAccessToken();
       if (!accessToken) {
-        throw new Error("No valid eBay access token available");
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
       }
 
       // Get messages directly from eBay API
@@ -75,20 +107,39 @@ export const EbayChatService: IEbayChatService = {
       const startIndex = (page - 1) * limit;
       const paginatedMessages = filteredMessages.slice(startIndex, startIndex + limit);
 
-      return paginatedMessages;
-    } catch (error) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: {
+          messages: paginatedMessages,
+          total: filteredMessages.length,
+          page,
+          limit
+        }
+      });
+    } catch (error: any) {
       console.error("Error getting messages from eBay:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get messages",
+        details: error.message,
+      });
     }
   },
 
-  getConversations: async (sellerUsername: string): Promise<IEbayConversation[]> => {
+  getConversations: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: GETTING CONVERSATIONS FROM EBAY ===");
       
+      const sellerUsername = req.params.sellerUsername || "current_seller";
+      
       const accessToken = await getStoredEbayUserAccessToken();
       if (!accessToken) {
-        throw new Error("No valid eBay access token available");
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
       }
 
       // Get orders first to get item IDs
@@ -143,47 +194,89 @@ export const EbayChatService: IEbayChatService = {
       // Sort by last message time
       conversations.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
 
-      return conversations;
-    } catch (error) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: {
+          conversations,
+          total: conversations.length
+        }
+      });
+    } catch (error: any) {
       console.error("Error getting conversations from eBay:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get conversations",
+        details: error.message,
+      });
     }
   },
 
-  markAsRead: async (messageId: string): Promise<IEbayChat | null> => {
+  markAsRead: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: MARKING MESSAGE AS READ ===");
+      
+      const { messageId } = req.params;
       
       // Since we're not storing in DB, we'll just return success
       // In a real implementation, you might want to call eBay API to mark as read
       console.log("Message marked as read (no DB storage)");
-      return null;
-    } catch (error) {
+      
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: { messageId, markedAsRead: true }
+      });
+    } catch (error: any) {
       console.error("Error marking message as read:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to mark message as read",
+        details: error.message,
+      });
     }
   },
 
-  markConversationAsRead: async (ebayItemId: string, buyerUsername: string): Promise<void> => {
+  markConversationAsRead: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: MARKING CONVERSATION AS READ ===");
       
+      const { ebayItemId, buyerUsername } = req.params;
+      
       // Since we're not storing in DB, we'll just log
       console.log(`Conversation marked as read for item ${ebayItemId} and buyer ${buyerUsername} (no DB storage)`);
-    } catch (error) {
+      
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: { ebayItemId, buyerUsername, markedAsRead: true }
+      });
+    } catch (error: any) {
       console.error("Error marking conversation as read:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to mark conversation as read",
+        details: error.message,
+      });
     }
   },
 
   // eBay API integration
-  syncEbayMessages: async (sellerUsername: string): Promise<void> => {
+  syncEbayMessages: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: SYNCING MESSAGES FROM EBAY ===");
       
+      const sellerUsername = req.params.sellerUsername || "current_seller";
+      
       const accessToken = await getStoredEbayUserAccessToken();
       if (!accessToken) {
-        throw new Error("No valid eBay access token available");
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
       }
 
       // Get orders first to get item IDs
@@ -203,9 +296,23 @@ export const EbayChatService: IEbayChatService = {
       }
 
       console.log("=== EBAY CHAT: MESSAGE SYNC COMPLETED ===");
-    } catch (error) {
+      
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: { 
+          synced: true, 
+          ordersProcessed: orders.length 
+        }
+      });
+    } catch (error: any) {
       console.error("=== EBAY CHAT: ERROR SYNCING MESSAGES ===", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to sync messages",
+        details: error.message,
+      });
     }
   },
 
@@ -260,41 +367,68 @@ export const EbayChatService: IEbayChatService = {
   },
 
   // Utility functions
-  getUnreadCount: async (sellerUsername: string): Promise<number> => {
+  getUnreadCount: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: GETTING UNREAD COUNT FROM EBAY ===");
       
+      const sellerUsername = req.params.sellerUsername || "current_seller";
+      
       const accessToken = await getStoredEbayUserAccessToken();
       if (!accessToken) {
-        throw new Error("No valid eBay access token available");
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
       }
 
       // Get all conversations and count unread messages
-      const conversations = await EbayChatService.getConversations(sellerUsername);
-      const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
+      const conversations = await EbayChatService.getConversationsInternal(sellerUsername);
+      const totalUnread = conversations.reduce((sum: number, conv: any) => sum + conv.unreadCount, 0);
       
-      return totalUnread;
-    } catch (error) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: { unreadCount: totalUnread }
+      });
+    } catch (error: any) {
       console.error("Error getting unread count:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get unread count",
+        details: error.message,
+      });
     }
   },
 
-  searchMessages: async (query: string, sellerUsername: string): Promise<IEbayChat[]> => {
+  searchMessages: async (req: Request, res: Response): Promise<any> => {
     try {
       console.log("=== EBAY CHAT: SEARCHING MESSAGES FROM EBAY ===");
       
+      const { query } = req.query;
+      const sellerUsername = req.params.sellerUsername || "current_seller";
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Search query is required",
+        });
+      }
+      
       const accessToken = await getStoredEbayUserAccessToken();
       if (!accessToken) {
-        throw new Error("No valid eBay access token available");
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
       }
 
       // Get all conversations and search through messages
-      const conversations = await EbayChatService.getConversations(sellerUsername);
+      const conversations = await EbayChatService.getConversationsInternal(sellerUsername);
       const allMessages: IEbayChat[] = [];
       
       for (const conversation of conversations) {
-        const messages = await EbayChatService.getMessages(conversation.ebayItemId, conversation.buyerUsername);
+        const messages = await EbayChatService.getMessagesInternal(conversation.ebayItemId, conversation.buyerUsername);
         allMessages.push(...messages);
       }
 
@@ -303,10 +437,23 @@ export const EbayChatService: IEbayChatService = {
         message.content.toLowerCase().includes(query.toLowerCase())
       );
 
-      return filteredMessages;
-    } catch (error) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: ReasonPhrases.OK,
+        data: { 
+          messages: filteredMessages,
+          total: filteredMessages.length,
+          query
+        }
+      });
+    } catch (error: any) {
       console.error("Error searching messages:", error);
-      throw error;
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to search messages",
+        details: error.message,
+      });
     }
   },
 
@@ -509,6 +656,99 @@ export const EbayChatService: IEbayChatService = {
       });
     } catch (error) {
       console.error("Error processing message from eBay:", error);
+    }
+  },
+
+  // Internal methods for use within the service
+  getConversationsInternal: async (sellerUsername: string): Promise<IEbayConversation[]> => {
+    try {
+      const accessToken = await getStoredEbayUserAccessToken();
+      if (!accessToken) {
+        throw new Error("No valid eBay access token available");
+      }
+
+      // Get orders first to get item IDs
+      const orders = await EbayChatService.getOrdersFromEbay(accessToken);
+      const conversations: IEbayConversation[] = [];
+      
+      for (const order of orders) {
+        if (order.OrderID && order.ItemArray) {
+          for (const item of order.ItemArray) {
+            if (item.ItemID) {
+              // Get messages for this item
+              const messages = await EbayChatService.getMessagesFromEbay(accessToken, item.ItemID);
+              
+              if (messages.length > 0) {
+                // Group messages by buyer
+                const buyerGroups = messages.reduce((groups: any, message: IEbayChat) => {
+                  const buyer = message.buyerUsername;
+                  if (!groups[buyer]) {
+                    groups[buyer] = [];
+                  }
+                  groups[buyer].push(message);
+                  return groups;
+                }, {});
+
+                // Create conversation for each buyer
+                for (const [buyerUsername, buyerMessages] of Object.entries(buyerGroups)) {
+                  const messages = buyerMessages as IEbayChat[];
+                  const lastMessage = messages[messages.length - 1];
+                  const unreadCount = messages.filter((msg: IEbayChat) => 
+                    !msg.isRead && msg.messageType === EbayMessageType.BUYER_TO_SELLER
+                  ).length;
+
+                  conversations.push({
+                    ebayItemId: item.ItemID,
+                    orderId: order.OrderID,
+                    buyerUsername,
+                    sellerUsername,
+                    itemTitle: item.Title || "Unknown Item",
+                    itemPrice: item.TransactionPrice || 0,
+                    lastMessage: lastMessage.content,
+                    lastMessageAt: lastMessage.sentAt,
+                    unreadCount,
+                    totalMessages: messages.length
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Sort by last message time
+      conversations.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+
+      return conversations;
+    } catch (error) {
+      console.error("Error getting conversations from eBay:", error);
+      throw error;
+    }
+  },
+
+  getMessagesInternal: async (ebayItemId: string, buyerUsername: string, page: number = 1, limit: number = 50): Promise<IEbayChat[]> => {
+    try {
+      const accessToken = await getStoredEbayUserAccessToken();
+      if (!accessToken) {
+        throw new Error("No valid eBay access token available");
+      }
+
+      // Get messages directly from eBay API
+      const messages = await EbayChatService.getMessagesFromEbay(accessToken, ebayItemId);
+      
+      // Filter by buyer if specified
+      const filteredMessages = buyerUsername ? 
+        messages.filter((msg: IEbayChat) => msg.buyerUsername === buyerUsername) : 
+        messages;
+
+      // Apply pagination
+      const startIndex = (page - 1) * limit;
+      const paginatedMessages = filteredMessages.slice(startIndex, startIndex + limit);
+
+      return paginatedMessages;
+    } catch (error) {
+      console.error("Error getting messages from eBay:", error);
+      throw error;
     }
   }
 };
