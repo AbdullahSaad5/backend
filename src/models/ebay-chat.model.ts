@@ -1,101 +1,106 @@
-import { Schema, model, models } from "mongoose";
-import {
-  IEbayChat,
-  IEbayConversation,
-  IEbayChatModel,
-  IEbayConversationModel,
-  EbayMessageType,
-  EbayMessageStatus,
-} from "@/contracts/ebay-chat.contract";
+import mongoose, { Schema, Document } from "mongoose";
 
-// eBay Message Schema
-const EbayChatSchema = new Schema<IEbayChat, IEbayChatModel>(
+export interface IEbayChatMessage extends Document {
+  messageId: string;
+  orderId: string;
+  sender: {
+    username: string;
+    role: "BUYER" | "SELLER";
+  };
+  recipient: {
+    username: string;
+    role: "BUYER" | "SELLER";
+  };
+  subject: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;
+  ebayMessageId?: string; // eBay's internal message ID
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ebayChatMessageSchema = new Schema<IEbayChatMessage>(
   {
-    ebayItemId: {
+    messageId: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    orderId: {
       type: String,
       required: true,
       index: true,
     },
-    ebayTransactionId: {
-      type: String,
-      sparse: true,
+    sender: {
+      username: {
+        type: String,
+        required: true,
+      },
+      role: {
+        type: String,
+        enum: ["BUYER", "SELLER"],
+        required: true,
+      },
     },
-    buyerUsername: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    sellerUsername: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    messageType: {
-      type: String,
-      enum: Object.values(EbayMessageType),
-      default: EbayMessageType.BUYER_TO_SELLER,
+    recipient: {
+      username: {
+        type: String,
+        required: true,
+      },
+      role: {
+        type: String,
+        enum: ["BUYER", "SELLER"],
+        required: true,
+      },
     },
     subject: {
       type: String,
-      maxlength: 200,
+      required: true,
     },
-    content: {
+    message: {
       type: String,
       required: true,
-      maxlength: 4000,
     },
-    status: {
-      type: String,
-      enum: Object.values(EbayMessageStatus),
-      default: EbayMessageStatus.SENT,
+    timestamp: {
+      type: Date,
+      required: true,
+    },
+    read: {
+      type: Boolean,
+      default: false,
     },
     ebayMessageId: {
       type: String,
       sparse: true,
     },
-    ebayTimestamp: {
-      type: Date,
-    },
-    readAt: {
-      type: Date,
-    },
-    sentAt: {
-      type: Date,
-      default: Date.now,
-    },
-    attachments: [
-      {
-        fileName: {
-          type: String,
-          required: true,
-        },
-        fileUrl: {
-          type: String,
-          required: true,
-        },
-        fileSize: {
-          type: Number,
-          required: true,
-        },
-        fileType: {
-          type: String,
-          required: true,
-        },
-      },
-    ],
-    metadata: {
-      listingTitle: String,
-      listingUrl: String,
-      orderId: String,
-    },
   },
   {
     timestamps: true,
   }
 );
 
-// eBay Conversation Schema
-const EbayConversationSchema = new Schema<IEbayConversation, IEbayConversationModel>(
+// Index for efficient querying
+ebayChatMessageSchema.index({ orderId: 1, timestamp: -1 });
+ebayChatMessageSchema.index({ sender: 1, timestamp: -1 });
+ebayChatMessageSchema.index({ recipient: 1, timestamp: -1 });
+
+export const EbayChatMessage = mongoose.model<IEbayChatMessage>("EbayChatMessage", ebayChatMessageSchema);
+
+// Additional models for sandbox functionality
+export interface IEbayChat extends Document {
+  ebayItemId: string;
+  buyerUsername: string;
+  sellerUsername: string;
+  content: string;
+  messageType: "BUYER_TO_SELLER" | "SELLER_TO_BUYER";
+  status: "SENT" | "DELIVERED" | "READ" | "FAILED";
+  sentAt?: Date;
+  deliveredAt?: Date;
+  readAt?: Date;
+}
+
+const ebayChatSchema = new Schema<IEbayChat>(
   {
     ebayItemId: {
       type: String,
@@ -110,26 +115,66 @@ const EbayConversationSchema = new Schema<IEbayConversation, IEbayConversationMo
     sellerUsername: {
       type: String,
       required: true,
+      index: true,
     },
-    listingTitle: {
+    content: {
       type: String,
       required: true,
     },
-    listingUrl: {
+    messageType: {
       type: String,
+      enum: ["BUYER_TO_SELLER", "SELLER_TO_BUYER"],
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ["SENT", "DELIVERED", "READ", "FAILED"],
+      default: "SENT",
+    },
+    sentAt: Date,
+    deliveredAt: Date,
+    readAt: Date,
+  },
+  {
+    timestamps: true,
+  }
+);
+
+export interface IEbayConversation extends Document {
+  ebayItemId: string;
+  buyerUsername: string;
+  sellerUsername: string;
+  lastMessage: string;
+  lastMessageAt: Date;
+  unreadCount: number;
+}
+
+const ebayConversationSchema = new Schema<IEbayConversation>(
+  {
+    ebayItemId: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    buyerUsername: {
+      type: String,
+      required: true,
+      index: true,
+    },
+    sellerUsername: {
+      type: String,
+      required: true,
+      index: true,
     },
     lastMessage: {
       type: String,
-      maxlength: 200,
+      required: true,
     },
     lastMessageAt: {
       type: Date,
+      required: true,
     },
     unreadCount: {
-      type: Number,
-      default: 0,
-    },
-    totalMessages: {
       type: Number,
       default: 0,
     },
@@ -139,15 +184,11 @@ const EbayConversationSchema = new Schema<IEbayConversation, IEbayConversationMo
   }
 );
 
-// Indexes for better query performance
-EbayChatSchema.index({ ebayItemId: 1, buyerUsername: 1, createdAt: -1 });
-EbayChatSchema.index({ sellerUsername: 1, createdAt: -1 });
+// Indexes for efficient querying
+ebayChatSchema.index({ ebayItemId: 1, buyerUsername: 1, createdAt: -1 });
+ebayChatSchema.index({ sellerUsername: 1, createdAt: -1 });
+ebayConversationSchema.index({ sellerUsername: 1, lastMessageAt: -1 });
+ebayConversationSchema.index({ ebayItemId: 1, buyerUsername: 1 }, { unique: true });
 
-EbayChatSchema.index({ content: "text" });
-
-EbayConversationSchema.index({ ebayItemId: 1, buyerUsername: 1 }, { unique: true });
-EbayConversationSchema.index({ sellerUsername: 1, lastMessageAt: -1 });
-
-export const EbayChatModel = models.EbayChat || model<IEbayChat>("EbayChat", EbayChatSchema);
-export const EbayConversationModel =
-  models.EbayConversation || model<IEbayConversation>("EbayConversation", EbayConversationSchema);
+export const EbayChatModel = mongoose.model<IEbayChat>("EbayChat", ebayChatSchema);
+export const EbayConversationModel = mongoose.model<IEbayConversation>("EbayConversation", ebayConversationSchema);
