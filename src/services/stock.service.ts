@@ -683,7 +683,7 @@ export const stockService = {
           },
         },
       },
-      // Calculate total stock for each inventory item
+      // Calculate total stock and latest stock date for each inventory item
       {
         $addFields: {
           totalStock: {
@@ -700,6 +700,15 @@ export const stockService = {
                 }
               }
             }
+          },
+          latestStockDate: {
+            $max: {
+              $map: {
+                input: "$stocks",
+                as: "stock",
+                in: "$$stock.createdAt"
+              }
+            }
           }
         }
       },
@@ -707,9 +716,12 @@ export const stockService = {
       {
         $match: matchConditions
       },
-      // Sort by creation date (newest first)
+      // Sort by latest stock date (newest first), then by inventory creation date as fallback
       {
-        $sort: { createdAt: -1 }
+        $sort: { 
+          latestStockDate: -1,
+          createdAt: -1 
+        }
       }
     ];
 
