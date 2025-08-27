@@ -106,6 +106,23 @@ export const tickerControler = {
         });
       }
 
+      // Check if ticket exists and get its status
+      const ticket = await ticketService.getById(id);
+      if (!ticket) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Ticket not found",
+        });
+      }
+
+      // Prevent adding notes to closed tickets
+      if (ticket.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add notes to closed tickets",
+        });
+      }
+
       const uploadedImages = Array.isArray(req.files)
         ? (req.files as any[]).map((f) => f.location)
         : [];
@@ -357,6 +374,23 @@ export const tickerControler = {
         });
       }
 
+      // Check if ticket exists and get its status
+      const ticket = await ticketService.getById(id);
+      if (!ticket) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Ticket not found",
+        });
+      }
+
+      // Prevent adding resolutions to closed tickets
+      if (ticket.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add resolution to closed tickets",
+        });
+      }
+
       // If upload middleware attached files, map their URLs for resolution images
       const uploadedImages = Array.isArray(req.files)
         ? (req.files as any[]).map((f) => f.location)
@@ -582,7 +616,7 @@ export const tickerControler = {
   addComment: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { content, parentCommentId } = req.body;
+      const { content, parentCommentId, images } = req.body;
 
       const authHeader = req.headers["authorization"];
       const token = authHeader && authHeader.split(" ")[1];
@@ -604,7 +638,7 @@ export const tickerControler = {
         });
       }
 
-      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId);
+      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId, images);
 
       res.status(StatusCodes.OK).json({
         success: true,

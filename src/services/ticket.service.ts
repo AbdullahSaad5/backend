@@ -504,7 +504,7 @@ export const ticketService = {
   },
 
   // Comment methods
-  addComment: async (ticketId: string, content: string, userId: string, parentCommentId?: string): Promise<ITicket> => {
+  addComment: async (ticketId: string, content: string, userId: string, parentCommentId?: string, images?: string[]): Promise<ITicket> => {
     if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
       throw new Error("Invalid ID");
     }
@@ -517,6 +517,10 @@ export const ticketService = {
 
     if (parentCommentId && Types.ObjectId.isValid(parentCommentId)) {
       commentData.parentComment = new Types.ObjectId(parentCommentId);
+    }
+
+    if (images && Array.isArray(images) && images.length > 0) {
+      commentData.images = images;
     }
 
     const updatedTicket = await TicketModel.findByIdAndUpdate(
