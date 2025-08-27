@@ -118,12 +118,39 @@ export const stockController = {
   },
   getInventoryWithStockWithDraft: async (req: Request, res: Response) => {
     try {
-      const inventoryWithStocks = await stockService.getInventoryWithStockWithDraft();
-      if (inventoryWithStocks.length === 0) {
-        return res.status(404).json({ message: "No inventory with stock found" });
+      const {
+        searchQuery = "",
+        status,
+        stockStatus,
+        isPart,
+        page = 1,
+        limit = 10,
+      } = req.query;
+
+      const filters = {
+        searchQuery: searchQuery as string,
+        status: status as string,
+        stockStatus: stockStatus as string,
+        isPart: isPart as string,
+        page: parseInt(page as string, 10) || 1,
+        limit: parseInt(limit as string, 10) || 10,
+      };
+
+      const result = await stockService.getInventoryWithStockWithDraft(filters);
+      
+      if (result.inventory.length === 0) {
+        return res.status(404).json({ 
+          message: "No inventory with stock found",
+          data: result 
+        });
       }
-      res.status(200).json(inventoryWithStocks);
+      
+      res.status(200).json({
+        message: "Inventory with stock retrieved successfully",
+        data: result
+      });
     } catch (error) {
+      console.error("Error fetching inventory with stock:", error);
       res.status(500).json({ message: "Internal Server Error", error });
     }
   },
