@@ -114,7 +114,7 @@ export const ebayListingService = {
 
   getUserAuthorizationUrl: async (req: Request, res: Response) => {
     try {
-      // const type = req.query.type as "production" | "sandbox";
+      const type = (req.query.type as "production" | "sandbox") || "production";
 
       const authUrl = getEbayAuthURL(type);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, authUrl });
@@ -134,15 +134,15 @@ export const ebayListingService = {
       const { code } = req.query;
 
       const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
+
+      // Redirect to dashboard with success status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to exchange code for access token",
-        details: error,
-      });
+      // Redirect to dashboard with error status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error`);
     }
   },
 
@@ -150,15 +150,15 @@ export const ebayListingService = {
     try {
       const { code } = req.query;
       const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
+
+      // Redirect to dashboard with success status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to handle authorization callback client",
-        details: error,
-      });
+      // Redirect to dashboard with error status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error`);
     }
   },
 
@@ -167,15 +167,15 @@ export const ebayListingService = {
       const { code } = req.query;
 
       const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "true");
-      return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, accessToken });
+
+      // Redirect to dashboard with success status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success&env=sandbox`);
     } catch (error) {
       console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to handle authorization callback sandbox",
-        details: error,
-      });
+      // Redirect to dashboard with error status
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error&env=sandbox`);
     }
   },
 
@@ -199,8 +199,8 @@ export const ebayListingService = {
 
   handleRefreshToken: async (req: Request, res: Response) => {
     try {
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
+      const type = (req.query.type as "production" | "sandbox") || "production";
+      const useClient = (req.query.useClient as "true" | "false") || "true";
 
       const credentials = await refreshEbayAccessToken(type, useClient);
       return res.status(StatusCodes.OK).json({ status: StatusCodes.OK, message: ReasonPhrases.OK, credentials });
@@ -217,8 +217,8 @@ export const ebayListingService = {
 
   getEbayCategories: async (req: Request, res: Response) => {
     try {
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
+      const type = (req.query.type as "production" | "sandbox") || "production";
+      const useClient = (req.query.useClient as "true" | "false") || "true";
       const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -244,8 +244,8 @@ export const ebayListingService = {
   getEbaySubCategories: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
+      const type = (req.query.type as "production" | "sandbox") || "production";
+      const useClient = (req.query.useClient as "true" | "false") || "true";
       const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -274,8 +274,8 @@ export const ebayListingService = {
   getEbayCategorySuggestions: async (req: Request, res: Response) => {
     try {
       const { query } = req.query;
-      // const type = req.query.type as "production" | "sandbox";
-      // const useClient = req.query.useClient as "true" | "false";
+      const type = (req.query.type as "production" | "sandbox") || "production";
+      const useClient = (req.query.useClient as "true" | "false") || "true";
       const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -357,7 +357,7 @@ export const ebayListingService = {
     }
   },
 
-  fetchEbayCategoryAspects: async (categoryId: string) => {
+  fetchEbayCategoryAspects: async (categoryId: string, type: "production" | "sandbox" = "production") => {
     try {
       const token = await getStoredEbayAccessToken();
       if (!token) throw new Error("Missing or invalid eBay access token");
@@ -381,7 +381,7 @@ export const ebayListingService = {
       throw error;
     }
   },
-  addItemOnEbay: async (listing: any): Promise<string> => {
+  addItemOnEbay: async (listing: any, type: "production" | "sandbox" = "production"): Promise<string> => {
     // Use user access token for Trading API
     const token = await getStoredEbayUserAccessToken();
     try {
@@ -551,7 +551,7 @@ export const ebayListingService = {
       return JSON.stringify({ status: 500, message: error.message || "Error syncing with eBay API" });
     }
   },
-  reviseItemOnEbay: async (listing: any): Promise<string> => {
+  reviseItemOnEbay: async (listing: any, type: "production" | "sandbox" = "production"): Promise<string> => {
     try {
       // Use user access token for Trading API
       const token = await getStoredEbayUserAccessToken();
@@ -865,7 +865,7 @@ export const ebayListingService = {
   getOrderDetails: async (req: Request, res: Response): Promise<any> => {
     try {
       const { orderId } = req.params;
-      const credentials = await getStoredEbayAccessToken("true");
+      const credentials = await getStoredEbayAccessToken();
       const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order/${orderId}`;
       const response = await fetch(ebayUrl, {
         method: "GET",
@@ -956,7 +956,7 @@ export const ebayListingService = {
 
       // Your endpoint URL (the same URL you provided to eBay)
       const ENDPOINT_URL =
-        process.env.EBAY_ENDPOINT_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com/api/ebay/account-deletion";
+        process.env.EBAY_ENDPOINT_URL || "https://backend.buildmyrig.co.uk/api/ebay/account-deletion";
 
       // Create hash: challengeCode + verificationToken + endpoint
       const hash = createHash("sha256");
