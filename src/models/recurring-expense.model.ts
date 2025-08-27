@@ -103,6 +103,11 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
     min: 1,
     max: 31,
   },
+  monthOfYear: {
+    type: Number,
+    min: 1,
+    max: 12,
+  },
   isBlocked: {
     type: Boolean,
     default: false,

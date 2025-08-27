@@ -26,7 +26,8 @@ function computeNextRunAt(
   frequency: RecurrenceFrequency,
   interval: number,
   dayOfWeek?: number,
-  dayOfMonth?: number
+  dayOfMonth?: number,
+  monthOfYear?: number
 ): Date {
   const base = new Date(currentFrom);
   switch (frequency) {
@@ -63,6 +64,14 @@ function computeNextRunAt(
     }
     case "yearly": {
       const next = new Date(base);
+      if (typeof monthOfYear === "number") {
+        // Set the specific month (0-indexed, so subtract 1)
+        next.setMonth(monthOfYear - 1);
+        // Keep the same day of month if possible
+        const lastDayOfMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+        const desiredDay = Math.min(base.getDate(), lastDayOfMonth);
+        next.setDate(desiredDay);
+      }
       next.setFullYear(base.getFullYear() + interval);
       return next;
     }
@@ -106,7 +115,8 @@ export const RecurringExpenseService = {
               data.frequency!,
               data.interval || 1,
               data.dayOfWeek,
-              data.dayOfMonth
+              data.dayOfMonth,
+              data.monthOfYear
             );
           }
           nextRunAt = candidate;
@@ -124,7 +134,8 @@ export const RecurringExpenseService = {
               data.frequency!,
               data.interval || 1,
               data.dayOfWeek,
-              data.dayOfMonth
+              data.dayOfMonth,
+              data.monthOfYear
             );
           }
           nextRunAt = candidate;
@@ -270,7 +281,8 @@ export const RecurringExpenseService = {
           item.frequency,
           item.interval || 1,
           item.dayOfWeek,
-          item.dayOfMonth
+          item.dayOfMonth,
+          item.monthOfYear
         );
 
         item.lastRunAt = now;
