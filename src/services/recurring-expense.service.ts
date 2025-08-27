@@ -167,7 +167,7 @@ export const RecurringExpenseService = {
   getAll: (filter: FilterQuery<IRecurringExpense> = {}) => {
     return RecurringExpense.find(filter)
       .populate("category", "title")
-      .sort({ nextRunAt: 1 });
+      .sort({ createdAt: -1 });
   },
 
   searchRecurringExpenses: async (filters: {
@@ -207,7 +207,7 @@ export const RecurringExpenseService = {
     // Get paginated results
     const recurringExpenses = await RecurringExpense.find(filter)
       .populate("category", "title")
-      .sort({ nextRunAt: 1 })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
     

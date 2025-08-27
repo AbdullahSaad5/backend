@@ -31,7 +31,7 @@ export const RevenueService = {
   },
 
   getAllRevenues: (filter: FilterQuery<IRevenue> = {}) => {
-    return RevenueModel.find(filter).sort({ date: -1 });
+    return RevenueModel.find(filter).sort({ createdAt: -1 });
   },
 
   getRevenueById: (id: string) => {
@@ -97,9 +97,9 @@ export const RevenueService = {
     
     // Get paginated results
     const revenues = await RevenueModel.find(filter)
-      .sort({ date: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .sort({ createdAt: -1 })
     
     return {
       revenues,
