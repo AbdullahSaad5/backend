@@ -593,5 +593,78 @@ export const ticketService = {
 
     if (!updatedTicket) throw new Error('Comment not found or unauthorized');
     return updatedTicket;
+  },
+
+  // Manual escalation methods
+  manualEscalate: async (ticketId: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+
+    // Check if already manually escalated
+    if (ticket.isManuallyEscalated === true) {
+      throw new Error('Ticket is already manually escalated');
+    }
+
+    const updateData: any = {
+      isManuallyEscalated: true,
+      isEscalated: true
+    };
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      updateData,
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to escalate ticket');
+    return updatedTicket;
+  },
+
+  deEscalate: async (ticketId: string, userId: string): Promise<ITicket> => {
+    if (!Types.ObjectId.isValid(ticketId) || !Types.ObjectId.isValid(userId)) {
+      throw new Error("Invalid ID");
+    }
+
+    const ticket = await TicketModel.findById(ticketId);
+    if (!ticket) throw new Error('Ticket not found');
+
+    // Check if manually escalated
+    if (ticket.isManuallyEscalated !== true) {
+      throw new Error('Ticket is not manually escalated or cannot be de-escalated');
+    }
+
+    const updateData: any = {
+      isManuallyEscalated: false,
+      isEscalated: false
+    };
+
+    const updatedTicket = await TicketModel.findByIdAndUpdate(
+      ticketId,
+      updateData,
+      { new: true }
+    )
+      .populate('role', 'role')
+      .populate('assignedTo', 'firstName lastName')
+      .populate('resolution.resolvedBy', 'firstName lastName')
+      .populate('resolutions.resolvedBy', 'firstName lastName')
+      .populate('timeline.changedBy', 'firstName lastName')
+      .populate('timeline.assignedUsers', 'firstName lastName')
+      .populate('comments.author', 'firstName lastName')
+      .populate('notes.notedBy', 'firstName lastName');
+
+    if (!updatedTicket) throw new Error('Failed to de-escalate ticket');
+    return updatedTicket;
   }
 };

@@ -692,5 +692,78 @@ export const tickerControler = {
         error: error.message
       });
     }
+  },
+
+  // Manual escalation methods
+  manualEscalate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.manualEscalate(id, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Ticket manually escalated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') || error.message.includes('already')
+          ? StatusCodes.BAD_REQUEST
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error escalating ticket",
+      });
+    }
+  },
+
+  deEscalate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.deEscalate(id, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Ticket de-escalated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') || error.message.includes('not manually')
+          ? StatusCodes.BAD_REQUEST
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error de-escalating ticket",
+      });
+    }
   }
 };

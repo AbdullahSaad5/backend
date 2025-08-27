@@ -27,4 +27,7 @@ export const ticket = (router: Router) => {
   router.post("/:id/comments", tickerControler.addComment);
   router.patch("/:id/comments/:commentId", tickerControler.updateComment);
   router.delete("/:id/comments/:commentId", tickerControler.deleteComment);
+  // Manual escalation routes
+  router.patch("/:id/manual-escalate", tickerControler.manualEscalate);
+  router.patch("/:id/de-escalate", tickerControler.deEscalate);
 };
