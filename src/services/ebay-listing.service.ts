@@ -149,16 +149,30 @@ export const ebayListingService = {
   handleAuthorizationCallbackClient: async (req: Request, res: Response) => {
     try {
       const { code } = req.query;
+      console.log("🔄 Client callback received, exchanging code for token...");
+
+      if (!code) {
+        throw new Error("No authorization code received");
+      }
+
       const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
+
+      if (!accessToken) {
+        throw new Error("Failed to exchange code for access token");
+      }
+
+      console.log("✅ Token exchange successful, redirecting to frontend...");
 
       // Redirect to dashboard with success status
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
     } catch (error) {
-      console.log(error);
+      console.error("❌ Client callback error:", error);
+
       // Redirect to dashboard with error status
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error`);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent(errorMessage)}`);
     }
   },
 
