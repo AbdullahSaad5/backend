@@ -117,6 +117,39 @@ export const ebay = (router: Router) => {
     }
   });
 
+  router.get("/auth/ebay/check-tokens", async (_req: Request, res: Response) => {
+    try {
+      // Get all eBay tokens from database
+      const tokens = await IntegrationTokenModel.find({ provider: "ebay" }).sort({ createdAt: -1 });
+
+      const tokenInfo = tokens.map((token: any) => ({
+        id: token._id,
+        environment: token.environment,
+        useClient: token.useClient,
+        hasAccessToken: !!token.access_token,
+        hasRefreshToken: !!token.refresh_token,
+        expiresIn: token.expires_in,
+        generatedAt: token.generated_at,
+        createdAt: token.createdAt,
+        updatedAt: token.updatedAt,
+      }));
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Current eBay tokens in database",
+        totalTokens: tokens.length,
+        tokens: tokenInfo,
+      });
+    } catch (error) {
+      console.error("Error checking tokens:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to check tokens",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
   router.get("/auth/ebay/url", async (_req: Request, res: Response) => {
     try {
       const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
