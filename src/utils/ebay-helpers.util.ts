@@ -393,8 +393,14 @@ export const exchangeCodeForAccessToken = async (
 
     // Check if we can import the model (basic database connectivity check)
     try {
+      console.log("📦 Checking database model availability...");
       const { IntegrationTokenModel } = await import("@/models/integration-token.model");
       console.log("✅ Database model imported successfully");
+
+      // Test if the model is working
+      console.log("🧪 Testing database model functionality...");
+      const testQuery = await IntegrationTokenModel.findOne({ provider: "ebay" }).limit(1);
+      console.log("✅ Database query test successful, found tokens:", testQuery ? "Yes" : "No");
     } catch (importError) {
       console.error("❌ Failed to import database model:", importError);
       throw new Error("Database model not available");
@@ -410,13 +416,24 @@ export const exchangeCodeForAccessToken = async (
       const parsedToken: EbayToken = JSON.parse(token);
 
       console.log("✅ Token received, storing in database...");
+      console.log("📊 Token data:", {
+        provider: "ebay",
+        environment: "PRODUCTION",
+        useClient: useClient === "true" ? true : false,
+        access_token: parsedToken.access_token ? "Present" : "Missing",
+        refresh_token: parsedToken.refresh_token ? "Present" : "Missing",
+        expires_in: parsedToken.expires_in,
+        generated_at: Date.now(),
+      });
+
       // Store in DB
-      await IntegrationTokenModel.updateOne(
+      const result = await IntegrationTokenModel.updateOne(
         { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false },
         { $set: { ...parsedToken, generated_at: Date.now() } },
         { upsert: true }
       );
 
+      console.log("💾 Database update result:", result);
       console.log("✅ Token successfully stored in database");
       return parsedToken;
     } else {
@@ -429,12 +446,23 @@ export const exchangeCodeForAccessToken = async (
       const parsedToken: EbayToken = JSON.parse(token);
 
       console.log("✅ Token received, storing in database...");
-      await IntegrationTokenModel.updateOne(
+      console.log("📊 Token data:", {
+        provider: "ebay",
+        environment: "SANDBOX",
+        useClient: useClient === "true" ? true : false,
+        access_token: parsedToken.access_token ? "Present" : "Missing",
+        refresh_token: parsedToken.refresh_token ? "Present" : "Missing",
+        expires_in: parsedToken.expires_in,
+        generated_at: Date.now(),
+      });
+
+      const result = await IntegrationTokenModel.updateOne(
         { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false },
         { $set: { ...parsedToken, generated_at: Date.now() } },
         { upsert: true }
       );
 
+      console.log("💾 Database update result:", result);
       console.log("✅ Token successfully stored in database");
       return parsedToken;
     }
