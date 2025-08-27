@@ -33,7 +33,7 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
 
   frequency: {
     type: String,
-    enum: ["daily", "weekly", "monthly", "yearly"],
+    enum: ["daily", "weekly", "monthly", "quarterly" , "yearly"],
     required: [true, "Frequency is required"],
   },
   interval: {
