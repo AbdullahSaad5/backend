@@ -21,6 +21,39 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
+
+  // Check user token status for listing operations
+  router.get("/auth/user-token-status", async (req: Request, res: Response) => {
+    try {
+      const tokenResult = await getStoredEbayAccessToken();
+
+      if (typeof tokenResult === "object" && tokenResult.error) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "User authorization required",
+          error: tokenResult.error,
+          authRequired: true,
+          authUrl: tokenResult.authUrl,
+          environment: tokenResult.environment,
+        });
+      }
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "User token is valid",
+        authRequired: false,
+        hasToken: true,
+      });
+    } catch (error) {
+      console.error("Error checking user token status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to check user token status",
+      });
+    }
+  });
+
   router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
   router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
