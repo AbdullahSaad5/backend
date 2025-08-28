@@ -95,7 +95,7 @@ const SCOPES = ["sellingpartnerapi::definitions", "sellingpartnerapi::catalog"];
 // Function to get Amazon access token using refresh token (same as your working project)
 export const getAmazonAccessToken = async () => {
   try {
-    // console.log("🔐 Getting Amazon access token using refresh token...");
+    console.log("🔐 Getting Amazon access token using refresh token...");
 
     // Validate credentials before attempting to get token
     if (!validateAmazonCredentials()) {
@@ -151,7 +151,7 @@ export const getAmazonAccessToken = async () => {
       { upsert: true }
     );
 
-    // console.log(`✅ Amazon access token stored in DB for ${envVal}`);
+    console.log(`✅ Amazon access token stored in DB for ${envVal}`);
     return tokenData;
   } catch (error: any) {
     console.error("❌ Failed to get Amazon access token:", error.message);
@@ -245,12 +245,8 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       if (testResponse.status === 401) {
         console.log("🔄 Amazon token is invalid, getting new access token...");
 
-        // Clear the invalid token from DB
-        await IntegrationTokenModel.deleteOne({
-          provider: "amazon",
-          environment: envVal,
-          useClient: true, // Use refresh token flow
-        });
+        // Don't delete token on 401 - just get new one (upsert will overwrite)
+        console.log("🔄 Amazon token invalid, will get new token...");
 
         // Get new access token using refresh token
         const newToken = await getAmazonAccessToken();
@@ -267,12 +263,8 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       if (error.response?.status === 401) {
         console.log("🔄 Amazon token is invalid, getting new access token...");
 
-        // Clear the invalid token from DB
-        await IntegrationTokenModel.deleteOne({
-          provider: "amazon",
-          environment: envVal,
-          useClient: true, // Use refresh token flow
-        });
+        // Don't delete token on 401 - just get new one (upsert will overwrite)
+        console.log("🔄 Amazon token invalid, will get new token...");
 
         // Get new access token using refresh token
         const newToken = await getAmazonAccessToken();

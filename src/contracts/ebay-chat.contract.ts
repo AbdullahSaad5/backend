@@ -1,119 +1,127 @@
-import { Model, Document } from "mongoose";
+import { Request, Response } from "express";
 
+// eBay Message Types
 export enum EbayMessageType {
-  BUYER_TO_SELLER = "buyer_to_seller",
-  SELLER_TO_BUYER = "seller_to_buyer",
-  SYSTEM = "system",
+  BUYER_TO_SELLER = "BUYER_TO_SELLER",
+  SELLER_TO_BUYER = "SELLER_TO_BUYER"
 }
 
+// eBay Message Status
 export enum EbayMessageStatus {
-  SENT = "sent",
-  DELIVERED = "delivered",
-  READ = "read",
-  FAILED = "failed",
+  SENT = "SENT",
+  DELIVERED = "DELIVERED",
+  READ = "READ",
+  FAILED = "FAILED"
 }
 
-export interface IEbayMessage {
+// eBay Chat Message Interface
+export interface IEbayChat {
+  _id?: string | unknown;
   ebayItemId: string;
-  ebayTransactionId?: string;
+  orderId?: string;
   buyerUsername: string;
   sellerUsername: string;
   messageType: EbayMessageType;
-  subject?: string;
   content: string;
   status: EbayMessageStatus;
-  ebayMessageId?: string;
-  ebayTimestamp?: Date;
-  readAt?: Date;
-  sentAt?: Date;
-  attachments?: {
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    fileType: string;
-  }[];
-  metadata?: {
-    listingTitle?: string;
-    listingUrl?: string;
-    orderId?: string;
-    [key: string]: any;
-  };
+  sentAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+  attachments?: string[];
+  isRead?: boolean;
 }
 
-export interface IEbayChat extends Document, IEbayMessage {
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IEbayConversation extends Document {
+// eBay Conversation Interface
+export interface IEbayConversation {
+  _id?: string | unknown;
   ebayItemId: string;
+  orderId?: string;
   buyerUsername: string;
   sellerUsername: string;
-  listingTitle: string;
-  listingUrl?: string;
-  lastMessage?: string;
-  lastMessageAt?: Date;
+  itemTitle?: string;
+  itemPrice?: number;
+  lastMessage: string;
+  lastMessageAt: Date;
   unreadCount: number;
   totalMessages: number;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
+// eBay Chat Service Interface
 export interface IEbayChatService {
   // Core messaging functions
-  sendMessage: (messageData: Partial<IEbayMessage>) => Promise<IEbayChat>;
-  getMessages: (ebayItemId: string, buyerUsername: string, page?: number, limit?: number) => Promise<IEbayChat[]>;
-  getConversations: (sellerUsername: string) => Promise<IEbayConversation[]>;
-  markAsRead: (messageId: string) => Promise<IEbayChat | null>;
-  markConversationAsRead: (ebayItemId: string, buyerUsername: string) => Promise<void>;
-
-  // eBay REST API integration
-  syncEbayMessages: (sellerUsername: string) => Promise<void>;
-  sendEbayMessage: (messageData: Partial<IEbayMessage>) => Promise<boolean>;
-  getEbayMessagesFromAPI: (conversationId: string) => Promise<any[]>;
-  getEbayConversationsFromAPI: () => Promise<any[]>;
-  getOrCreateConversation: (ebayItemId: string, buyerUsername: string) => Promise<string>;
-
-  // Conversation management
-  getConversation: (ebayItemId: string, buyerUsername: string) => Promise<IEbayConversation | null>;
-
-  // Search and filtering
-  searchMessages: (query: string, sellerUsername: string) => Promise<IEbayChat[]>;
-  getUnreadCount: (sellerUsername: string) => Promise<number>;
-
-  // Helper methods
-  updateConversation: (
-    ebayItemId: string,
-    buyerUsername: string,
-    sellerUsername: string,
-    updates: any
-  ) => Promise<void>;
-
-  // Order management
-  getOrderList: (sellerUsername: string) => Promise<any[]>;
-  getEbayOrdersFromAPI: (sellerUsername: string) => Promise<any[]>;
-
-  // Sandbox-specific methods (optional)
-  generateMockMessages?: (sellerUsername: string) => Promise<Partial<IEbayChat>[]>;
-  initializeSandboxData?: (sellerUsername: string) => Promise<void>;
-  clearSandboxData?: (sellerUsername: string) => Promise<void>;
+  sendMessage(messageData: Partial<IEbayChat>): Promise<IEbayChat>;
+  getMessages(ebayItemId: string, buyerUsername: string, page?: number, limit?: number): Promise<IEbayChat[]>;
+  getConversations(sellerUsername: string): Promise<IEbayConversation[]>;
+  markAsRead(messageId: string): Promise<IEbayChat | null>;
+  markConversationAsRead(ebayItemId: string, buyerUsername: string): Promise<void>;
+  
+  // eBay API integration
+  syncEbayMessages(sellerUsername: string): Promise<void>;
+  sendEbayMessage(messageData: Partial<IEbayChat>): Promise<boolean>;
+  
+  // Utility functions
+  getUnreadCount(sellerUsername: string): Promise<number>;
+  searchMessages(query: string, sellerUsername: string): Promise<IEbayChat[]>;
+  updateConversation(ebayItemId: string, buyerUsername: string, sellerUsername: string, updateData: Partial<IEbayConversation>): Promise<void>;
+  
+  // Helper methods for eBay API integration
+  getOrdersFromEbay(accessToken: string): Promise<any[]>;
+  getMessagesFromEbay(accessToken: string, itemId: string): Promise<IEbayChat[]>;
+  syncMessagesForItem(accessToken: string, itemId: string, orderId: string, sellerUsername: string): Promise<void>;
+  parseOrdersFromXml(xmlText: string): any[];
+  parseMessagesFromXml(xmlText: string, itemId: string): IEbayChat[];
+  saveMessageFromEbay(message: IEbayApiMessage, itemId: string, orderId: string, sellerUsername: string): Promise<void>;
 }
 
+// eBay Chat Controller Interface
 export interface IEbayChatController {
-  sendMessage: (req: any, res: any) => Promise<void>;
-  getMessages: (req: any, res: any) => Promise<void>;
-  getConversations: (req: any, res: any) => Promise<void>;
-  markAsRead: (req: any, res: any) => Promise<void>;
-  markConversationAsRead: (req: any, res: any) => Promise<void>;
-  syncMessages: (req: any, res: any) => Promise<void>;
-  searchMessages: (req: any, res: any) => Promise<void>;
-  getOrderList: (req: any, res: any) => Promise<void>;
-  getEbayOrders: (req: any, res: any) => Promise<void>;
-
-  // Sandbox-specific methods (optional)
-  initializeSandbox?: (req: any, res: any) => Promise<void>;
-  clearSandboxData?: (req: any, res: any) => Promise<void>;
+  sendMessage(req: Request, res: Response): Promise<void>;
+  getMessages(req: Request, res: Response): Promise<void>;
+  getConversations(req: Request, res: Response): Promise<void>;
+  markAsRead(req: Request, res: Response): Promise<void>;
+  markConversationAsRead(req: Request, res: Response): Promise<void>;
+  syncMessages(req: Request, res: Response): Promise<void>;
+  searchMessages(req: Request, res: Response): Promise<void>;
+  getUnreadCount(req: Request, res: Response): Promise<void>;
 }
 
-export type IEbayChatModel = Model<IEbayChat>;
-export type IEbayConversationModel = Model<IEbayConversation>;
+// Request/Response Types
+export interface IEbayChatCreateRequest {
+  ebayItemId: string;
+  orderId?: string;
+  buyerUsername: string;
+  content: string;
+  attachments?: string[];
+}
+
+export interface IEbayChatResponse {
+  success: boolean;
+  message: string;
+  data?: any;
+  error?: string;
+}
+
+// eBay API Message Types
+export interface IEbayApiMessage {
+  messageId: string;
+  sender: string;
+  recipient: string;
+  content: string;
+  timestamp: string;
+  messageType: string;
+  orderId?: string;
+  itemId?: string;
+}
+
+export interface IEbayApiConversation {
+  conversationId: string;
+  itemId: string;
+  orderId?: string;
+  buyerUsername: string;
+  sellerUsername: string;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
+}

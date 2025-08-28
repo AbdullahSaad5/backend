@@ -1,29 +1,33 @@
 import { z } from "zod";
 
 export const createLeadValidation = z.object({
-    name: z.string().min(1, "Name is required").max(100, "Name cannot exceed 100 characters"),
-    email: z.string().email("Invalid email format").max(100, "Email cannot exceed 100 characters"),
-    phoneNumber: z.string().max(20, "Phone number cannot exceed 20 characters").optional(),
-    source: z.string().max(100, "Source cannot exceed 100 characters").optional(),
-    purpose: z.string().max(200, "Purpose cannot exceed 200 characters").optional(),
-    description: z.string().max(1000, "Description cannot exceed 1000 characters").optional(),
-    assignedTo: z.string().optional(),
-    leadCategory: z.string().min(1, "Lead category is required"),
+  name: z.string().min(1, "Name is required").max(100, "Name cannot exceed 100 characters"),
+  email: z.string().email("Invalid email format").max(100, "Email cannot exceed 100 characters"),
+  phoneNumber: z.string().max(20, "Phone number cannot exceed 20 characters").optional(),
+  productId: z.string().optional(), // Add productId validation
+  source: z.string().max(100, "Source cannot exceed 100 characters").optional(),
+  purpose: z.string().max(200, "Purpose cannot exceed 200 characters").optional(),
+  description: z.string().max(1000, "Description cannot exceed 1000 characters").optional(),
+  assignedTo: z.string().optional(),
+  leadCategory: z.string().min(1, "Lead category is required"),
 });
 
 export const updateLeadValidation = z.object({
-    name: z.string().min(1, "Name is required").max(100, "Name cannot exceed 100 characters").optional(),
-    email: z.string().email("Invalid email format").max(100, "Email cannot exceed 100 characters").optional(),
-    phoneNumber: z.string().max(20, "Phone number cannot exceed 20 characters").optional(),
-    source: z.string().max(100, "Source cannot exceed 100 characters").optional(),
-    purpose: z.string().max(200, "Purpose cannot exceed 200 characters").optional(),
-    description: z.string().max(1000, "Description cannot exceed 1000 characters").optional(),
-    assignedTo: z.string().optional(),
-    leadCategory: z.string().min(1, "Lead category is required").optional(),
+  name: z.string().min(1, "Name is required").max(100, "Name cannot exceed 100 characters").optional(),
+  email: z.string().email("Invalid email format").max(100, "Email cannot exceed 100 characters").optional(),
+  phoneNumber: z.string().max(20, "Phone number cannot exceed 20 characters").optional(),
+  productId: z.string().optional(), // Add productId to update validation
+  source: z.string().max(100, "Source cannot exceed 100 characters").optional(),
+  purpose: z.string().max(200, "Purpose cannot exceed 200 characters").optional(),
+  description: z.string().max(1000, "Description cannot exceed 1000 characters").optional(),
+  assignedTo: z.string().optional(),
+  leadCategory: z.string().min(1, "Lead category is required").optional(),
 });
 
 export const updateLeadStatusValidation = z.object({
-    status: z.enum(["new", "Contacted", "Converted", "Lost"], {
-        errorMap: () => ({ message: "Status must be one of: new, Contacted, Converted, Lost" }),
+  status: z.enum(["new", "Contacted", "Converted", "Lost", "Cold-Lead", "Hot-Lead", "Bad-Contact"], {
+    errorMap: () => ({
+      message: "Status must be one of: new, Contacted, Converted, Lost, Cold-Lead, Hot-Lead, Bad-Contact",
     }),
-}); 
+  }),
+});

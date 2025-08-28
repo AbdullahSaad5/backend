@@ -210,6 +210,82 @@ export const websiteController = {
     }
   },
 
+  // Get filtered Website listings with category-specific filters
+  getFilteredWebsiteListings: async (req: Request, res: Response) => {
+    try {
+      const {
+        searchQuery = "",
+        status,
+        listingType,
+        productCategory,
+        startDate,
+        endDate,
+        isBlocked,
+        isFeatured,
+        page = "1",
+        limit = "10",
+        // Category-specific filters
+        priceRange,
+        brand,
+        condition,
+        inStock,
+        attributes,
+        sortBy = "createdAt",
+        sortOrder = "desc",
+      } = req.body;
+
+      console.log("Filter request body:", req.body);
+
+      // Safe parsing and validation
+      const filters = {
+        searchQuery: searchQuery as string,
+        status: status && ["draft", "published"].includes(status.toString()) ? status.toString() : undefined,
+        listingType:
+          listingType && ["product", "part", "bundle"].includes(listingType.toString())
+            ? listingType.toString()
+            : undefined,
+        productCategory: productCategory ? productCategory.toString() : undefined,
+        startDate: startDate && !isNaN(Date.parse(startDate as string)) ? new Date(startDate as string) : undefined,
+        endDate: endDate && !isNaN(Date.parse(endDate as string)) ? new Date(endDate as string) : undefined,
+        isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined,
+        isFeatured: isFeatured === "true" ? true : isFeatured === "false" ? false : undefined,
+        page: Math.max(parseInt(page as string, 10) || 1, 1),
+        limit: parseInt(limit as string, 10) || 10,
+        // Category-specific filters
+        priceRange: priceRange
+          ? {
+            min: priceRange.min ? parseFloat(priceRange.min) : undefined,
+            max: priceRange.max ? parseFloat(priceRange.max) : undefined,
+          }
+          : undefined,
+        brand: brand ? (Array.isArray(brand) ? brand : [brand]) : undefined,
+        condition: condition ? (Array.isArray(condition) ? condition : [condition]) : undefined,
+        inStock: inStock !== undefined ? inStock : undefined,
+        attributes: attributes || {},
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as "asc" | "desc",
+      };
+
+      console.log("Parsed filters:", filters);
+
+      // Call the service to get filtered Website listings
+      const result = await websiteService.getFilteredWebsiteListings(filters);
+
+      // Return the results
+      res.status(200).json({
+        success: true,
+        message: "Filtered products fetched successfully",
+        data: result,
+      });
+    } catch (error: any) {
+      console.error("Error fetching filtered Website listings:", error);
+      res.status(500).json({
+        success: false,
+        message: error.message || "Error fetching filtered Website listings",
+      });
+    }
+  },
+
   // Get available filters for a specific category
   getCategoryFilters: async (req: Request, res: Response) => {
     try {
@@ -284,6 +360,54 @@ export const websiteController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error getting available filters",
+      });
+    }
+  },
+
+  getActiveDeals: async (req: Request, res: Response) => {
+    try {
+      const { page = 1, limit = 10, type } = req.query;
+
+      const options = {
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        sort: { createdAt: -1 }
+      };
+
+      const filter: any = {
+        isActive: true,
+        startDate: { $lte: new Date() },
+        endDate: { $gte: new Date() }
+      };
+
+      // Handle selection type filter
+      if (type === 'product') {
+        filter.selectionType = 'products';
+      } else if (type === 'category') {
+        filter.selectionType = 'categories';
+      }
+      // If no type specified, return all active deals
+
+      const activeDeals = await websiteService.getActiveDeals(filter, options);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Active deals fetched successfully",
+        data: {
+          deals: activeDeals.docs,
+          total: activeDeals.total,
+          pages: activeDeals.pages,
+          currentPage: activeDeals.page,
+          hasNext: activeDeals.hasNextPage,
+          hasPrev: activeDeals.hasPrevPage
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching active deals:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching active deals",
+        error: error instanceof Error ? error.message : "Unknown error occurred",
       });
     }
   },
