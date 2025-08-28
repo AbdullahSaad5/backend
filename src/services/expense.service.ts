@@ -201,7 +201,6 @@ export const expenseService = {
       })
       .populate("recurringReferenceId")
       .populate("adjustmentReferenceId")
-      .sort({ date: -1 })
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 })
