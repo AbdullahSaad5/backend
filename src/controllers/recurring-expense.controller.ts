@@ -16,6 +16,7 @@ export const RecurringExpenseController = {
         endDate,
         dayOfWeek,
         dayOfMonth,
+        monthOfYear,
         image,
       } = req.body;
 
@@ -44,6 +45,7 @@ export const RecurringExpenseController = {
         endDate: endDate ? new Date(endDate) : null,
         dayOfWeek,
         dayOfMonth,
+        monthOfYear,
         image: image || "",
       });
 

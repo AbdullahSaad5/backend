@@ -5,6 +5,7 @@ import { IUser, ProfileCompletionPayload } from "@/contracts/user.contract";
 import { createHash } from "@/utils/hash.util";
 import { userService } from "@/services";
 import sendEmail from "@/utils/nodeMailer";
+import { documentService } from "@/services/document.service";
 
 export const userController = {
   createUser: async (req: Request, res: Response) => {
@@ -794,6 +795,45 @@ export const userController = {
       console.error("Error removing team from user:", error);
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         message: "Error removing team from user",
+      });
+    }
+  },
+
+  // Sync employment documents to documents module
+  syncEmploymentDocuments: async (req: Request, res: Response) => {
+    try {
+      const userId = req.params.id;
+
+      // Validate user exists
+      const existingUser = await userService.findUserById(userId);
+      if (!existingUser) {
+        return res.status(StatusCodes.NOT_FOUND).json({ message: "User not found" });
+      }
+
+      // Check if user has employment documents
+      if (!existingUser.employmentDocuments || existingUser.employmentDocuments.length === 0) {
+        return res.status(StatusCodes.OK).json({
+          message: "No employment documents found for this user",
+          syncedDocuments: []
+        });
+      }
+
+      // Sync employment documents to documents module
+      const syncedDocuments = await documentService.syncEmploymentDocuments(
+        userId, 
+        existingUser.employmentDocuments, 
+        existingUser
+      );
+
+      res.status(StatusCodes.OK).json({
+        message: "Employment documents synced successfully",
+        syncedDocuments: syncedDocuments.length,
+        documents: syncedDocuments
+      });
+    } catch (error) {
+      console.error("Error syncing employment documents:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        message: "Error syncing employment documents" 
       });
     }
   },

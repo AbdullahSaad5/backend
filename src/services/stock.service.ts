@@ -467,8 +467,53 @@ export const stockService = {
       },
     ]);
   },
-  async getInventoryWithStockWithDraft() {
-    return await Inventory.aggregate([
+  async getInventoryWithStockWithDraft(filters: any = {}) {
+    const {
+      searchQuery = "",
+      status,
+      stockStatus,
+      isPart,
+      page = 1,
+      limit = 10,
+    } = filters;
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = parseInt(limit, 10) || 10;
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Build match conditions
+    const matchConditions: any = {};
+
+    // Search filter
+    if (searchQuery) {
+      matchConditions.$or = [
+        {
+          "productInfo.item_name.value": {
+            $regex: searchQuery,
+            $options: "i",
+          },
+        },
+        { "productInfo.brand.value": { $regex: searchQuery, $options: "i" } },
+        { "productInfo.inventoryCondition": { $regex: searchQuery, $options: "i" } },
+        { kind: { $regex: searchQuery, $options: "i" } },
+        { status: { $regex: searchQuery, $options: "i" } },
+        { "productInfo.ebayCategoryId": { $regex: searchQuery, $options: "i" } },
+      ];
+    }
+
+    // Status filter
+    if (status) {
+      matchConditions.status = status;
+    }
+
+    // isPart filter
+    if (isPart !== undefined) {
+      matchConditions.isPart = isPart === "true" ? true : false;
+    }
+
+    // Stock status filter will be applied after calculating totalStock
+
+    const pipeline = [
       {
         $lookup: {
           from: "stocks",
@@ -638,7 +683,90 @@ export const stockService = {
           },
         },
       },
-    ]);
+      // Calculate total stock and latest stock date for each inventory item
+      {
+        $addFields: {
+          totalStock: {
+            $sum: {
+              $map: {
+                input: "$stocks",
+                as: "stock",
+                in: {
+                  $cond: {
+                    if: { $eq: ["$$stock.markAsStock", true] },
+                    then: "$$stock.usableUnits",
+                    else: 0
+                  }
+                }
+              }
+            }
+          },
+          latestStockDate: {
+            $max: {
+              $map: {
+                input: "$stocks",
+                as: "stock",
+                in: "$$stock.createdAt"
+              }
+            }
+          }
+        }
+      },
+      // Apply other filters
+      {
+        $match: matchConditions
+      },
+      // Sort by latest stock date (newest first), then by inventory creation date as fallback
+      {
+        $sort: { 
+          latestStockDate: -1,
+          createdAt: -1 
+        }
+      }
+    ];
+
+    // Add stock status filter if provided
+    if (stockStatus) {
+      const stockStatusMatch = (() => {
+        switch (stockStatus) {
+          case "in_stock":
+            return { $gt: ["$totalStock", 10] };
+          case "low_stock":
+            return { 
+              $and: [
+                { $gt: ["$totalStock", 0] },
+                { $lte: ["$totalStock", 10] }
+              ]
+            };
+          case "out_of_stock":
+            return { $eq: ["$totalStock", 0] };
+          default:
+            return {};
+        }
+      })();
+      
+      pipeline.push({
+        $match: {
+          $expr: stockStatusMatch
+        }
+      });
+    }
+
+    // Execute aggregation with pagination
+    const results = await Inventory.aggregate(pipeline as any).skip(skip).limit(limitNumber);
+    const totalCount = await Inventory.aggregate(pipeline as any).count("total");
+
+    const total = totalCount[0]?.total || 0;
+
+    return {
+      inventory: results,
+      pagination: {
+        total,
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / limitNumber),
+        perPage: limitNumber,
+      },
+    };
   },
 
   async getAllStockOptions() {

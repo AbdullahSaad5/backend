@@ -10,6 +10,9 @@ export const revenue = (router: Router) => {
 
   router.get("/", RevenueController.getAllRevenues);
 
+  // Search revenues with pagination and filters
+  router.get("/search", RevenueController.searchRevenues);
+
   router.get("/:id", RevenueController.getRevenueById);
 
  router.patch("/block/:id", RevenueController.updateRevenue); 

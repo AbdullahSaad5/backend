@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { documentService } from "../services/document.service";
+import { documentVersionService } from "../services/document-version.service";
 import { StatusCodes } from "http-status-codes";
 import { Types } from "mongoose";
 import { jwtVerify } from "@/utils/jwt.util";
@@ -121,10 +122,20 @@ export const documentController = {
   getAllDocuments: async (req: Request, res: Response) => {
     try {
       const documents = await documentService.getAllDocuments();
+      
+      // Add debug information for employment documents
+      const employmentDocs = documents.filter((doc: any) => doc.docTags?.includes('employment'));
+      console.log(`API getAllDocuments: Returning ${documents.length} total documents, ${employmentDocs.length} employment documents`);
+      
       res.status(StatusCodes.OK).json({
         success: true,
         count: documents.length,
         data: documents,
+        debug: {
+          totalDocuments: documents.length,
+          employmentDocuments: employmentDocs.length,
+          employmentDocIds: employmentDocs.map((doc: any) => doc._id)
+        }
       });
     } catch (error) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -158,22 +169,28 @@ export const documentController = {
     }
   },
 
-  // Update document
+  // Update document with version control
   updateDocument: async (req: Request, res: Response) => {
     try {
+      const { versionNotes, ...documentData } = req.body;
+      
       const updatedDocument = await documentService.updateDocument(
         req.params.id,
-        req.body
+        documentData,
+        versionNotes
       );
+      
       if (!updatedDocument) {
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
           message: "Document not found",
         });
       }
+      
       res.status(StatusCodes.OK).json({
         success: true,
         data: updatedDocument,
+        message: "Document updated successfully"
       });
     } catch (error) {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -437,6 +454,158 @@ export const documentController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error downloading document",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Get document with version history
+  getDocumentWithVersions: async (req: Request, res: Response) => {
+    try {
+      const document = await documentService.getDocumentWithVersionInfo(req.params.id);
+      if (!document) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Document not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: document,
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching document with versions",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Get version history for a document
+  getDocumentVersionHistory: async (req: Request, res: Response) => {
+    try {
+      const versions = await documentVersionService.getVersionHistory(req.params.id);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        count: versions.length,
+        data: versions,
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching version history",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Get specific version by ID
+  getDocumentVersion: async (req: Request, res: Response) => {
+    try {
+      const version = await documentVersionService.getVersionById(req.params.versionId);
+      if (!version) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Version not found",
+        });
+      }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: version,
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error fetching version",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Restore a specific version
+  restoreDocumentVersion: async (req: Request, res: Response) => {
+    try {
+      const restoredVersion = await documentVersionService.restoreVersion(req.params.versionId);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: restoredVersion,
+        message: "Version restored successfully",
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error restoring version",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Validate version number
+  validateVersionNumber: async (req: Request, res: Response) => {
+    try {
+      const { currentVersion, newVersion } = req.query;
+      
+      if (!currentVersion || !newVersion) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Both currentVersion and newVersion are required",
+        });
+      }
+
+      const isValid = documentVersionService.validateVersionNumber(
+        currentVersion as string, 
+        newVersion as string
+      );
+
+      // Check if version already exists for this document
+      const documentId = req.params.id;
+      const versionExists = await documentVersionService.versionExists(
+        documentId, 
+        newVersion as string
+      );
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          isValidVersion: isValid,
+          versionExists: versionExists,
+          canUseVersion: isValid && !versionExists
+        },
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error validating version",
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  },
+
+  // Check if document has changes
+  checkDocumentChanges: async (req: Request, res: Response) => {
+    try {
+      const currentDoc = await documentService.getDocumentById(req.params.id);
+      if (!currentDoc) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Document not found",
+        });
+      }
+
+      const hasChanges = documentService.hasDocumentChanges(currentDoc, req.body);
+      
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          hasChanges: hasChanges,
+          requiresNewVersion: hasChanges
+        },
+      });
+    } catch (error) {
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Error checking document changes",
         error: error instanceof Error ? error.message : error,
       });
     }

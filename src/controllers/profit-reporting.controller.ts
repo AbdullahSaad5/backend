@@ -254,6 +254,7 @@ export const ProfitReportingController = {
       const pageHeight = doc.page.height;
       const margin = 50;
       const contentWidth = pageWidth - (margin * 2);
+      const footerHeight = 30; // Height needed for footer
       
       // Company Header Section
       doc.fontSize(24).font('Helvetica-Bold')
@@ -455,11 +456,18 @@ export const ProfitReportingController = {
         doc.y = expenseTableTop + headerHeight + (Math.min(expenseData.length, 8) * rowHeight) + 20;
       }
 
-      // Trends Section on new page if needed
+      // Trends Section - calculate required space first
       const trendsData = reportType === 'time-based' ? report.trends : report.monthlyTrends;
       if (trendsData?.length > 0) {
-        // Check if we need a new page
-        if (doc.y > pageHeight - 300) {
+        const rowHeight = 25;
+        const headerHeight = 30;
+        const trendsToShow = Math.min(trendsData.length, 12); // Reduced for better space management
+        const trendsTableHeight = headerHeight + (trendsToShow * rowHeight);
+        const trendsHeaderHeight = 50; // Space for "Financial Trends" title and spacing
+        const totalTrendsHeight = trendsHeaderHeight + trendsTableHeight;
+        
+        // Check if we need a new page for trends section
+        if (doc.y + totalTrendsHeight + footerHeight + 40 > pageHeight - margin) {
           doc.addPage();
         }
         
@@ -471,9 +479,6 @@ export const ProfitReportingController = {
         
         // Create professional table for trends
         const trendsTableTop = doc.y;
-        const rowHeight = 25;
-        const headerHeight = 30;
-        const trendsToShow = Math.min(trendsData.length, 15); // Limit for space
         
         // Table background
         doc.rect(margin, trendsTableTop, contentWidth, headerHeight + (trendsToShow * rowHeight))
@@ -519,15 +524,19 @@ export const ProfitReportingController = {
              .text(`£${item.profit.toLocaleString('en-GB')}`, margin + 320, rowY + 8)
              .text(`${profitMarginValue}%`, margin + 420, rowY + 8);
         });
+        
+        // Update doc.y to after the table
+        doc.y = trendsTableTop + headerHeight + (trendsToShow * rowHeight) + 20;
       }
 
-      // Footer
+      // Footer - always place on same page as content
+      doc.moveDown(1);
       doc.fontSize(8).font('Helvetica')
          .fillColor('#718096')
          .text(
            `Generated on ${new Date().toLocaleString('en-GB')} | Build My Rig Financial Management System`,
            margin,
-           pageHeight - 30,
+           doc.y,
            { align: 'center', width: contentWidth }
          );
 
