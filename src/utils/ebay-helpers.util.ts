@@ -44,7 +44,8 @@ type EbayToken = { access_token: string; refresh_token: string; expires_in: numb
 type EbayAuthOptions = { prompt?: "login" | "consent"; state?: string };
 
 // All scopes required for the application
-const scopes = [
+
+const production_scopes = [
   "https://api.ebay.com/oauth/api_scope",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
   "https://api.ebay.com/oauth/api_scope/sell.account",
@@ -55,6 +56,19 @@ const scopes = [
   "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription",
   "https://api.ebay.com/oauth/api_scope/sell.stores",
   "https://api.ebay.com/oauth/scope/sell.edelivery",
+  "https://api.ebay.com/oauth/api_scope/commerce.vero",
+];
+
+const sandbox_scopes = [
+  "https://api.ebay.com/oauth/api_scope",
+  "https://api.ebay.com/oauth/api_scope/sell.inventory",
+  "https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  "https://api.ebay.com/oauth/api_scope/sell.finances",
+  "https://api.ebay.com/oauth/api_scope/sell.payment.dispute",
+  "https://api.ebay.com/oauth/api_scope/sell.reputation",
+  "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription",
+  "https://api.ebay.com/oauth/api_scope/sell.stores",
   "https://api.ebay.com/oauth/api_scope/commerce.vero",
 ];
 
@@ -90,8 +104,13 @@ const ebayAuthTokenSandbox: any = createEbayAuthToken("sandbox");
 const options: EbayAuthOptions = { prompt: "consent" };
 
 // Function to get application token and store in DB
-export const getApplicationAuthToken = async (type: "production" | "sandbox" = "production") => {
+export const getApplicationAuthToken = async () => {
   try {
+    const type =
+      process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
+        ? process.env.EBAY_TOKEN_ENV
+        : "sandbox";
+
     console.log(`🔐 Getting eBay application token for ${type}...`);
 
     // Validate credentials before attempting to get token
@@ -137,7 +156,7 @@ export const getApplicationAuthToken = async (type: "production" | "sandbox" = "
     console.log(`✅ eBay application token stored in DB for ${type}`);
     return parsedToken;
   } catch (error) {
-    console.error(`❌ Failed to get eBay application token for ${type}:`, error);
+    console.error(`❌ Failed to get eBay application token for`, error);
     return null;
   }
 };
@@ -147,13 +166,13 @@ export const getStoredEbayAccessToken = async () => {
     const type =
       process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
         ? process.env.EBAY_TOKEN_ENV
-        : "production";
+        : "sandbox";
 
     // Read from DB instead of filesystem
     const env: EbayEnvironment = type === "production" ? "PRODUCTION" : "SANDBOX";
     const tokenDoc = await IntegrationTokenModel.findOne({
       provider: "ebay",
-      environment: env,
+      environment: type,
       useClient: false, // Always use application tokens for taxonomy APIs
     }).lean();
 
@@ -168,7 +187,7 @@ export const getStoredEbayAccessToken = async () => {
       }
 
       // Get application token and store in DB
-      const appToken = await getApplicationAuthToken(type);
+      const appToken = await getApplicationAuthToken();
       if (appToken?.access_token) {
         console.log("✅ Application token obtained and stored. Using it...");
         return appToken.access_token;
@@ -187,7 +206,7 @@ export const getStoredEbayAccessToken = async () => {
     if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
       console.error("❌ Invalid or missing token fields.");
       // Get new application token
-      const newToken = await getApplicationAuthToken(type);
+      const newToken = await getApplicationAuthToken();
       if (newToken?.access_token) {
         console.log("✅ New application token obtained and stored.");
         return newToken.access_token;
@@ -251,7 +270,7 @@ export const getStoredEbayAccessToken = async () => {
             useClient: false,
           });
 
-          const newToken = await getApplicationAuthToken(type);
+          const newToken = await getApplicationAuthToken();
           if (newToken?.access_token) {
             return newToken.access_token;
           } else {
@@ -338,7 +357,7 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
 
     if (!tokenDoc) {
       console.log("No application token found in DB, getting new one...");
-      return await getApplicationAuthToken(type);
+      return await getApplicationAuthToken();
     }
 
     const credentials: any = tokenDoc;
@@ -351,7 +370,7 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
     // For application tokens, we need to get a new application token
     // since they don't have refresh tokens
     console.log("🔄 Refreshing application token...");
-    return await getApplicationAuthToken(type);
+    return await getApplicationAuthToken();
   } catch (error) {
     console.error("❌ Error refreshing eBay access token:", error);
     return null;
@@ -361,10 +380,10 @@ export const refreshEbayAccessToken = async (type: "production" | "sandbox", use
 export const getEbayAuthURL = (type: "production" | "sandbox") => {
   if (type === "production") {
     console.log("🔵 [PRODUCTION] Generating production auth URL");
-    return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", scopes, options);
+    return ebayAuthToken.generateUserAuthorizationUrl("PRODUCTION", production_scopes, options);
   } else {
     console.log("🟣 [SANDBOX] Generating sandbox auth URL");
-    return ebayAuthTokenSandbox.generateUserAuthorizationUrl("SANDBOX", scopes, options);
+    return ebayAuthTokenSandbox.generateUserAuthorizationUrl("SANDBOX", sandbox_scopes, options);
   }
 };
 
