@@ -53,16 +53,16 @@ export const complaintService = {
 getAllComplaints: async () => {
   return ComplaintModel.find()
     .populate({
-      path: 'category',
-      select: 'title description image' // Fields you want from Category
-    })
-    .populate({
       path: 'assignedTo',
-      select: 'firstName lastName email' // Fields from User
+      select: 'firstName lastName email userType', // Include userType for role information
+      populate: {
+        path: 'userType',
+        select: 'role description'
+      }
     })
     .populate({
       path: 'userId',
-      select: 'firstName lastName email' // Fields from User
+      select: 'firstName lastName email'
     })
     .populate({
       path: 'resolution.resolvedBy',
@@ -82,7 +82,14 @@ getAllComplaints: async () => {
       .populate('timeline.changedBy', 'firstName lastName')
       .populate('resolution.resolvedBy', 'firstName lastName')
       .populate('notes.notedBy', 'firstName lastName')
-      .populate('assignedTo', 'firstName lastName')
+      .populate({
+        path: 'assignedTo',
+        select: 'firstName lastName email userType',
+        populate: {
+          path: 'userType',
+          select: 'role description'
+        }
+      })
       .populate('userId', 'firstName lastName');
   },
 
@@ -161,7 +168,16 @@ getAllComplaints: async () => {
       id,
       updateData,
       { new: true }
-    ).populate('timeline.changedBy', 'firstName lastName');
+    )
+    .populate('timeline.changedBy', 'firstName lastName')
+    .populate({
+      path: 'assignedTo',
+      select: 'firstName lastName email userType',
+      populate: {
+        path: 'userType',
+        select: 'role description'
+      }
+    });
 
     if (!updatedComplaint) {
       throw new Error("Failed to update complaint");
@@ -200,9 +216,16 @@ getAllComplaints: async () => {
         runValidators: true 
       }
     )
-    .populate("assignedTo", "name email")
-    .populate("resolution.resolvedBy", "name email")
-    .populate("userId", "name email")
+    .populate({
+      path: "assignedTo",
+      select: "firstName lastName email userType",
+      populate: {
+        path: "userType",
+        select: "role description"
+      }
+    })
+    .populate("resolution.resolvedBy", "firstName lastName email")
+    .populate("userId", "firstName lastName email")
     .populate("timeline.changedBy", "firstName lastName");
   },
   
@@ -297,9 +320,16 @@ getAllComplaints: async () => {
       },
       { new: true, runValidators: true }
     )
-      .populate("assignedTo", "name email")
-      .populate("resolution.resolvedBy", "name email")
-      .populate("userId", "name email")
+      .populate({
+        path: "assignedTo",
+        select: "firstName lastName email userType",
+        populate: {
+          path: "userType",
+          select: "role description"
+        }
+      })
+      .populate("resolution.resolvedBy", "firstName lastName email")
+      .populate("userId", "firstName lastName email")
       .populate("timeline.changedBy", "firstName lastName");
   },
 
