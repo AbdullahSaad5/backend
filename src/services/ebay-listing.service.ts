@@ -1,5 +1,5 @@
 import { ebay } from "@/routes/ebay.route";
-import { createHash } from "crypto";
+
 // import { IEbay } from "@/contracts/ebay.contract";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Request, Response } from "express";
@@ -7,10 +7,11 @@ import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
 import { XMLParser } from "fast-xml-parser";
 import {
   exchangeCodeForAccessToken,
+  getApplicationAuthToken,
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
-  getStoredEbayUserAccessToken,
+  getStoredEbayApplicationToken,
   refreshEbayAccessToken,
 } from "@/utils/ebay-helpers.util";
 import { Listing } from "@/models";
@@ -41,7 +42,7 @@ export const ebayListingService = {
 
   getItemAspects: async (req: IParamsRequest<{ categoryId: string }>, res: Response) => {
     try {
-      const accessToken = await getStoredEbayAccessToken();
+      const accessToken = await getStoredEbayApplicationToken();
       const categoryId = req.params.categoryId;
 
       const response = await fetch(
@@ -131,83 +132,146 @@ export const ebayListingService = {
 
   handleAuthorizationCallback: async (req: Request, res: Response) => {
     try {
-      const { code } = req.query;
-
-      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
-
-      // Redirect to dashboard with success status
+      const { code, error: oauthError } = req.query;
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
-    } catch (error) {
-      console.log(error);
-      // Redirect to dashboard with error status
+
+      // Handle OAuth errors (user denied access)
+      if (oauthError) {
+        console.log("❌ eBay OAuth error:", oauthError);
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+        );
+      }
+
+      if (!code) {
+        console.log("❌ No authorization code received");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
+        );
+      }
+
+      console.log("🔄 Processing eBay production authorization callback...");
+      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true"); // ✅ User token
+
+      if (accessToken?.access_token) {
+        console.log("✅ eBay production User Access Token obtained successfully");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
+        );
+      } else {
+        console.log("❌ Failed to get access token");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ eBay OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error`);
+      return res.redirect(
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+      );
     }
   },
 
   handleAuthorizationCallbackClient: async (req: Request, res: Response) => {
     try {
-      const { code } = req.query;
-      console.log("🔄 Client callback received, exchanging code for token...");
+      const { code, error: oauthError } = req.query;
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+
+      // Handle OAuth errors (user denied access)
+      if (oauthError) {
+        console.log("❌ eBay Client OAuth error:", oauthError);
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+        );
+      }
 
       if (!code) {
-        throw new Error("No authorization code received");
+        console.log("❌ No authorization code received for client");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
+        );
       }
 
-      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true");
+      console.log("🔄 Processing eBay client authorization callback...");
+      const accessToken = await exchangeCodeForAccessToken(code as string, "production", "true"); // ✅ User token
 
-      if (!accessToken) {
-        throw new Error("Failed to exchange code for access token");
+      if (accessToken?.access_token) {
+        console.log("✅ eBay production User Access Token obtained successfully (client)");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
+        );
+      } else {
+        console.log("❌ Failed to get client access token");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+        );
       }
-
-      console.log("✅ Token exchange successful, redirecting to frontend...");
-
-      // Redirect to dashboard with success status
+    } catch (error: any) {
+      console.error("❌ eBay Client OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
-    } catch (error) {
-      console.error("❌ Client callback error:", error);
-
-      // Redirect to dashboard with error status
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent(errorMessage)}`);
+      return res.redirect(
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+      );
     }
   },
 
   handleAuthorizationCallbackSandbox: async (req: Request, res: Response) => {
     try {
-      const { code } = req.query;
-
-      const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "true");
-
-      // Redirect to dashboard with success status
+      const { code, error: oauthError } = req.query;
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success&env=sandbox`);
-    } catch (error) {
-      console.log(error);
-      // Redirect to dashboard with error status
+
+      // Handle OAuth errors (user denied access)
+      if (oauthError) {
+        console.log("❌ eBay Sandbox OAuth error:", oauthError);
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+        );
+      }
+
+      if (!code) {
+        console.log("❌ No authorization code received for sandbox");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
+        );
+      }
+
+      console.log("🔄 Processing eBay sandbox authorization callback...");
+      const accessToken = await exchangeCodeForAccessToken(code as string, "sandbox", "true"); // ✅ User token
+
+      if (accessToken?.access_token) {
+        console.log("✅ eBay sandbox User Access Token obtained successfully");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay sandbox account connected successfully!")}&environment=sandbox`
+        );
+      } else {
+        console.log("❌ Failed to get sandbox access token");
+        return res.redirect(
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+        );
+      }
+    } catch (error: any) {
+      console.error("❌ eBay Sandbox OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=error&env=sandbox`);
+      return res.redirect(
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+      );
     }
   },
 
   handleFallbackCallback: async (req: Request, res: Response) => {
     try {
-      return res.status(StatusCodes.UNAUTHORIZED).json({
-        status: StatusCodes.UNAUTHORIZED,
-        message: ReasonPhrases.UNAUTHORIZED,
-        error: "User denied access to eBay account",
-      });
-    } catch (error) {
-      console.log(error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-        error: "Failed to handle fallback callback",
-        details: error,
-      });
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      console.log("❌ eBay OAuth declined by user");
+      return res.redirect(
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied access to eBay account")}`
+      );
+    } catch (error: any) {
+      console.error("❌ eBay fallback callback error:", error);
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      return res.redirect(
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to handle eBay OAuth callback")}`
+      );
     }
   },
 
@@ -231,9 +295,9 @@ export const ebayListingService = {
 
   getEbayCategories: async (req: Request, res: Response) => {
     try {
-      const type = (req.query.type as "production" | "sandbox") || "production";
-      const useClient = (req.query.useClient as "true" | "false") || "true";
-      const token = await getStoredEbayAccessToken();
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayApplicationToken(); // ✅ Use Application token
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -258,6 +322,9 @@ export const ebayListingService = {
   getEbaySubCategories: async (req: Request, res: Response) => {
     try {
       const { categoryId } = req.params;
+      // const type = req.query.type as "production" | "sandbox";
+      // const useClient = req.query.useClient as "true" | "false";
+      const token = await getStoredEbayApplicationToken(); // ✅ Use Application token
       const type = (req.query.type as "production" | "sandbox") || "production";
       const useClient = (req.query.useClient as "true" | "false") || "true";
       const token = await getStoredEbayAccessToken();
@@ -318,7 +385,7 @@ export const ebayListingService = {
     try {
       const { query } = req.query;
 
-      const token = await getStoredEbayAccessToken();
+      const token = await getApplicationAuthToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -344,7 +411,7 @@ export const ebayListingService = {
     try {
       const { categoryId } = req.params;
 
-      const token = await getStoredEbayAccessToken();
+      const token = await getStoredEbayApplicationToken(); // ✅ Use Application token
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }
@@ -373,7 +440,7 @@ export const ebayListingService = {
 
   fetchEbayCategoryAspects: async (categoryId: string, type: "production" | "sandbox" = "production") => {
     try {
-      const token = await getStoredEbayAccessToken();
+      const token = await getStoredEbayApplicationToken(); // ✅ Use Application token
       if (!token) throw new Error("Missing or invalid eBay access token");
 
       const CATEGORY_TREE_ID = 3;
@@ -395,13 +462,19 @@ export const ebayListingService = {
       throw error;
     }
   },
-  addItemOnEbay: async (listing: any, type: "production" | "sandbox" = "production"): Promise<string> => {
-    // Use user access token for Trading API
-    const token = await getStoredEbayUserAccessToken();
+  addItemOnEbay: async (listing: any): Promise<string> => {
+    // Use simplified user token flow for listing operations
+    const tokenResult = await getStoredEbayAccessToken();
+
+    // Check if user authorization is required
+    if (typeof tokenResult === "object" && tokenResult.error) {
+      throw new Error(`User authorization required: ${tokenResult.message}. Auth URL: ${tokenResult.authUrl}`);
+    }
+
+    const token = tokenResult as string;
     try {
-      // const token = await getStoredEbayAccessToken();
       if (!token) {
-        throw new Error("Missing or invalid eBay access token");
+        throw new Error("Missing or invalid eBay user access token");
       }
       const populatedListing: any = await Listing.findById(listing._id)
         .populate("prodPricing.selectedVariations.variationId")
@@ -873,224 +946,6 @@ export const ebayListingService = {
     } catch (error: any) {
       console.error("Error fetching orders:", error.message);
       throw new Error("Error fetching orders");
-    }
-  },
-
-  getOrderDetails: async (req: Request, res: Response): Promise<any> => {
-    try {
-      const { orderId } = req.params;
-      const credentials = await getStoredEbayAccessToken();
-      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order/${orderId}`;
-      const response = await fetch(ebayUrl, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${credentials?.access_token}`,
-        },
-      });
-      const rawResponse = await response.json();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        data: rawResponse,
-      });
-    } catch (error: any) {
-      console.error("Error fetching order details:", error.message);
-      throw new Error("Error fetching order details");
-    }
-  },
-
-  createWebhook: async (req: Request, res: Response): Promise<any> => {
-    try {
-      const challengeCode = req.query.challenge_code;
-      // const verificationToken = process.env.EBAY_VERIFICATION_TOKEN;
-      // const endpoint = process.env.EBAY_ENDPOINT_URL;
-      const verificationToken = "EeNv89Ubsq8912NX6vJ5VP78D9cyeUlf";
-      const endpoint = "https://bavit-ebay-4d05ee8f0363.herokuapp.com/api/ebay/auth/ebay";
-      const hash = createHash("sha256");
-      hash.update(challengeCode as string);
-      hash.update(verificationToken);
-      hash.update(endpoint);
-      const responseHash = hash.digest("hex");
-      console.log(Buffer.from(responseHash).toString());
-      console.log("🔍 Received eBay webhook notification");
-      console.log("📝 Notification data:", req.body);
-
-      // Return response in required JSON format
-      return res.status(200).json({
-        challengeResponse: responseHash,
-      });
-    } catch (error: any) {
-      console.error("Error creating webhook:", error.message);
-      throw new Error("Error creating webhook");
-    }
-  },
-
-  // This endpoint handles both challenge validation (GET) and account deletion notifications (POST)
-  accountDeletion: async (req: Request, res: Response): Promise<any> => {
-    try {
-      const method = req.method;
-
-      // Handle GET request for challenge validation
-      if (method === "GET") {
-        return await ebayListingService.handleEbayChallengeValidation(req, res);
-      }
-
-      // Handle POST request for account deletion notification
-      if (method === "POST") {
-        return await ebayListingService.handleEbayAccountDeletion(req, res);
-      }
-
-      // Method not allowed
-      return res.status(405).json({ message: "Method not allowed" });
-    } catch (error: any) {
-      console.error("❌ Error in eBay endpoint:", error);
-      return res.status(200).json({
-        message: "Error processed",
-        timestamp: new Date().toISOString(),
-      });
-    }
-  },
-
-  // Handle eBay challenge validation (GET request)
-  handleEbayChallengeValidation: async (req: Request, res: Response): Promise<any> => {
-    try {
-      console.log("🔍 Received eBay challenge validation request");
-
-      // Get challenge code from query parameter
-      const { challenge_code } = req.query;
-
-      if (!challenge_code || typeof challenge_code !== "string") {
-        console.error("❌ Missing or invalid challenge_code");
-        return res.status(400).json({ error: "Missing challenge_code parameter" });
-      }
-
-      // Your verification token (must be 32-80 characters, alphanumeric, underscore, hyphen only)
-      const VERIFICATION_TOKEN =
-        process.env.EBAY_VERIFICATION_TOKEN || "8b5cc2202ec0a6533c90230368c3c704b21885c0c83fd72208c44d940338f0ac";
-
-      // Your endpoint URL (the same URL you provided to eBay)
-      const ENDPOINT_URL =
-        process.env.EBAY_ENDPOINT_URL || "https://backend.buildmyrig.co.uk/api/ebay/account-deletion";
-
-      // Create hash: challengeCode + verificationToken + endpoint
-      const hash = createHash("sha256");
-      hash.update(challenge_code);
-      hash.update(VERIFICATION_TOKEN);
-      hash.update(ENDPOINT_URL);
-      const challengeResponse = hash.digest("hex");
-
-      console.log("✅ Challenge validation successful");
-      console.log("📝 Challenge code:", challenge_code);
-      console.log("📝 Response hash:", challengeResponse);
-
-      // Return response in required JSON format
-      return res.status(200).json({
-        challengeResponse: challengeResponse,
-      });
-    } catch (error: any) {
-      console.error("❌ Error in challenge validation:", error);
-      return res.status(500).json({
-        error: "Challenge validation failed",
-        details: error.message,
-      });
-    }
-  },
-
-  // Handle eBay account deletion notification (POST request)
-  handleEbayAccountDeletion: async (req: Request, res: Response): Promise<any> => {
-    try {
-      console.log("📧 Received eBay account deletion notification");
-
-      // Get notification data from eBay
-      const notificationData = req.body;
-
-      // Verify the request is from eBay using verification token
-      const VERIFICATION_TOKEN = process.env.EBAY_VERIFICATION_TOKEN;
-
-      if (notificationData.verificationToken !== VERIFICATION_TOKEN) {
-        console.error("❌ Invalid verification token");
-        // Still return 200 to avoid notification failures
-        return res.status(200).json({ message: "Invalid token" });
-      }
-
-      // Extract user information from eBay notification
-      const { userId, marketplace, timestamp, notificationType } = notificationData;
-
-      console.log("🔍 Processing deletion for:", {
-        userId,
-        marketplace,
-        notificationType,
-        timestamp,
-      });
-
-      // Validate required fields
-      // if (!userId) {
-      //   console.error("❌ Missing userId in notification");
-      //   return res.status(200).json({ message: "Missing userId" });
-      // }
-
-      // Delete user data from your database
-      await ebayListingService.deleteEbayUserData(userId);
-
-      // Log successful deletion
-      console.log("✅ Successfully processed account deletion for user:", userId);
-
-      // eBay requires HTTP 200 response within 3 seconds
-      return res.status(200).json({
-        message: "Account deletion processed successfully",
-        userId: userId,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error: any) {
-      console.error("❌ Error processing eBay account deletion:", error);
-
-      // IMPORTANT: Still return 200 to prevent eBay from marking endpoint as failed
-      // eBay will stop sending notifications after 1000 consecutive failures
-      return res.status(200).json({
-        message: "Error processed",
-        error: "Internal processing error",
-        timestamp: new Date().toISOString(),
-      });
-    }
-  },
-
-  // Helper function to delete eBay user data
-  deleteEbayUserData: async (userId: string): Promise<void> => {
-    try {
-      // Delete user data from your database
-      // Replace this with your actual database deletion logic
-
-      // Example database operations:
-      // await User.deleteOne({ ebayUserId: userId });
-      // await UserTokens.deleteMany({ ebayUserId: userId });
-      // await UserPreferences.deleteOne({ ebayUserId: userId });
-      // await ApiLogs.deleteMany({ userId: userId });
-
-      console.log(`🗑️ Deleted all data for eBay user: ${userId}`);
-
-      // Optional: Log the deletion for audit purposes
-      await ebayListingService.logAccountDeletion(userId);
-    } catch (error) {
-      console.error("❌ Error deleting user data:", error);
-      throw error;
-    }
-  },
-
-  // Helper function to log account deletions for audit
-  logAccountDeletion: async (userId: string): Promise<void> => {
-    try {
-      // Log the deletion event (without storing personal data)
-      // await AuditLog.create({
-      //   event: 'ACCOUNT_DELETION',
-      //   userId: userId, // You might want to hash this
-      //   timestamp: new Date(),
-      //   source: 'EBAY_NOTIFICATION'
-      // });
-
-      console.log(`📝 Logged account deletion for user: ${userId}`);
-    } catch (error) {
-      console.error("❌ Error logging account deletion:", error);
-      // Don't throw error here as it's not critical
     }
   },
 };

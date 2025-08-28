@@ -24,190 +24,92 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
-  router.post("/auth/ebay/import-token", async (_req: Request, res: Response) => {
+
+  // Check user token status for listing operations
+  router.get("/auth/user-token-status", async (req: Request, res: Response) => {
     try {
-      const ok = await importEbayUserTokenFromFile();
-      return res.status(ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST).json({
-        status: ok ? StatusCodes.OK : StatusCodes.BAD_REQUEST,
-        message: ok ? ReasonPhrases.OK : ReasonPhrases.BAD_REQUEST,
-      });
-    } catch (e) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-      });
-    }
-  });
+      const tokenResult = await getStoredEbayAccessToken();
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
 
-  router.get("/auth/ebay/check", async (_req: Request, res: Response) => {
-    try {
-      const authStatus = await checkEbayUserAuthorization();
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        ...authStatus,
-      });
-    } catch (e) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-      });
-    }
-  });
+      // If tokenResult is null (no token or no refresh token)
+      if (tokenResult === null) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: `No valid user token found for ${currentEnv} environment`,
+          authRequired: true,
+          hasToken: false,
+          environment: currentEnv,
+          authUrl: getEbayAuthURL(currentEnv),
+        });
+      }
 
-  router.get("/auth/ebay/test-redirect", async (_req: Request, res: Response) => {
-    try {
-      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-      res.redirect(`${frontendUrl}/dashboard?ebay_auth=success`);
-    } catch (e) {
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
-      });
-    }
-  });
+      // If tokenResult is an object with error (shouldn't happen with new logic)
+      if (typeof tokenResult === "object" && tokenResult.error) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "User authorization required",
+          error: tokenResult.error,
+          authRequired: true,
+          authUrl: tokenResult.authUrl,
+          environment: tokenResult.environment,
+        });
+      }
 
-  router.get("/auth/ebay/test-db", async (_req: Request, res: Response) => {
-    try {
-      // Test database connectivity
-      const testToken = {
-        provider: "ebay" as const,
-        environment: "PRODUCTION" as const,
-        useClient: true,
-        access_token: "test_token_" + Date.now(),
-        token_type: "bearer",
-        expires_in: 3600,
-        generated_at: Date.now(),
-      };
-
-      await IntegrationTokenModel.updateOne(
-        { provider: "ebay", environment: "PRODUCTION", useClient: true },
-        { $set: testToken },
-        { upsert: true }
-      );
-
-      // Verify it was saved
-      const savedToken = await IntegrationTokenModel.findOne({
-        provider: "ebay",
-        environment: "PRODUCTION",
-        useClient: true,
-      });
-
-      if (savedToken) {
+      // If tokenResult is a valid access token
+      if (tokenResult) {
         return res.status(StatusCodes.OK).json({
           status: StatusCodes.OK,
-          message: "Database connectivity test successful",
-          tokenSaved: true,
-          tokenId: savedToken._id,
-        });
-      } else {
-        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-          status: StatusCodes.INTERNAL_SERVER_ERROR,
-          message: "Token was not saved to database",
-          tokenSaved: false,
+          message: `User token is valid for ${currentEnv} environment`,
+          hasToken: true,
+          authRequired: false,
+          environment: currentEnv,
         });
       }
-    } catch (error) {
-      console.error("Database test error:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: "Database connectivity test failed",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  });
 
-  router.get("/auth/ebay/check-tokens", async (_req: Request, res: Response) => {
-    try {
-      // Get all eBay tokens from database
-      const tokens = await IntegrationTokenModel.find({ provider: "ebay" }).sort({ createdAt: -1 });
-
-      const tokenInfo = tokens.map((token: any) => ({
-        id: token._id,
-        environment: token.environment,
-        useClient: token.useClient,
-        hasAccessToken: !!token.access_token,
-        hasRefreshToken: !!token.refresh_token,
-        expiresIn: token.expires_in,
-        generatedAt: token.generated_at,
-        createdAt: token.createdAt,
-        updatedAt: token.updatedAt,
-      }));
-
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: "Current eBay tokens in database",
-        totalTokens: tokens.length,
-        tokens: tokenInfo,
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: StatusCodes.UNAUTHORIZED,
+        message: "No valid user token found",
+        authRequired: true,
+        hasToken: false,
+        environment: currentEnv,
       });
     } catch (error) {
-      console.error("Error checking tokens:", error);
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        status: StatusCodes.INTERNAL_SERVER_ERROR,
-        message: "Failed to check tokens",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  });
-
-  router.get("/auth/ebay/url", async (_req: Request, res: Response) => {
-    try {
-      const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
-      const authUrl = getEbayAuthURL(type);
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: ReasonPhrases.OK,
-        authUrl,
-      });
-    } catch (e) {
+      console.error("Error checking user token status:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to check user token status",
       });
     }
   });
 
-  router.post("/auth/ebay/callback", async (req: Request, res: Response) => {
+  // Get current eBay environment configuration
+  router.get("/auth/environment", async (req: Request, res: Response) => {
     try {
-      const { code, state } = req.body;
-      if (!code) {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          status: StatusCodes.BAD_REQUEST,
-          message: "Authorization code is required",
-        });
-      }
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
+      const authUrl = getEbayAuthURL(currentEnv);
 
-      const type = process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production";
-      const token = await exchangeCodeForAccessToken(code, type, "true");
-
-      if (token) {
-        return res.status(StatusCodes.OK).json({
-          status: StatusCodes.OK,
-          message: "Authorization successful",
-          success: true,
-        });
-      } else {
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          status: StatusCodes.BAD_REQUEST,
-          message: "Failed to exchange code for token",
-        });
-      }
-    } catch (e) {
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        environment: currentEnv,
+        authUrl: authUrl,
+        message: `Current eBay environment: ${currentEnv}`,
+      });
+    } catch (error) {
+      console.error("Error getting eBay environment:", error);
       return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get environment configuration",
       });
     }
   });
+
   router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
   router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
-  router.get("/orders/get-order-details/:orderId", ebayListingService.getOrderDetails);
-  router.post("/account-deletion", ebayListingService.accountDeletion);
-  router.get("/account-deletion", ebayListingService.accountDeletion);
-  router.get("/notifications", ebayListingService.createWebhook);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);
