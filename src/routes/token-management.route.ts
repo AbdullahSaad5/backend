@@ -145,28 +145,9 @@ router.post("/test", async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/tokens/clear
- * Clear all tokens from database (useful for testing)
- */
-router.delete("/clear", async (req, res) => {
-  try {
-    const result = await IntegrationTokenModel.deleteMany({});
-
-    res.status(StatusCodes.OK).json({
-      success: true,
-      message: `Cleared ${result.deletedCount} tokens from database`,
-      deletedCount: result.deletedCount,
-    });
-  } catch (error) {
-    console.error("Error clearing tokens:", error);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      error: "Failed to clear tokens",
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
+// ❌ REMOVED: Dangerous route that deletes all tokens
+// This route was causing tokens to be accidentally deleted
+// If you need to clear tokens for testing, do it manually in the database
 
 /**
  * GET /api/tokens/env-check

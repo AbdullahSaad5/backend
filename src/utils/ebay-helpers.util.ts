@@ -208,13 +208,9 @@ export const getStoredEbayApplicationToken = async () => {
         console.log(`🔄 [${env}] Application token expired, getting new one...`);
       }
 
-      // Invalid or expired token, delete it
-      console.log(`❌ [${env}] Invalid/expired Application token, removing...`);
-      await IntegrationTokenModel.deleteOne({
-        provider: "ebay",
-        environment: env,
-        useClient: false,
-      });
+      // Token is expired or invalid, but don't delete it - just get a new one
+      // The new token will overwrite the old one via upsert
+      console.log(`🔄 [${env}] Application token expired/invalid, will get new one...`);
     }
 
     // No valid Application token found - get new one
@@ -280,26 +276,28 @@ export const getStoredEbayAccessToken = async () => {
           if (refreshed?.access_token) {
             console.log(`✅ [${env}] User token refreshed successfully`);
             return refreshed.access_token;
+          } else {
+            // Refresh failed - the refresh token might be expired/invalid
+            // Only now should we consider removing the token
+            console.log(`❌ [${env}] Token refresh failed - refresh token might be expired`);
+            await IntegrationTokenModel.deleteOne({
+              provider: "ebay",
+              environment: env,
+              useClient: true,
+            });
+            return null;
           }
         }
 
         // Token expired and no refresh token available
+        // Don't delete the token - user might get a new one via OAuth
         console.log(`❌ [${env}] Token expired and no refresh token available`);
-        await IntegrationTokenModel.deleteOne({
-          provider: "ebay",
-          environment: env,
-          useClient: true,
-        });
         return null;
       }
 
-      // Invalid token data, delete it
-      console.log(`❌ [${env}] Invalid User token data, removing...`);
-      await IntegrationTokenModel.deleteOne({
-        provider: "ebay",
-        environment: env,
-        useClient: true,
-      });
+      // Invalid token data - don't delete, just log
+      // New OAuth flow will overwrite via upsert
+      console.log(`❌ [${env}] Invalid User token data found`);
     }
 
     // No User token found in DB

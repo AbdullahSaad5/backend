@@ -245,12 +245,8 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       if (testResponse.status === 401) {
         console.log("🔄 Amazon token is invalid, getting new access token...");
 
-        // Clear the invalid token from DB
-        await IntegrationTokenModel.deleteOne({
-          provider: "amazon",
-          environment: envVal,
-          useClient: true, // Use refresh token flow
-        });
+        // Don't delete token on 401 - just get new one (upsert will overwrite)
+        console.log("🔄 Amazon token invalid, will get new token...");
 
         // Get new access token using refresh token
         const newToken = await getAmazonAccessToken();
@@ -267,12 +263,8 @@ export const getStoredAmazonAccessToken = async (): Promise<string | null> => {
       if (error.response?.status === 401) {
         console.log("🔄 Amazon token is invalid, getting new access token...");
 
-        // Clear the invalid token from DB
-        await IntegrationTokenModel.deleteOne({
-          provider: "amazon",
-          environment: envVal,
-          useClient: true, // Use refresh token flow
-        });
+        // Don't delete token on 401 - just get new one (upsert will overwrite)
+        console.log("🔄 Amazon token invalid, will get new token...");
 
         // Get new access token using refresh token
         const newToken = await getAmazonAccessToken();
