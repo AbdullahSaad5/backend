@@ -7,6 +7,7 @@ import ebayHtmlTemplate from "@/utils/ebayHtmlTemplate.util";
 import { XMLParser } from "fast-xml-parser";
 import {
   exchangeCodeForAccessToken,
+  getApplicationAuthToken,
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
@@ -303,7 +304,7 @@ export const ebayListingService = {
     try {
       const { query } = req.query;
 
-      const token = await getStoredEbayAccessToken();
+      const token = await getApplicationAuthToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
       }

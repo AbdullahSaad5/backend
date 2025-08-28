@@ -185,15 +185,7 @@ export const getStoredEbayAccessToken = async () => {
     // Add detailed logging to debug the token structure
 
     if (!access_token || !generated_at || !expires_in || isNaN(generated_at) || isNaN(expires_in)) {
-      console.error("❌ Invalid or missing token fields. Clearing invalid token and getting new one...");
-
-      // Clear the invalid token from DB
-      await IntegrationTokenModel.deleteOne({
-        provider: "ebay",
-        environment: env,
-        useClient: false,
-      });
-
+      console.error("❌ Invalid or missing token fields.");
       // Get new application token
       const newToken = await getApplicationAuthToken(type);
       if (newToken?.access_token) {
