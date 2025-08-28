@@ -404,38 +404,65 @@ export const exchangeCodeForAccessToken = async (
   type: "production" | "sandbox",
   useClient: "true" | "false"
 ) => {
-  if (type === "production") {
-    const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
-    const parsedToken: EbayToken = JSON.parse(token);
+  try {
+    console.log(`🔄 Exchanging code for ${type} access token...`);
+    console.log(`📝 Code: ${code?.substring(0, 20)}...`);
+    console.log(`🔑 UseClient: ${useClient}`);
 
-    // Store in DB
-    await IntegrationTokenModel.updateOne(
-      { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false },
-      {
+    if (type === "production") {
+      const token = await ebayAuthToken.exchangeCodeForAccessToken("PRODUCTION", code);
+      const parsedToken: EbayToken = JSON.parse(token);
+
+      console.log(`✅ Token received for PRODUCTION:`, {
+        access_token: parsedToken.access_token?.substring(0, 30) + "...",
+        expires_in: parsedToken.expires_in,
+        token_type: parsedToken.token_type,
+      });
+
+      // Store in DB
+      const dbQuery = { provider: "ebay", environment: "PRODUCTION", useClient: useClient === "true" ? true : false };
+      const dbUpdate = {
         $set: {
           ...parsedToken,
           generated_at: Date.now(),
           token_type: useClient === "true" ? "User Access Token" : "Application Access Token",
         },
-      },
-      { upsert: true }
-    );
-    return parsedToken;
-  } else {
-    const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
-    const parsedToken: EbayToken = JSON.parse(token);
-    await IntegrationTokenModel.updateOne(
-      { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false },
-      {
+      };
+
+      console.log(`💾 Storing token in DB with query:`, dbQuery);
+      const dbResult = await IntegrationTokenModel.updateOne(dbQuery, dbUpdate, { upsert: true });
+      console.log(`✅ DB Update Result:`, dbResult);
+
+      return parsedToken;
+    } else {
+      const token = await ebayAuthTokenSandbox.exchangeCodeForAccessToken("SANDBOX", code);
+      const parsedToken: EbayToken = JSON.parse(token);
+
+      console.log(`✅ Token received for SANDBOX:`, {
+        access_token: parsedToken.access_token?.substring(0, 30) + "...",
+        expires_in: parsedToken.expires_in,
+        token_type: parsedToken.token_type,
+      });
+
+      // Store in DB
+      const dbQuery = { provider: "ebay", environment: "SANDBOX", useClient: useClient === "true" ? true : false };
+      const dbUpdate = {
         $set: {
           ...parsedToken,
           generated_at: Date.now(),
           token_type: useClient === "true" ? "User Access Token" : "Application Access Token",
         },
-      },
-      { upsert: true }
-    );
-    return parsedToken;
+      };
+
+      console.log(`💾 Storing token in DB with query:`, dbQuery);
+      const dbResult = await IntegrationTokenModel.updateOne(dbQuery, dbUpdate, { upsert: true });
+      console.log(`✅ DB Update Result:`, dbResult);
+
+      return parsedToken;
+    }
+  } catch (error) {
+    console.error(`❌ Error in exchangeCodeForAccessToken:`, error);
+    throw error;
   }
 };
 
