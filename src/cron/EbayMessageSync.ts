@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { EbayChatService } from "@/services/ebay-chat.service";
+import { EbayChatService } from "@/services";
 import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 
 export const ebayMessageSync = () => {

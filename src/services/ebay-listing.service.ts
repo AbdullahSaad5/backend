@@ -324,7 +324,7 @@ export const ebayListingService = {
       const { categoryId } = req.params;
       // const type = req.query.type as "production" | "sandbox";
       // const useClient = req.query.useClient as "true" | "false";
-      const token = await getStoredEbayApplicationToken(); // ✅ Use Application token
+
       const type = (req.query.type as "production" | "sandbox") || "production";
       const useClient = (req.query.useClient as "true" | "false") || "true";
       const token = await getStoredEbayAccessToken();
@@ -641,7 +641,7 @@ export const ebayListingService = {
   reviseItemOnEbay: async (listing: any, type: "production" | "sandbox" = "production"): Promise<string> => {
     try {
       // Use user access token for Trading API
-      const token = await getStoredEbayUserAccessToken();
+      const token = await getStoredEbayAccessToken();
       // const token = await getStoredEbayAccessToken();
       if (!token) {
         throw new Error("Missing or invalid eBay access token");
@@ -861,7 +861,7 @@ export const ebayListingService = {
     res: Response
   ): Promise<any> => {
     try {
-      const accessToken = await getStoredEbayUserAccessToken();
+      const accessToken = await getStoredEbayAccessToken();
       // const ebayUrl = "https://api.sandbox.ebay.com/ws/api.dll";
 
       const limit = req.query.limit || 10;
