@@ -139,14 +139,14 @@ export const ebayListingService = {
       if (oauthError) {
         console.log("❌ eBay OAuth error:", oauthError);
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
         );
       }
 
       if (!code) {
         console.log("❌ No authorization code received");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("No authorization code received from eBay")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
         );
       }
 
@@ -156,19 +156,19 @@ export const ebayListingService = {
       if (accessToken?.access_token) {
         console.log("✅ eBay production User Access Token obtained successfully");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=success&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
         );
       } else {
         console.log("❌ Failed to get access token");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
         );
       }
     } catch (error: any) {
       console.error("❌ eBay OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       return res.redirect(
-        `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
       );
     }
   },
@@ -182,14 +182,14 @@ export const ebayListingService = {
       if (oauthError) {
         console.log("❌ eBay Client OAuth error:", oauthError);
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
         );
       }
 
       if (!code) {
         console.log("❌ No authorization code received for client");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("No authorization code received from eBay")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
         );
       }
 
@@ -199,19 +199,19 @@ export const ebayListingService = {
       if (accessToken?.access_token) {
         console.log("✅ eBay production User Access Token obtained successfully (client)");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=success&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay account connected successfully!")}&environment=production`
         );
       } else {
         console.log("❌ Failed to get client access token");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
         );
       }
     } catch (error: any) {
       console.error("❌ eBay Client OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       return res.redirect(
-        `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
       );
     }
   },
@@ -225,14 +225,14 @@ export const ebayListingService = {
       if (oauthError) {
         console.log("❌ eBay Sandbox OAuth error:", oauthError);
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied eBay access or OAuth error occurred")}`
         );
       }
 
       if (!code) {
         console.log("❌ No authorization code received for sandbox");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("No authorization code received from eBay")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("No authorization code received from eBay")}`
         );
       }
 
@@ -242,19 +242,19 @@ export const ebayListingService = {
       if (accessToken?.access_token) {
         console.log("✅ eBay sandbox User Access Token obtained successfully");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=success&message=${encodeURIComponent("eBay sandbox account connected successfully!")}&environment=sandbox`
+          `${frontendUrl}/system-settings/ebay-auth?success=true&message=${encodeURIComponent("eBay sandbox account connected successfully!")}&environment=sandbox`
         );
       } else {
         console.log("❌ Failed to get sandbox access token");
         return res.redirect(
-          `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("Failed to obtain eBay access token")}`
+          `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to obtain eBay access token")}`
         );
       }
     } catch (error: any) {
       console.error("❌ eBay Sandbox OAuth callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       return res.redirect(
-        `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent(error.message || "Failed to complete eBay OAuth flow")}`
       );
     }
   },
@@ -264,13 +264,13 @@ export const ebayListingService = {
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       console.log("❌ eBay OAuth declined by user");
       return res.redirect(
-        `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("User denied access to eBay account")}`
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("User denied access to eBay account")}`
       );
     } catch (error: any) {
       console.error("❌ eBay fallback callback error:", error);
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       return res.redirect(
-        `${frontendUrl}/dashboard?ebay_auth=error&message=${encodeURIComponent("Failed to handle eBay OAuth callback")}`
+        `${frontendUrl}/system-settings/ebay-auth?error=true&message=${encodeURIComponent("Failed to handle eBay OAuth callback")}`
       );
     }
   },
