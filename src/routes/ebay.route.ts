@@ -26,7 +26,21 @@ export const ebay = (router: Router) => {
   router.get("/auth/user-token-status", async (req: Request, res: Response) => {
     try {
       const tokenResult = await getStoredEbayAccessToken();
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
 
+      // If tokenResult is null (no token or no refresh token)
+      if (tokenResult === null) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: `No valid user token found for ${currentEnv} environment`,
+          authRequired: true,
+          hasToken: false,
+          environment: currentEnv,
+          authUrl: getEbayAuthURL(currentEnv),
+        });
+      }
+
+      // If tokenResult is an object with error (shouldn't happen with new logic)
       if (typeof tokenResult === "object" && tokenResult.error) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
           status: StatusCodes.UNAUTHORIZED,
@@ -38,11 +52,23 @@ export const ebay = (router: Router) => {
         });
       }
 
-      return res.status(StatusCodes.OK).json({
-        status: StatusCodes.OK,
-        message: "User token is valid",
-        authRequired: false,
-        hasToken: true,
+      // If tokenResult is a valid access token
+      if (tokenResult) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: `User token is valid for ${currentEnv} environment`,
+          hasToken: true,
+          authRequired: false,
+          environment: currentEnv,
+        });
+      }
+
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: StatusCodes.UNAUTHORIZED,
+        message: "No valid user token found",
+        authRequired: true,
+        hasToken: false,
+        environment: currentEnv,
       });
     } catch (error) {
       console.error("Error checking user token status:", error);
@@ -50,6 +76,28 @@ export const ebay = (router: Router) => {
         status: StatusCodes.INTERNAL_SERVER_ERROR,
         message: ReasonPhrases.INTERNAL_SERVER_ERROR,
         error: "Failed to check user token status",
+      });
+    }
+  });
+
+  // Get current eBay environment configuration
+  router.get("/auth/environment", async (req: Request, res: Response) => {
+    try {
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
+      const authUrl = getEbayAuthURL(currentEnv);
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        environment: currentEnv,
+        authUrl: authUrl,
+        message: `Current eBay environment: ${currentEnv}`,
+      });
+    } catch (error) {
+      console.error("Error getting eBay environment:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get environment configuration",
       });
     }
   });
