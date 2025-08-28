@@ -472,6 +472,7 @@ export const stockService = {
       searchQuery = "",
       status,
       stockStatus,
+      productCategory,
       isPart,
       page = 1,
       limit = 10,
@@ -509,6 +510,12 @@ export const stockService = {
     // isPart filter
     if (isPart !== undefined) {
       matchConditions.isPart = isPart === "true" ? true : false;
+    }
+
+    // Category filter - will be applied after stock lookup and population
+    let categoryFilter = null;
+    if (productCategory) {
+      categoryFilter = new mongoose.Types.ObjectId(productCategory);
     }
 
     // Stock status filter will be applied after calculating totalStock
@@ -748,6 +755,15 @@ export const stockService = {
       pipeline.push({
         $match: {
           $expr: stockStatusMatch
+        }
+      });
+    }
+
+    // Add category filter if provided
+    if (categoryFilter) {
+      pipeline.push({
+        $match: {
+          "productInfo.productCategory": categoryFilter
         }
       });
     }
