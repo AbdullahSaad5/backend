@@ -4,6 +4,7 @@ import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
 import { Types } from "mongoose";
 import { toUpper } from "lodash";
+import { documentService } from "./document.service";
 
 // Function to generate unique Employee ID
 const generateUniqueEmployeeId = async (): Promise<string> => {
@@ -227,6 +228,28 @@ export const userService = {
       const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
         new: true,
       }).populate("userType");
+
+      // Sync employment documents to documents module if they exist
+      if (profileData.employmentDocuments && profileData.employmentDocuments.length > 0) {
+        try {
+          await documentService.syncEmploymentDocuments(userId, profileData.employmentDocuments, updatedUser);
+          console.log(`Successfully synced ${profileData.employmentDocuments.length} employment documents for user ${userId}`);
+        } catch (syncError) {
+          console.error('Error syncing employment documents:', syncError);
+          // Don't throw error here to avoid breaking profile completion
+          // Just log the error and continue
+        }
+      } else {
+        // If no employment documents provided, remove any existing ones from documents module
+        try {
+          await documentService.removeEmploymentDocuments(userId, []);
+          console.log(`Removed all employment documents from documents module for user ${userId}`);
+        } catch (removeError) {
+          console.error('Error removing employment documents:', removeError);
+          // Don't throw error here to avoid breaking profile completion
+          // Just log the error and continue
+        }
+      }
 
       return updatedUser;
     } catch (error) {

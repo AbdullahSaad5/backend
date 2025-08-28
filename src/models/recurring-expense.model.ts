@@ -33,7 +33,7 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
 
   frequency: {
     type: String,
-    enum: ["daily", "weekly", "monthly", "yearly"],
+    enum: ["daily", "weekly", "monthly", "quarterly" , "yearly"],
     required: [true, "Frequency is required"],
   },
   interval: {
@@ -102,6 +102,11 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
     type: Number,
     min: 1,
     max: 31,
+  },
+  monthOfYear: {
+    type: Number,
+    min: 1,
+    max: 12,
   },
   isBlocked: {
     type: Boolean,

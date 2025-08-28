@@ -120,6 +120,39 @@ const EmailThreadSchema = new Schema<IEmailThread>(
       type: Date,
       default: Date.now,
     },
+
+    // Latest email metadata for frontend compatibility
+    latestEmailFrom: {
+      email: { type: String },
+      name: { type: String },
+    },
+    latestEmailTo: [
+      {
+        email: { type: String },
+        name: { type: String },
+      },
+    ],
+    latestEmailPreview: {
+      type: String,
+      default: "",
+    },
+
+    // Raw Gmail data for performance (no parsing)
+    rawGmailData: {
+      threadId: { type: String },
+      historyId: { type: String },
+      messages: [
+        {
+          id: { type: String },
+          threadId: { type: String },
+          labelIds: [{ type: String }],
+          snippet: { type: String },
+          sizeEstimate: { type: Number },
+          internalDate: { type: String },
+          payload: { type: Schema.Types.Mixed }, // Store raw payload
+        },
+      ],
+    },
   },
   {
     timestamps: true,
