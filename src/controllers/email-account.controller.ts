@@ -686,76 +686,166 @@ export class EmailAccountController {
 
         let threads;
         try {
-          // First, get all emails for this account that match the filter
-          const emails = await EmailModel.find(threadEmailFilter)
-            .sort({ receivedAt: -1 })
-            .limit(parseInt(limit as string) * 5); // Get more emails to ensure we have enough for threading
-
-          // Group emails by threadId
-          const emailGroups = new Map<string, any[]>();
-          emails.forEach((email) => {
-            if (email.threadId) {
-              if (!emailGroups.has(email.threadId)) {
-                emailGroups.set(email.threadId, []);
-              }
-              emailGroups.get(email.threadId)!.push(email);
-            }
-          });
-
-          // Convert groups to thread objects
-          threads = Array.from(emailGroups.entries()).map(([threadId, threadEmails]) => {
-            const latestEmail = threadEmails[0]; // Already sorted by receivedAt desc
-            const unreadCount = threadEmails.filter((e) => !e.isRead).length;
-
-            // Get unique participants from all emails in thread
-            const participants = new Map<string, { email: string; name?: string }>();
-            threadEmails.forEach((email) => {
-              // Add sender
-              if (email.from) {
-                participants.set(email.from.email, { email: email.from.email, name: email.from.name });
-              }
-              // Add recipients
-              if (email.to) {
-                email.to.forEach((recipient: { email: string; name?: string }) => {
-                  participants.set(recipient.email, { email: recipient.email, name: recipient.name });
-                });
-              }
-            });
-
-            return {
-              _id: threadId,
-              threadId: threadId,
-              subject: latestEmail.subject,
-              participants: Array.from(participants.values()),
-              messageCount: threadEmails.length,
-              unreadCount: unreadCount,
-              lastMessageAt: latestEmail.receivedAt,
-              status: "active",
-              latestEmail: {
-                ...latestEmail.toObject(),
-                date: latestEmail.receivedAt, // Ensure date field is present for frontend
-              },
-              emails: threadEmails.map((email) => ({
-                ...email.toObject(),
-                date: email.receivedAt, // Ensure date field is present for frontend
-              })),
-              accountId: account._id,
-            };
-          });
-
-          // Sort threads by latest message date
-          threads.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
-
-          // Apply pagination
-          threads = threads.slice(parseInt(offset as string), parseInt(offset as string) + parseInt(limit as string));
+          // Simple query to get thread metadata only - no email lookup needed
+          threads = await EmailThreadModel.find({
+            accountId: account._id,
+          })
+            .sort({ lastMessageAt: -1 })
+            .skip(parseInt(offset as string))
+            .limit(parseInt(limit as string))
+            .lean();
 
           console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
+
+          // FIRST-TIME SYNC: If no threads found, trigger auto-sync
+          if (threads.length === 0) {
+            console.log(`🔄 No threads found for account ${account.emailAddress} - checking if first-time sync needed`);
+
+            // Check if first-time sync was already completed
+            if (account.syncState?.firstTimeSyncCompleted) {
+              console.log(`ℹ️ Account ${account.emailAddress} was already synced once - no auto-sync needed`);
+              // Return empty response without triggering sync
+              return res.json({
+                success: true,
+                data: {
+                  threads: [],
+                  totalCount: 0,
+                  account: {
+                    id: account._id,
+                    emailAddress: account.emailAddress,
+                    accountName: account.accountName,
+                  },
+                  viewMode: "threads",
+                  message: "No emails found in this account",
+                },
+              });
+            }
+
+            // Check if account is already being processed to prevent duplicate syncs
+            if (account.syncState?.isProcessing) {
+              console.log(`⚠️ Account ${account.emailAddress} is already being processed - skipping duplicate sync`);
+              return res.json({
+                success: true,
+                data: {
+                  threads: [],
+                  totalCount: 0,
+                  account: {
+                    id: account._id,
+                    emailAddress: account.emailAddress,
+                    accountName: account.accountName,
+                  },
+                  viewMode: "threads",
+                  message: "Sync in progress, please wait...",
+                },
+              });
+            }
+
+            try {
+              // Mark account as processing to prevent duplicate syncs
+              await EmailAccountModel.findByIdAndUpdate(account._id, {
+                $set: {
+                  "syncState.isProcessing": true,
+                  "syncState.firstTimeSyncStarted": new Date(),
+                },
+              });
+              // Import sync services
+              const { ManualEmailSyncService } = await import("@/services/manual-email-sync.service");
+              const { EmailFetchingService } = await import("@/services/email-fetching.service");
+
+              let syncResult;
+
+              // Choose sync method based on account type - LIMITED BATCH ONLY
+              if (account.accountType === "gmail" && account.oauth) {
+                console.log(
+                  `🔄 Starting LIMITED Gmail sync for first-time account (100 emails only): ${account.emailAddress}`
+                );
+                // Use fetchEmailsFromAccount with limit instead of full sync
+                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
+                  limit: 100,
+                  includeBody: true,
+                  folder: "INBOX",
+                });
+              } else {
+                console.log(
+                  `🔄 Starting LIMITED email fetch for IMAP/other account (100 emails only): ${account.emailAddress}`
+                );
+                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
+                  limit: 100,
+                  includeBody: true,
+                  folder: "INBOX",
+                });
+              }
+
+              console.log(`✅ First-time sync completed for ${account.emailAddress}:`, syncResult.success);
+
+              // After sync, retry getting threads
+              if (syncResult.success) {
+                const updatedThreads = await EmailThreadModel.find({
+                  accountId: account._id,
+                })
+                  .sort({ lastMessageAt: -1 })
+                  .skip(parseInt(offset as string))
+                  .limit(parseInt(limit as string))
+                  .lean();
+
+                const updatedTotalCount = await EmailThreadModel.countDocuments({
+                  accountId: account._id,
+                });
+
+                console.log(`🔄 After first-time sync: found ${updatedThreads.length} threads`);
+
+                // Mark sync as completed
+                await EmailAccountModel.findByIdAndUpdate(account._id, {
+                  $set: {
+                    "syncState.isProcessing": false,
+                    "syncState.firstTimeSyncCompleted": new Date(),
+                    "syncState.syncStatus": "partial", // Mark as partial since we only synced 100 emails
+                    "stats.lastSyncAt": new Date(),
+                  },
+                });
+
+                // Return the updated threads
+                return res.json({
+                  success: true,
+                  data: {
+                    threads: updatedThreads,
+                    totalCount: updatedTotalCount,
+                    account: {
+                      id: account._id,
+                      emailAddress: account.emailAddress,
+                      accountName: account.accountName,
+                    },
+                    viewMode: "threads",
+                    wasFirstTimeSync: true,
+                  },
+                });
+              }
+            } catch (syncError: any) {
+              console.error(`❌ First-time sync failed for ${account.emailAddress}:`, syncError.message);
+
+              // Reset processing flag on error
+              await EmailAccountModel.findByIdAndUpdate(account._id, {
+                $set: {
+                  "syncState.isProcessing": false,
+                  "syncState.lastError": syncError.message,
+                  "syncState.lastErrorAt": new Date(),
+                },
+              });
+
+              // Continue with empty response - don't fail the API call
+            }
+          }
+
+          // Get total count for pagination
+          const totalCount = await EmailThreadModel.countDocuments({
+            accountId: account._id,
+          });
 
           res.json({
             success: true,
             data: {
               threads,
-              totalCount: threads.length,
+              totalCount: totalCount, // Use actual total count for pagination
               account: {
                 id: account._id,
                 emailAddress: account.emailAddress,
@@ -1025,13 +1115,12 @@ export class EmailAccountController {
     }
   }
 
-  // Sync account emails (fetch new emails)
-  // Supports fetchAll parameter to fetch all emails instead of just recent ones
+  // Sync account threads metadata (raw Gmail data)
   static async syncAccountEmails(req: Request, res: Response) {
     try {
-      console.log("🔄 SYNC EMAILS REQUEST");
+      console.log("🔄 SYNC THREADS METADATA REQUEST (Raw Gmail Data)");
       const { accountId } = req.params;
-      const { fetchAll = "false" } = req.query; // New parameter to fetch all emails
+      const { fetchAll = "false" } = req.query;
       const token = req.headers.authorization?.replace("Bearer ", "");
 
       console.log("Request details:", {
@@ -1063,49 +1152,50 @@ export class EmailAccountController {
       account.status = "syncing";
       await account.save();
 
-      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+      const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
 
-      // Fetch emails based on fetchAll parameter
+      // Fetch raw thread metadata based on account type
       const options = {
-        since: fetchAll === "true" ? undefined : account.stats.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000), // Skip since filter if fetchAll is true
-        includeBody: true,
+        folder: "INBOX", // Default folder
+        limit: fetchAll === "true" ? 1000 : 100, // Higher limit for fetchAll
+        since: fetchAll === "true" ? undefined : account.stats.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000),
         fetchAll: fetchAll === "true",
-        useHistoryAPI: account.accountType === "gmail" && account.oauth, // Use History API for Gmail OAuth accounts
-        limit: fetchAll === "true" ? 1000 : 50, // Higher limit for fetchAll
       };
-      console.log("📧 Fetch options:", options);
 
-      // Use multi-folder sync if account has multiple folders configured
-      const syncFolders = account.settings?.syncFolders || ["INBOX"];
-      const useMultiFolderSync = syncFolders.length > 1;
-
-      console.log("📁 Sync configuration:", {
-        useMultiFolderSync,
-        syncFolders,
-        folderCount: syncFolders.length,
-      });
+      console.log("📧 Raw thread metadata fetch options:", options);
 
       let result;
-      if (useMultiFolderSync) {
-        console.log("🔄 Using multi-folder sync");
-        result = await EmailFetchingService.syncMultipleFolders(account, options);
+      if (account.accountType === "gmail" && account.oauth) {
+        // Use Gmail thread metadata service (raw data)
+        console.log("🔄 Using Gmail thread metadata service (raw data)");
+        result = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, options);
       } else {
-        console.log("📧 Using single folder sync (INBOX)");
-        result = await EmailFetchingService.fetchEmailsFromAccount(account, options);
+        // Use IMAP thread metadata service
+        console.log("🔄 Using IMAP thread metadata service");
+        result = await EmailThreadMetadataService.fetchImapThreadMetadata(account, options);
       }
 
-      console.log("📤 Sending response:", {
+      console.log("📤 Raw thread metadata sync response:", {
         success: result.success,
-        newEmails: result.newCount,
-        totalEmails: result.emails?.length || 0,
+        newThreads: result.newCount,
+        totalThreads: result.threads?.length || 0,
         hasError: !!result.error,
       });
+
+      // Update account sync status
+      account.status = "active";
+      account.stats = {
+        ...account.stats,
+        lastSyncAt: new Date(),
+        totalThreads: (account.stats?.totalThreads || 0) + result.newCount,
+      };
+      await account.save();
 
       res.json({
         success: result.success,
         data: {
-          newEmailsCount: result.newCount,
-          totalProcessed: result.emails?.length || 0,
+          newThreadsCount: result.newCount,
+          totalProcessed: result.threads?.length || 0,
           account: {
             id: account._id,
             emailAddress: account.emailAddress,
@@ -1115,16 +1205,16 @@ export class EmailAccountController {
         },
         message: result.success
           ? fetchAll === "true"
-            ? `Successfully synced ${result.emails?.length || 0} emails (all emails)`
-            : `Successfully synced ${result.newCount} new emails`
-          : "Sync failed",
+            ? `Successfully synced ${result.threads?.length || 0} thread metadata (raw Gmail data)`
+            : `Successfully synced ${result.newCount} new thread metadata (raw data)`
+          : "Thread metadata sync failed",
         error: result.error,
       });
     } catch (error: any) {
-      logger.error("Error syncing account emails:", error);
+      logger.error("Error syncing account thread metadata:", error);
       res.status(500).json({
         success: false,
-        message: "Failed to sync emails",
+        message: "Failed to sync thread metadata",
         error: error.message,
       });
     }
@@ -1549,7 +1639,7 @@ export class EmailAccountController {
 
       // Determine the account type and call the appropriate method
       let result;
-      
+
       if (account.accountType === "outlook" || account.accountType === "exchange") {
         console.log("📧 Using Outlook API for message fetch");
         // Use Outlook/Microsoft Graph API
