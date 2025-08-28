@@ -282,10 +282,19 @@ export const getStoredEbayAccessToken = async () => {
             return refreshed.access_token;
           }
         }
+
+        // Token expired and no refresh token available
+        console.log(`❌ [${env}] Token expired and no refresh token available`);
+        await IntegrationTokenModel.deleteOne({
+          provider: "ebay",
+          environment: env,
+          useClient: true,
+        });
+        return null;
       }
 
-      // Invalid or expired token, delete it
-      console.log(`❌ [${env}] Invalid/expired User token, removing...`);
+      // Invalid token data, delete it
+      console.log(`❌ [${env}] Invalid User token data, removing...`);
       await IntegrationTokenModel.deleteOne({
         provider: "ebay",
         environment: env,
@@ -293,15 +302,9 @@ export const getStoredEbayAccessToken = async () => {
       });
     }
 
-    // No valid User token found - need OAuth flow
-    console.log(`❌ [${env}] No valid User Access Token found. OAuth flow required.`);
-
-    return {
-      error: "USER_AUTH_REQUIRED",
-      message: `User authorization required for ${env} environment`,
-      authUrl: getEbayAuthURL(type),
-      environment: env,
-    };
+    // No User token found in DB
+    console.log(`❌ [${env}] No User Access Token found in database`);
+    return null;
   } catch (error) {
     console.error("❌ Error in getStoredEbayAccessToken:", error);
     return null;
