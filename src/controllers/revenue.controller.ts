@@ -202,6 +202,66 @@ export const RevenueController = {
   },
 
   /**
+   * @desc    Search revenues with pagination and filters
+   * @route   GET /api/revenue/search
+   * @access  Public
+   */
+  searchRevenues: async (req: Request, res: Response) => {
+    try {
+      const { 
+        searchQuery, 
+        isBlocked, 
+        source, 
+        receiveType, 
+        page = 1, 
+        limit = 10 
+      } = req.query;
+
+      // Parse and validate parameters
+      const parsedPage = parseInt(page as string) || 1;
+      const parsedLimit = parseInt(limit as string) || 10;
+      const parsedIsBlocked = isBlocked !== undefined ? isBlocked === 'true' : undefined;
+      const parsedSource = source as string;
+      const parsedReceiveType = receiveType as string;
+
+      // Validate pagination parameters
+      if (parsedPage < 1) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Page must be greater than 0"
+        });
+      }
+
+      if (parsedLimit < 1 || parsedLimit > 100) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Limit must be between 1 and 100"
+        });
+      }
+
+      const result = await RevenueService.searchRevenues({
+        searchQuery: searchQuery as string,
+        isBlocked: parsedIsBlocked,
+        source: parsedSource,
+        receiveType: parsedReceiveType,
+        page: parsedPage,
+        limit: parsedLimit
+      });
+
+      res.status(StatusCodes.OK).json({ 
+        success: true, 
+        data: result
+      });
+    } catch (error) {
+      console.error("Error searching revenues:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ 
+        success: false,
+        message: "Error searching revenues" 
+      });
+    }
+  },
+
+  /**
    * @desc    Get single Revenue record by ID
    * @route   GET /api/revenues/:id
    * @access  Public

@@ -23,6 +23,8 @@ export interface IDocument extends Document {
     author: string;
     visibleTo: IVisibleToUser[];
     userId: Types.ObjectId;
+    totalVersions: number;
+    currentVersionId?: Types.ObjectId;
     createdAt: Date;
     updatedAt: Date;
 }

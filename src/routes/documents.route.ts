@@ -2,55 +2,40 @@ import { documentController } from "@/controllers/documents.controller";
 import { Router } from "express";
 
 export const document = (router: Router) => {
-    router.post(
-        "/",
-        documentController.createDocument
-    );
+  router.post("/", documentController.createDocument);
 
-    router.get(
-        "/",
-        documentController.getAllDocuments
-    );
+  router.get("/", documentController.getAllDocuments);
 
-    router.get(
-        "/:id",
-        documentController.getDocumentById
-    );
+  router.get("/:id", documentController.getDocumentById);
 
-    router.patch(
-        "/:id",
-        documentController.updateDocument
-    );
+  // Get document with version history
+  router.get("/:id/with-versions", documentController.getDocumentWithVersions);
 
-    router.patch(
-        "/:id/version",
-        documentController.updateDocumentVersion
-    );
+  // Version history routes
+  router.get("/:id/versions", documentController.getDocumentVersionHistory);
+  
+  router.get("/:id/versions/:versionId", documentController.getDocumentVersion);
+  
+  router.post("/:id/versions/:versionId/restore", documentController.restoreDocumentVersion);
 
-    router.delete(
-        "/:id",
-        documentController.deleteDocument
-    );
+  // Version validation routes
+  router.get("/:id/validate-version", documentController.validateVersionNumber);
+  
+  router.post("/:id/check-changes", documentController.checkDocumentChanges);
 
-    router.get(
-        "/category/:category",
-        documentController.getDocumentsByCategory
-    );
+  router.patch("/:id", documentController.updateDocument);
 
-    router.get(
-        "/search",
-        documentController.searchDocuments
-    );
+  router.patch("/:id/version", documentController.updateDocumentVersion);
 
-    router.get(
-        "/my-documents",
-        documentController.getMyDocuments
-    );
+  router.delete("/:id", documentController.deleteDocument);
 
-    router.get(
-        "/download/:id",
-        documentController.downloadDocument
-    );
+  router.get("/category/:category", documentController.getDocumentsByCategory);
 
-    return router;
+  router.get("/search", documentController.searchDocuments);
+
+  router.get("/my-documents", documentController.getMyDocuments);
+
+  router.get("/download/:id", documentController.downloadDocument);
+
+  return router;
 };

@@ -21,6 +21,7 @@ export interface IRecurringExpense extends Document {
   // Optional helpers for specific frequencies
   dayOfWeek?: number; // 0-6 (Sun-Sat) for weekly
   dayOfMonth?: number; // 1-31 for monthly
+  monthOfYear?: number; // 1-12 (Jan-Dec) for yearly
 
   // Runtime fields
   isBlocked: boolean;

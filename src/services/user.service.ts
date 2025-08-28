@@ -4,6 +4,7 @@ import { createHash } from "@/utils/hash.util";
 import { IUserAddress } from "@/contracts/user-address.contracts";
 import { Types } from "mongoose";
 import { toUpper } from "lodash";
+import { documentService } from "./document.service";
 
 // Function to generate unique Employee ID
 const generateUniqueEmployeeId = async (): Promise<string> => {
@@ -228,6 +229,28 @@ export const userService = {
         new: true,
       }).populate("userType");
 
+      // Sync employment documents to documents module if they exist
+      if (profileData.employmentDocuments && profileData.employmentDocuments.length > 0) {
+        try {
+          await documentService.syncEmploymentDocuments(userId, profileData.employmentDocuments, updatedUser);
+          console.log(`Successfully synced ${profileData.employmentDocuments.length} employment documents for user ${userId}`);
+        } catch (syncError) {
+          console.error('Error syncing employment documents:', syncError);
+          // Don't throw error here to avoid breaking profile completion
+          // Just log the error and continue
+        }
+      } else {
+        // If no employment documents provided, remove any existing ones from documents module
+        try {
+          await documentService.removeEmploymentDocuments(userId, []);
+          console.log(`Removed all employment documents from documents module for user ${userId}`);
+        } catch (removeError) {
+          console.error('Error removing employment documents:', removeError);
+          // Don't throw error here to avoid breaking profile completion
+          // Just log the error and continue
+        }
+      }
+
       return updatedUser;
     } catch (error) {
       console.error("Error updating profile completion:", error);
@@ -246,13 +269,13 @@ export const userService = {
 
       // Base fields that apply to all users (11 fields - moved NI Number to documents)
       const baseFields = 11;
-      // Skills specific fields (1 field)
-      const skillsFields = 1;
+      // Skills specific fields (1 field) - Commented out - may be needed in future
+      // const skillsFields = 1;
       // Documents and Right to work specific fields (4 fields - including NI Number)
       const documentsFields = 4;
 
       // Calculate total fields based on user type
-      const totalFields = baseFields + skillsFields + documentsFields;
+      const totalFields = baseFields + documentsFields; // Removed skillsFields
       let completedFields = 0;
 
       // Personal Information (4 fields)
@@ -274,8 +297,8 @@ export const userService = {
       if (user.annualLeaveCarriedForward !== undefined) completedFields++;
       if (user.annualLeaveYear !== undefined) completedFields++;
 
-      // Skills Information (1 field)
-      if (user.skills && user.skills.length > 0) completedFields++;
+      // Skills Information (1 field) - Commented out - may be needed in future
+      // if (user.skills && user.skills.length > 0) completedFields++;
 
       // Documents and Right to Work Information (4 fields - including NI Number)
       if (user.niNumber) completedFields++;
@@ -352,8 +375,8 @@ export const userService = {
       if (user.annualLeaveCarriedForward === undefined) missingFields.push("Annual Leave Carried Forward");
       if (user.annualLeaveYear === undefined) missingFields.push("Annual Leave Year");
 
-      // Skills Information
-      if (!user.skills || user.skills.length === 0) missingFields.push("Skills");
+      // Skills Information - Commented out - may be needed in future
+      // if (!user.skills || user.skills.length === 0) missingFields.push("Skills");
 
       // Documents and Right to Work Information
       if (!user.niNumber) missingFields.push("NI Number");
@@ -388,6 +411,7 @@ export const userService = {
       isDefault = false,
       longitude,
       latitude,
+      originalLocationMapSearch,
     } = addressData;
 
     // If this is set as default, make sure no other address is default for this user
@@ -407,6 +431,7 @@ export const userService = {
       isActive: true,
       longitude,
       latitude,
+      originalLocationMapSearch, // Store the original location map search value
     });
     return newAddress.save();
   },

@@ -67,7 +67,8 @@ export const expenseService = {
         },
       })
       .populate("recurringReferenceId")
-      .populate("adjustmentReferenceId");
+      .populate("adjustmentReferenceId")
+      .sort({ createdAt: -1 });
     console.log(
       "Results of getAllExpenses with populated references:",
       Results
@@ -202,7 +203,8 @@ export const expenseService = {
       .populate("adjustmentReferenceId")
       .sort({ date: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .sort({ createdAt: -1 })
     
     return {
       expenses,
