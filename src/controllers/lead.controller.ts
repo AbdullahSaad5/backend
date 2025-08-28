@@ -9,32 +9,7 @@ import { Types } from "mongoose";
 export const LeadController = {
   createLead: async (req: any, res: Response) => {
     try {
-      const token = req.headers["authorization"]?.split(" ")[1];
-
-      if (!token) {
-        return res.status(401).json({ message: "No token provided" });
-      }
-
-      const decoded = jwtVerify(token);
-      const userId = decoded.id.toString();
-      const user = await authService.findUserById(userId);
-
-      if (!user) {
-        return res
-          .status(StatusCodes.NOT_FOUND)
-          .json({ success: false, message: "User not found." });
-      }
-
-      const {
-        name,
-        email,
-        phoneNumber,
-        source,
-        purpose,
-        description,
-        assignedTo,
-        leadCategory,
-      } = req.body;
+      const { name, email, phoneNumber, productId, source, purpose, description, assignedTo, leadCategory } = req.body;
 
       // Validate required fields
       if (!name || !email || !leadCategory) {
@@ -57,6 +32,7 @@ export const LeadController = {
         name,
         email,
         phoneNumber,
+        productId: productId ? new Types.ObjectId(productId) : undefined,
         source,
         purpose,
         description,
@@ -143,11 +119,7 @@ export const LeadController = {
 
       console.log("Running LeadModel.find with:", filter);
 
-      const { leads, total } = await LeadService.searchAndFilterLead(
-        limitNum,
-        skip,
-        filter
-      );
+      const { leads, total } = await LeadService.searchAndFilterLead(limitNum, skip, filter);
 
       res.status(StatusCodes.OK).json({
         success: true,
@@ -178,9 +150,7 @@ export const LeadController = {
       // Convert ObjectId fields if provided
       if (updateData.assignedTo) {
         // updateData.assignedTo = new Types.ObjectId(updateData.assignedTo);
-        updateData.assignedTo = updateData.assignedTo.map(
-          (id: string) => new Types.ObjectId(id)
-        );
+        updateData.assignedTo = updateData.assignedTo.map((id: string) => new Types.ObjectId(id));
       }
       if (updateData.leadCategory) {
         updateData.leadCategory = new Types.ObjectId(updateData.leadCategory);
@@ -252,15 +222,7 @@ export const LeadController = {
       const authHeader = (req as any).headers["authorization"];
       const token = authHeader && authHeader.split(" ")[1];
 
-      const allowedStatuses = [
-        "new",
-        "Contacted",
-        "Converted",
-        "Lost",
-        "Cold-Lead",
-        "Hot-Lead",
-        "Bad-Contact",
-      ];
+      const allowedStatuses = ["new", "Contacted", "Converted", "Lost", "Cold-Lead", "Hot-Lead", "Bad-Contact"];
 
       if (!status || !allowedStatuses.includes(status)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
@@ -383,16 +345,9 @@ export const LeadController = {
         });
       }
 
-      const uploadedImages = Array.isArray(req.files)
-        ? (req.files as any[]).map((f) => f.location)
-        : [];
+      const uploadedImages = Array.isArray(req.files) ? (req.files as any[]).map((f) => f.location) : [];
 
-      const updatedLead = await LeadService.addNote(
-        id,
-        description.trim(),
-        userId,
-        uploadedImages
-      );
+      const updatedLead = await LeadService.addNote(id, description.trim(), userId, uploadedImages);
 
       return res.status(StatusCodes.OK).json({
         success: true,

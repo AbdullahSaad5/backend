@@ -120,16 +120,12 @@ export const attendanceController = {
       }
 
       // Convert checkIn and checkOut to proper Date objects
-      // Ensure we're working with UTC dates to avoid timezone issues
       const checkInDate = checkIn ? new Date(checkIn) : undefined;
       const checkOutDate = checkOut ? new Date(checkOut) : undefined;
 
-      // Create a new date object to avoid any potential mutation issues
-      const attendanceDate = new Date(date);
-
       const attendance = await attendanceService.adminMark(
         employeeId,
-        attendanceDate,
+        new Date(date),
         status,
         shiftId,
         workModeId,

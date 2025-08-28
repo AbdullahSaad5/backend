@@ -1,327 +1,273 @@
 import { Request, Response } from "express";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
-import { EbayChatService } from "@/services/ebay-chat.service";
+import { StatusCodes } from "http-status-codes";
+import { EbayChatService } from "@/services";
 import { IEbayChatController, EbayMessageType } from "@/contracts/ebay-chat.contract";
 
-export const EbayChatController: IEbayChatController = {
-    sendMessage: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { ebayItemId, buyerUsername, content, subject } = req.body;
-            const sellerUsername = req.context?.user?.email || req.body.sellerUsername;
+// Extend Request interface to include user property
+interface AuthenticatedRequest extends Request {
+  user?: {
+    username: string;
+    [key: string]: any;
+  };
+}
 
-            if (!ebayItemId || !buyerUsername || !content || !sellerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing required fields: ebayItemId, buyerUsername, content, sellerUsername"
-                });
-                return;
-            }
+export const ebayChatController: IEbayChatController = {
+  // Send a message
+  sendMessage: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { ebayItemId, orderId, buyerUsername, content, attachments } = req.body;
 
-            const messageData = {
-                ebayItemId,
-                buyerUsername,
-                sellerUsername,
-                content,
-                subject,
-                messageType: EbayMessageType.SELLER_TO_BUYER
-            };
+      // Validate required fields
+      if (!ebayItemId || !buyerUsername || !content) {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Missing required fields: ebayItemId, buyerUsername, content",
+        });
+        return;
+      }
 
-            const message = await EbayChatService.sendMessage(messageData);
+      // Get seller username from authenticated user or request
+      const sellerUsername = req.user?.username || req.body.sellerUsername || "default_seller";
 
-            res.status(StatusCodes.CREATED).json({
-                success: true,
-                message: "Message sent successfully",
-                data: message
-            });
-        } catch (error: any) {
-            console.error("Error sending eBay message:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to send message",
-                error: error.message
-            });
-        }
-    },
+      const messageData = {
+        ebayItemId,
+        orderId,
+        buyerUsername,
+        sellerUsername,
+        content,
+        attachments,
+        messageType: EbayMessageType.SELLER_TO_BUYER,
+      };
 
-    getMessages: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { ebayItemId, buyerUsername } = req.params;
-            const { page = 1, limit = 50 } = req.query;
+      const message = await EbayChatService.sendMessage(messageData);
 
-            if (!ebayItemId || !buyerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing required parameters: ebayItemId, buyerUsername"
-                });
-                return;
-            }
+      res.status(StatusCodes.CREATED).json({
+        success: true,
+        message: "Message sent successfully",
+        data: message,
+      });
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to send message",
+        error: error.message,
+      });
+    }
+  },
 
-            const messages = await EbayChatService.getMessages(
-                ebayItemId,
-                buyerUsername,
-                Number(page),
-                Number(limit)
-            );
+  // Get messages for a specific item and buyer
+  getMessages: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { ebayItemId, buyerUsername } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Messages retrieved successfully",
-                data: messages
-            });
-        } catch (error: any) {
-            console.error("Error getting eBay messages:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to retrieve messages",
-                error: error.message
-            });
-        }
-    },
+      if (!ebayItemId || !buyerUsername) {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Missing required parameters: ebayItemId, buyerUsername",
+        });
+        return;
+      }
 
-    getConversations: async (req: Request, res: Response): Promise<void> => {
-        try {
-            console.log("=== GET CONVERSATIONS DEBUG ===");
-            console.log("req.context:", req.context);
-            console.log("req.context?.user:", req.context?.user);
-            console.log("req.context?.user?.email:", req.context?.user?.email);
-            console.log("req.params.sellerUsername:", req.params.sellerUsername);
+      const messages = await EbayChatService.getMessages(ebayItemId, buyerUsername, page, limit);
 
-            // For testing, use a fallback email if no user is authenticated
-            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Messages retrieved successfully",
+        data: {
+          messages,
+          pagination: {
+            page,
+            limit,
+            total: messages.length,
+          },
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting messages:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get messages",
+        error: error.message,
+      });
+    }
+  },
 
-            console.log("Final sellerUsername:", sellerUsername);
+  // Get all conversations for a seller
+  getConversations: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const sellerUsername = req.params.sellerUsername || req.user?.username || "default_seller";
 
-            if (!sellerUsername) {
-                console.log("❌ No seller username found");
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing seller username"
-                });
-                return;
-            }
+      const conversations = await EbayChatService.getConversations(sellerUsername);
+      const unreadCount = await EbayChatService.getUnreadCount(sellerUsername);
 
-            const conversations = await EbayChatService.getConversations(sellerUsername);
-            const unreadCount = await EbayChatService.getUnreadCount(sellerUsername);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversations retrieved successfully",
+        data: {
+          conversations,
+          unreadCount,
+          total: conversations.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting conversations:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get conversations",
+        error: error.message,
+      });
+    }
+  },
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Conversations retrieved successfully",
-                data: {
-                    conversations,
-                    unreadCount
-                }
-            });
-        } catch (error: any) {
-            console.error("Error getting eBay conversations:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to retrieve conversations",
-                error: error.message
-            });
-        }
-    },
+  // Mark a specific message as read
+  markAsRead: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { messageId } = req.params;
 
-    markAsRead: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { messageId } = req.params;
+      if (!messageId) {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Missing required parameter: messageId",
+        });
+        return;
+      }
 
-            if (!messageId) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing message ID"
-                });
-                return;
-            }
+      const message = await EbayChatService.markAsRead(messageId);
 
-            const message = await EbayChatService.markAsRead(messageId);
+      if (!message) {
+        res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Message not found",
+        });
+        return;
+      }
 
-            if (!message) {
-                res.status(StatusCodes.NOT_FOUND).json({
-                    success: false,
-                    message: "Message not found"
-                });
-                return;
-            }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Message marked as read",
+        data: message,
+      });
+    } catch (error: any) {
+      console.error("Error marking message as read:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark message as read",
+        error: error.message,
+      });
+    }
+  },
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Message marked as read",
-                data: message
-            });
-        } catch (error: any) {
-            console.error("Error marking message as read:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to mark message as read",
-                error: error.message
-            });
-        }
-    },
+  // Mark all messages in a conversation as read
+  markConversationAsRead: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { ebayItemId, buyerUsername } = req.params;
 
-    syncMessages: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const sellerUsername = req.context?.user?.email || req.body.sellerUsername;
+      if (!ebayItemId || !buyerUsername) {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Missing required parameters: ebayItemId, buyerUsername",
+        });
+        return;
+      }
 
-            if (!sellerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing seller username"
-                });
-                return;
-            }
+      await EbayChatService.markConversationAsRead(ebayItemId, buyerUsername);
 
-            await EbayChatService.syncEbayMessages(sellerUsername);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Conversation marked as read",
+      });
+    } catch (error: any) {
+      console.error("Error marking conversation as read:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to mark conversation as read",
+        error: error.message,
+      });
+    }
+  },
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "eBay messages synced successfully"
-            });
-        } catch (error: any) {
-            console.error("Error syncing eBay messages:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to sync eBay messages",
-                error: error.message
-            });
-        }
-    },
+  // Sync messages from eBay API
+  syncMessages: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const sellerUsername = req.body.sellerUsername || req.user?.username || "default_seller";
 
-    searchMessages: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { query } = req.query;
-            const sellerUsername = req.context?.user?.email || req.params.sellerUsername;
+      // Start sync process
+      await EbayChatService.syncEbayMessages(sellerUsername);
 
-            if (!query || !sellerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing required parameters: query, sellerUsername"
-                });
-                return;
-            }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Messages synced successfully from eBay",
+      });
+    } catch (error: any) {
+      console.error("Error syncing messages:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to sync messages",
+        error: error.message,
+      });
+    }
+  },
 
-            const messages = await EbayChatService.searchMessages(
-                query as string,
-                sellerUsername
-            );
+  // Search messages
+  searchMessages: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { query } = req.query;
+      const sellerUsername = req.params.sellerUsername || req.user?.username || "default_seller";
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Search completed successfully",
-                data: messages
-            });
-        } catch (error: any) {
-            console.error("Error searching eBay messages:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to search messages",
-                error: error.message
-            });
-        }
-    },
+      if (!query || typeof query !== "string") {
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Missing or invalid query parameter",
+        });
+        return;
+      }
 
-    markConversationAsRead: async (req: Request, res: Response): Promise<void> => {
-        try {
-            const { ebayItemId, buyerUsername } = req.params;
-            const sellerUsername = req.context?.user?.email || req.body.sellerUsername;
+      const messages = await EbayChatService.searchMessages(query, sellerUsername);
 
-            if (!ebayItemId || !buyerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing required parameters: ebayItemId, buyerUsername"
-                });
-                return;
-            }
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Search completed successfully",
+        data: {
+          messages,
+          query,
+          total: messages.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error searching messages:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to search messages",
+        error: error.message,
+      });
+    }
+  },
 
-            await EbayChatService.markConversationAsRead(ebayItemId, buyerUsername);
+  // Get unread count for a seller
+  getUnreadCount: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const sellerUsername = req.params.sellerUsername || req.user?.username || "default_seller";
 
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Conversation marked as read"
-            });
-        } catch (error: any) {
-            console.error("Error marking conversation as read:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to mark conversation as read",
-                error: error.message
-            });
-        }
-    },
+      const unreadCount = await EbayChatService.getUnreadCount(sellerUsername);
 
-    getOrderList: async (req: Request, res: Response): Promise<void> => {
-        try {
-            console.log("=== GET ORDER LIST DEBUG ===");
-            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
-            
-            console.log("Seller username:", sellerUsername);
-
-            if (!sellerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing seller username"
-                });
-                return;
-            }
-
-            const orders = await EbayChatService.getOrderList(sellerUsername);
-
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "Order list retrieved successfully",
-                data: {
-                    orders,
-                    totalOrders: orders.length
-                }
-            });
-        } catch (error: any) {
-            console.error("Error getting order list:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to retrieve order list",
-                error: error.message
-            });
-        }
-    },
-
-    getEbayOrders: async (req: Request, res: Response): Promise<void> => {
-        try {
-            console.log("=== GET EBAY ORDERS DEBUG ===");
-            const sellerUsername = req.context?.user?.email || req.params.sellerUsername || "test@example.com";
-            
-            console.log("Seller username:", sellerUsername);
-            console.log("Request params:", req.params);
-            console.log("Request query:", req.query);
-
-            if (!sellerUsername) {
-                res.status(StatusCodes.BAD_REQUEST).json({
-                    success: false,
-                    message: "Missing seller username"
-                });
-                return;
-            }
-
-            console.log("Calling EbayChatService.getEbayOrdersFromAPI...");
-            const orders = await EbayChatService.getEbayOrdersFromAPI(sellerUsername);
-            console.log("Orders received:", orders?.length || 0);
-
-            res.status(StatusCodes.OK).json({
-                success: true,
-                message: "eBay orders retrieved successfully",
-                data: {
-                    orders,
-                    totalOrders: orders.length
-                }
-            });
-        } catch (error: any) {
-            console.error("Error getting eBay orders:", error);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-                success: false,
-                message: "Failed to retrieve eBay orders",
-                error: error.message,
-                stack: error.stack
-            });
-        }
-    },
-
-
-}; 
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Unread count retrieved successfully",
+        data: {
+          unreadCount,
+          sellerUsername,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting unread count:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to get unread count",
+        error: error.message,
+      });
+    }
+  },
+};

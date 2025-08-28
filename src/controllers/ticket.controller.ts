@@ -106,6 +106,23 @@ export const tickerControler = {
         });
       }
 
+      // Check if ticket exists and get its status
+      const ticket = await ticketService.getById(id);
+      if (!ticket) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Ticket not found",
+        });
+      }
+
+      // Prevent adding notes to closed tickets
+      if (ticket.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add notes to closed tickets",
+        });
+      }
+
       const uploadedImages = Array.isArray(req.files)
         ? (req.files as any[]).map((f) => f.location)
         : [];
@@ -357,6 +374,23 @@ export const tickerControler = {
         });
       }
 
+      // Check if ticket exists and get its status
+      const ticket = await ticketService.getById(id);
+      if (!ticket) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Ticket not found",
+        });
+      }
+
+      // Prevent adding resolutions to closed tickets
+      if (ticket.status === "Closed") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Cannot add resolution to closed tickets",
+        });
+      }
+
       // If upload middleware attached files, map their URLs for resolution images
       const uploadedImages = Array.isArray(req.files)
         ? (req.files as any[]).map((f) => f.location)
@@ -582,7 +616,7 @@ export const tickerControler = {
   addComment: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { content, parentCommentId } = req.body;
+      const { content, parentCommentId, images } = req.body;
 
       const authHeader = req.headers["authorization"];
       const token = authHeader && authHeader.split(" ")[1];
@@ -604,7 +638,7 @@ export const tickerControler = {
         });
       }
 
-      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId);
+      const updatedTicket = await ticketService.addComment(id, content.trim(), userId, parentCommentId, images);
 
       res.status(StatusCodes.OK).json({
         success: true,
@@ -690,6 +724,79 @@ export const tickerControler = {
         success: false,
         message: "Error deleting comment",
         error: error.message
+      });
+    }
+  },
+
+  // Manual escalation methods
+  manualEscalate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.manualEscalate(id, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Ticket manually escalated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') || error.message.includes('already')
+          ? StatusCodes.BAD_REQUEST
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error escalating ticket",
+      });
+    }
+  },
+
+  deEscalate: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (!token || typeof token !== "string") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "Invalid verification token",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      const updatedTicket = await ticketService.deEscalate(id, userId);
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: "Ticket de-escalated successfully",
+        data: updatedTicket,
+      });
+    } catch (error: any) {
+      res.status(
+        error.message.includes('not found') || error.message.includes('not manually')
+          ? StatusCodes.BAD_REQUEST
+          : StatusCodes.INTERNAL_SERVER_ERROR
+      ).json({
+        success: false,
+        message: error.message || "Error de-escalating ticket",
       });
     }
   }
