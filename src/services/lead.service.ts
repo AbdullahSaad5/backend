@@ -13,6 +13,14 @@ export const LeadService = {
     assignedTo?: Types.ObjectId;
     leadCategory: Types.ObjectId;
     notes?: any[];
+    shippingAddress?: {
+      street1: string;
+      street2?: string;
+      city: string;
+      stateProvince: string;
+      postalCode: string;
+      country: string;
+    };
   }) => {
     const newLead = new LeadModel(leadData);
     return newLead.save();
@@ -29,6 +37,14 @@ export const LeadService = {
       description?: string;
       assignedTo?: Types.ObjectId[] | Types.ObjectId;
       leadCategory?: Types.ObjectId;
+      shippingAddress?: {
+        street1: string;
+        street2?: string;
+        city: string;
+        stateProvince: string;
+        postalCode: string;
+        country: string;
+      };
     },
     userId?: string
   ) => {

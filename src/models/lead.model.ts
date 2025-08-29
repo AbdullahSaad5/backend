@@ -60,6 +60,16 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
       ref: "ProductCategory",
       required: [true, "Lead category is required"],
     },
+    shippingAddress: 
+      {
+        street1: { type: String, required: true, trim: true },
+        street2: { type: String, trim: true },
+        city: { type: String, required: true, trim: true },
+        stateProvince: { type: String, required: true, trim: true },
+        postalCode: { type: String, required: true, trim: true },
+        country: { type: String, required: true, trim: true },
+      },
+    
     notes: [
       {
         image: {

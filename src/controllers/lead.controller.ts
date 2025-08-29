@@ -34,6 +34,8 @@ export const LeadController = {
         description,
         assignedTo,
         leadCategory,
+        shippingAddress,
+        
       } = req.body;
 
       // Validate required fields
@@ -62,6 +64,7 @@ export const LeadController = {
         description,
         assignedTo: assignedTo ? new Types.ObjectId(assignedTo) : undefined,
         leadCategory: new Types.ObjectId(leadCategory),
+        shippingAddress,
       };
 
       const newLead = await LeadService.createLead(leadData);

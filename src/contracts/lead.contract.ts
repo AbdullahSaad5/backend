@@ -22,6 +22,15 @@ export interface INote {
   _id?: Types.ObjectId;
 }
 
+export interface shippingAddress{
+  street1: string;
+  street2?: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+}
+
 export interface ILead extends Document {
   name: string;
   email: string;
@@ -42,7 +51,8 @@ export interface ILead extends Document {
   createdAt?: Date;
   updatedAt?: Date;
   notes?: INote[];
-  timeline?: ITimelineEntry[];
+  timeline?: ITimelineEntry;
+  shippingAddress?: shippingAddress[];
 }
 
 export type ILeadModel = Model<ILead>;
