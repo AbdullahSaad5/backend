@@ -19,13 +19,17 @@ export const payrollController = {
         });
       }
 
-      // Get active global payroll settings and apply them if no allowances/deductions are provided
+      // Get active global payroll settings and apply them ONLY if allowances/deductions are undefined/null
+      // NOT if they are empty arrays (which means user intentionally removed them)
       let payrollData = { ...req.body };
-      
-      if ((!req.body.allowances || req.body.allowances.length === 0) && 
-          (!req.body.deductions || req.body.deductions.length === 0)) {
-        const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
-        
+
+      if (
+        (req.body.allowances === undefined || req.body.allowances === null) &&
+        (req.body.deductions === undefined || req.body.deductions === null)
+      ) {
+        const activeGlobalSettings =
+          await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+
         if (activeGlobalSettings.length > 0) {
           // Use the first active global settings
           const globalSettings = activeGlobalSettings[0];
@@ -97,12 +101,19 @@ export const payrollController = {
           }
         );
       } else {
-        // Get active global payroll settings for new payrolls
+        // Get active global payroll settings for new payrolls ONLY if allowances/deductions are undefined/null
+        // NOT if they are empty arrays (which means user intentionally removed them)
         let actualAllowances = updateData.actualAllowances || [];
         let actualDeductions = updateData.actualDeductions || [];
-        
-        if (actualAllowances.length === 0 && actualDeductions.length === 0) {
-          const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+
+        if (
+          (updateData.actualAllowances === undefined ||
+            updateData.actualAllowances === null) &&
+          (updateData.actualDeductions === undefined ||
+            updateData.actualDeductions === null)
+        ) {
+          const activeGlobalSettings =
+            await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
           if (activeGlobalSettings.length > 0) {
             const globalSettings = activeGlobalSettings[0];
             actualAllowances = globalSettings.allowances || [];
@@ -145,16 +156,23 @@ export const payrollController = {
           }
         );
       } else {
-        // Get active global payroll settings for new government payrolls
+        // Get active global payroll settings for new government payrolls ONLY if allowances/deductions are undefined/null
+        // NOT if they are empty arrays (which means user intentionally removed them)
         let governmentAllowances = updateData.sameAllowancesDeductions
           ? updateData.actualAllowances || []
           : updateData.governmentAllowances || [];
         let governmentDeductions = updateData.sameAllowancesDeductions
           ? updateData.actualDeductions || []
           : updateData.governmentDeductions || [];
-        
-        if (governmentAllowances.length === 0 && governmentDeductions.length === 0) {
-          const activeGlobalSettings = await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
+
+        if (
+          (updateData.governmentAllowances === undefined ||
+            updateData.governmentAllowances === null) &&
+          (updateData.governmentDeductions === undefined ||
+            updateData.governmentDeductions === null)
+        ) {
+          const activeGlobalSettings =
+            await globalPayrollSettingsService.getActiveGlobalPayrollSettings();
           if (activeGlobalSettings.length > 0) {
             const globalSettings = activeGlobalSettings[0];
             governmentAllowances = globalSettings.allowances || [];

@@ -33,6 +33,7 @@ export interface IComment {
   updatedAt?: Date;
   replies?: IComment[];
   parentComment?: Types.ObjectId; // For replies
+  images?: string[];
 }
 
 export interface ITicket extends Document {

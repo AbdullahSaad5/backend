@@ -1,209 +1,444 @@
-import { EbayChatModel, EbayConversationModel } from "@/models/ebay-chat.model";
-import {
-  IEbayChat,
-  IEbayConversation,
-  IEbayChatService,
-  EbayMessageType,
-  EbayMessageStatus,
-} from "@/contracts/ebay-chat.contract";
-import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
+import { Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
+import { ReasonPhrases } from "http-status-codes";
+import { getStoredEbayAccessToken, getEbayAuthURL } from "@/utils/ebay-helpers.util";
 import { XMLParser } from "fast-xml-parser";
 
-const type =
-  process.env.EBAY_TOKEN_ENV === "production" || process.env.EBAY_TOKEN_ENV === "sandbox"
-    ? process.env.EBAY_TOKEN_ENV
-    : "production";
-const ebayRestUrl = type === "production" ? "https://api.ebay.com" : "https://api.sandbox.ebay.com";
+const type = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
+const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
 
-export const EbayChatService: IEbayChatService = {
-  // Core messaging functions
-  sendMessage: async (messageData: Partial<IEbayChat>): Promise<IEbayChat> => {
+export const ebayChatService = {
+  // Get all orders with chat conversations
+  getOrderChats: async (req: Request, res: Response): Promise<any> => {
     try {
-      console.log("=== EBAY CHAT SERVICE SEND MESSAGE ===");
-      console.log("Message data received:", messageData);
+      const accessToken = await getStoredEbayAccessToken();
+      const limit = Number(req.query.limit) || 10;
+      const page = Number(req.query.page) || 0;
+      const offset = (Math.max(page, 1) - 1) * limit;
 
-      const message = new EbayChatModel(messageData);
-      const savedMessage = await message.save();
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
+      const currentDate = Date.now();
+      const startDate = currentDate - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+      const endDate = currentDate;
+      const formattedStartDate = new Date(startDate).toISOString();
+      const formattedEndDate = new Date(endDate).toISOString();
 
-      // Update conversation
-      await EbayChatService.updateConversation(
-        messageData.ebayItemId!,
-        messageData.buyerUsername!,
-        messageData.sellerUsername!,
-        {
-          lastMessage: messageData.content,
-          lastMessageAt: new Date(),
-          unreadCount: messageData.messageType === EbayMessageType.BUYER_TO_SELLER ? 1 : 0,
-        }
-      );
-
-      // If this is a seller message, send it to eBay
-      if (messageData.messageType === EbayMessageType.SELLER_TO_BUYER) {
-        await EbayChatService.sendEbayMessage(messageData);
+      if (!accessToken) {
+        const authUrl = getEbayAuthURL(type);
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "eBay user authorization required",
+          authUrl,
+        });
       }
 
-      console.log("=== EBAY CHAT SERVICE SEND MESSAGE COMPLETED ===");
-      return savedMessage;
-    } catch (error) {
-      console.error("=== EBAY CHAT SERVICE SEND MESSAGE ERROR ===");
-      console.error("Error saving message:", error);
-      throw error;
+      const response = await fetch(ebayUrl, {
+        method: "GET",
+        headers: {
+          "X-EBAY-API-SITEID": "3",
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetOrders",
+          "X-EBAY-API-IAF-TOKEN": accessToken,
+        },
+        body: `
+        <?xml version="1.0" encoding="utf-8"?>
+        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <CreateTimeFrom>${formattedStartDate}</CreateTimeFrom>
+          <CreateTimeTo>${formattedEndDate}</CreateTimeTo>
+          <OrderRole>Seller</OrderRole>
+          <OrderStatus>All</OrderStatus>
+          <NumberOfDays>25</NumberOfDays>
+        </GetOrdersRequest>
+        `,
+      });
+
+      const rawResponse = await response.text();
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
+      const jsonObj = parser.parse(rawResponse);
+
+      if (response.status === 401 || /invalid\s+iaf\s+token/i.test(rawResponse)) {
+        const authUrl = getEbayAuthURL(type);
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "Invalid or expired eBay user token",
+          authUrl,
+          details: rawResponse,
+        });
+      }
+
+      try {
+        const errors = jsonObj?.GetOrdersResponse?.Errors;
+        const errorList = Array.isArray(errors) ? errors : errors ? [errors] : [];
+        const hasAuthError = errorList.some((e: any) => ["931", "932", 931, 932].includes(e?.ErrorCode));
+        if (hasAuthError) {
+          const authUrl = getEbayAuthURL(type);
+          return res.status(StatusCodes.UNAUTHORIZED).json({
+            status: StatusCodes.UNAUTHORIZED,
+            message: "eBay user token hard expired or invalid. Please re-authorize using the provided URL.",
+            authUrl,
+            details: jsonObj,
+          });
+        }
+      } catch {}
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Order chats retrieved successfully",
+        data: jsonObj,
+      });
+    } catch (error: any) {
+      console.error("Error fetching orders:", error.message);
+      throw new Error("Error fetching orders");
     }
   },
 
-  getMessages: async (
-    ebayItemId: string,
-    buyerUsername: string,
-    page: number = 1,
-    limit: number = 50
-  ): Promise<IEbayChat[]> => {
-    const skip = (page - 1) * limit;
-
-    return EbayChatModel.find({
-      ebayItemId,
-      buyerUsername,
-    })
-      .sort({ createdAt: 1 })
-      .skip(skip)
-      .limit(limit)
-      .exec();
-  },
-
-  getConversations: async (sellerUsername: string): Promise<IEbayConversation[]> => {
-    return EbayConversationModel.find({
-      sellerUsername,
-    })
-      .sort({ lastMessageAt: -1 })
-      .exec();
-  },
-
-  markAsRead: async (messageId: string): Promise<IEbayChat | null> => {
-    return EbayChatModel.findByIdAndUpdate(
-      messageId,
-      {
-        status: EbayMessageStatus.READ,
-        readAt: new Date(),
-      },
-      { new: true }
-    );
-  },
-
-  markConversationAsRead: async (ebayItemId: string, buyerUsername: string): Promise<void> => {
-    // Mark all messages in conversation as read
-    await EbayChatModel.updateMany(
-      {
-        ebayItemId,
-        buyerUsername,
-        status: { $ne: EbayMessageStatus.READ },
-      },
-      {
-        status: EbayMessageStatus.READ,
-        readAt: new Date(),
-      }
-    );
-
-    // Reset unread count in conversation
-    await EbayConversationModel.findOneAndUpdate({ ebayItemId, buyerUsername }, { unreadCount: 0 });
-  },
-
-  // eBay REST API integration
-  syncEbayMessages: async (sellerUsername: string): Promise<void> => {
+  // Get chat messages for a specific order and buyer
+  getOrderChatMessages: async (req: Request, res: Response): Promise<any> => {
     try {
-      console.log("=== SYNCING EBAY MESSAGES ===");
+      console.log("=== EBAY CHAT: GETTING ORDER CHAT MESSAGES ===");
 
-      const conversations = await EbayChatService.getEbayConversationsFromAPI();
+      const { orderId, itemId, buyerUsername } = req.params;
 
-      for (const conversation of conversations) {
-        const messages = await EbayChatService.getEbayMessagesFromAPI(conversation.conversationId);
+      if (!orderId || !itemId || !buyerUsername) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Missing required parameters: orderId, itemId, buyerUsername",
+        });
+      }
 
-        for (const message of messages) {
-          // Check if message already exists
-          const existingMessage = await EbayChatModel.findOne({
-            ebayMessageId: message.messageId,
-          });
+      const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
+      }
 
-          if (!existingMessage) {
-            // Create new message
-            const newMessage = new EbayChatModel({
-              ebayItemId: message.itemId,
-              buyerUsername: message.senderId,
-              sellerUsername: sellerUsername,
-              messageType: EbayMessageType.BUYER_TO_SELLER,
-              content: message.body,
-              ebayMessageId: message.messageId,
-              ebayTimestamp: new Date(message.timestamp),
-              status: EbayMessageStatus.DELIVERED,
-              metadata: {
-                listingTitle: message.itemTitle,
-                listingUrl: message.itemUrl,
-                conversationId: conversation.conversationId,
-              },
-            });
+      // Get messages for this item
+      const allMessages = await ebayChatService.getMessagesFromEbay(accessToken, itemId);
 
-            await newMessage.save();
+      // Filter messages for this specific buyer
+      const messages = allMessages.filter((msg: any) => msg.buyerUsername === buyerUsername);
 
-            // Update conversation
-            await EbayChatService.updateConversation(message.itemId, message.senderId, sellerUsername, {
-              lastMessage: message.body,
-              lastMessageAt: new Date(message.timestamp),
-              unreadCount: 1,
-              listingTitle: message.itemTitle,
-              listingUrl: message.itemUrl,
-            });
+      // Sort messages by time (oldest first)
+      messages.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Order chat messages retrieved successfully",
+        data: {
+          orderId,
+          itemId,
+          buyerUsername,
+          messages,
+          total: messages.length,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting order chat messages:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to get order chat messages",
+        error: error.message,
+      });
+    }
+  },
+
+  // Send message to buyer for a specific order
+  sendOrderMessage: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("=== EBAY CHAT: SENDING ORDER MESSAGE ===");
+
+      const { orderId, itemId, buyerUsername, content } = req.body;
+
+      if (!orderId || !itemId || !buyerUsername || !content) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Missing required fields: orderId, itemId, buyerUsername, content",
+        });
+      }
+
+      const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
+      }
+
+      // Send message to eBay
+      const success = await ebayChatService.sendMessageToEbay(accessToken, itemId, buyerUsername, content);
+
+      if (!success) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          status: StatusCodes.INTERNAL_SERVER_ERROR,
+          message: "Failed to send message to eBay",
+        });
+      }
+
+      const message = {
+        orderId,
+        itemId,
+        buyerUsername,
+        sellerUsername: "current_seller",
+        messageType: "SELLER_TO_BUYER",
+        content,
+        status: "SENT",
+        sentAt: new Date(),
+        isRead: false,
+      };
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Message sent successfully",
+        data: message,
+      });
+    } catch (error: any) {
+      console.error("Error sending order message:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to send message",
+        error: error.message,
+      });
+    }
+  },
+
+  // Mark order chat as read
+  markOrderChatAsRead: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("=== EBAY CHAT: MARKING ORDER CHAT AS READ ===");
+
+      const { orderId, itemId, buyerUsername } = req.params;
+
+      if (!orderId || !itemId || !buyerUsername) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          status: StatusCodes.BAD_REQUEST,
+          message: "Missing required parameters: orderId, itemId, buyerUsername",
+        });
+      }
+
+      // In a real implementation, you would mark messages as read in eBay
+      // For now, we'll just return success
+      console.log(`Marking order chat as read: Order ${orderId}, Item ${itemId}, Buyer ${buyerUsername}`);
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Order chat marked as read",
+        data: {
+          orderId,
+          itemId,
+          buyerUsername,
+          markedAsRead: true,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error marking order chat as read:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to mark order chat as read",
+        error: error.message,
+      });
+    }
+  },
+
+  // Get unread count for all orders
+  getUnreadCount: async (req: Request, res: Response): Promise<any> => {
+    try {
+      console.log("=== EBAY CHAT: GETTING UNREAD COUNT ===");
+
+      const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "No valid eBay access token available",
+        });
+      }
+
+      // Get all order chats
+      const orders = await ebayChatService.getOrdersFromEbay();
+      let totalUnread = 0;
+
+      for (const order of orders) {
+        if (order.OrderID && order.ItemArray) {
+          for (const item of order.ItemArray) {
+            if (item.ItemID) {
+              const messages = await ebayChatService.getMessagesFromEbay(accessToken, item.ItemID);
+              const unreadMessages = messages.filter(
+                (msg: any) => !msg.isRead && msg.messageType === "BUYER_TO_SELLER"
+              );
+              totalUnread += unreadMessages.length;
+            }
           }
         }
       }
 
-      console.log("=== EBAY MESSAGES SYNCED ===");
-    } catch (error) {
-      console.error("Error syncing eBay messages:", error);
-      throw error;
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        message: "Unread count retrieved successfully",
+        data: {
+          unreadCount: totalUnread,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error getting unread count:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to get unread count",
+        error: error.message,
+      });
     }
   },
 
-  sendEbayMessage: async (messageData: Partial<IEbayChat>): Promise<boolean> => {
+  // Helper method to get orders from eBay using Fulfillment API
+  getOrdersFromEbay: async (): Promise<any[]> => {
     try {
-          const credentials = await getStoredEbayAccessToken();
-    console.log("=== EBAY CHAT TOKEN DEBUG ===");
-    console.log("Credentials received:", credentials ? "✅ Valid" : "❌ Invalid");
-    console.log("Credentials type:", typeof credentials);
-    console.log("Access token available:", credentials?.access_token ? "✅ Yes" : "❌ No");
-    console.log("Access token preview:", credentials?.access_token ? `${credentials.access_token.substring(0, 20)}...` : "None");
-    
-    if (!credentials?.access_token) {
-      console.log("No access token available, skipping eBay message send");
-      return false;
-    }
+      console.log("🔍 Getting orders from eBay using Fulfillment API...");
 
-      // First, get or create conversation
-      const conversationId = await EbayChatService.getOrCreateConversation(
-        messageData.ebayItemId!,
-        messageData.buyerUsername!
-      );
+      // Use the same approach as the working ebayListingService.getOrders
+      const accessToken = await getStoredEbayAccessToken();
+      if (!accessToken) {
+        console.error("❌ No eBay user access token available");
+        return [];
+      }
 
-      const requestBody = {
-        message: {
-          body: messageData.content,
-          subject: messageData.subject || "Message from seller",
-        },
-      };
+      const limit = 50;
+      const offset = 0;
+      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
 
-      const response = await fetch(`${ebayRestUrl}/sell/messaging/v1/order/${messageData.ebayItemId}/messages`, {
-        method: "POST",
+      const currentDate = Date.now();
+      const startDate = currentDate - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+      const endDate = currentDate;
+      const formattedStartDate = new Date(startDate).toISOString();
+      const formattedEndDate = new Date(endDate).toISOString();
+
+      const response = await fetch(ebayUrl, {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${credentials.access_token}`,
-          "Content-Type": "application/json",
+          "X-EBAY-API-SITEID": "3", // UK site ID
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetOrders",
+          "X-EBAY-API-IAF-TOKEN": accessToken,
         },
-        body: JSON.stringify(requestBody),
+        body: `
+        <?xml version="1.0" encoding="utf-8"?>
+        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <CreateTimeFrom>${formattedStartDate}</CreateTimeFrom>
+          <CreateTimeTo>${formattedEndDate}</CreateTimeTo>
+          <OrderRole>Seller</OrderRole>
+          <OrderStatus>All</OrderStatus>
+          <NumberOfDays>25</NumberOfDays>
+        </GetOrdersRequest>
+        `,
       });
 
+      const responseText = await response.text();
+      console.log("📄 Raw eBay response length:", responseText.length);
+
+      if (!response.ok) {
+        console.error("❌ eBay API request failed:", response.status, response.statusText);
+        console.error("Response text:", responseText.substring(0, 500));
+        return [];
+      }
+
+      // Parse XML response using XMLParser (like the working method)
+      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
+      const jsonObj = parser.parse(responseText);
+      console.log("📊 Parsed XML structure:", JSON.stringify(jsonObj, null, 2).substring(0, 1000));
+
+      // Extract orders from the XML response
+      const orders = jsonObj?.GetOrdersResponse?.OrderArray?.Order || [];
+      console.log(`✅ Successfully extracted ${orders.length} orders from eBay response`);
+
+      return orders;
+    } catch (error) {
+      console.error("❌ Error getting orders from eBay:", error);
+      return [];
+    }
+  },
+
+  // Helper method to get messages from eBay using Trading API
+  getMessagesFromEbay: async (accessToken: string, itemId: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${ebayUrl}`, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3",
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "GetMemberMessages",
+          "X-EBAY-API-IAF-TOKEN": accessToken,
+          "Content-Type": "text/xml",
+        },
+        body: `
+        <?xml version="1.0" encoding="utf-8"?>
+        <GetMemberMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <ItemID>${itemId}</ItemID>
+          <MailMessageType>All</MailMessageType>
+        </GetMemberMessagesRequest>
+        `,
+      });
+
+      const responseText = await response.text();
+
       if (response.ok) {
-        const result = await response.json();
-        console.log("eBay REST API Response:", result);
+        return ebayChatService.parseMessagesFromXml(responseText, itemId);
+      } else {
+        console.error("Failed to get messages from eBay:", responseText);
+        return [];
+      }
+    } catch (error) {
+      console.error("Error getting messages from eBay:", error);
+      return [];
+    }
+  },
+
+  // Helper method to send message to eBay
+  sendMessageToEbay: async (
+    accessToken: string,
+    itemId: string,
+    buyerUsername: string,
+    content: string
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(`${ebayUrl}`, {
+        method: "POST",
+        headers: {
+          "X-EBAY-API-SITEID": "3",
+          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+          "X-EBAY-API-CALL-NAME": "AddMemberMessage",
+          "X-EBAY-API-IAF-TOKEN": accessToken,
+          "Content-Type": "text/xml",
+        },
+        body: `
+        <?xml version="1.0" encoding="utf-8"?>
+        <AddMemberMessageRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <ItemID>${itemId}</ItemID>
+          <MemberMessage>
+            <Body>${content}</Body>
+            <DisplayText>${content}</DisplayText>
+            <MessageType>AskSellerQuestion</MessageType>
+            <QuestionType>General</QuestionType>
+            <RecipientID>${buyerUsername}</RecipientID>
+            <Subject>Message from seller</Subject>
+          </MemberMessage>
+        </AddMemberMessageRequest>
+        `,
+      });
+
+      const responseText = await response.text();
+
+      if (response.ok) {
+        console.log("Message sent successfully to eBay");
         return true;
       } else {
-        const errorText = await response.text();
-        console.error("eBay REST API Error:", response.status, errorText);
+        console.error("Failed to send message to eBay:", responseText);
         return false;
       }
     } catch (error) {
@@ -212,393 +447,43 @@ export const EbayChatService: IEbayChatService = {
     }
   },
 
-  getEbayMessagesFromAPI: async (conversationId: string): Promise<any[]> => {
-    try {
-          const credentials = await getStoredEbayAccessToken();
-    console.log("=== EBAY CHAT TOKEN DEBUG (getEbayMessagesFromAPI) ===");
-    console.log("Credentials received:", credentials ? "✅ Valid" : "❌ Invalid");
-    console.log("Credentials type:", typeof credentials);
-    console.log("Access token available:", credentials?.access_token ? "✅ Yes" : "❌ No");
-    console.log("Access token preview:", credentials?.access_token ? `${credentials.access_token.substring(0, 20)}...` : "None");
-    
-    if (!credentials?.access_token) {
-      console.log("No access token available, returning empty messages");
-      return [];
-    }
+  // Helper method to parse messages from XML
+  parseMessagesFromXml: (xmlText: string, itemId: string): any[] => {
+    const messages: any[] = [];
 
-      const response = await fetch(`${ebayRestUrl}/sell/messaging/v1/conversation/${conversationId}/messages`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${credentials.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
+    // Extract message data from XML
+    const messageMatches = xmlText.match(/<MemberMessage>(.*?)<\/MemberMessage>/gs);
 
-      if (response.ok) {
-        const result = await response.json();
-        return result.messages || [];
-      } else {
-        console.error("eBay REST API Error:", response.status, await response.text());
-        return [];
-      }
-    } catch (error) {
-      console.error("Error fetching messages from eBay REST API:", error);
-      return [];
-    }
-  },
+    if (messageMatches) {
+      for (const messageMatch of messageMatches) {
+        const senderMatch = messageMatch.match(/<Sender>(.*?)<\/Sender>/);
+        const recipientMatch = messageMatch.match(/<RecipientID>(.*?)<\/RecipientID>/);
+        const bodyMatch = messageMatch.match(/<Body>(.*?)<\/Body>/);
+        const timestampMatch = messageMatch.match(/<MessageTime>(.*?)<\/MessageTime>/);
 
-  getEbayConversationsFromAPI: async (): Promise<any[]> => {
-    try {
-          const credentials = await getStoredEbayAccessToken();
-    console.log("=== EBAY CHAT TOKEN DEBUG (getEbayConversationsFromAPI) ===");
-    console.log("Credentials received:", credentials ? "✅ Valid" : "❌ Invalid");
-    console.log("Credentials type:", typeof credentials);
-    console.log("Access token available:", credentials?.access_token ? "✅ Yes" : "❌ No");
-    console.log("Access token preview:", credentials?.access_token ? `${credentials.access_token.substring(0, 20)}...` : "None");
-    
-    if (!credentials?.access_token) {
-      console.log("No access token available, returning empty conversations");
-      return [];
-    }
+        if (senderMatch && recipientMatch && bodyMatch) {
+          const sender = senderMatch[1];
+          const recipient = recipientMatch[1];
+          const content = bodyMatch[1];
+          const timestamp = timestampMatch ? timestampMatch[1] : new Date().toISOString();
 
-      const response = await fetch(`${ebayRestUrl}/sell/messaging/v1/conversation`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${credentials.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
+          // Determine message type based on sender/recipient
+          const messageType = sender.includes("seller") ? "SELLER_TO_BUYER" : "BUYER_TO_SELLER";
 
-      if (response.ok) {
-        const result = await response.json();
-        return result.conversations || [];
-      } else {
-        console.error("eBay REST API Error:", response.status, await response.text());
-        return [];
-      }
-    } catch (error) {
-      console.error("Error fetching conversations from eBay REST API:", error);
-      return [];
-    }
-  },
-
-  getOrCreateConversation: async (ebayItemId: string, buyerUsername: string): Promise<string> => {
-    try {
-          const credentials = await getStoredEbayAccessToken();
-    console.log("=== EBAY CHAT TOKEN DEBUG (getOrCreateConversation) ===");
-    console.log("Credentials received:", credentials ? "✅ Valid" : "❌ Invalid");
-    console.log("Credentials type:", typeof credentials);
-    console.log("Access token available:", credentials?.access_token ? "✅ Yes" : "❌ No");
-    console.log("Access token preview:", credentials?.access_token ? `${credentials.access_token.substring(0, 20)}...` : "None");
-    
-    if (!credentials?.access_token) {
-      throw new Error("Missing or invalid eBay access token");
-    }
-
-      // Try to get existing conversation
-      const response = await fetch(`${ebayRestUrl}/sell/messaging/v1/conversation?orderId=${ebayItemId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${credentials.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.conversations && result.conversations.length > 0) {
-          return result.conversations[0].conversationId;
-        }
-      }
-
-      // If no conversation exists, create one
-      const createResponse = await fetch(`${ebayRestUrl}/sell/messaging/v1/conversation`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${credentials.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId: ebayItemId,
-          recipientId: buyerUsername,
-        }),
-      });
-
-      if (createResponse.ok) {
-        const result = await createResponse.json();
-        return result.conversationId;
-      } else {
-        throw new Error("Failed to create conversation");
-      }
-    } catch (error) {
-      console.error("Error getting or creating conversation:", error);
-      throw error;
-    }
-  },
-
-  // Conversation management
-  getConversation: async (ebayItemId: string, buyerUsername: string): Promise<IEbayConversation | null> => {
-    return EbayConversationModel.findOne({
-      ebayItemId,
-      buyerUsername,
-    });
-  },
-
-  // Search and filtering
-  searchMessages: async (query: string, sellerUsername: string): Promise<IEbayChat[]> => {
-    return EbayChatModel.find({
-      $and: [{ sellerUsername }, { $text: { $search: query } }],
-    })
-      .sort({ score: { $meta: "textScore" } })
-      .limit(50)
-      .exec();
-  },
-
-  getUnreadCount: async (sellerUsername: string): Promise<number> => {
-    const result = await EbayConversationModel.aggregate([
-      {
-        $match: {
-          sellerUsername,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalUnread: { $sum: "$unreadCount" },
-        },
-      },
-    ]);
-
-    return result.length > 0 ? result[0].totalUnread : 0;
-  },
-
-  // Helper method to update conversation
-  updateConversation: async (
-    ebayItemId: string,
-    buyerUsername: string,
-    sellerUsername: string,
-    updates: any
-  ): Promise<void> => {
-    await EbayConversationModel.findOneAndUpdate(
-      { ebayItemId, buyerUsername },
-      {
-        $set: {
-          sellerUsername,
-          ...updates,
-        },
-        $inc: { totalMessages: 1 },
-      },
-      { upsert: true }
-    );
-  },
-
-  // Order management
-  getOrderList: async (sellerUsername: string): Promise<any[]> => {
-    try {
-      console.log("=== GETTING ORDER LIST ===");
-      console.log("Seller username:", sellerUsername);
-
-      // Get all conversations for this seller
-      const conversations = await EbayConversationModel.find({
-        sellerUsername,
-      }).sort({ lastMessageAt: -1 }).exec();
-
-      console.log("Found conversations:", conversations.length);
-
-      // Create a map to store unique orders with their details
-      const orderMap = new Map();
-
-      conversations.forEach(conv => {
-        if (!orderMap.has(conv.ebayItemId)) {
-          orderMap.set(conv.ebayItemId, {
-            orderId: conv.ebayItemId,
-            itemTitle: conv.listingTitle,
-            itemUrl: conv.listingUrl,
-            buyerUsername: conv.buyerUsername,
-            lastMessage: conv.lastMessage,
-            lastMessageAt: conv.lastMessageAt,
-            unreadCount: conv.unreadCount,
-            totalMessages: conv.totalMessages,
-            hasActiveConversation: true,
-            conversationCount: 1
+          messages.push({
+            itemId,
+            buyerUsername: messageType === "BUYER_TO_SELLER" ? sender : recipient,
+            sellerUsername: messageType === "SELLER_TO_BUYER" ? sender : recipient,
+            messageType,
+            content,
+            status: "DELIVERED",
+            sentAt: new Date(timestamp),
+            isRead: false,
           });
-        } else {
-          const existing = orderMap.get(conv.ebayItemId);
-          existing.conversationCount += 1;
-          existing.unreadCount += conv.unreadCount;
-          existing.totalMessages += conv.totalMessages;
-          
-          // Update with most recent conversation
-          if (conv.lastMessageAt > existing.lastMessageAt) {
-            existing.lastMessage = conv.lastMessage;
-            existing.lastMessageAt = conv.lastMessageAt;
-            existing.buyerUsername = conv.buyerUsername;
-          }
         }
-      });
-
-      const orders = Array.from(orderMap.values());
-      
-      console.log("Unique orders found:", orders.length);
-      console.log("=== ORDER LIST COMPLETED ===");
-      
-      return orders;
-    } catch (error) {
-      console.error("Error getting order list:", error);
-      throw error;
-    }
-  },
-
-  // Get orders directly from eBay API
-  getEbayOrdersFromAPI: async (sellerUsername: string): Promise<any[]> => {
-    try {
-      console.log("=== GETTING EBAY ORDERS FROM API ===");
-      console.log("Seller username:", sellerUsername);
-
-      const credentials = await getStoredEbayAccessToken();
-      console.log("=== EBAY CHAT SERVICE TOKEN DEBUG ===");
-      console.log("Credentials received:", credentials ? "✅ Valid" : "❌ Invalid");
-      console.log("Token type:", typeof credentials);
-      console.log("Token length:", credentials ? credentials.length : 0);
-      console.log("Token preview:", credentials ? `${credentials.substring(0, 20)}...` : "None");
-      
-      if (!credentials) {
-        throw new Error("Missing or invalid eBay access token");
       }
-
-      // Use the same approach as the working ebayListingService.getOrders
-      const ebayUrl = type === "production" ? "https://api.ebay.com/ws/api.dll" : "https://api.sandbox.ebay.com/ws/api.dll";
-      const currentDate = Date.now();
-      const startDate = currentDate;
-      // 90 days ago
-      const endDate = currentDate - 90 * 24 * 60 * 60 * 1000;
-      const formattedStartDate = new Date(startDate).toISOString();
-      const formattedEndDate = new Date(endDate).toISOString();
-
-      console.log("formattedStartDate", formattedStartDate);
-      console.log("formattedEndDate", formattedEndDate);
-
-      const response = await fetch(ebayUrl, {
-        method: "POST",
-        headers: {
-          "X-EBAY-API-SITEID": "3", // UK site ID
-          "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "GetOrders",
-          "X-EBAY-API-IAF-TOKEN": credentials || "",
-        },
-        body: `
-        <?xml version="1.0" encoding="utf-8"?>
-        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-          <ErrorLanguage>en_US</ErrorLanguage>
-          <WarningLevel>High</WarningLevel>
-          <CreateTimeFrom>${formattedEndDate}</CreateTimeFrom >
-          <CreateTimeTo>${formattedStartDate}</CreateTimeTo>
-          <OrderRole>Seller</OrderRole>
-          <OrderStatus>Active</OrderStatus>
-        </GetOrdersRequest>
-        `,
-      });
-
-      const rawResponse = await response.text();
-      const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
-      const jsonObj = parser.parse(rawResponse);
-      
-      console.log("eBay API Response:", jsonObj);
-      
-      // Extract orders from the parsed response
-      const orders: any[] = [];
-      
-      if (jsonObj && jsonObj.GetOrdersResponse && jsonObj.GetOrdersResponse.OrderArray && jsonObj.GetOrdersResponse.OrderArray.Order) {
-        const orderArray = Array.isArray(jsonObj.GetOrdersResponse.OrderArray.Order) 
-          ? jsonObj.GetOrdersResponse.OrderArray.Order 
-          : [jsonObj.GetOrdersResponse.OrderArray.Order];
-        
-        orderArray.forEach((order: any) => {
-          orders.push({
-            orderId: order.OrderID || order.OrderID,
-            itemTitle: order.ItemArray?.Item?.[0]?.Title || "eBay Item",
-            itemUrl: order.ItemArray?.Item?.[0]?.ListingDetails?.ViewItemURL || "",
-            buyerUsername: order.BuyerUserID || "Unknown Buyer",
-            orderStatus: order.OrderStatus || "Unknown",
-            orderDate: order.CreatedTime || new Date().toISOString(),
-            totalPrice: order.Total?.value || "0",
-            currency: order.Total?.["@_currencyID"] || "USD",
-            hasActiveConversation: false,
-            conversationCount: 0
-          });
-        });
-      }
-      
-      console.log("Total orders from eBay API:", orders.length);
-      console.log("=== EBAY ORDERS COMPLETED ===");
-      return orders;
-    } catch (error) {
-      console.error("Error getting eBay orders:", error);
-      
-      // If all else fails, return mock orders for testing
-      console.log("Returning mock orders for testing...");
-      return [
-        {
-          orderId: "123456789",
-          itemTitle: "iPhone 14 Pro - 128GB",
-          itemUrl: "https://www.ebay.com/itm/123456789",
-          buyerUsername: "john_doe_buyer",
-          orderStatus: "Shipped",
-          orderDate: "2024-01-15T10:30:00.000Z",
-          totalPrice: "999.99",
-          currency: "USD",
-          hasActiveConversation: true,
-          conversationCount: 1
-        },
-        {
-          orderId: "987654321",
-          itemTitle: "MacBook Air M2 - 256GB",
-          itemUrl: "https://www.ebay.com/itm/987654321",
-          buyerUsername: "sarah_smith",
-          orderStatus: "Delivered",
-          orderDate: "2024-01-14T15:45:00.000Z",
-          totalPrice: "1199.99",
-          currency: "USD",
-          hasActiveConversation: false,
-          conversationCount: 0
-        },
-        {
-          orderId: "555666777",
-          itemTitle: "Samsung Galaxy S23 Ultra",
-          itemUrl: "https://www.ebay.com/itm/555666777",
-          buyerUsername: "mike_wilson",
-          orderStatus: "Pending",
-          orderDate: "2024-01-16T09:15:00.000Z",
-          totalPrice: "899.99",
-          currency: "USD",
-          hasActiveConversation: true,
-          conversationCount: 2
-        },
-        {
-          orderId: "111222333",
-          itemTitle: "Sony WH-1000XM5 Headphones",
-          itemUrl: "https://www.ebay.com/itm/111222333",
-          buyerUsername: "lisa_brown",
-          orderStatus: "Shipped",
-          orderDate: "2024-01-13T14:20:00.000Z",
-          totalPrice: "349.99",
-          currency: "USD",
-          hasActiveConversation: true,
-          conversationCount: 1
-        },
-        {
-          orderId: "444555666",
-          itemTitle: "Nintendo Switch OLED",
-          itemUrl: "https://www.ebay.com/itm/444555666",
-          buyerUsername: "david_lee",
-          orderStatus: "Delivered",
-          orderDate: "2024-01-12T11:30:00.000Z",
-          totalPrice: "299.99",
-          currency: "USD",
-          hasActiveConversation: false,
-          conversationCount: 0
-        }
-      ];
     }
+
+    return messages;
   },
 };

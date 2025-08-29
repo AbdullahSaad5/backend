@@ -7,6 +7,7 @@ export const LeadService = {
     name: string;
     email: string;
     phoneNumber?: string;
+    productId?: Types.ObjectId;
     source?: string;
     purpose?: string;
     description?: string;
@@ -32,6 +33,7 @@ export const LeadService = {
       name?: string;
       email?: string;
       phoneNumber?: string;
+      productId?: Types.ObjectId;
       source?: string;
       purpose?: string;
       description?: string;
@@ -90,11 +92,7 @@ export const LeadService = {
       .populate("timeline.changedBy", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
-  searchAndFilterLead: async (
-    limitNum: number,
-    skip: number,
-    filter: Record<string, any>
-  ) => {
+  searchAndFilterLead: async (limitNum: number, skip: number, filter: Record<string, any>) => {
     try {
       const [leads, total] = await Promise.all([
         LeadModel.find(filter)
@@ -137,14 +135,7 @@ export const LeadService = {
 
   updateLeadStatus: async (
     id: string,
-    status:
-      | "new"
-      | "Contacted"
-      | "Converted"
-      | "Lost"
-      | "Cold-Lead"
-      | "Hot-Lead"
-      | "Bad-Contact",
+    status: "new" | "Contacted" | "Converted" | "Lost" | "Cold-Lead" | "Hot-Lead" | "Bad-Contact",
     userId?: string
   ) => {
     const updateData: any = { status };
@@ -179,12 +170,7 @@ export const LeadService = {
   },
 
   // Notes methods
-  addNote: async (
-    leadId: string,
-    description: string,
-    userId: string,
-    images?: string[]
-  ): Promise<ILead> => {
+  addNote: async (leadId: string, description: string, userId: string, images?: string[]): Promise<ILead> => {
     if (!Types.ObjectId.isValid(leadId) || !Types.ObjectId.isValid(userId)) {
       throw new Error("Invalid ID");
     }
