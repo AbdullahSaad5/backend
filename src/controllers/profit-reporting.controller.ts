@@ -213,9 +213,9 @@ export const ProfitReportingController = {
       report = await ProfitReportingService.generateTimeBasedReport(start, end, period, payrollType);
       
       // Add payroll type to title if specified
-      if (payrollType) {
-        title += ` - ${payrollType} Payroll`;
-      }
+      // if (payrollType) {
+      //   title += ` - ${payrollType} Payroll`;
+      // }
 
       // Create PDF
       const doc = new PDFDocument({ margin: 50 });
@@ -261,9 +261,9 @@ export const ProfitReportingController = {
          .fillColor('#1a365d')
          .text('Build My Rig', margin, margin, { align: 'center' });
       
-      doc.fontSize(12).font('Helvetica')
-         .fillColor('#718096')
-         .text('Financial Management System', margin, margin + 35, { align: 'center' });
+      // doc.fontSize(12).font('Helvetica')
+      //    .fillColor('#718096')
+      //    .text('Financial Management System', margin, margin + 35, { align: 'center' });
       
       // Add a horizontal line under header
       doc.strokeColor('#e2e8f0')
