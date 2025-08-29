@@ -4,12 +4,15 @@ import {
   getEbayAuthURL,
   getNormalAccessToken,
   getStoredEbayAccessToken,
+
   refreshEbayAccessToken,
+
 } from "@/utils/ebay-helpers.util";
 import { Request, Response } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import e, { Router } from "express";
 // import ebayToken from "../../ebay_tokens.json";
+import { IntegrationTokenModel } from "@/models/integration-token.model";
 
 const baseURL = "https://api.sandbox.ebay.com";
 
@@ -21,13 +24,92 @@ export const ebay = (router: Router) => {
   router.get("/auth/ebay/callback/client", ebayListingService.handleAuthorizationCallbackClient);
   router.get("/auth/ebay/callback/declined", ebayListingService.handleFallbackCallback);
   router.get("/auth/refresh-token", ebayListingService.handleRefreshToken);
+
+  // Check user token status for listing operations
+  router.get("/auth/user-token-status", async (req: Request, res: Response) => {
+    try {
+      const tokenResult = await getStoredEbayAccessToken();
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
+
+      // If tokenResult is null (no token or no refresh token)
+      if (tokenResult === null) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: `No valid user token found for ${currentEnv} environment`,
+          authRequired: true,
+          hasToken: false,
+          environment: currentEnv,
+          authUrl: getEbayAuthURL(currentEnv),
+        });
+      }
+
+      // If tokenResult is an object with error (shouldn't happen with new logic)
+      if (typeof tokenResult === "object" && tokenResult.error) {
+        return res.status(StatusCodes.UNAUTHORIZED).json({
+          status: StatusCodes.UNAUTHORIZED,
+          message: "User authorization required",
+          error: tokenResult.error,
+          authRequired: true,
+          authUrl: tokenResult.authUrl,
+          environment: tokenResult.environment,
+        });
+      }
+
+      // If tokenResult is a valid access token
+      if (tokenResult) {
+        return res.status(StatusCodes.OK).json({
+          status: StatusCodes.OK,
+          message: `User token is valid for ${currentEnv} environment`,
+          hasToken: true,
+          authRequired: false,
+          environment: currentEnv,
+        });
+      }
+
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        status: StatusCodes.UNAUTHORIZED,
+        message: "No valid user token found",
+        authRequired: true,
+        hasToken: false,
+        environment: currentEnv,
+      });
+    } catch (error) {
+      console.error("Error checking user token status:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to check user token status",
+      });
+    }
+  });
+
+  // Get current eBay environment configuration
+  router.get("/auth/environment", async (req: Request, res: Response) => {
+    try {
+      const currentEnv = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
+      const authUrl = getEbayAuthURL(currentEnv);
+
+      return res.status(StatusCodes.OK).json({
+        status: StatusCodes.OK,
+        environment: currentEnv,
+        authUrl: authUrl,
+        message: `Current eBay environment: ${currentEnv}`,
+      });
+    } catch (error) {
+      console.error("Error getting eBay environment:", error);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: ReasonPhrases.INTERNAL_SERVER_ERROR,
+        error: "Failed to get environment configuration",
+      });
+    }
+  });
+
   router.get("/taxonomy/get-ebay-categories", ebayListingService.getEbayCategories);
   router.get("/taxonomy/get-ebay-subcategories/:categoryId", ebayListingService.getEbaySubCategories);
   router.get("/taxonomy/get-ebay-category-suggestions", ebayListingService.getEbayCategorySuggestions);
   router.get("/taxonomy/get-ebay-category-aspects/:categoryId", ebayListingService.getEbayCategoryAspects);
   router.get("/orders/get-orders", ebayListingService.getOrders);
-  router.post("/account-deletion", ebayListingService.accountDeletion);
-  router.get("/account-deletion", ebayListingService.accountDeletion);
 
   // router.get("/inventory", ebayListingService.getAllInventory);
   // router.get("/inventory/get-all-categories", ebayListingService.getAllCategories);

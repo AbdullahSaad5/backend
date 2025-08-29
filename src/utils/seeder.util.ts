@@ -9,8 +9,8 @@ import { seedSystemExpenseCategories } from "@/scripts/seed-system-categories";
 dotenv.config();
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
-  // 0. Clean up existing tokens and initialize them properly
-  await cleanupTokenCollections();
+  // ❌ DISABLED: This was deleting all tokens on every server restart!
+  // await cleanupTokenCollections();
 
   // Initialize tokens using the new service if environment variables are available
   try {

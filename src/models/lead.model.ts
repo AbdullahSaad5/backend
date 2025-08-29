@@ -9,6 +9,11 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
       trim: true,
       maxlength: [100, "Name cannot exceed 100 characters"],
     },
+    productId: {
+      type: Schema.Types.ObjectId,
+      ref: "Product",
+      required: [false, "Product ID is optional"],
+    },
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -38,15 +43,7 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
     },
     status: {
       type: String,
-      enum: [
-        "new",
-        "Contacted",
-        "Converted",
-        "Lost",
-        "Hot-Lead",
-        "Cold-Lead",
-        "Bad-Contact",
-      ],
+      enum: ["new", "Contacted", "Converted", "Lost", "Hot-Lead", "Cold-Lead", "Bad-Contact"],
       default: "new",
     },
     assignedTo: [
@@ -88,15 +85,7 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
       {
         status: {
           type: String,
-          enum: [
-            "new",
-            "Contacted",
-            "Converted",
-            "Lost",
-            "Hot-Lead",
-            "Cold-Lead",
-            "Bad-Contact",
-          ],
+          enum: ["new", "Contacted", "Converted", "Lost", "Hot-Lead", "Cold-Lead", "Bad-Contact"],
           required: true,
         },
         changedAt: {

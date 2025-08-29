@@ -193,10 +193,27 @@ export const documentController = {
         message: "Document updated successfully"
       });
     } catch (error) {
+      // Handle specific version-related errors with better user messages
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      if (errorMessage.includes('already exists for this document')) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: errorMessage,
+        });
+      }
+      
+      if (errorMessage.includes('must be greater than current version')) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: errorMessage,
+        });
+      }
+      
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Error updating document",
-        error: error instanceof Error ? error.message : error,
+        error: errorMessage,
       });
     }
   },
@@ -553,16 +570,38 @@ export const documentController = {
         });
       }
 
+      const currentVersionStr = currentVersion as string;
+      const newVersionStr = newVersion as string;
+
+      // If version is the same as current, check if it already exists in version history
+      if (currentVersionStr === newVersionStr) {
+        const documentId = req.params.id;
+        const versionExists = await documentVersionService.versionExists(
+          documentId, 
+          newVersionStr
+        );
+        
+        return res.status(StatusCodes.OK).json({
+          success: true,
+          data: {
+            isValidVersion: true, // Same version is technically valid
+            versionExists: versionExists,
+            canUseVersion: !versionExists // Can use if it doesn't exist in history
+          },
+        });
+      }
+
+      // Version is different, validate it's greater than current
       const isValid = documentVersionService.validateVersionNumber(
-        currentVersion as string, 
-        newVersion as string
+        currentVersionStr, 
+        newVersionStr
       );
 
       // Check if version already exists for this document
       const documentId = req.params.id;
       const versionExists = await documentVersionService.versionExists(
         documentId, 
-        newVersion as string
+        newVersionStr
       );
 
       res.status(StatusCodes.OK).json({

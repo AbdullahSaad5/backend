@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { getStoredAmazonAccessToken, refreshAmazonAccessToken } from "@/utils/amazon-helpers.util";
-import { getStoredEbayAccessToken, refreshEbayAccessToken } from "@/utils/ebay-helpers.util";
+import { getStoredEbayAccessToken } from "@/utils/ebay-helpers.util";
 
 export const tokenRefreshCron = () => {
   // Run every 5 minutes to proactively refresh if near expiry
@@ -13,7 +13,7 @@ export const tokenRefreshCron = () => {
     }
 
     try {
-      // eBay (use env flags)
+      // eBay: proactively ensure user token is fresh (uses refresh_token internally)
       await getStoredEbayAccessToken();
     } catch (e) {
       console.error("❌ eBay token refresh (cron) failed:", e);

@@ -61,10 +61,12 @@ export const RevenueService = {
     isBlocked?: boolean;
     source?: string;
     receiveType?: string;
+    startDate?: string;
+    endDate?: string;
     page?: number;
     limit?: number;
   }) => {
-    const { searchQuery, isBlocked, source, receiveType, page = 1, limit = 10 } = filters;
+    const { searchQuery, isBlocked, source, receiveType, startDate, endDate, page = 1, limit = 10 } = filters;
     
     // Build filter object
     const filter: any = {};
@@ -79,6 +81,17 @@ export const RevenueService = {
     
     if (receiveType) {
       filter.receiveType = receiveType;
+    }
+    
+    // Build date range filter
+    if (startDate || endDate) {
+      filter.date = {};
+      if (startDate) {
+        filter.date.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.date.$lte = new Date(endDate + 'T23:59:59.999Z'); // Include the entire end date
+      }
     }
     
     // Build search query
