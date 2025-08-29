@@ -11,9 +11,18 @@ export const LeadService = {
     source?: string;
     purpose?: string;
     description?: string;
-    assignedTo?: Types.ObjectId;
+    assignedTo?: Types.ObjectId[]
+    status?: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
     leadCategory: Types.ObjectId;
     notes?: any[];
+    shippingAddress?: {
+      street1: string;
+      street2?: string;
+      city: string;
+      stateProvince: string;
+      postalCode: string;
+      country: string;
+    };
   }) => {
     const newLead = new LeadModel(leadData);
     return newLead.save();
@@ -29,8 +38,17 @@ export const LeadService = {
       source?: string;
       purpose?: string;
       description?: string;
-      assignedTo?: Types.ObjectId[] | Types.ObjectId;
+      assignedTo?: Types.ObjectId[];
       leadCategory?: Types.ObjectId;
+      shippingAddress?: {
+        street1: string;
+        street2?: string;
+        city: string;
+        stateProvince: string;
+        postalCode: string;
+        country: string;
+      };
+      status?: "New" | "Contacted" |  "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
     },
     userId?: string
   ) => {
@@ -119,7 +137,7 @@ export const LeadService = {
 
   updateLeadStatus: async (
     id: string,
-    status: "new" | "Contacted" | "Converted" | "Lost" | "Cold-Lead" | "Hot-Lead" | "Bad-Contact",
+    status: "New" | "Contacted" | "Converted" | "Lost" | "Cold-Lead" | "Hot-Lead" | "Bad-Contact",
     userId?: string
   ) => {
     const updateData: any = { status };
