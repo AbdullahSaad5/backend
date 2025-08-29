@@ -1,7 +1,7 @@
 import { Model, Document, Types } from "mongoose";
 
 export interface ITimelineEntry {
-  status: "new" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
+  status: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
   changedAt: Date;
   changedBy: Types.ObjectId;
   assignedUsers?: Types.ObjectId[]; // For assignment changes
@@ -32,7 +32,7 @@ export interface ILead extends Document {
   source?: string;
   purpose?: string;
   description?: string;
-  status: "new" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
+  status: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
   assignedTo?: Types.ObjectId[];
   leadCategory: Types.ObjectId;
   createdAt?: Date;

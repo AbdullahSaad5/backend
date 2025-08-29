@@ -11,7 +11,8 @@ export const LeadService = {
     source?: string;
     purpose?: string;
     description?: string;
-    assignedTo?: Types.ObjectId;
+    assignedTo?: Types.ObjectId[]
+    status?: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
     leadCategory: Types.ObjectId;
     notes?: any[];
     shippingAddress?: {
@@ -37,7 +38,7 @@ export const LeadService = {
       source?: string;
       purpose?: string;
       description?: string;
-      assignedTo?: Types.ObjectId[] | Types.ObjectId;
+      assignedTo?: Types.ObjectId[];
       leadCategory?: Types.ObjectId;
       shippingAddress?: {
         street1: string;
@@ -47,6 +48,7 @@ export const LeadService = {
         postalCode: string;
         country: string;
       };
+      status?: "New" | "Contacted" |  "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
     },
     userId?: string
   ) => {
@@ -135,7 +137,7 @@ export const LeadService = {
 
   updateLeadStatus: async (
     id: string,
-    status: "new" | "Contacted" | "Converted" | "Lost" | "Cold-Lead" | "Hot-Lead" | "Bad-Contact",
+    status: "New" | "Contacted" | "Converted" | "Lost" | "Cold-Lead" | "Hot-Lead" | "Bad-Contact",
     userId?: string
   ) => {
     const updateData: any = { status };

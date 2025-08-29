@@ -9,7 +9,7 @@ import { Types } from "mongoose";
 export const LeadController = {
   createLead: async (req: any, res: Response) => {
     try {
-      const { name, email, phoneNumber, productId, source, purpose, description, assignedTo, leadCategory } = req.body;
+      const { name, email, phoneNumber, productId, source, purpose, description, leadCategory, shippingAddress, status, assignedTo } = req.body;
 
       // Validate required fields
       if (!name || !email || !leadCategory) {
@@ -36,9 +36,12 @@ export const LeadController = {
         source,
         purpose,
         description,
-        assignedTo: assignedTo ? new Types.ObjectId(assignedTo) : undefined,
+        assignedTo: Array.isArray(assignedTo) 
+        ? assignedTo.map(id => new Types.ObjectId(id))
+        : [],        
         leadCategory: new Types.ObjectId(leadCategory),
         shippingAddress,
+        status,
       };
 
       const newLead = await LeadService.createLead(leadData);
@@ -223,13 +226,13 @@ export const LeadController = {
       const authHeader = (req as any).headers["authorization"];
       const token = authHeader && authHeader.split(" ")[1];
 
-      const allowedStatuses = ["new", "Contacted", "Converted", "Lost", "Cold-Lead", "Hot-Lead", "Bad-Contact"];
+      const allowedStatuses = ["New", "Contacted", "Converted", "Lost", "Cold-Lead", "Hot-Lead", "Bad-Contact"];
 
       if (!status || !allowedStatuses.includes(status)) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message:
-            "Status is required and must be one of: new, Contacted, Converted, Lost , Hot Lead, Cold Lead, Bad Contact",
+            "Status is required and must be one of: New, Contacted, Converted, Lost , Hot Lead, Cold Lead, Bad Contact",
           allowedStatuses,
         });
       }
