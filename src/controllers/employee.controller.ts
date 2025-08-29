@@ -6,7 +6,11 @@ export const employeeController = {
   getEmployeeList: async (req: Request, res: Response) => {
     try {
       const unassignedPayroll = req.query.unassignedPayroll === "true";
-      const result = await employeeService.getEmployeeList(unassignedPayroll);
+      const isVerified = req.query.isVerified === "true";
+      const result = await employeeService.getEmployeeList(
+        unassignedPayroll,
+        isVerified
+      );
       if (!result.success) {
         return res.status(500).json(result);
       }
@@ -43,7 +47,9 @@ export const employeeController = {
     try {
       const { userId } = req.params;
       if (!userId) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "User ID is required" });
       }
       const result = await employeeService.getEmployeeProfileDetails(userId);
       return res.status(200).json(result);
@@ -77,7 +83,9 @@ export const employeeController = {
     try {
       const { id } = req.params;
       if (!id) {
-        return res.status(400).json({ success: false, message: "User ID is required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "User ID is required" });
       }
       const result = await employeeService.getEmployeeLeaves(id);
       return res.status(200).json(result);
