@@ -278,6 +278,19 @@ const listingSchema = new Schema(
     inventoryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inventory", required: false },
     bundleId: { type: mongoose.Schema.Types.ObjectId, ref: "Bundle", required: false },
     selectedStockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock", required: false },
+    dealInfo: {
+      dealId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Deal'
+      },
+      dealType: {
+        type: String,
+        enum: ['percentage', 'fixed'],
+      },
+      discountValue: Number,
+      startDate: Date,
+      endDate: Date
+    },
     listingType: { type: String, enum: ["product", "part", "bundle"] },
     listingHasVariations: { type: Boolean, default: false },
     listingWithStock: { type: Boolean, default: true },

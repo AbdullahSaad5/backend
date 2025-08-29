@@ -1,32 +1,28 @@
 import { Router } from "express";
-import { EbayChatService } from "@/services/ebay-chat.service";
+import { ebayChatService } from "@/services/ebay-chat.service";
 
 export const ebayChat = (router: Router) => {
-  // Send a message to a buyer
-  router.post("/send", EbayChatService.sendMessage);
+  // Test route to verify the endpoint is working
+  router.get("/test", (req, res) => {
+    res.json({
+      status: 200,
+      message: "eBay Chat route is working!",
+      timestamp: new Date().toISOString()
+    });
+  });
 
-  // Get messages for a specific item and buyer
-  router.get("/messages/:ebayItemId/:buyerUsername", EbayChatService.getMessages);
+  // Get all orders with chat conversations
+  router.get("/order-chats", ebayChatService.getOrderChats);
 
-  // Get all conversations for a seller
-  router.get("/conversations", EbayChatService.getConversations);
-  router.get("/conversations/:sellerUsername", EbayChatService.getConversations);
+  // Get chat messages for a specific order and buyer
+  router.get("/order-chats/:orderId/:itemId/:buyerUsername", ebayChatService.getOrderChatMessages);
 
-  // Mark a specific message as read
-  router.patch("/messages/:messageId/read", EbayChatService.markAsRead);
+  // Send message to buyer for a specific order
+  router.post("/order-chats/send", ebayChatService.sendOrderMessage);
 
-  // Mark all messages in a conversation as read
-  router.patch("/conversations/:ebayItemId/:buyerUsername/read", EbayChatService.markConversationAsRead);
+  // Mark order chat as read
+  router.patch("/order-chats/:orderId/:itemId/:buyerUsername/read", ebayChatService.markOrderChatAsRead);
 
-  // Sync messages from eBay API
-  router.post("/sync", EbayChatService.syncEbayMessages);
-  router.post("/sync/:sellerUsername", EbayChatService.syncEbayMessages);
-
-  // Search messages
-  router.get("/search", EbayChatService.searchMessages);
-  router.get("/search/:sellerUsername", EbayChatService.searchMessages);
-
-  // Get unread count for a seller
-  router.get("/unread-count", EbayChatService.getUnreadCount);
-  router.get("/unread-count/:sellerUsername", EbayChatService.getUnreadCount);
+  // Get unread count for all orders
+  router.get("/unread-count", ebayChatService.getUnreadCount);
 };

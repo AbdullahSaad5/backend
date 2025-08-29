@@ -3,6 +3,7 @@ import { autoCheckoutCron } from "./attendance";
 import { markAbsentCron } from "./attendance";
 import { tokenRefreshCron } from "./token-refresh.cron";
 import { GmailSyncCron } from "./gmail-sync.cron";
+import { startDealCron } from "./dealCron";
 import * as cron from "node-cron";
 import { startRecurringExpenseCron, stopRecurringExpenseCron } from "./recurring-expense.cron";
 
@@ -19,6 +20,7 @@ export function initCron() {
   tokenRefreshCron();
   GmailSyncCron.start(); // Start the new Gmail sync cron jobs
   startRecurringExpenseCron();
+  startDealCron();
 }
 
 /**
