@@ -67,7 +67,7 @@ export interface IEmailAccount {
   // Enhanced sync state tracking for Gmail API optimization
   syncState?: {
     lastHistoryId?: string;
-    syncStatus: "initial" | "historical" | "complete" | "error";
+    syncStatus: "initial" | "historical" | "partial" | "complete" | "error";
     lastSyncAt?: Date;
     syncProgress?: {
       totalProcessed: number;
@@ -161,7 +161,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
     lastHistoryId: { type: String },
     syncStatus: {
       type: String,
-      enum: ["initial", "historical", "complete", "error"],
+      enum: ["initial", "historical", "partial", "complete", "error"],
       default: "initial",
     },
     lastSyncAt: { type: Date },
