@@ -2,21 +2,16 @@ import { Schema, model, models } from "mongoose";
 
 export interface IGmailThread {
   threadId: string;
-  accountId: Schema.Types.ObjectId;
+  accountId: string | Schema.Types.ObjectId;
 
-  // Gmail-specific raw data
+  // Gmail-specific lightweight metadata only
   rawGmailData: {
     threadId: string;
     historyId?: string;
-    messages: Array<{
-      id: string;
-      threadId: string;
-      labelIds: string[];
-      snippet: string;
-      sizeEstimate: number;
-      internalDate: string;
-      payload: any; // Raw Gmail payload
-    }>;
+    messageIds: string[]; // Just the IDs for on-demand fetching
+    messageCount: number;
+    labelIds: string[]; // Combined labels from all messages
+    // NO payload data - fetched on-demand when opening thread
   };
 
   // Computed metadata for quick access
@@ -70,21 +65,14 @@ const GmailThreadSchema = new Schema<IGmailThread>(
       index: true,
     },
 
-    // Gmail-specific raw data
+    // Gmail-specific lightweight metadata only
     rawGmailData: {
       threadId: { type: String, required: true },
       historyId: { type: String },
-      messages: [
-        {
-          id: { type: String, required: true },
-          threadId: { type: String, required: true },
-          labelIds: [{ type: String }],
-          snippet: { type: String, default: "" },
-          sizeEstimate: { type: Number, default: 0 },
-          internalDate: { type: String, required: true },
-          payload: { type: Schema.Types.Mixed },
-        },
-      ],
+      messageIds: [{ type: String }], // Just the IDs for on-demand fetching
+      messageCount: { type: Number, default: 0 },
+      labelIds: [{ type: String }], // Combined labels from all messages
+      // NO payload data - fetched on-demand when opening thread
     },
 
     // Computed metadata
@@ -122,13 +110,13 @@ const GmailThreadSchema = new Schema<IGmailThread>(
 
     // Latest email metadata
     latestEmailFrom: {
-      email: { type: String, required: true },
-      name: { type: String },
+      email: { type: String, required: true, default: "unknown@example.com" },
+      name: { type: String, default: "Unknown Sender" },
     },
     latestEmailTo: [
       {
-        email: { type: String, required: true },
-        name: { type: String },
+        email: { type: String, required: true, default: "recipient@example.com" },
+        name: { type: String, default: "Recipient" },
       },
     ],
     latestEmailPreview: { type: String, default: "" },
