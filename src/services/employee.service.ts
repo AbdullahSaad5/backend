@@ -6,16 +6,26 @@ import { Attendance } from "@/models/attendance.model";
 import { LeaveRequest } from "@/models/leave-request.model";
 
 export const employeeService = {
-  getEmployeeList: async (unassignedPayroll?: boolean) => {
+  getEmployeeList: async (
+    unassignedPayroll?: boolean,
+    isVerified?: boolean
+  ) => {
     try {
       let employees;
+      const baseFilter: any = {};
+      if (isVerified) {
+        baseFilter.isEmailVerified = true;
+      }
       if (unassignedPayroll) {
         // Find all userIds that have a payroll
         const payrollUserIds = await Payroll.distinct("userId");
         // Find users whose _id is NOT in payrollUserIds
-        employees = await User.find({ _id: { $nin: payrollUserIds } });
+        employees = await User.find({
+          _id: { $nin: payrollUserIds },
+          ...baseFilter,
+        });
       } else {
-        employees = await User.find();
+        employees = await User.find(baseFilter);
       }
       return {
         success: true,
@@ -46,7 +56,9 @@ export const employeeService = {
       "shiftName shiftDescription startTime endTime isBlocked createdAt updatedAt"
     );
     // Workmodes
-    const workmodes = await Workmode.find({ employees: userId }).select("modeName createdAt updatedAt");
+    const workmodes = await Workmode.find({ employees: userId }).select(
+      "modeName createdAt updatedAt"
+    );
     // Today's attendance
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -74,7 +86,9 @@ export const employeeService = {
       }
 
       // Calculate the total leave entitlement (annual + carried forward)
-      const totalEntitlement = (employee.annualLeaveEntitlement || 0) + (employee.annualLeaveCarriedForward || 0);
+      const totalEntitlement =
+        (employee.annualLeaveEntitlement || 0) +
+        (employee.annualLeaveCarriedForward || 0);
 
       // Query for all used leaves in the current annual leave year
       const currentYear = employee.annualLeaveYear || new Date().getFullYear();
