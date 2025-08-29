@@ -348,6 +348,61 @@ export class EmailAccountController {
     }
   }
 
+  // Reset sync state for debugging
+  static async resetSyncState(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Find the account
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Reset sync state
+      await EmailAccountModel.findByIdAndUpdate(accountId, {
+        $unset: {
+          "syncState.firstTimeSyncCompleted": "",
+          "syncState.isProcessing": "",
+          "syncState.lastError": "",
+          "syncState.lastErrorAt": "",
+        },
+        $set: {
+          "syncState.syncStatus": "pending",
+          "stats.lastSyncAt": null,
+        },
+      });
+
+      console.log(`🔄 Reset sync state for account: ${account.emailAddress}`);
+
+      res.json({
+        success: true,
+        message: `Sync state reset for ${account.emailAddress}. Next fetch will trigger a fresh sync.`,
+      });
+    } catch (error: any) {
+      console.error("Reset sync state error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to reset sync state",
+        error: error.message,
+      });
+    }
+  }
+
   // Test email account connection
   static async testConnection(req: Request, res: Response) {
     try {
@@ -701,22 +756,29 @@ export class EmailAccountController {
 
             // Check if first-time sync was already completed
             if (account.syncState?.firstTimeSyncCompleted) {
-              console.log(`ℹ️ Account ${account.emailAddress} was already synced once - no auto-sync needed`);
-              // Return empty response without triggering sync
-              return res.json({
-                success: true,
-                data: {
-                  threads: [],
-                  totalCount: 0,
-                  account: {
-                    id: account._id,
-                    emailAddress: account.emailAddress,
-                    accountName: account.accountName,
+              console.log(`ℹ️ Account ${account.emailAddress} was already synced once`);
+
+              // Check if this is a manual refresh request (forceSync parameter)
+              const forceSync = req.query.forceSync === "true";
+              if (!forceSync) {
+                // Return empty response without triggering sync
+                return res.json({
+                  success: true,
+                  data: {
+                    threads: [],
+                    totalCount: 0,
+                    account: {
+                      id: account._id,
+                      emailAddress: account.emailAddress,
+                      accountName: account.accountName,
+                    },
+                    viewMode: "threads",
+                    message: "No emails found in this account. Try refreshing or check your email filters.",
                   },
-                  viewMode: "threads",
-                  message: "No emails found in this account",
-                },
-              });
+                });
+              } else {
+                console.log(`🔄 Force sync requested for account ${account.emailAddress}`);
+              }
             }
 
             // Check if account is already being processed to prevent duplicate syncs
