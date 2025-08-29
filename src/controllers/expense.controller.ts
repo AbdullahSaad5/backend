@@ -162,10 +162,43 @@ export const expenseController = {
       const { id } = req.params;
       const updateData = req.body;
 
+      // First, get the current expense to check its type
+      const currentExpense = await expenseService.getExpenseById(id);
+      
+      if (!currentExpense) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Expense not found",
+        });
+      }
+
+      // Validate amount
       if (updateData.amount && updateData.amount < 0) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           success: false,
           message: "Amount cannot be negative",
+        });
+      }
+
+      // For recurring expenses, only allow amount updates
+      if (currentExpense.isSystemGenerated && currentExpense.systemType === "recurring") {
+        const allowedFields = ["amount"];
+        const providedFields = Object.keys(updateData);
+        const disallowedFields = providedFields.filter(field => !allowedFields.includes(field));
+        
+        if (disallowedFields.length > 0) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: `For recurring expenses, only the amount field can be updated. Disallowed fields: ${disallowedFields.join(", ")}`,
+          });
+        }
+      }
+
+      // For other system-generated expenses, prevent any updates
+      if (currentExpense.isSystemGenerated && currentExpense.systemType !== "recurring") {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "System-generated expenses (except recurring) cannot be updated",
         });
       }
 
@@ -195,6 +228,25 @@ export const expenseController = {
   deleteExpense: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // First, get the current expense to check its type
+      const currentExpense = await expenseService.getExpenseById(id);
+      
+      if (!currentExpense) {
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Expense not found",
+        });
+      }
+
+      // Prevent deletion of system-generated expenses
+      if (currentExpense.isSystemGenerated) {
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "System-generated expenses cannot be deleted",
+        });
+      }
+
       const deletedExpense = await expenseService.deleteExpense(id);
 
       if (!deletedExpense) {
