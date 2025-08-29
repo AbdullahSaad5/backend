@@ -24,15 +24,9 @@ const validateEbayCredentials = (type: "production" | "sandbox") => {
 
   if (missing.length > 0) {
     console.error(`❌ Missing eBay ${type} environment variables: ${missing.join(", ")}`);
-    console.error(`❌ Please check your .env file and ensure these variables are set:`);
-    missing.forEach((varName) => {
-      console.error(`   - ${varName}`);
-    });
     return false;
   }
 
-  // Log successful validation
-  console.log(`✅ eBay ${type} credentials validated successfully`);
   return true;
 };
 
