@@ -1,6 +1,6 @@
 import { IEmailAccount, EmailAccountModel } from "@/models/email-account.model";
 import { EmailModel } from "@/models/email.model";
-import { EmailThreadModel } from "@/models/email-thread.model";
+
 import { EmailAccountConfigService } from "./email-account-config.service";
 import { logger } from "@/utils/logger.util";
 import Imap from "imap";
