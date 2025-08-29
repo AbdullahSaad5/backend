@@ -43,8 +43,16 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
     },
     status: {
       type: String,
-      enum: ["new", "Contacted", "Converted", "Lost", "Hot-Lead", "Cold-Lead", "Bad-Contact"],
-      default: "new",
+      enum: [
+        "New",
+        "Contacted",
+        "Converted",
+        "Lost",
+        "Hot-Lead",
+        "Cold-Lead",
+        "Bad-Contact",
+      ],
+      default: "New",
     },
     assignedTo: [
       {
@@ -56,6 +64,14 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
       type: Schema.Types.ObjectId,
       ref: "ProductCategory",
       required: [true, "Lead category is required"],
+    },
+    shippingAddress: {
+      street1: { type: String, trim: true },
+      street2: { type: String, trim: true },
+      city: { type: String, trim: true },
+      stateProvince: { type: String, trim: true },
+      postalCode: { type: String, trim: true },
+      country: { type: String, trim: true },
     },
     notes: [
       {
@@ -85,7 +101,15 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
       {
         status: {
           type: String,
-          enum: ["new", "Contacted", "Converted", "Lost", "Hot-Lead", "Cold-Lead", "Bad-Contact"],
+          enum: [
+            "New",
+            "Contacted",
+            "Converted",
+            "Lost",
+            "Hot-Lead",
+            "Cold-Lead",
+            "Bad-Contact",
+          ],
           required: true,
         },
         changedAt: {
