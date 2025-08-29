@@ -48,11 +48,11 @@ export class TokenInitializationService {
     try {
       const envVal = process.env.EBAY_TOKEN_ENV === "sandbox" ? "SANDBOX" : "PRODUCTION";
 
-      // Check if USER token already exists
+      // Check if token already exists
       const existingToken = await IntegrationTokenModel.findOne({
         provider: "ebay",
         environment: envVal,
-        useClient: true,
+        useClient: false,
       });
 
       if (existingToken) {
@@ -66,13 +66,25 @@ export class TokenInitializationService {
         return results;
       }
 
-      // Do not auto-create user tokens here; require OAuth consent
-      results.push({
-        success: true,
-        provider: "ebay",
-        environment: envVal,
-        tokenObtained: false,
-      });
+      // Get new token
+      // console.log(`🔄 Getting eBay ${envVal} token...`);
+      const token = await getApplicationAuthToken(process.env.EBAY_TOKEN_ENV === "sandbox" ? "sandbox" : "production");
+
+      if (token?.access_token) {
+        results.push({
+          success: true,
+          provider: "ebay",
+          environment: envVal,
+          tokenObtained: true,
+        });
+      } else {
+        results.push({
+          success: false,
+          provider: "ebay",
+          environment: envVal,
+          error: "Failed to obtain token - check credentials and network connection",
+        });
+      }
     } catch (error) {
       const envVal = process.env.EBAY_TOKEN_ENV === "sandbox" ? "SANDBOX" : "PRODUCTION";
       results.push({
