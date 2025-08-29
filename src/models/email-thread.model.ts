@@ -153,6 +153,18 @@ const EmailThreadSchema = new Schema<IEmailThread>(
         },
       ],
     },
+
+    // Raw Outlook data for performance (no parsing)
+    rawOutlookData: {
+      conversationId: { type: String },
+      topic: { type: String },
+      hasAttachments: { type: Boolean },
+      lastDeliveredDateTime: { type: String },
+      uniqueSenders: [{ type: Schema.Types.Mixed }],
+      preview: { type: String },
+      importance: { type: String },
+      conversationThreads: [{ type: Schema.Types.Mixed }], // Store raw conversation threads
+    },
   },
   {
     timestamps: true,

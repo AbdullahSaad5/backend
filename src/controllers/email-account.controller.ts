@@ -757,14 +757,38 @@ export class EmailAccountController {
               // Choose sync method based on account type - LIMITED BATCH ONLY
               if (account.accountType === "gmail" && account.oauth) {
                 console.log(
-                  `🔄 Starting LIMITED Gmail sync for first-time account (100 emails only): ${account.emailAddress}`
+                  `🔄 Starting LIMITED Gmail thread metadata sync for first-time account: ${account.emailAddress}`
                 );
-                // Use fetchEmailsFromAccount with limit instead of full sync
-                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
+                // Use thread metadata service for Gmail
+                const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
+                const threadResult = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, {
                   limit: 100,
-                  includeBody: true,
                   folder: "INBOX",
                 });
+                syncResult = {
+                  success: threadResult.success,
+                  emails: [],
+                  totalCount: threadResult.totalCount,
+                  newCount: threadResult.newCount,
+                  message: `Gmail thread metadata sync: ${threadResult.newCount} new threads`,
+                };
+              } else if (account.accountType === "outlook" && account.oauth) {
+                console.log(
+                  `🔄 Starting LIMITED Outlook thread metadata sync for first-time account: ${account.emailAddress}`
+                );
+                // Use thread metadata service for Outlook
+                const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
+                const threadResult = await EmailThreadMetadataService.fetchOutlookThreadMetadata(account, {
+                  limit: 100,
+                  folder: "INBOX",
+                });
+                syncResult = {
+                  success: threadResult.success,
+                  emails: [],
+                  totalCount: threadResult.totalCount,
+                  newCount: threadResult.newCount,
+                  message: `Outlook thread metadata sync: ${threadResult.newCount} new threads`,
+                };
               } else {
                 console.log(
                   `🔄 Starting LIMITED email fetch for IMAP/other account (100 emails only): ${account.emailAddress}`
@@ -1169,6 +1193,10 @@ export class EmailAccountController {
         // Use Gmail thread metadata service (raw data)
         console.log("🔄 Using Gmail thread metadata service (raw data)");
         result = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, options);
+      } else if (account.accountType === "outlook" && account.oauth) {
+        // Use Outlook thread metadata service (raw data)
+        console.log("🔄 Using Outlook thread metadata service (raw data)");
+        result = await EmailThreadMetadataService.fetchOutlookThreadMetadata(account, options);
       } else {
         // Use IMAP thread metadata service
         console.log("🔄 Using IMAP thread metadata service");

@@ -222,7 +222,15 @@ export class EmailFetchingService {
 
         case "outlook":
           if (emailAccount.oauth) {
-            result = await this.fetchFromOutlookAPI(emailAccount, fetchOptions);
+            // Use thread metadata approach only - no individual message fetching
+            console.log("🔄 Outlook now uses thread metadata approach only");
+            result = {
+              success: true,
+              emails: [],
+              totalCount: 0,
+              newCount: 0,
+              message: "Outlook uses thread metadata approach. Use thread metadata endpoints.",
+            };
           } else {
             result = await this.fetchFromIMAP(emailAccount, fetchOptions);
           }
@@ -1405,197 +1413,6 @@ export class EmailFetchingService {
   }
 
   /**
-   * Fetch emails using Outlook/Microsoft Graph API
-   */
-  private static async fetchFromOutlookAPI(
-    emailAccount: IEmailAccount,
-    fetchOptions: EmailFetchOptions
-  ): Promise<EmailFetchResult> {
-    try {
-      logger.info(`Starting Outlook API fetch for ${emailAccount.emailAddress}`);
-
-      // Get fresh access token
-      const accessToken = await this.getOutlookAccessToken(emailAccount);
-      if (!accessToken) {
-        throw new Error("Failed to get Outlook access token");
-      }
-
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          done(null, accessToken);
-        },
-      });
-
-      // Build query parameters
-      let queryParams: any = {
-        $top: fetchOptions.limit || 50,
-        $orderby: "receivedDateTime desc",
-        $select:
-          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink",
-      };
-
-      if (fetchOptions.since) {
-        queryParams.$filter = `receivedDateTime ge ${fetchOptions.since.toISOString()}`;
-      }
-
-      // Determine folder
-      let endpoint = "/me/messages";
-      if (fetchOptions.folder && fetchOptions.folder !== "INBOX") {
-        // Map folder names to Microsoft Graph folder IDs
-        const folderMap: { [key: string]: string } = {
-          SENT: "sentitems",
-          DRAFTS: "drafts",
-          ARCHIVE: "archive",
-          SPAM: "junkemail",
-          TRASH: "deleteditems",
-        };
-
-        const folderId = folderMap[fetchOptions.folder.toUpperCase()];
-        if (folderId) {
-          endpoint = `/me/mailFolders/${folderId}/messages`;
-        }
-      }
-
-      logger.info(`Outlook API endpoint: ${endpoint}`);
-
-      const messages = await graphClient.api(endpoint).query(queryParams).get();
-
-      if (!messages.value || messages.value.length === 0) {
-        logger.info("No messages found in Outlook API response");
-        return {
-          success: true,
-          emails: [],
-          totalCount: 0,
-          newCount: 0,
-        };
-      }
-
-      // Parse Outlook messages
-      const emails: FetchedEmail[] = messages.value.map((msg: any) => this.parseOutlookMessage(msg, emailAccount));
-
-      logger.info(`Outlook API fetch completed: ${emails.length} emails fetched`);
-
-      return {
-        success: true,
-        emails,
-        totalCount: messages["@odata.count"] || emails.length,
-        newCount: emails.filter((e) => !e.isRead).length,
-      };
-    } catch (error: any) {
-      logger.error("Outlook API fetch error:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Fetch emails from Outlook account using Microsoft Graph API
-   */
-  static async fetchOutlookEmails(
-    emailAccount: IEmailAccount,
-    options: EmailFetchOptions = {}
-  ): Promise<EmailFetchResult> {
-    try {
-      logger.info(`Starting Outlook email fetch for ${emailAccount.emailAddress}`);
-
-      // Get access token
-      const accessToken = await this.getOutlookAccessToken(emailAccount);
-      if (!accessToken) {
-        throw new Error("Failed to get Outlook access token");
-      }
-
-      // Create Microsoft Graph client
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          done(null, accessToken);
-        },
-      });
-
-      // Build query parameters
-      const queryParams: any = {
-        $top: options.limit || this.BATCH_SIZE,
-        $orderby: "receivedDateTime desc",
-        $select:
-          "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink,inReplyTo,references",
-      };
-
-      // Add folder filter if specified
-      let endpoint = "/me/messages";
-      if (options.folder && options.folder !== "INBOX") {
-        const folderMap: { [key: string]: string } = {
-          SENT: "sentitems",
-          DRAFTS: "drafts",
-          ARCHIVE: "archive",
-          SPAM: "junkemail",
-          TRASH: "deleteditems",
-        };
-
-        const folderId = folderMap[options.folder.toUpperCase()];
-        if (folderId) {
-          endpoint = `/me/mailFolders/${folderId}/messages`;
-        }
-      }
-
-      // Add date filter if specified
-      if (options.since) {
-        queryParams.$filter = `receivedDateTime ge ${options.since.toISOString()}`;
-      }
-
-      // Build query string
-      const queryString = new URLSearchParams(queryParams).toString();
-      const fullEndpoint = `${endpoint}?${queryString}`;
-
-      logger.info(`Outlook API endpoint: ${fullEndpoint}`);
-
-      // Fetch messages from Microsoft Graph
-      const response = await graphClient.api(fullEndpoint).get();
-
-      if (!response || !response.value) {
-        logger.warn("No messages found in Outlook API response");
-        return {
-          success: true,
-          emails: [],
-          totalCount: 0,
-          newCount: 0,
-        };
-      }
-
-      // Parse messages
-      const emails: FetchedEmail[] = [];
-      for (const message of response.value) {
-        try {
-          const parsedEmail = await this.parseOutlookMessage(message, emailAccount);
-          emails.push(parsedEmail);
-        } catch (parseError) {
-          logger.error("Error parsing Outlook message:", parseError);
-          continue;
-        }
-      }
-
-      // Get total count for pagination
-      const countResponse = await graphClient.api("/me/messages/$count").get();
-      const totalCount = parseInt(countResponse) || 0;
-
-      logger.info(`Outlook email fetch completed: ${emails.length} emails fetched`);
-
-      return {
-        success: true,
-        emails,
-        totalCount,
-        newCount: emails.length,
-      };
-    } catch (error: any) {
-      logger.error("Outlook email fetch error:", error);
-      return {
-        success: false,
-        emails: [],
-        totalCount: 0,
-        newCount: 0,
-        error: error.message,
-      };
-    }
-  }
-
-  /**
    * Store fetched emails in database with thread management using bulk operations
    */
   static async storeEmailsInDatabase(emails: FetchedEmail[], emailAccount: IEmailAccount): Promise<void> {
@@ -1834,54 +1651,6 @@ export class EmailFetchingService {
       references: referencesArray,
       parentMessageId:
         inReplyTo || (referencesArray.length > 0 ? referencesArray[referencesArray.length - 1] : undefined),
-    };
-  }
-
-  /**
-   * Parse Outlook message data
-   */
-  private static async parseOutlookMessage(messageData: any, emailAccount: IEmailAccount): Promise<FetchedEmail> {
-    const headers: any = {};
-    let textContent = "";
-    let htmlContent = "";
-
-    if (messageData.body) {
-      if (messageData.body.contentType === "text/plain") {
-        textContent = messageData.body.content || "";
-      } else if (messageData.body.contentType === "text/html" || messageData.body.contentType === "html") {
-        htmlContent = messageData.body.content || "";
-      }
-    }
-
-    // Parse sender and recipients
-    const from = messageData.from?.emailAddress || messageData.from;
-    const to = messageData.toRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
-    const cc = messageData.ccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
-    const bcc = messageData.bccRecipients?.map((r: any) => ({ email: r.emailAddress || r.address }));
-
-    // Extract threading information
-    const conversationId = messageData.conversationId;
-    const inReplyTo = messageData.inReplyTo;
-    const references = messageData.references || [];
-
-    return {
-      messageId: messageData.id,
-      threadId: conversationId,
-      subject: messageData.subject,
-      from: {
-        email: from.emailAddress || from.address || "",
-        name: from.name || "",
-      },
-      to: to || [],
-      cc: cc || [],
-      bcc: bcc || [],
-      date: new Date(messageData.receivedDateTime),
-      textContent,
-      htmlContent,
-      isRead: messageData.isRead,
-      inReplyTo,
-      references,
-      parentMessageId: messageData.replyTo?.id,
     };
   }
 

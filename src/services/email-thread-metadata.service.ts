@@ -216,6 +216,231 @@ export class EmailThreadMetadataService {
   }
 
   /**
+   * Fetch and save raw Outlook thread metadata directly without parsing
+   */
+  static async fetchOutlookThreadMetadata(
+    account: IEmailAccount,
+    options: {
+      folder?: string;
+      limit?: number;
+      since?: Date;
+      fetchAll?: boolean;
+    } = {}
+  ): Promise<ThreadMetadataResult> {
+    try {
+      console.log("🔄 Fetching raw Outlook thread metadata for:", account.emailAddress);
+
+      if (!account.oauth?.accessToken) {
+        throw new Error("No OAuth access token available");
+      }
+
+      // Import Microsoft Graph client
+      const { Client } = await import("@microsoft/microsoft-graph-client");
+
+      // Decrypt access token
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, decryptedAccessToken);
+        },
+      });
+
+      // Fetch messages from Microsoft Graph and group by conversationId
+      const messagesResponse = await graphClient
+        .api("/me/messages")
+        .top(options.limit || 100)
+        .orderby("receivedDateTime desc")
+        .select(
+          "id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,bodyPreview,hasAttachments,importance,flag"
+        )
+        .get();
+
+      const messages = messagesResponse.value || [];
+      console.log(`📧 Found ${messages.length} Outlook messages`);
+
+      // Group messages by conversationId to create threads
+      const conversationMap = new Map<string, any[]>();
+      for (const message of messages) {
+        const convId = message.conversationId;
+        if (!convId) continue;
+
+        if (!conversationMap.has(convId)) {
+          conversationMap.set(convId, []);
+        }
+        conversationMap.get(convId)!.push(message);
+      }
+
+      console.log(`📧 Grouped into ${conversationMap.size} Outlook conversations (threads)`);
+
+      const threadMetadata: ThreadMetadata[] = [];
+      let newCount = 0;
+
+      // Process each conversation - save raw data directly
+      for (const [conversationId, conversationMessages] of conversationMap.entries()) {
+        if (conversationMessages.length === 0) continue;
+
+        try {
+          // Sort messages by date
+          conversationMessages.sort(
+            (a, b) => new Date(a.receivedDateTime).getTime() - new Date(b.receivedDateTime).getTime()
+          );
+
+          const firstMessage = conversationMessages[0];
+          const lastMessage = conversationMessages[conversationMessages.length - 1];
+
+          // Save raw Outlook thread data directly without parsing
+          const rawThreadData = {
+            threadId: conversation.id,
+            accountId: account._id,
+            // Store raw Outlook data
+            rawOutlookData: {
+              conversationId: conversation.id,
+              topic: conversation.topic,
+              hasAttachments: conversation.hasAttachments,
+              lastDeliveredDateTime: conversation.lastDeliveredDateTime,
+              uniqueSenders: conversation.uniqueSenders || [],
+              preview: conversation.preview,
+              importance: conversation.importance,
+              conversationThreads: conversationDetails.threads || [],
+            },
+            // Basic metadata for quick access
+            messageCount:
+              conversationDetails.threads?.reduce(
+                (count: number, thread: any) => count + (thread.posts?.length || 0),
+                0
+              ) || 0,
+            unreadCount:
+              conversationDetails.threads?.reduce(
+                (count: number, thread: any) => count + (thread.posts?.filter((post: any) => !post.isRead).length || 0),
+                0
+              ) || 0,
+            isStarred:
+              conversationDetails.threads?.some((thread: any) =>
+                thread.posts?.some((post: any) => post.flag?.flagStatus === "flagged")
+              ) || false,
+            hasAttachments: conversation.hasAttachments || false,
+            firstMessageAt: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            lastMessageAt: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            lastActivity: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            status: "active",
+            folder: options.folder || "INBOX",
+            threadType: "conversation",
+            isPinned: false,
+            totalSize: 0, // Will be calculated if needed
+            // Placeholder fields for compatibility
+            subject: conversation.topic || "Raw Outlook Thread",
+            normalizedSubject: (conversation.topic || "raw_outlook_thread")
+              .replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "")
+              .trim()
+              .toLowerCase(),
+            participants: (conversation.uniqueSenders || []).map((sender: any) => ({
+              email: sender.emailAddress?.address || "",
+              name: sender.emailAddress?.name || "",
+            })),
+            category: "primary",
+            latestEmailFrom: conversation.uniqueSenders?.[0]
+              ? {
+                  email: conversation.uniqueSenders[0].emailAddress?.address || "",
+                  name: conversation.uniqueSenders[0].emailAddress?.name || "",
+                }
+              : { email: "", name: "" },
+            latestEmailTo: [],
+            latestEmailPreview: conversation.preview || "",
+          };
+
+          // Save or update thread metadata
+          const existingThread = await EmailThreadModel.findOne({
+            threadId: conversation.id,
+            accountId: account._id,
+          });
+
+          if (existingThread) {
+            // Update existing thread with raw data
+            Object.assign(existingThread, rawThreadData);
+            await existingThread.save();
+          } else {
+            // Create new thread with raw data
+            await EmailThreadModel.create(rawThreadData);
+            newCount++;
+          }
+
+          // Add to result for frontend
+          threadMetadata.push({
+            threadId: conversation.id,
+            subject: conversation.topic || "Raw Outlook Thread",
+            normalizedSubject: (conversation.topic || "raw_outlook_thread")
+              .replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "")
+              .trim()
+              .toLowerCase(),
+            participants: (conversation.uniqueSenders || []).map((sender: any) => ({
+              email: sender.emailAddress?.address || "",
+              name: sender.emailAddress?.name || "",
+            })),
+            messageCount:
+              conversationDetails.threads?.reduce(
+                (count: number, thread: any) => count + (thread.posts?.length || 0),
+                0
+              ) || 0,
+            unreadCount:
+              conversationDetails.threads?.reduce(
+                (count: number, thread: any) => count + (thread.posts?.filter((post: any) => !post.isRead).length || 0),
+                0
+              ) || 0,
+            firstMessageAt: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            lastMessageAt: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            status: "active",
+            folder: options.folder || "INBOX",
+            category: "primary",
+            threadType: "conversation",
+            isStarred:
+              conversationDetails.threads?.some((thread: any) =>
+                thread.posts?.some((post: any) => post.flag?.flagStatus === "flagged")
+              ) || false,
+            isPinned: false,
+            hasAttachments: conversation.hasAttachments || false,
+            totalSize: 0,
+            lastActivity: new Date(conversation.lastDeliveredDateTime || Date.now()),
+            latestEmailPreview: conversation.preview || "",
+            latestEmailFrom: conversation.uniqueSenders?.[0]
+              ? {
+                  email: conversation.uniqueSenders[0].emailAddress?.address || "",
+                  name: conversation.uniqueSenders[0].emailAddress?.name || "",
+                }
+              : { email: "", name: "" },
+            latestEmailTo: [],
+          });
+        } catch (threadError) {
+          console.error("Error processing Outlook conversation:", conversation.id, threadError);
+          // Continue with other conversations
+        }
+      }
+
+      console.log(`✅ Processed ${threadMetadata.length} Outlook threads, ${newCount} new (raw data)`);
+
+      return {
+        success: true,
+        threads: threadMetadata,
+        totalCount: threadMetadata.length,
+        newCount,
+        syncStatus: "completed",
+      };
+    } catch (error: any) {
+      console.error("Error fetching Outlook thread metadata:", error);
+      return {
+        success: false,
+        threads: [],
+        totalCount: 0,
+        newCount: 0,
+        error: error.message,
+        syncStatus: "failed",
+      };
+    }
+  }
+
+  /**
    * Fetch and save only thread metadata from IMAP
    */
   static async fetchImapThreadMetadata(
