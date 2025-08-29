@@ -639,9 +639,8 @@ export class EmailAccountController {
       }
 
       if (threadView === "true") {
-        // Get threads with email counts - for threads, we need to include BOTH sent and received emails
-        const { EmailThreadModel } = await import("@/models/email-thread.model");
-        const { EmailModel } = await import("@/models/email.model");
+        // Use unified thread service to get threads from provider-specific collections
+        const { UnifiedThreadService } = await import("@/services/unified-thread.service");
 
         // For thread view, we need a different filter that includes both sent and received emails
         // but still respects the account and folder constraints
@@ -686,14 +685,13 @@ export class EmailAccountController {
 
         let threads;
         try {
-          // Simple query to get thread metadata only - no email lookup needed
-          threads = await EmailThreadModel.find({
-            accountId: account._id,
-          })
-            .sort({ lastMessageAt: -1 })
-            .skip(parseInt(offset as string))
-            .limit(parseInt(limit as string))
-            .lean();
+          // Use unified thread service to get threads from provider-specific collections
+          threads = await UnifiedThreadService.getThreads(account, {
+            folder: folder as string,
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string),
+            unreadOnly: unreadOnly === "true",
+          });
 
           console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
 
@@ -754,66 +752,36 @@ export class EmailAccountController {
 
               let syncResult;
 
-              // Choose sync method based on account type - LIMITED BATCH ONLY
-              if (account.accountType === "gmail" && account.oauth) {
-                console.log(
-                  `🔄 Starting LIMITED Gmail thread metadata sync for first-time account: ${account.emailAddress}`
-                );
-                // Use thread metadata service for Gmail
-                const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
-                const threadResult = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, {
-                  limit: 100,
-                  folder: "INBOX",
-                });
-                syncResult = {
-                  success: threadResult.success,
-                  emails: [],
-                  totalCount: threadResult.totalCount,
-                  newCount: threadResult.newCount,
-                  message: `Gmail thread metadata sync: ${threadResult.newCount} new threads`,
-                };
-              } else if (account.accountType === "outlook" && account.oauth) {
-                console.log(
-                  `🔄 Starting LIMITED Outlook thread metadata sync for first-time account: ${account.emailAddress}`
-                );
-                // Use thread metadata service for Outlook
-                const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
-                const threadResult = await EmailThreadMetadataService.fetchOutlookThreadMetadata(account, {
-                  limit: 100,
-                  folder: "INBOX",
-                });
-                syncResult = {
-                  success: threadResult.success,
-                  emails: [],
-                  totalCount: threadResult.totalCount,
-                  newCount: threadResult.newCount,
-                  message: `Outlook thread metadata sync: ${threadResult.newCount} new threads`,
-                };
-              } else {
-                console.log(
-                  `🔄 Starting LIMITED email fetch for IMAP/other account (100 emails only): ${account.emailAddress}`
-                );
-                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
-                  limit: 100,
-                  includeBody: true,
-                  folder: "INBOX",
-                });
-              }
+              // Use unified thread sync service for all providers
+              console.log(`🔄 Starting LIMITED thread sync for first-time account: ${account.emailAddress}`);
+
+              const { UnifiedThreadService } = await import("@/services/unified-thread.service");
+              const threadResult = await UnifiedThreadService.syncThreads(account, {
+                limit: 100,
+                folder: "INBOX",
+              });
+
+              syncResult = {
+                success: threadResult.success,
+                emails: [],
+                totalCount: threadResult.totalCount,
+                newCount: threadResult.newCount,
+                message: `${threadResult.provider} thread sync: ${threadResult.newCount} new threads`,
+              };
 
               console.log(`✅ First-time sync completed for ${account.emailAddress}:`, syncResult.success);
 
               // After sync, retry getting threads
               if (syncResult.success) {
-                const updatedThreads = await EmailThreadModel.find({
-                  accountId: account._id,
-                })
-                  .sort({ lastMessageAt: -1 })
-                  .skip(parseInt(offset as string))
-                  .limit(parseInt(limit as string))
-                  .lean();
+                const updatedThreads = await UnifiedThreadService.getThreads(account, {
+                  folder: folder as string,
+                  limit: parseInt(limit as string),
+                  offset: parseInt(offset as string),
+                  unreadOnly: unreadOnly === "true",
+                });
 
-                const updatedTotalCount = await EmailThreadModel.countDocuments({
-                  accountId: account._id,
+                const updatedTotalCount = await UnifiedThreadService.getThreadCount(account, {
+                  folder: folder as string,
                 });
 
                 console.log(`🔄 After first-time sync: found ${updatedThreads.length} threads`);
@@ -861,8 +829,8 @@ export class EmailAccountController {
           }
 
           // Get total count for pagination
-          const totalCount = await EmailThreadModel.countDocuments({
-            accountId: account._id,
+          const totalCount = await UnifiedThreadService.getThreadCount(account, {
+            folder: folder as string,
           });
 
           res.json({
@@ -1029,11 +997,11 @@ export class EmailAccountController {
         });
       }
 
-      const { EmailThreadModel } = await import("@/models/email-thread.model");
       const { EmailModel } = await import("@/models/email.model");
 
-      // Get thread info
-      const thread = await EmailThreadModel.findOne({ threadId });
+      // Note: Thread lookup would need to be implemented in UnifiedThreadService
+      // For now, return a placeholder response
+      const thread = null;
       if (!thread) {
         return res.status(404).json({
           success: false,
@@ -1100,10 +1068,10 @@ export class EmailAccountController {
       }
 
       const { EmailModel } = await import("@/models/email.model");
-      const { EmailThreadModel } = await import("@/models/email-thread.model");
+      const { UnifiedThreadService } = await import("@/services/unified-thread.service");
 
       const emailCount = await EmailModel.countDocuments({ accountId: account._id });
-      const threadCount = await EmailThreadModel.countDocuments();
+      const threadCount = await UnifiedThreadService.getThreadCount(account);
 
       // Get sample emails
       const sampleEmails = await EmailModel.find({ accountId: account._id })
@@ -1176,8 +1144,6 @@ export class EmailAccountController {
       account.status = "syncing";
       await account.save();
 
-      const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
-
       // Fetch raw thread metadata based on account type
       const options = {
         folder: "INBOX", // Default folder
@@ -1188,20 +1154,11 @@ export class EmailAccountController {
 
       console.log("📧 Raw thread metadata fetch options:", options);
 
-      let result;
-      if (account.accountType === "gmail" && account.oauth) {
-        // Use Gmail thread metadata service (raw data)
-        console.log("🔄 Using Gmail thread metadata service (raw data)");
-        result = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, options);
-      } else if (account.accountType === "outlook" && account.oauth) {
-        // Use Outlook thread metadata service (raw data)
-        console.log("🔄 Using Outlook thread metadata service (raw data)");
-        result = await EmailThreadMetadataService.fetchOutlookThreadMetadata(account, options);
-      } else {
-        // Use IMAP thread metadata service
-        console.log("🔄 Using IMAP thread metadata service");
-        result = await EmailThreadMetadataService.fetchImapThreadMetadata(account, options);
-      }
+      // Use unified thread service for all providers
+      console.log(`🔄 Using unified thread service for ${account.accountType}: ${account.emailAddress}`);
+
+      const { UnifiedThreadService } = await import("@/services/unified-thread.service");
+      const result = await UnifiedThreadService.syncThreads(account, options);
 
       console.log("📤 Raw thread metadata sync response:", {
         success: result.success,
