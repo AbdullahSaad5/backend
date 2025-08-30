@@ -10,4 +10,8 @@ export const gmailWebhook = (router: Router) => {
 
   // Test endpoint for manual notification processing (protected)
   router.post("/webhook/test", GmailWebhookController.testNotification);
+
+  // Additional webhook management endpoints
+  router.get("/status", GmailWebhookController.getWebhookStatus);
+  router.post("/validate", GmailWebhookController.validateWebhookSetup);
 };
