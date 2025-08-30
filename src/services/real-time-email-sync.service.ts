@@ -156,9 +156,11 @@ export class RealTimeEmailSyncService {
       // Get decrypted access token
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
 
-      // Create Microsoft Graph client
+      // Create Microsoft Graph client with proper authentication
       const graphClient = Client.init({
         authProvider: (done) => {
+          // Microsoft Graph accepts opaque access tokens (not JWT format)
+          // This is normal behavior for Microsoft Graph API
           done(null, decryptedAccessToken);
         },
       });
@@ -453,9 +455,11 @@ export class RealTimeEmailSyncService {
       // Get decrypted access token
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
 
-      // Create Microsoft Graph client
+      // Create Microsoft Graph client with proper authentication
       const graphClient = Client.init({
         authProvider: (done) => {
+          // Microsoft Graph accepts opaque access tokens (not JWT format)
+          // This is normal behavior for Microsoft Graph API
           done(null, decryptedAccessToken);
         },
       });
