@@ -417,25 +417,62 @@ export class EmailClientController {
       let emails = [];
       let totalCount = 0;
 
-      // If threadId is provided, fetch emails from database by thread
+      // If threadId is provided, fetch emails on-demand from Gmail API
       if (threadId) {
-        console.log("📧 Fetching emails by threadId:", threadId);
+        console.log("📧 Fetching emails on-demand for threadId:", threadId);
 
-        const threadEmails = await EmailModel.find({
-          threadId: threadId,
-          accountId: account._id,
-        })
-          .sort({ receivedAt: 1, sentAt: 1 }) // Sort chronologically
-          .limit(parseInt(limit as string))
-          .lean();
+        // For Gmail accounts, fetch emails on-demand
+        if (account.accountType === "gmail" && account.oauth) {
+          const { GmailSyncService } = await import("@/services/sync/gmail-sync.service");
+          const result = await GmailSyncService.getThreadEmails(account, threadId as string);
 
-        emails = threadEmails;
-        totalCount = await EmailModel.countDocuments({
-          threadId: threadId,
-          accountId: account._id,
-        });
+          if (result.success && result.emails) {
+            emails = result.emails;
+            totalCount = result.emails.length;
+            console.log("📧 Fetched", emails.length, "emails on-demand from Gmail API");
+          } else {
+            console.error("❌ Failed to fetch emails on-demand:", result.error);
+            return res.status(400).json({
+              success: false,
+              message: "Failed to fetch emails on-demand",
+              error: result.error,
+            });
+          }
+        } else if (account.accountType === "outlook" && account.oauth) {
+          // For Outlook accounts, fetch emails on-demand
+          const { OutlookSyncService } = await import("@/services/sync/outlook-sync.service");
+          const result = await OutlookSyncService.getThreadEmails(account, threadId as string);
 
-        console.log("📧 Found", emails.length, "emails in thread");
+          if (result.success && result.emails) {
+            emails = result.emails;
+            totalCount = result.emails.length;
+            console.log("📧 Fetched", emails.length, "emails on-demand from Outlook API");
+          } else {
+            console.error("❌ Failed to fetch emails on-demand:", result.error);
+            return res.status(400).json({
+              success: false,
+              message: "Failed to fetch emails on-demand",
+              error: result.error,
+            });
+          }
+        } else {
+          // For other account types, check database (fallback)
+          const threadEmails = await EmailModel.find({
+            threadId: threadId,
+            accountId: account._id,
+          })
+            .sort({ receivedAt: 1, sentAt: 1 }) // Sort chronologically
+            .limit(parseInt(limit as string))
+            .lean();
+
+          emails = threadEmails;
+          totalCount = await EmailModel.countDocuments({
+            threadId: threadId,
+            accountId: account._id,
+          });
+
+          console.log("📧 Found", emails.length, "emails in database");
+        }
       } else {
         // Sync emails from the account (normal flow)
         const result = await EmailAccountConfigService.syncEmails(account, folder as string, parseInt(limit as string));
