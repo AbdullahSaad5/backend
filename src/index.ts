@@ -12,6 +12,8 @@ import { requestLogger } from "./middlewares/requestLogger.middleware";
 import { initCron } from "./cron";
 import { ApiDocumentation } from "./utils/api-documentation.util";
 import { documentationConfig } from "./config/documentation.config";
+import { outlookWebhook } from "./routes/outlook-webhook.route";
+import { gmailWebhook } from "./routes/gmail-webhook.route";
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -67,7 +69,23 @@ mongoose
     // Setup API documentation
     const apiDoc = new ApiDocumentation(app, documentationConfig);
 
-    // Admin API routes
+    // Add webhook routes BEFORE authentication middleware
+    // These routes need to be accessible without authentication for external services
+    app.use("/api/outlook-webhook", (req, res, next) => {
+      // Create a temporary router for webhook routes
+      const webhookRouter = express.Router();
+      outlookWebhook(webhookRouter);
+      webhookRouter(req, res, next);
+    });
+
+    app.use("/api/gmail-webhook", (req, res, next) => {
+      // Create a temporary router for Gmail webhook routes
+      const webhookRouter = express.Router();
+      gmailWebhook(webhookRouter);
+      webhookRouter(req, res, next);
+    });
+
+    // Admin API routes (with authentication)
     app.use("/api", router);
 
     initCron();
