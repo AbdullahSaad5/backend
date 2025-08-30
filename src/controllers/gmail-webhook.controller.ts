@@ -263,8 +263,8 @@ async function processGmailNotification(
 
     logger.info(`[${requestId}] Triggering Gmail sync for account: ${emailAddress}`);
 
-    // Trigger immediate sync for this account
-    const syncResult = await RealTimeEmailSyncService.syncGmailEmails(account);
+    // Trigger immediate sync for this account using the historyId
+    const syncResult = await RealTimeEmailSyncService.syncGmailEmails(account, historyId);
 
     if (syncResult.success) {
       logger.info(`[${requestId}] Gmail sync completed successfully for: ${emailAddress}`, {
