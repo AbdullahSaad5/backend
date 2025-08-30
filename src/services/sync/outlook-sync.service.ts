@@ -284,26 +284,48 @@ export class OutlookSyncService {
       // Fetch all messages in the conversation
       console.log(`🔍 [Outlook] Fetching messages for conversationId: ${conversationId}`);
 
-      // Use a simpler approach to avoid complex filter issues
-      // First, get all messages and then filter client-side if needed
-      const messagesResponse = await graphClient
-        .api("/me/messages")
-        .top(1000) // Get more messages to ensure we capture the conversation
-        .orderby("receivedDateTime desc") // Get latest first
-        .select(
-          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag"
-        )
-        .get();
+      // Try a more targeted approach to avoid complex filter issues
+      // Use a simpler filter without complex ordering
+      let messages: any[] = [];
 
-      // Filter messages by conversationId on the client side
-      const allMessages = messagesResponse.value || [];
-      const messages = allMessages.filter((message: any) => message.conversationId === conversationId);
+      try {
+        // First attempt: Try with a simple filter
+        const messagesResponse = await graphClient
+          .api("/me/messages")
+          .filter(`conversationId eq '${conversationId}'`)
+          .select(
+            "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag"
+          )
+          .get();
 
-      const messages = messagesResponse.value || [];
+        messages = messagesResponse.value || [];
+        console.log(`📧 [Outlook] Found ${messages.length} messages using simple filter`);
+      } catch (filterError: any) {
+        console.log(`⚠️ [Outlook] Simple filter failed, trying alternative approach:`, filterError.message);
+
+        // Fallback: Get recent messages and filter client-side
+        const messagesResponse = await graphClient
+          .api("/me/messages")
+          .top(500) // Get recent messages
+          .orderby("receivedDateTime desc")
+          .select(
+            "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag"
+          )
+          .get();
+
+        const allMessages = messagesResponse.value || [];
+        messages = allMessages.filter((message: any) => message.conversationId === conversationId);
+        console.log(`📧 [Outlook] Found ${messages.length} messages using fallback approach`);
+      }
+
       console.log(`📧 [Outlook] Found ${messages.length} messages for conversation ${conversationId}`);
 
       if (messages.length === 0) {
-        throw new Error("No messages found in conversation");
+        console.log(`⚠️ [Outlook] No messages found for conversationId: ${conversationId}`);
+        return {
+          success: false,
+          error: "No messages found in conversation",
+        };
       }
 
       // Transform Microsoft Graph messages to our format
@@ -367,15 +389,31 @@ export class OutlookSyncService {
 
       console.log(`✅ [Outlook] Fetched ${emails.length} emails on-demand for conversation: ${conversationId}`);
 
+      // Sort emails chronologically (oldest first)
+      const sortedEmails = emails.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime());
+
       return {
         success: true,
-        emails: emails.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime()),
+        emails: sortedEmails,
       };
     } catch (error: any) {
       console.error("❌ [Outlook] Error fetching emails on-demand:", error);
+
+      // Provide more specific error messages for common issues
+      let errorMessage = error.message;
+      if (error.code === "InefficientFilter") {
+        errorMessage = "The email filter is too complex. Please try again or contact support.";
+      } else if (error.statusCode === 401) {
+        errorMessage = "Authentication failed. Please reconnect your Outlook account.";
+      } else if (error.statusCode === 403) {
+        errorMessage = "Access denied. Please check your Outlook account permissions.";
+      } else if (error.statusCode === 429) {
+        errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
+      }
+
       return {
         success: false,
-        error: error.message,
+        error: errorMessage,
       };
     }
   }
