@@ -367,13 +367,26 @@ export class RealTimeEmailSyncService {
             if (existingThread) {
               // Update existing thread
               await GmailThreadModel.findByIdAndUpdate(existingThread._id, {
-                $inc: { messageCount: 1 },
+                $inc: {
+                  messageCount: 1,
+                  unreadCount: savedEmail.isRead ? 0 : 1,
+                },
                 $set: {
+                  lastMessageAt: savedEmail.receivedAt,
                   lastActivity: savedEmail.receivedAt,
-                  lastMessageId: savedEmail.messageId,
-                  lastMessageSubject: savedEmail.subject,
-                  lastMessageFrom: savedEmail.from,
+                  latestEmailFrom: {
+                    email: savedEmail.from.email,
+                    name: savedEmail.from.name,
+                  },
+                  latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
+                  latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                },
+                $push: {
+                  "rawGmailData.messageIds": savedEmail.messageId,
                 },
               });
               logger.info(`📧 [Gmail] Updated thread: ${savedEmail.threadId}`);
@@ -383,10 +396,20 @@ export class RealTimeEmailSyncService {
                 threadId: savedEmail.threadId,
                 accountId: account._id,
                 subject: savedEmail.subject,
+                normalizedSubject: savedEmail.subject.toLowerCase().trim(),
                 messageCount: 1,
-                lastMessageId: savedEmail.messageId,
-                lastMessageSubject: savedEmail.subject,
-                lastMessageFrom: savedEmail.from,
+                unreadCount: savedEmail.isRead ? 0 : 1,
+                isStarred: savedEmail.isStarred || false,
+                hasAttachments: false, // Will be updated when we fetch full message details
+                firstMessageAt: savedEmail.receivedAt,
+                lastMessageAt: savedEmail.receivedAt,
+                lastActivity: savedEmail.receivedAt,
+                status: "active",
+                folder: savedEmail.folder,
+                category: savedEmail.category,
+                threadType: "conversation",
+                isPinned: false,
+                totalSize: 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -394,12 +417,21 @@ export class RealTimeEmailSyncService {
                     name: recipient.name,
                   })),
                 ],
-                firstMessageAt: savedEmail.receivedAt,
-                lastActivity: savedEmail.receivedAt,
-                status: "active",
-                isRead: savedEmail.isRead,
-                folder: savedEmail.folder,
-                category: savedEmail.category,
+                latestEmailFrom: {
+                  email: savedEmail.from.email,
+                  name: savedEmail.from.name,
+                },
+                latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+                latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
+                rawGmailData: {
+                  threadId: savedEmail.threadId,
+                  messageIds: [savedEmail.messageId],
+                  messageCount: 1,
+                  labelIds: savedEmail.isRead ? [] : ["UNREAD"],
+                },
               };
 
               await GmailThreadModel.create(threadData);
@@ -549,13 +581,26 @@ export class RealTimeEmailSyncService {
             if (existingThread) {
               // Update existing thread
               await OutlookThreadModel.findByIdAndUpdate(existingThread._id, {
-                $inc: { messageCount: 1 },
+                $inc: {
+                  messageCount: 1,
+                  unreadCount: savedEmail.isRead ? 0 : 1,
+                },
                 $set: {
+                  lastMessageAt: savedEmail.receivedAt,
                   lastActivity: savedEmail.receivedAt,
-                  lastMessageId: savedEmail.messageId,
-                  lastMessageSubject: savedEmail.subject,
-                  lastMessageFrom: savedEmail.from,
+                  latestEmailFrom: {
+                    email: savedEmail.from.email,
+                    name: savedEmail.from.name,
+                  },
+                  latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
+                  latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                },
+                $push: {
+                  "rawOutlookData.messageIds": savedEmail.messageId,
                 },
               });
               logger.info(`📧 [Outlook] Updated thread: ${savedEmail.threadId}`);
@@ -565,10 +610,20 @@ export class RealTimeEmailSyncService {
                 conversationId: savedEmail.threadId,
                 accountId: account._id,
                 subject: savedEmail.subject,
+                normalizedSubject: savedEmail.subject.toLowerCase().trim(),
                 messageCount: 1,
-                lastMessageId: savedEmail.messageId,
-                lastMessageSubject: savedEmail.subject,
-                lastMessageFrom: savedEmail.from,
+                unreadCount: savedEmail.isRead ? 0 : 1,
+                isStarred: savedEmail.isStarred || false,
+                hasAttachments: false,
+                firstMessageAt: savedEmail.receivedAt,
+                lastMessageAt: savedEmail.receivedAt,
+                lastActivity: savedEmail.receivedAt,
+                status: "active",
+                folder: savedEmail.folder,
+                category: savedEmail.category,
+                threadType: "conversation",
+                isPinned: false,
+                totalSize: 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -576,12 +631,21 @@ export class RealTimeEmailSyncService {
                     name: recipient.name,
                   })),
                 ],
-                firstMessageAt: savedEmail.receivedAt,
-                lastActivity: savedEmail.receivedAt,
-                status: "active",
-                isRead: savedEmail.isRead,
-                folder: savedEmail.folder,
-                category: savedEmail.category,
+                latestEmailFrom: {
+                  email: savedEmail.from.email,
+                  name: savedEmail.from.name,
+                },
+                latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+                latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
+                rawOutlookData: {
+                  conversationId: savedEmail.threadId,
+                  messageIds: [savedEmail.messageId],
+                  messageCount: 1,
+                  lastMessageId: savedEmail.messageId,
+                },
               };
 
               await OutlookThreadModel.create(threadData);
