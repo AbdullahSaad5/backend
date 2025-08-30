@@ -15,7 +15,7 @@ router.get("/status", async (req, res) => {
   try {
     const tokens = await IntegrationTokenModel.find({}).lean();
 
-    const tokenStatus = tokens.map((token) => ({
+    const tokenStatus = tokens.map((token: any) => ({
       provider: token.provider,
       environment: token.environment,
       hasAccessToken: !!token.access_token,

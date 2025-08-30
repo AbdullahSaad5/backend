@@ -88,6 +88,8 @@ import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
 import { website } from "./website.route";
 import { deals } from "./deal.route";
+import { realTimeSync } from "./real-time-sync.route";
+import { outlookWebhook } from "./outlook-webhook.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -179,6 +181,7 @@ const routes: {
   multiInstanceGmail,
   website,
   deals,
+  realTimeSync,
 };
 
 // Loop through all routes and pass the router to each route
@@ -196,6 +199,11 @@ for (const route in routes) {
 const gmailWebhookRouter = Router();
 gmailWebhook(gmailWebhookRouter);
 router.use("/gmail-webhook", gmailWebhookRouter);
+
+// Add Outlook webhook route
+const outlookWebhookRouter = Router();
+outlookWebhook(outlookWebhookRouter);
+router.use("/outlook-webhook", outlookWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({
