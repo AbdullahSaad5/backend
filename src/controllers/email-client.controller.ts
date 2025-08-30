@@ -432,8 +432,11 @@ export class EmailClientController {
             console.log("📧 Fetched", emails.length, "emails on-demand from Gmail API");
           } else {
             console.error("❌ Failed to fetch emails on-demand:", result.error);
-            emails = [];
-            totalCount = 0;
+            return res.status(400).json({
+              success: false,
+              message: "Failed to fetch emails on-demand",
+              error: result.error,
+            });
           }
         } else if (account.accountType === "outlook" && account.oauth) {
           // For Outlook accounts, fetch emails on-demand
@@ -446,8 +449,11 @@ export class EmailClientController {
             console.log("📧 Fetched", emails.length, "emails on-demand from Outlook API");
           } else {
             console.error("❌ Failed to fetch emails on-demand:", result.error);
-            emails = [];
-            totalCount = 0;
+            return res.status(400).json({
+              success: false,
+              message: "Failed to fetch emails on-demand",
+              error: result.error,
+            });
           }
         } else {
           // For other account types, check database (fallback)
