@@ -103,11 +103,64 @@ export class RealTimeEmailSyncService {
   }
 
   /**
+   * Get the latest historyId for an account
+   */
+  private static async getLatestHistoryId(account: IEmailAccount, gmail: any): Promise<string | null> {
+    try {
+      // Get the latest message to extract historyId
+      const response = await gmail.users.messages.list({
+        userId: "me",
+        maxResults: 1,
+        q: "is:unread OR is:important",
+      });
+
+      if (response.data.messages && response.data.messages.length > 0) {
+        const latestMessage = await gmail.users.messages.get({
+          userId: "me",
+          id: response.data.messages[0].id,
+          format: "minimal",
+        });
+
+        // The historyId is available in the response headers
+        const historyId = latestMessage.data.historyId;
+        if (historyId) {
+          logger.info(`📧 [Gmail] Latest historyId for ${account.emailAddress}: ${historyId}`);
+          return historyId;
+        }
+      }
+
+      return null;
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to get latest historyId for ${account.emailAddress}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Setup Gmail polling fallback when watch is not available
    */
   private static async setupGmailPollingFallback(account: IEmailAccount): Promise<RealTimeSyncResult> {
     try {
       logger.info(`🔄 [Gmail] Setting up polling fallback for: ${account.emailAddress}`);
+
+      // Get decrypted access token
+      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
+      const decryptedRefreshToken = account.oauth!.refreshToken
+        ? EmailOAuthService.decryptData(account.oauth!.refreshToken)
+        : null;
+
+      const oauth2Client = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI
+      );
+
+      oauth2Client.setCredentials({
+        access_token: decryptedAccessToken,
+        refresh_token: decryptedRefreshToken,
+      });
+
+      const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
@@ -121,7 +174,9 @@ export class RealTimeEmailSyncService {
       setInterval(
         async () => {
           try {
-            await this.syncGmailEmails(account);
+            // Get latest historyId for incremental sync
+            const latestHistoryId = await this.getLatestHistoryId(account, gmail);
+            await this.syncGmailEmails(account, latestHistoryId || undefined);
           } catch (error) {
             logger.error(`❌ [Gmail] Polling sync failed for ${account.emailAddress}:`, error);
           }
@@ -268,9 +323,11 @@ export class RealTimeEmailSyncService {
   /**
    * Sync Gmail emails and store in database
    */
-  static async syncGmailEmails(account: IEmailAccount): Promise<RealTimeSyncResult> {
+  static async syncGmailEmails(account: IEmailAccount, historyId?: string): Promise<RealTimeSyncResult> {
     try {
-      logger.info(`🔄 [Gmail] Syncing emails for: ${account.emailAddress}`);
+      logger.info(
+        `🔄 [Gmail] Syncing emails for: ${account.emailAddress}${historyId ? ` with historyId: ${historyId}` : ""}`
+      );
 
       // Get decrypted access token
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
@@ -291,14 +348,64 @@ export class RealTimeEmailSyncService {
 
       const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-      // Get recent messages
-      const messagesResponse = await gmail.users.messages.list({
-        userId: "me",
-        maxResults: 50,
-        q: "is:unread OR is:important",
-      });
+      let messages: any[] = [];
 
-      const messages = messagesResponse.data.messages || [];
+      if (historyId) {
+        // Use historyId to get specific changes (webhook flow)
+        logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
+
+        try {
+          const historyResponse = await gmail.users.history.list({
+            userId: "me",
+            startHistoryId: historyId,
+            historyTypes: ["messageAdded"],
+          });
+
+          const history = historyResponse.data;
+          if (history.history && history.history.length > 0) {
+            // Extract message IDs from history
+            const messageIds = history.history
+              .flatMap((h) => h.messagesAdded || [])
+              .map((m) => m.message?.id)
+              .filter(Boolean);
+
+            logger.info(`📧 [Gmail] Found ${messageIds.length} new messages in history`);
+
+            // Get full message details for each new message
+            for (const messageId of messageIds) {
+              try {
+                const messageDetails = await gmail.users.messages.get({
+                  userId: "me",
+                  id: messageId!,
+                  format: "full",
+                });
+                messages.push(messageDetails.data);
+              } catch (messageError: any) {
+                logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
+              }
+            }
+          }
+        } catch (historyError: any) {
+          logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
+          // Fallback to recent messages if history fails
+          const messagesResponse = await gmail.users.messages.list({
+            userId: "me",
+            maxResults: 10,
+            q: "is:unread OR is:important",
+          });
+          messages = messagesResponse.data.messages || [];
+        }
+      } else {
+        // Fallback: Get recent messages (polling flow)
+        logger.info(`📧 [Gmail] Fetching recent messages (polling mode)`);
+        const messagesResponse = await gmail.users.messages.list({
+          userId: "me",
+          maxResults: 50,
+          q: "is:unread OR is:important",
+        });
+        messages = messagesResponse.data.messages || [];
+      }
+
       let emailsProcessed = 0;
 
       for (const message of messages) {
@@ -313,20 +420,29 @@ export class RealTimeEmailSyncService {
             continue; // Skip if already processed
           }
 
-          // Get full message details
-          const messageDetails = await gmail.users.messages.get({
-            userId: "me",
-            id: message.id!,
-            format: "full",
-          });
-
-          const messageData = messageDetails.data;
+          // Message data is already fetched in history flow
+          const messageData = message;
           const headers = messageData.payload?.headers || [];
 
-          // Extract email data
+          // Extract email data and determine threadId
+          let threadId = messageData.threadId;
+
+          // If Gmail doesn't provide threadId, generate one based on subject and participants
+          if (!threadId) {
+            const subject = this.extractHeader(headers, "Subject") || "No Subject";
+            const from = this.extractHeader(headers, "From") || "";
+            const to = this.extractHeader(headers, "To") || "";
+
+            // Create a hash-based threadId for emails without Gmail threadId
+            const threadKey = `${subject.toLowerCase().trim()}_${from}_${to}`;
+            threadId = `generated_${Buffer.from(threadKey).toString("base64").substring(0, 16)}`;
+
+            logger.info(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
+          }
+
           const emailData = {
             messageId: message.id,
-            threadId: messageData.threadId,
+            threadId: threadId,
             accountId: account._id,
             direction: "inbound",
             type: "general",
@@ -353,6 +469,12 @@ export class RealTimeEmailSyncService {
             category: "primary",
           };
 
+          // Ensure we have a valid threadId before proceeding
+          if (!emailData.threadId) {
+            logger.warn(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
+            continue;
+          }
+
           // Save email to database
           const savedEmail = await EmailModel.create(emailData);
           emailsProcessed++;
@@ -367,13 +489,26 @@ export class RealTimeEmailSyncService {
             if (existingThread) {
               // Update existing thread
               await GmailThreadModel.findByIdAndUpdate(existingThread._id, {
-                $inc: { messageCount: 1 },
+                $inc: {
+                  messageCount: 1,
+                  unreadCount: savedEmail.isRead ? 0 : 1,
+                },
                 $set: {
+                  lastMessageAt: savedEmail.receivedAt,
                   lastActivity: savedEmail.receivedAt,
-                  lastMessageId: savedEmail.messageId,
-                  lastMessageSubject: savedEmail.subject,
-                  lastMessageFrom: savedEmail.from,
+                  latestEmailFrom: {
+                    email: savedEmail.from.email,
+                    name: savedEmail.from.name,
+                  },
+                  latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
+                  latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                },
+                $push: {
+                  "rawGmailData.messageIds": savedEmail.messageId,
                 },
               });
               logger.info(`📧 [Gmail] Updated thread: ${savedEmail.threadId}`);
@@ -383,10 +518,20 @@ export class RealTimeEmailSyncService {
                 threadId: savedEmail.threadId,
                 accountId: account._id,
                 subject: savedEmail.subject,
+                normalizedSubject: savedEmail.subject.toLowerCase().trim(),
                 messageCount: 1,
-                lastMessageId: savedEmail.messageId,
-                lastMessageSubject: savedEmail.subject,
-                lastMessageFrom: savedEmail.from,
+                unreadCount: savedEmail.isRead ? 0 : 1,
+                isStarred: savedEmail.isStarred || false,
+                hasAttachments: false, // Will be updated when we fetch full message details
+                firstMessageAt: savedEmail.receivedAt,
+                lastMessageAt: savedEmail.receivedAt,
+                lastActivity: savedEmail.receivedAt,
+                status: "active",
+                folder: savedEmail.folder,
+                category: savedEmail.category,
+                threadType: "conversation",
+                isPinned: false,
+                totalSize: 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -394,12 +539,21 @@ export class RealTimeEmailSyncService {
                     name: recipient.name,
                   })),
                 ],
-                firstMessageAt: savedEmail.receivedAt,
-                lastActivity: savedEmail.receivedAt,
-                status: "active",
-                isRead: savedEmail.isRead,
-                folder: savedEmail.folder,
-                category: savedEmail.category,
+                latestEmailFrom: {
+                  email: savedEmail.from.email,
+                  name: savedEmail.from.name,
+                },
+                latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+                latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
+                rawGmailData: {
+                  threadId: savedEmail.threadId,
+                  messageIds: [savedEmail.messageId],
+                  messageCount: 1,
+                  labelIds: savedEmail.isRead ? [] : ["UNREAD"],
+                },
               };
 
               await GmailThreadModel.create(threadData);
@@ -495,10 +649,25 @@ export class RealTimeEmailSyncService {
             continue; // Skip if already processed
           }
 
-          // Extract email data
+          // Extract email data and ensure threadId
+          let threadId = message.conversationId;
+
+          // If Outlook doesn't provide conversationId, generate one based on subject and participants
+          if (!threadId) {
+            const subject = message.subject || "No Subject";
+            const from = message.from?.emailAddress?.address || "";
+            const to = (message.toRecipients || []).map((r: any) => r.emailAddress?.address).join(",");
+
+            // Create a hash-based threadId for emails without conversationId
+            const threadKey = `${subject.toLowerCase().trim()}_${from}_${to}`;
+            threadId = `generated_${Buffer.from(threadKey).toString("base64").substring(0, 16)}`;
+
+            logger.info(`🔄 [Outlook] Generated threadId: ${threadId} for message: ${message.id}`);
+          }
+
           const emailData = {
             messageId: message.id,
-            threadId: message.conversationId,
+            threadId: threadId,
             accountId: account._id,
             direction: "inbound",
             type: "general",
@@ -517,11 +686,11 @@ export class RealTimeEmailSyncService {
             })),
             cc: (message.ccRecipients || []).map((recipient: any) => ({
               email: recipient.emailAddress?.address || "",
-              name: recipient.emailAddress?.name || "",
+              name: recipient.emailAddress?.address || "",
             })),
             bcc: (message.bccRecipients || []).map((recipient: any) => ({
               email: recipient.emailAddress?.address || "",
-              name: recipient.emailAddress?.name || "",
+              name: recipient.emailAddress?.address || "",
             })),
             receivedAt: new Date(message.receivedDateTime),
             sentAt: message.sentDateTime ? new Date(message.sentDateTime) : undefined,
@@ -549,13 +718,26 @@ export class RealTimeEmailSyncService {
             if (existingThread) {
               // Update existing thread
               await OutlookThreadModel.findByIdAndUpdate(existingThread._id, {
-                $inc: { messageCount: 1 },
+                $inc: {
+                  messageCount: 1,
+                  unreadCount: savedEmail.isRead ? 0 : 1,
+                },
                 $set: {
+                  lastMessageAt: savedEmail.receivedAt,
                   lastActivity: savedEmail.receivedAt,
-                  lastMessageId: savedEmail.messageId,
-                  lastMessageSubject: savedEmail.subject,
-                  lastMessageFrom: savedEmail.from,
+                  latestEmailFrom: {
+                    email: savedEmail.from.email,
+                    name: savedEmail.from.name,
+                  },
+                  latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
+                  latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                },
+                $push: {
+                  "rawOutlookData.messageIds": savedEmail.messageId,
                 },
               });
               logger.info(`📧 [Outlook] Updated thread: ${savedEmail.threadId}`);
@@ -565,10 +747,20 @@ export class RealTimeEmailSyncService {
                 conversationId: savedEmail.threadId,
                 accountId: account._id,
                 subject: savedEmail.subject,
+                normalizedSubject: savedEmail.subject.toLowerCase().trim(),
                 messageCount: 1,
-                lastMessageId: savedEmail.messageId,
-                lastMessageSubject: savedEmail.subject,
-                lastMessageFrom: savedEmail.from,
+                unreadCount: savedEmail.isRead ? 0 : 1,
+                isStarred: savedEmail.isStarred || false,
+                hasAttachments: false,
+                firstMessageAt: savedEmail.receivedAt,
+                lastMessageAt: savedEmail.receivedAt,
+                lastActivity: savedEmail.receivedAt,
+                status: "active",
+                folder: savedEmail.folder,
+                category: savedEmail.category,
+                threadType: "conversation",
+                isPinned: false,
+                totalSize: 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -576,12 +768,21 @@ export class RealTimeEmailSyncService {
                     name: recipient.name,
                   })),
                 ],
-                firstMessageAt: savedEmail.receivedAt,
-                lastActivity: savedEmail.receivedAt,
-                status: "active",
-                isRead: savedEmail.isRead,
-                folder: savedEmail.folder,
-                category: savedEmail.category,
+                latestEmailFrom: {
+                  email: savedEmail.from.email,
+                  name: savedEmail.from.name,
+                },
+                latestEmailTo: savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+                latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
+                rawOutlookData: {
+                  conversationId: savedEmail.threadId,
+                  messageIds: [savedEmail.messageId],
+                  messageCount: 1,
+                  lastMessageId: savedEmail.messageId,
+                },
               };
 
               await OutlookThreadModel.create(threadData);
