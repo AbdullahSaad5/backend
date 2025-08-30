@@ -213,9 +213,9 @@ export const ProfitReportingController = {
       report = await ProfitReportingService.generateTimeBasedReport(start, end, period, payrollType);
       
       // Add payroll type to title if specified
-      if (payrollType) {
-        title += ` - ${payrollType} Payroll`;
-      }
+      // if (payrollType) {
+      //   title += ` - ${payrollType} Payroll`;
+      // }
 
       // Create PDF
       const doc = new PDFDocument({ margin: 50 });
@@ -261,9 +261,9 @@ export const ProfitReportingController = {
          .fillColor('#1a365d')
          .text('Build My Rig', margin, margin, { align: 'center' });
       
-      doc.fontSize(12).font('Helvetica')
-         .fillColor('#718096')
-         .text('Financial Management System', margin, margin + 35, { align: 'center' });
+      // doc.fontSize(12).font('Helvetica')
+      //    .fillColor('#718096')
+      //    .text('Financial Management System', margin, margin + 35, { align: 'center' });
       
       // Add a horizontal line under header
       doc.strokeColor('#e2e8f0')
@@ -341,41 +341,68 @@ export const ProfitReportingController = {
       doc.y = summaryBoxTop + 140;
       doc.moveDown(1);
 
-      // Revenue Breakdown Section
-      const revenueData = reportType === 'time-based' ? report.topRevenueSources : report.revenueBreakdown;
-      if (revenueData?.length > 0) {
+      // Helper function to create tables with proper page breaks
+      const createTableWithPageBreaks = (data: any[], columns: any[], title: string, maxRowsPerPage: number = 8) => {
+        if (!data || data.length === 0) return;
+        
+        const rowHeight = 25;
+        const headerHeight = 30;
+        const titleHeight = 40; // Space for title and spacing
+        
+        // Add title
         doc.fontSize(16).font('Helvetica-Bold')
            .fillColor('#2d3748')
-           .text('Revenue Breakdown by Source', margin);
+           .text(title, margin);
         
         doc.moveDown(0.5);
         
-        // Create table for revenue sources
-        const revenueTableTop = doc.y;
-        const rowHeight = 25;
-        const headerHeight = 30;
+        // Split data into pages
+        const totalPages = Math.ceil(data.length / maxRowsPerPage);
         
-        // Table background
-        doc.rect(margin, revenueTableTop, contentWidth, headerHeight + (revenueData.length * rowHeight))
-           .fillColor('#ffffff')
-           .stroke();
-        
-        // Header row
-        doc.rect(margin, revenueTableTop, contentWidth, headerHeight)
-           .fillColor('#edf2f7')
-           .fill()
-           .stroke();
-        
-        doc.fontSize(12).font('Helvetica-Bold')
-           .fillColor('#2d3748')
-           .text('Source', margin + 10, revenueTableTop + 8)
-           .text('Amount', margin + 200, revenueTableTop + 8)
-           .text('Percentage', margin + 350, revenueTableTop + 8);
-        
-        // Data rows
-        revenueData.forEach((item: any, index: number) => {
-          if (index < 8) { // Limit to top 8 for space
-            const rowY = revenueTableTop + headerHeight + (index * rowHeight);
+        for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+          const startIndex = pageIndex * maxRowsPerPage;
+          const endIndex = Math.min(startIndex + maxRowsPerPage, data.length);
+          const pageData = data.slice(startIndex, endIndex);
+          const rowsOnThisPage = pageData.length;
+          
+          // Check if we need a new page (except for first page)
+          if (pageIndex > 0) {
+            doc.addPage();
+          }
+          
+          // Calculate required height for this page's table
+          const tableHeight = headerHeight + (rowsOnThisPage * rowHeight);
+          const totalRequiredHeight = tableHeight + footerHeight + 40;
+          
+          // Check if we have enough space on current page
+          if (doc.y + totalRequiredHeight > pageHeight - margin) {
+            doc.addPage();
+          }
+          
+          const tableTop = doc.y;
+          
+          // Table background
+          doc.rect(margin, tableTop, contentWidth, tableHeight)
+             .fillColor('#ffffff')
+             .stroke();
+          
+          // Header row
+          doc.rect(margin, tableTop, contentWidth, headerHeight)
+             .fillColor('#edf2f7')
+             .fill()
+             .stroke();
+          
+          // Draw header text
+          doc.fontSize(12).font('Helvetica-Bold')
+             .fillColor('#2d3748');
+          
+          columns.forEach((column, colIndex) => {
+            doc.text(column.header, column.x, tableTop + 8);
+          });
+          
+          // Data rows
+          pageData.forEach((item: any, index: number) => {
+            const rowY = tableTop + headerHeight + (index * rowHeight);
             
             // Alternate row colors
             if (index % 2 === 1) {
@@ -384,149 +411,119 @@ export const ProfitReportingController = {
                  .fill();
             }
             
+            // Draw row data
             doc.fontSize(10).font('Helvetica')
-               .fillColor('#4a5568')
-               .text(item.source.length > 30 ? item.source.substring(0, 30) + '...' : item.source, margin + 10, rowY + 8)
-               .text(`£${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`, margin + 200, rowY + 8)
-               .text(`${item.percentage.toFixed(1)}%`, margin + 350, rowY + 8);
+               .fillColor('#4a5568');
+            
+            columns.forEach((column, colIndex) => {
+              const value = column.getValue(item);
+              const color = column.getColor ? column.getColor(item) : '#4a5568';
+              
+              doc.fillColor(color)
+                 .text(value, column.x, rowY + 8);
+            });
+          });
+          
+          // Update doc.y to after the table
+          doc.y = tableTop + tableHeight + 20;
+        }
+      };
+
+      // Revenue Breakdown Section
+      const revenueData = reportType === 'time-based' ? report.topRevenueSources : report.revenueBreakdown;
+      if (revenueData?.length > 0) {
+        const revenueColumns = [
+          {
+            header: 'Source',
+            x: margin + 10,
+            getValue: (item: any) => item.source.length > 30 ? item.source.substring(0, 30) + '...' : item.source
+          },
+          {
+            header: 'Amount',
+            x: margin + 200,
+            getValue: (item: any) => `£${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`
+          },
+          {
+            header: 'Percentage',
+            x: margin + 350,
+            getValue: (item: any) => `${item.percentage.toFixed(1)}%`
           }
-        });
+        ];
         
-        doc.y = revenueTableTop + headerHeight + (Math.min(revenueData.length, 8) * rowHeight) + 20;
+        createTableWithPageBreaks(revenueData, revenueColumns, 'Revenue Breakdown by Source');
       }
 
       // Expense Breakdown Section
       const expenseData = reportType === 'time-based' ? report.topExpenseCategories : report.expenseBreakdown;
       if (expenseData?.length > 0) {
-        doc.fontSize(16).font('Helvetica-Bold')
-           .fillColor('#2d3748')
-           .text('Expense Breakdown by Category', margin);
-        
-        doc.moveDown(0.5);
-        
-        // Create table for expense categories
-        const expenseTableTop = doc.y;
-        const rowHeight = 25;
-        const headerHeight = 30;
-        
-        // Table background
-        doc.rect(margin, expenseTableTop, contentWidth, headerHeight + (expenseData.length * rowHeight))
-           .fillColor('#ffffff')
-           .stroke();
-        
-        // Header row
-        doc.rect(margin, expenseTableTop, contentWidth, headerHeight)
-           .fillColor('#edf2f7')
-           .fill()
-           .stroke();
-        
-        doc.fontSize(12).font('Helvetica-Bold')
-           .fillColor('#2d3748')
-           .text('Category', margin + 10, expenseTableTop + 8)
-           .text('Amount', margin + 200, expenseTableTop + 8)
-           .text('Percentage', margin + 320, expenseTableTop + 8)
-           .text('Type', margin + 420, expenseTableTop + 8);
-        
-        // Data rows
-        expenseData.forEach((item: any, index: number) => {
-          if (index < 8) { // Limit to top 8 for space
-            const rowY = expenseTableTop + headerHeight + (index * rowHeight);
-            
-            // Alternate row colors
-            if (index % 2 === 1) {
-              doc.rect(margin, rowY, contentWidth, rowHeight)
-                 .fillColor('#f7fafc')
-                 .fill();
-            }
-            
-            const systemTag = item.isSystemGenerated ? 'System' : 'Manual';
-            const typeColor = item.isSystemGenerated ? '#3182ce' : '#805ad5';
-            
-            doc.fontSize(10).font('Helvetica')
-               .fillColor('#4a5568')
-               .text(item.category.length > 25 ? item.category.substring(0, 25) + '...' : item.category, margin + 10, rowY + 8)
-               .text(`£${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`, margin + 200, rowY + 8)
-               .text(`${item.percentage.toFixed(1)}%`, margin + 320, rowY + 8);
-            
-            doc.fillColor(typeColor)
-               .text(systemTag, margin + 420, rowY + 8);
+        const expenseColumns = [
+          {
+            header: 'Category',
+            x: margin + 10,
+            getValue: (item: any) => item.category.length > 25 ? item.category.substring(0, 25) + '...' : item.category
+          },
+          {
+            header: 'Amount',
+            x: margin + 200,
+            getValue: (item: any) => `£${item.amount.toLocaleString('en-GB', { minimumFractionDigits: 2 })}`
+          },
+          {
+            header: 'Percentage',
+            x: margin + 320,
+            getValue: (item: any) => `${item.percentage.toFixed(1)}%`
+          },
+          {
+            header: 'Type',
+            x: margin + 420,
+            getValue: (item: any) => item.isSystemGenerated ? 'System' : 'Manual',
+            getColor: (item: any) => item.isSystemGenerated ? '#3182ce' : '#805ad5'
           }
-        });
+        ];
         
-        doc.y = expenseTableTop + headerHeight + (Math.min(expenseData.length, 8) * rowHeight) + 20;
+        createTableWithPageBreaks(expenseData, expenseColumns, 'Expense Breakdown by Category');
       }
 
-      // Trends Section - calculate required space first
+      // Trends Section
       const trendsData = reportType === 'time-based' ? report.trends : report.monthlyTrends;
       if (trendsData?.length > 0) {
-        const rowHeight = 25;
-        const headerHeight = 30;
-        const trendsToShow = Math.min(trendsData.length, 12); // Reduced for better space management
-        const trendsTableHeight = headerHeight + (trendsToShow * rowHeight);
-        const trendsHeaderHeight = 50; // Space for "Financial Trends" title and spacing
-        const totalTrendsHeight = trendsHeaderHeight + trendsTableHeight;
-        
-        // Check if we need a new page for trends section
-        if (doc.y + totalTrendsHeight + footerHeight + 40 > pageHeight - margin) {
-          doc.addPage();
-        }
-        
-        doc.fontSize(16).font('Helvetica-Bold')
-           .fillColor('#2d3748')
-           .text('Financial Trends', margin);
-        
-        doc.moveDown(0.5);
-        
-        // Create professional table for trends
-        const trendsTableTop = doc.y;
-        
-        // Table background
-        doc.rect(margin, trendsTableTop, contentWidth, headerHeight + (trendsToShow * rowHeight))
-           .fillColor('#ffffff')
-           .stroke();
-        
-        // Header row
-        doc.rect(margin, trendsTableTop, contentWidth, headerHeight)
-           .fillColor('#2d3748')
-           .fill();
-        
-        doc.fontSize(12).font('Helvetica-Bold')
-           .fillColor('#ffffff')
-           .text('Period', margin + 10, trendsTableTop + 8)
-           .text('Revenue', margin + 120, trendsTableTop + 8)
-           .text('Expenses', margin + 220, trendsTableTop + 8)
-           .text('Profit', margin + 320, trendsTableTop + 8)
-           .text('Margin', margin + 420, trendsTableTop + 8);
-        
-        // Data rows
-        trendsData.slice(0, trendsToShow).forEach((item: any, index: number) => {
-          const rowY = trendsTableTop + headerHeight + (index * rowHeight);
-          const period = reportType === 'time-based' ? item.period : item.month;
-          const profitMarginValue = item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : '0.0';
-          
-          // Alternate row colors
-          if (index % 2 === 1) {
-            doc.rect(margin, rowY, contentWidth, rowHeight)
-               .fillColor('#f7fafc')
-               .fill();
+        const trendsToShow = Math.min(trendsData.length, 12);
+        const trendsColumns = [
+          {
+            header: 'Period',
+            x: margin + 10,
+            getValue: (item: any) => {
+              const period = reportType === 'time-based' ? item.period : item.month;
+              return period.length > 15 ? period.substring(0, 15) + '...' : period;
+            }
+          },
+          {
+            header: 'Revenue',
+            x: margin + 120,
+            getValue: (item: any) => `£${item.revenue.toLocaleString('en-GB')}`
+          },
+          {
+            header: 'Expenses',
+            x: margin + 220,
+            getValue: (item: any) => `£${item.expenses.toLocaleString('en-GB')}`
+          },
+          {
+            header: 'Profit',
+            x: margin + 320,
+            getValue: (item: any) => `£${item.profit.toLocaleString('en-GB')}`,
+            getColor: (item: any) => item.profit >= 0 ? '#38a169' : '#e53e3e'
+          },
+          {
+            header: 'Margin',
+            x: margin + 420,
+            getValue: (item: any) => {
+              const profitMarginValue = item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : '0.0';
+              return `${profitMarginValue}%`;
+            },
+            getColor: (item: any) => item.profit >= 0 ? '#38a169' : '#e53e3e'
           }
-          
-          // Profit color based on value
-          const profitColor = item.profit >= 0 ? '#38a169' : '#e53e3e';
-          
-          doc.fontSize(10).font('Helvetica')
-             .fillColor('#4a5568')
-             .text(period.length > 15 ? period.substring(0, 15) + '...' : period, margin + 10, rowY + 8)
-             .text(`£${item.revenue.toLocaleString('en-GB')}`, margin + 120, rowY + 8)
-             .text(`£${item.expenses.toLocaleString('en-GB')}`, margin + 220, rowY + 8);
-          
-          doc.fillColor(profitColor)
-             .text(`£${item.profit.toLocaleString('en-GB')}`, margin + 320, rowY + 8)
-             .text(`${profitMarginValue}%`, margin + 420, rowY + 8);
-        });
+        ];
         
-        // Update doc.y to after the table
-        doc.y = trendsTableTop + headerHeight + (trendsToShow * rowHeight) + 20;
+        createTableWithPageBreaks(trendsData.slice(0, trendsToShow), trendsColumns, 'Financial Trends');
       }
 
       // Footer - always place on same page as content

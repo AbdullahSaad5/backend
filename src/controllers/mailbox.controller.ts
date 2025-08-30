@@ -5,7 +5,7 @@ import { StatusCodes } from "http-status-codes";
 import { EmailModel } from "@/models/email.model";
 import { EmailDirection, EmailType, EmailStatus, EmailPriority } from "@/contracts/mailbox.contract";
 import { MarketingCampaign, SMSMessage, NewsletterSubscriber } from "@/models/marketing.model";
-import { EmailThreadModel } from "@/models/email-thread.model";
+// TODO: Update to use UnifiedThreadService instead of direct EmailThreadModel access
 import { smsService } from "@/services/sms.service";
 import { EmailAccountModel } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";

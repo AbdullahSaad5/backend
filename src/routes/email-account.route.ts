@@ -109,6 +109,13 @@ export const emailAccount = (router: Router) => {
     EmailAccountController.getAccountEmailCount
   );
 
+  // Reset sync state for debugging
+  router.post(
+    "/accounts/:accountId/reset-sync",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.resetSyncState
+  );
+
   router.post(
     "/accounts/:accountId/refresh-token",
     validateParams(emailAccountValidation.accountId),
