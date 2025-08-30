@@ -60,7 +60,7 @@ export class RealTimeEmailSyncCron {
    * Stop the cron jobs
    */
   static stop(): void {
-    cron.getTasks().forEach((task) => {
+    cron.getTasks().forEach((task: any) => {
       if (task.name?.includes("real-time-email-sync")) {
         task.stop();
       }
