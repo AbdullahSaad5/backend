@@ -435,6 +435,20 @@ export class EmailClientController {
             emails = [];
             totalCount = 0;
           }
+        } else if (account.accountType === "outlook" && account.oauth) {
+          // For Outlook accounts, fetch emails on-demand
+          const { OutlookSyncService } = await import("@/services/sync/outlook-sync.service");
+          const result = await OutlookSyncService.getThreadEmails(account, threadId as string);
+
+          if (result.success && result.emails) {
+            emails = result.emails;
+            totalCount = result.emails.length;
+            console.log("📧 Fetched", emails.length, "emails on-demand from Outlook API");
+          } else {
+            console.error("❌ Failed to fetch emails on-demand:", result.error);
+            emails = [];
+            totalCount = 0;
+          }
         } else {
           // For other account types, check database (fallback)
           const threadEmails = await EmailModel.find({
