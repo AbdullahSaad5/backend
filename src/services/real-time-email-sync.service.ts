@@ -8,6 +8,8 @@ import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { getOutlookWebhookUrl } from "@/config/instance-config";
+import { PubSub } from "@google-cloud/pubsub";
+import crypto from "crypto";
 
 export interface RealTimeSyncResult {
   success: boolean;
@@ -17,6 +19,31 @@ export interface RealTimeSyncResult {
 }
 
 export class RealTimeEmailSyncService {
+  // Lazy initialization of Google Cloud Pub/Sub client
+  private static getPubSubClient(): PubSub {
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    const serviceAccountCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
+
+    if (!projectId || !serviceAccountCredentials) {
+      throw new Error(
+        "Google Cloud configuration missing: GOOGLE_CLOUD_PROJECT or GOOGLE_SERVICE_ACCOUNT_CREDENTIALS not set"
+      );
+    }
+
+    // Parse the service account credentials from environment variable
+    let credentials;
+    try {
+      credentials = JSON.parse(serviceAccountCredentials);
+    } catch (error) {
+      throw new Error("Invalid GOOGLE_SERVICE_ACCOUNT_CREDENTIALS format in environment variables");
+    }
+
+    return new PubSub({
+      projectId,
+      credentials,
+    });
+  }
+
   /**
    * Setup real-time sync for Gmail accounts
    */
@@ -58,9 +85,22 @@ export class RealTimeEmailSyncService {
         return this.setupGmailPollingFallback(account);
       }
 
-      // Setup Gmail watch with Google Cloud Pub/Sub
-      // Use a consistent topic name for the project
-      const topicName = `projects/${projectId}/topics/gmail-sync-notifications`;
+      // Automatically create account-specific topic
+      let topicName: string;
+      let isAutoCreated = false;
+
+      try {
+        // Try to create account-specific topic
+        logger.info(`🔄 [Gmail] Attempting to create account-specific topic for: ${account.emailAddress}`);
+        topicName = await this.ensureGmailTopicExists(account);
+        isAutoCreated = true;
+        logger.info(`✅ [Gmail] Using auto-created account-specific topic: ${topicName}`);
+      } catch (error: any) {
+        // Fallback to shared topic if auto-creation fails
+        logger.warn(`⚠️ [Gmail] Topic creation failed for ${account.emailAddress}, error: ${error.message}`);
+        topicName = `projects/${projectId}/topics/gmail-sync-notifications`;
+        logger.warn(`⚠️ [Gmail] Falling back to shared topic: ${topicName} for ${account.emailAddress}`);
+      }
 
       logger.info(`📧 [Gmail] Setting up watch with topic: ${topicName} for: ${account.emailAddress}`);
 
@@ -78,27 +118,104 @@ export class RealTimeEmailSyncService {
         ? new Date(parseInt(watchResponse.data.expiration))
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days default
 
-      await EmailAccountModel.findByIdAndUpdate(account._id, {
-        $set: {
-          "syncState.watchExpiration": expirationTime,
-          "syncState.lastWatchRenewal": new Date(),
-          "syncState.isWatching": true,
-          "syncState.syncStatus": "watching",
-        },
-      });
+      logger.info(`💾 [Gmail] Updating database for: ${account.emailAddress}`);
+      logger.info(`💾 [Gmail] Account ID: ${account._id}`);
+      logger.info(`💾 [Gmail] Topic: ${topicName}`);
+      logger.info(`💾 [Gmail] Is Auto Created: ${isAutoCreated}`);
+      logger.info(`💾 [Gmail] Watch Expiration: ${expirationTime.toISOString()}`);
 
+      try {
+        const updateResult = await EmailAccountModel.findByIdAndUpdate(
+          account._id,
+          {
+            $set: {
+              "syncState.gmailTopic": topicName,
+              "syncState.isAutoCreated": isAutoCreated,
+              "syncState.watchExpiration": expirationTime,
+              "syncState.lastWatchRenewal": new Date(),
+              "syncState.isWatching": true,
+              "syncState.syncStatus": "watching",
+            },
+          },
+          { new: true }
+        );
+
+        if (!updateResult) {
+          logger.error(`❌ [Gmail] Database update failed for: ${account.emailAddress}`);
+          throw new Error("Failed to update database");
+        }
+
+        // Verify the update was successful
+        const verifyAccount = await EmailAccountModel.findById(account._id);
+        if (!verifyAccount?.syncState?.gmailTopic) {
+          logger.error(`❌ [Gmail] Database update verification failed for: ${account.emailAddress}`);
+          throw new Error("Database update verification failed");
+        }
+
+        logger.info(`✅ [Gmail] Database update verified for: ${account.emailAddress}`);
+        logger.info(`✅ [Gmail] Stored topic: ${verifyAccount.syncState.gmailTopic}`);
+      } catch (dbError: any) {
+        logger.error(`❌ [Gmail] Database update error for ${account.emailAddress}:`, dbError);
+        throw new Error(`Database update failed: ${dbError.message}`);
+      }
+
+      logger.info(`✅ [Gmail] Database updated successfully for: ${account.emailAddress}`);
       logger.info(`✅ [Gmail] Real-time sync setup completed for: ${account.emailAddress}`);
       logger.info(`📅 [Gmail] Watch expires: ${expirationTime.toISOString()}`);
 
       return {
         success: true,
-        message: "Gmail real-time sync setup completed",
+        message: `Gmail real-time sync setup completed with ${isAutoCreated ? "auto-created" : "shared"} topic`,
       };
     } catch (error: any) {
       logger.error(`❌ [Gmail] Failed to setup real-time sync for ${account.emailAddress}:`, error);
 
       // Fallback to polling
       return this.setupGmailPollingFallback(account);
+    }
+  }
+
+  /**
+   * Automatically create Pub/Sub topic for Gmail account
+   */
+  private static async ensureGmailTopicExists(account: IEmailAccount): Promise<string> {
+    try {
+      // Generate unique topic name for this account
+      const accountHash = crypto
+        .createHash("md5")
+        .update(`${account.emailAddress}-${account._id}`)
+        .digest("hex")
+        .substring(0, 8);
+
+      const topicName = `gmail-sync-${accountHash}`;
+      const fullTopicName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/${topicName}`;
+
+      try {
+        // Check if topic exists
+        const pubsub = this.getPubSubClient();
+        const [topics] = await pubsub.getTopics();
+        const topicExists = topics.some((topic) => topic.name.includes(topicName));
+
+        if (!topicExists) {
+          // Create topic automatically
+          await pubsub.createTopic(topicName);
+          logger.info(`✅ [Gmail] Auto-created Pub/Sub topic: ${topicName} for ${account.emailAddress}`);
+        } else {
+          logger.info(`ℹ️ [Gmail] Topic ${topicName} already exists for ${account.emailAddress}`);
+        }
+      } catch (error: any) {
+        if (error.code === 6) {
+          // Topic already exists (race condition)
+          logger.info(`ℹ️ [Gmail] Topic ${topicName} already exists for ${account.emailAddress}`);
+        } else {
+          throw error;
+        }
+      }
+
+      return fullTopicName;
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to create topic for ${account.emailAddress}:`, error);
+      throw error;
     }
   }
 
@@ -209,15 +326,59 @@ export class RealTimeEmailSyncService {
         throw new Error("No OAuth access token available");
       }
 
-      // Get decrypted access token
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+      // Check if token is expired and refresh if needed
+      let decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+
+      if (account.oauth.tokenExpiry && new Date() > account.oauth.tokenExpiry) {
+        logger.info(`🔄 [Outlook] Token expired for: ${account.emailAddress}, refreshing...`);
+        try {
+          const refreshResult = await EmailOAuthService.refreshTokens(account);
+          if (refreshResult.success) {
+            // Get the refreshed token
+            const updatedAccount = await EmailAccountModel.findById(account._id);
+            if (updatedAccount?.oauth?.accessToken) {
+              decryptedAccessToken = EmailOAuthService.decryptData(updatedAccount.oauth.accessToken);
+              logger.info(`✅ [Outlook] Token refreshed successfully for: ${account.emailAddress}`);
+            } else {
+              throw new Error("Failed to get refreshed token");
+            }
+          } else {
+            throw new Error(`Token refresh failed: ${refreshResult.error}`);
+          }
+        } catch (refreshError: any) {
+          logger.error(`❌ [Outlook] Token refresh failed: ${refreshError.message}`);
+          throw new Error(`Token refresh failed: ${refreshError.message}`);
+        }
+      }
+
+      // Test the access token first to ensure it's valid
+      try {
+        logger.info(`🔍 [Outlook] Testing access token for: ${account.emailAddress}`);
+        const testResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+          headers: {
+            Authorization: `Bearer ${decryptedAccessToken}`,
+          },
+        });
+
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          logger.error(`❌ [Outlook] Access token test failed: ${testResponse.status} ${testResponse.statusText}`);
+          logger.error(`❌ [Outlook] Error details: ${errorText}`);
+          throw new Error(`Access token is invalid: ${testResponse.status} ${testResponse.statusText}`);
+        }
+
+        logger.info(`✅ [Outlook] Access token is valid for: ${account.emailAddress}`);
+      } catch (tokenError: any) {
+        logger.error(`❌ [Outlook] Token validation failed: ${tokenError.message}`);
+        throw new Error(`Token validation failed: ${tokenError.message}`);
+      }
 
       // Create Microsoft Graph client with proper authentication
+      // We'll use direct HTTP requests instead of the Graph client to avoid JWT issues
       const graphClient = Client.init({
         authProvider: (done) => {
-          // Microsoft Graph accepts opaque access tokens (not JWT format)
-          // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
+          // This won't be used, but required by the Client.init interface
+          done(null, "");
         },
       });
 
@@ -225,7 +386,7 @@ export class RealTimeEmailSyncService {
       const webhookUrl = getOutlookWebhookUrl();
       if (webhookUrl) {
         logger.info(`📧 [Outlook] Using webhook URL: ${webhookUrl} for: ${account.emailAddress}`);
-        return this.setupOutlookWebhook(account, graphClient, webhookUrl);
+        return this.setupOutlookWebhook(account, graphClient, webhookUrl, decryptedAccessToken);
       } else {
         logger.warn(
           `⚠️ [Outlook] No webhook URL configured for instance, using polling fallback for: ${account.emailAddress}`
@@ -245,17 +406,52 @@ export class RealTimeEmailSyncService {
   private static async setupOutlookWebhook(
     account: IEmailAccount,
     graphClient: Client,
-    webhookUrl: string
+    webhookUrl: string,
+    accessToken: string
   ): Promise<RealTimeSyncResult> {
     try {
-      // Create webhook subscription for new emails
-      const subscription = await graphClient.api("/subscriptions").post({
+      // Create webhook subscription for new emails using direct HTTP request with access token
+      logger.info(`📧 [Outlook] Creating webhook subscription for: ${account.emailAddress}`);
+      logger.info(`📧 [Outlook] Webhook URL: ${webhookUrl}/${account._id}`);
+      logger.info(`📧 [Outlook] Full notification URL: ${webhookUrl}/${account._id}`);
+
+      const subscriptionPayload = {
         changeType: "created,updated",
         notificationUrl: `${webhookUrl}/${account._id}`,
         resource: "/me/messages",
-        expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
+        expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
         clientState: account._id,
+      };
+
+      logger.info(`📧 [Outlook] Subscription payload:`, subscriptionPayload);
+
+      const subscriptionResponse = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(subscriptionPayload),
       });
+
+      logger.info(
+        `📧 [Outlook] Subscription response status: ${subscriptionResponse.status} ${subscriptionResponse.statusText}`
+      );
+
+      if (!subscriptionResponse.ok) {
+        const errorText = await subscriptionResponse.text();
+        logger.error(
+          `❌ [Outlook] Subscription creation failed: ${subscriptionResponse.status} ${subscriptionResponse.statusText}`
+        );
+        logger.error(`❌ [Outlook] Error details: ${errorText}`);
+        logger.error(`❌ [Outlook] Response headers:`, Object.fromEntries(subscriptionResponse.headers.entries()));
+        throw new Error(
+          `Failed to create subscription: ${subscriptionResponse.status} ${subscriptionResponse.statusText} - ${errorText}`
+        );
+      }
+
+      const subscription = await subscriptionResponse.json();
+      logger.info(`✅ [Outlook] Subscription created successfully: ${subscription.id}`);
 
       // Update account sync state
       await EmailAccountModel.findByIdAndUpdate(account._id, {
@@ -831,6 +1027,65 @@ export class RealTimeEmailSyncService {
         message: "Outlook sync failed",
         error: error.message,
       };
+    }
+  }
+
+  /**
+   * Get account-specific Gmail topic information
+   */
+  static async getGmailTopicInfo(account: IEmailAccount): Promise<{
+    topicName: string;
+    isAutoCreated: boolean;
+    isActive: boolean;
+  } | null> {
+    try {
+      if (!account.syncState?.gmailTopic) {
+        return null;
+      }
+
+      const topicName = account.syncState.gmailTopic.split("/").pop() || "";
+      const isActive = !!(
+        account.syncState.isWatching &&
+        account.syncState.watchExpiration &&
+        new Date(account.syncState.watchExpiration) > new Date()
+      );
+
+      return {
+        topicName,
+        isAutoCreated: account.syncState.isAutoCreated || false,
+        isActive,
+      };
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to get topic info for ${account.emailAddress}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Clean up Gmail topic when account is removed
+   */
+  static async cleanupGmailTopic(account: IEmailAccount): Promise<void> {
+    try {
+      if (account.syncState?.gmailTopic && account.syncState?.isAutoCreated) {
+        const topicName = account.syncState.gmailTopic.split("/").pop(); // Extract topic name from full path
+
+        if (topicName && topicName.startsWith("gmail-sync-")) {
+          try {
+            const pubsub = this.getPubSubClient();
+            await pubsub.topic(topicName).delete();
+            logger.info(`✅ [Gmail] Deleted auto-created topic: ${topicName} for ${account.emailAddress}`);
+          } catch (error: any) {
+            if (error.code === 5) {
+              // Topic not found (already deleted)
+              logger.info(`ℹ️ [Gmail] Topic ${topicName} already deleted for ${account.emailAddress}`);
+            } else {
+              logger.error(`❌ [Gmail] Failed to delete topic ${topicName}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to cleanup topic for ${account.emailAddress}:`, error);
     }
   }
 
