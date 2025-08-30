@@ -56,19 +56,42 @@ export class OutlookSyncService {
       const messages = messagesResponse.value || [];
       console.log(`📧 [Outlook] Found ${messages.length} messages`);
 
+      // Debug: Check conversationId values
+      const conversationIds = [...new Set(messages.map(m => m.conversationId).filter(Boolean))];
+      console.log(`📧 [Outlook] Unique conversationIds found: ${conversationIds.length}`);
+      console.log(`📧 [Outlook] Sample conversationIds:`, conversationIds.slice(0, 5));
+
       // Group messages by conversationId to create threads
       const conversationMap = new Map<string, any[]>();
+      const subjectMap = new Map<string, string[]>(); // Track subjects per conversation
+      
       for (const message of messages) {
         const convId = message.conversationId;
-        if (!convId) continue;
+        if (!convId) {
+          console.log(`⚠️ [Outlook] Message ${message.id} has no conversationId, skipping`);
+          continue;
+        }
 
         if (!conversationMap.has(convId)) {
           conversationMap.set(convId, []);
+          subjectMap.set(convId, []);
         }
         conversationMap.get(convId)!.push(message);
+        
+        // Track subjects for debugging
+        const subject = message.subject || "No Subject";
+        if (!subjectMap.get(convId)!.includes(subject)) {
+          subjectMap.get(convId)!.push(subject);
+        }
       }
 
       console.log(`📧 [Outlook] Grouped into ${conversationMap.size} conversations (threads)`);
+
+      // Debug: Log conversation grouping details
+      conversationMap.forEach((messages, conversationId) => {
+        const subjects = subjectMap.get(conversationId) || [];
+        console.log(`📧 [Outlook] Conversation ${conversationId}: ${messages.length} messages, Subjects: [${subjects.join(', ')}]`);
+      });
 
       const processedThreads: IOutlookThread[] = [];
       let newCount = 0;
@@ -94,25 +117,14 @@ export class OutlookSyncService {
           // Create Outlook thread data
           const outlookThreadData: Partial<IOutlookThread> = {
             conversationId,
-            accountId: account._id,
+            accountId: account._id?.toString() || account._id,
 
-            // Store raw Outlook data
+            // Store only essential metadata, not full message content
             rawOutlookData: {
               conversationId,
-              messages: conversationMessages.map((msg) => ({
-                id: msg.id,
-                conversationId: msg.conversationId,
-                subject: msg.subject || "",
-                from: msg.from,
-                toRecipients: msg.toRecipients || [],
-                ccRecipients: msg.ccRecipients || [],
-                receivedDateTime: msg.receivedDateTime,
-                isRead: msg.isRead || false,
-                bodyPreview: msg.bodyPreview || "",
-                hasAttachments: msg.hasAttachments || false,
-                importance: msg.importance || "normal",
-                flag: msg.flag,
-              })),
+              messageIds: conversationMessages.map((msg) => msg.id), // Only store message IDs
+              messageCount: conversationMessages.length,
+              lastMessageId: lastMessage.id,
             },
 
             // Computed metadata for quick access
@@ -146,22 +158,27 @@ export class OutlookSyncService {
           };
 
           // Save or update thread metadata
+          console.log(`💾 [Outlook] Saving thread for conversationId: ${conversationId}, messageCount: ${conversationMessages.length}`);
+          
           const existingThread = await OutlookThreadModel.findOne({
             conversationId,
-            accountId: account._id,
+            accountId: account._id?.toString() || account._id,
           });
 
           let savedThread: IOutlookThread;
           if (existingThread) {
+            console.log(`🔄 [Outlook] Updating existing thread for conversationId: ${conversationId}`);
             // Update existing thread with raw data
             Object.assign(existingThread, outlookThreadData);
             savedThread = await existingThread.save();
           } else {
+            console.log(`🆕 [Outlook] Creating new thread for conversationId: ${conversationId}`);
             // Create new thread with raw data
             savedThread = await OutlookThreadModel.create(outlookThreadData);
             newCount++;
           }
 
+          console.log(`✅ [Outlook] Saved thread: ${savedThread._id}, messageCount: ${savedThread.messageCount}`);
           processedThreads.push(savedThread);
         } catch (threadError) {
           console.error("❌ [Outlook] Error processing conversation:", conversationId, threadError);
@@ -218,6 +235,132 @@ export class OutlookSyncService {
       .limit(options.limit || 20)
       .skip(options.offset || 0)
       .lean();
+  }
+
+  /**
+   * Fetch emails on-demand when user opens a thread
+   * Returns actual email content from Microsoft Graph API without storing in database
+   */
+  static async getThreadEmails(
+    account: IEmailAccount,
+    conversationId: string
+  ): Promise<{
+    success: boolean;
+    emails?: any[];
+    error?: string;
+  }> {
+    try {
+      console.log(`🔍 [Outlook] Fetching emails on-demand for conversation: ${conversationId}`);
+
+      if (!account.oauth?.accessToken) {
+        throw new Error("No OAuth access token available for Outlook");
+      }
+
+      // Import Microsoft Graph client
+      const { Client } = await import("@microsoft/microsoft-graph-client");
+
+      // Decrypt access token
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+
+      // Create Microsoft Graph client
+      const graphClient = Client.init({
+        authProvider: (done) => {
+          done(null, decryptedAccessToken);
+        },
+      });
+
+      // Fetch all messages in the conversation
+      console.log(`🔍 [Outlook] Fetching messages for conversationId: ${conversationId}`);
+
+      const messagesResponse = await graphClient
+        .api("/me/messages")
+        .filter(`conversationId eq '${conversationId}'`)
+        .orderby("receivedDateTime asc")
+        .select(
+          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag,importance"
+        )
+        .get();
+
+      const messages = messagesResponse.value || [];
+      console.log(`📧 [Outlook] Found ${messages.length} messages for conversation ${conversationId}`);
+
+      if (messages.length === 0) {
+        throw new Error("No messages found in conversation");
+      }
+
+      // Transform Microsoft Graph messages to our format
+      const emails = messages.map((message) => {
+        const fromHeader = message.from?.emailAddress;
+        const toRecipients = message.toRecipients || [];
+        const ccRecipients = message.ccRecipients || [];
+        const bccRecipients = message.bccRecipients || [];
+
+        // Extract text and HTML content
+        let textContent = "";
+        let htmlContent = "";
+
+        if (message.body) {
+          if (message.body.contentType === "text") {
+            textContent = message.body.content || "";
+          } else if (message.body.contentType === "html") {
+            htmlContent = message.body.content || "";
+          }
+        }
+
+        // Fallback to bodyPreview if no content found
+        if (!textContent && !htmlContent && message.bodyPreview) {
+          textContent = message.bodyPreview;
+        }
+
+        return {
+          _id: message.id,
+          messageId: message.id,
+          threadId: conversationId,
+          direction: fromHeader?.address === account.emailAddress ? "outbound" : "inbound",
+          subject: message.subject || "No Subject",
+          textContent: textContent || message.bodyPreview || "",
+          htmlContent: htmlContent,
+          from: {
+            email: fromHeader?.address || "",
+            name: fromHeader?.name || "",
+          },
+          to: toRecipients.map((recipient: any) => ({
+            email: recipient.emailAddress?.address || "",
+            name: recipient.emailAddress?.name || "",
+          })),
+          cc: ccRecipients.map((recipient: any) => ({
+            email: recipient.emailAddress?.address || "",
+            name: recipient.emailAddress?.name || "",
+          })),
+          bcc: bccRecipients.map((recipient: any) => ({
+            email: recipient.emailAddress?.address || "",
+            name: recipient.emailAddress?.name || "",
+          })),
+          receivedAt: new Date(message.receivedDateTime),
+          sentAt: message.sentDateTime ? new Date(message.sentDateTime) : new Date(message.receivedDateTime),
+          isRead: message.isRead || false,
+          isReplied: false,
+          isForwarded: false,
+          isArchived: false,
+          isSpam: false,
+          attachments: message.hasAttachments ? [] : [], // Will be populated if needed
+        };
+      });
+
+      console.log(`✅ [Outlook] Fetched ${emails.length} emails on-demand for conversation: ${conversationId}`);
+
+      return {
+        success: true,
+        emails: emails.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime()),
+      };
+    } catch (error: any) {
+      console.error("❌ [Outlook] Error fetching emails on-demand:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
   }
 
   // Helper methods
