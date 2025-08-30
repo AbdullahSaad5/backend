@@ -22,17 +22,25 @@ export class RealTimeEmailSyncService {
   // Lazy initialization of Google Cloud Pub/Sub client
   private static getPubSubClient(): PubSub {
     const projectId = process.env.GOOGLE_CLOUD_PROJECT;
-    const keyFilename = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_PATH;
+    const serviceAccountCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
 
-    if (!projectId || !keyFilename) {
+    if (!projectId || !serviceAccountCredentials) {
       throw new Error(
-        "Google Cloud configuration missing: GOOGLE_CLOUD_PROJECT or GOOGLE_SERVICE_ACCOUNT_KEY_PATH not set"
+        "Google Cloud configuration missing: GOOGLE_CLOUD_PROJECT or GOOGLE_SERVICE_ACCOUNT_CREDENTIALS not set"
       );
+    }
+
+    // Parse the service account credentials from environment variable
+    let credentials;
+    try {
+      credentials = JSON.parse(serviceAccountCredentials);
+    } catch (error) {
+      throw new Error("Invalid GOOGLE_SERVICE_ACCOUNT_CREDENTIALS format in environment variables");
     }
 
     return new PubSub({
       projectId,
-      keyFilename,
+      credentials,
     });
   }
 
