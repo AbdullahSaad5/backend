@@ -46,7 +46,7 @@ export class OutlookSyncService {
       // Fetch messages from Microsoft Graph and group by conversationId
       const messagesResponse = await graphClient
         .api("/me/messages")
-        .top(options.limit || 100)
+        .top(options.limit || 500) // Increased limit to get more messages for better grouping
         .orderby("receivedDateTime desc")
         .select(
           "id,conversationId,subject,from,toRecipients,ccRecipients,receivedDateTime,isRead,bodyPreview,hasAttachments,importance,flag"
@@ -57,14 +57,14 @@ export class OutlookSyncService {
       console.log(`📧 [Outlook] Found ${messages.length} messages`);
 
       // Debug: Check conversationId values
-      const conversationIds = [...new Set(messages.map(m => m.conversationId).filter(Boolean))];
+      const conversationIds = [...new Set(messages.map((m) => m.conversationId).filter(Boolean))];
       console.log(`📧 [Outlook] Unique conversationIds found: ${conversationIds.length}`);
       console.log(`📧 [Outlook] Sample conversationIds:`, conversationIds.slice(0, 5));
 
       // Group messages by conversationId to create threads
       const conversationMap = new Map<string, any[]>();
       const subjectMap = new Map<string, string[]>(); // Track subjects per conversation
-      
+
       for (const message of messages) {
         const convId = message.conversationId;
         if (!convId) {
@@ -77,7 +77,7 @@ export class OutlookSyncService {
           subjectMap.set(convId, []);
         }
         conversationMap.get(convId)!.push(message);
-        
+
         // Track subjects for debugging
         const subject = message.subject || "No Subject";
         if (!subjectMap.get(convId)!.includes(subject)) {
@@ -90,7 +90,9 @@ export class OutlookSyncService {
       // Debug: Log conversation grouping details
       conversationMap.forEach((messages, conversationId) => {
         const subjects = subjectMap.get(conversationId) || [];
-        console.log(`📧 [Outlook] Conversation ${conversationId}: ${messages.length} messages, Subjects: [${subjects.join(', ')}]`);
+        console.log(
+          `📧 [Outlook] Conversation ${conversationId}: ${messages.length} messages, Subjects: [${subjects.join(", ")}]`
+        );
       });
 
       const processedThreads: IOutlookThread[] = [];
@@ -158,8 +160,10 @@ export class OutlookSyncService {
           };
 
           // Save or update thread metadata
-          console.log(`💾 [Outlook] Saving thread for conversationId: ${conversationId}, messageCount: ${conversationMessages.length}`);
-          
+          console.log(
+            `💾 [Outlook] Saving thread for conversationId: ${conversationId}, messageCount: ${conversationMessages.length}`
+          );
+
           const existingThread = await OutlookThreadModel.findOne({
             conversationId,
             accountId: account._id?.toString() || account._id,
@@ -187,6 +191,13 @@ export class OutlookSyncService {
       }
 
       console.log(`✅ [Outlook] Processed ${processedThreads.length} threads, ${newCount} new (raw data)`);
+
+      // Final summary
+      const threadCounts = processedThreads.map((t) => t.messageCount);
+      console.log(`📊 [Outlook] Thread message counts:`, threadCounts);
+      console.log(
+        `📊 [Outlook] Average messages per thread: ${threadCounts.reduce((a, b) => a + b, 0) / threadCounts.length || 0}`
+      );
 
       return {
         success: true,
@@ -220,7 +231,7 @@ export class OutlookSyncService {
       unreadOnly?: boolean;
     } = {}
   ): Promise<IOutlookThread[]> {
-    const filter: any = { accountId };
+    const filter: any = { accountId: accountId.toString() };
 
     if (options.folder) {
       filter.folder = options.folder;
@@ -273,14 +284,20 @@ export class OutlookSyncService {
       // Fetch all messages in the conversation
       console.log(`🔍 [Outlook] Fetching messages for conversationId: ${conversationId}`);
 
+      // Use a simpler approach to avoid complex filter issues
+      // First, get all messages and then filter client-side if needed
       const messagesResponse = await graphClient
         .api("/me/messages")
-        .filter(`conversationId eq '${conversationId}'`)
-        .orderby("receivedDateTime asc")
+        .top(1000) // Get more messages to ensure we capture the conversation
+        .orderby("receivedDateTime desc") // Get latest first
         .select(
-          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag,importance"
+          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments,importance,flag"
         )
         .get();
+
+      // Filter messages by conversationId on the client side
+      const allMessages = messagesResponse.value || [];
+      const messages = allMessages.filter((message: any) => message.conversationId === conversationId);
 
       const messages = messagesResponse.value || [];
       console.log(`📧 [Outlook] Found ${messages.length} messages for conversation ${conversationId}`);
