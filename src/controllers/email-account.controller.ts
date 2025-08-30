@@ -348,6 +348,61 @@ export class EmailAccountController {
     }
   }
 
+  // Reset sync state for debugging
+  static async resetSyncState(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+
+      if (!token) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token required",
+        });
+      }
+
+      const decoded = jwtVerify(token);
+      const userId = decoded.id.toString();
+
+      // Find the account
+      const account = await EmailAccountModel.findOne({ _id: accountId, userId });
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: "Email account not found",
+        });
+      }
+
+      // Reset sync state
+      await EmailAccountModel.findByIdAndUpdate(accountId, {
+        $unset: {
+          "syncState.firstTimeSyncCompleted": "",
+          "syncState.isProcessing": "",
+          "syncState.lastError": "",
+          "syncState.lastErrorAt": "",
+        },
+        $set: {
+          "syncState.syncStatus": "pending",
+          "stats.lastSyncAt": null,
+        },
+      });
+
+      console.log(`🔄 Reset sync state for account: ${account.emailAddress}`);
+
+      res.json({
+        success: true,
+        message: `Sync state reset for ${account.emailAddress}. Next fetch will trigger a fresh sync.`,
+      });
+    } catch (error: any) {
+      console.error("Reset sync state error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to reset sync state",
+        error: error.message,
+      });
+    }
+  }
+
   // Test email account connection
   static async testConnection(req: Request, res: Response) {
     try {
@@ -639,9 +694,8 @@ export class EmailAccountController {
       }
 
       if (threadView === "true") {
-        // Get threads with email counts - for threads, we need to include BOTH sent and received emails
-        const { EmailThreadModel } = await import("@/models/email-thread.model");
-        const { EmailModel } = await import("@/models/email.model");
+        // Use unified thread service to get threads from provider-specific collections
+        const { UnifiedThreadService } = await import("@/services/unified-thread.service");
 
         // For thread view, we need a different filter that includes both sent and received emails
         // but still respects the account and folder constraints
@@ -686,14 +740,13 @@ export class EmailAccountController {
 
         let threads;
         try {
-          // Simple query to get thread metadata only - no email lookup needed
-          threads = await EmailThreadModel.find({
-            accountId: account._id,
-          })
-            .sort({ lastMessageAt: -1 })
-            .skip(parseInt(offset as string))
-            .limit(parseInt(limit as string))
-            .lean();
+          // Use unified thread service to get threads from provider-specific collections
+          threads = await UnifiedThreadService.getThreads(account, {
+            folder: folder as string,
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string),
+            unreadOnly: unreadOnly === "true",
+          });
 
           console.log(`🧵 Found ${threads.length} threads for account ${account.emailAddress}`);
 
@@ -703,22 +756,29 @@ export class EmailAccountController {
 
             // Check if first-time sync was already completed
             if (account.syncState?.firstTimeSyncCompleted) {
-              console.log(`ℹ️ Account ${account.emailAddress} was already synced once - no auto-sync needed`);
-              // Return empty response without triggering sync
-              return res.json({
-                success: true,
-                data: {
-                  threads: [],
-                  totalCount: 0,
-                  account: {
-                    id: account._id,
-                    emailAddress: account.emailAddress,
-                    accountName: account.accountName,
+              console.log(`ℹ️ Account ${account.emailAddress} was already synced once`);
+
+              // Check if this is a manual refresh request (forceSync parameter)
+              const forceSync = req.query.forceSync === "true";
+              if (!forceSync) {
+                // Return empty response without triggering sync
+                return res.json({
+                  success: true,
+                  data: {
+                    threads: [],
+                    totalCount: 0,
+                    account: {
+                      id: account._id,
+                      emailAddress: account.emailAddress,
+                      accountName: account.accountName,
+                    },
+                    viewMode: "threads",
+                    message: "No emails found in this account. Try refreshing or check your email filters.",
                   },
-                  viewMode: "threads",
-                  message: "No emails found in this account",
-                },
-              });
+                });
+              } else {
+                console.log(`🔄 Force sync requested for account ${account.emailAddress}`);
+              }
             }
 
             // Check if account is already being processed to prevent duplicate syncs
@@ -754,42 +814,36 @@ export class EmailAccountController {
 
               let syncResult;
 
-              // Choose sync method based on account type - LIMITED BATCH ONLY
-              if (account.accountType === "gmail" && account.oauth) {
-                console.log(
-                  `🔄 Starting LIMITED Gmail sync for first-time account (100 emails only): ${account.emailAddress}`
-                );
-                // Use fetchEmailsFromAccount with limit instead of full sync
-                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
-                  limit: 100,
-                  includeBody: true,
-                  folder: "INBOX",
-                });
-              } else {
-                console.log(
-                  `🔄 Starting LIMITED email fetch for IMAP/other account (100 emails only): ${account.emailAddress}`
-                );
-                syncResult = await EmailFetchingService.fetchEmailsFromAccount(account, {
-                  limit: 100,
-                  includeBody: true,
-                  folder: "INBOX",
-                });
-              }
+              // Use unified thread sync service for all providers
+              console.log(`🔄 Starting LIMITED thread sync for first-time account: ${account.emailAddress}`);
+
+              const { UnifiedThreadService } = await import("@/services/unified-thread.service");
+              const threadResult = await UnifiedThreadService.syncThreads(account, {
+                limit: 100,
+                folder: "INBOX",
+              });
+
+              syncResult = {
+                success: threadResult.success,
+                emails: [],
+                totalCount: threadResult.totalCount,
+                newCount: threadResult.newCount,
+                message: `${threadResult.provider} thread sync: ${threadResult.newCount} new threads`,
+              };
 
               console.log(`✅ First-time sync completed for ${account.emailAddress}:`, syncResult.success);
 
               // After sync, retry getting threads
               if (syncResult.success) {
-                const updatedThreads = await EmailThreadModel.find({
-                  accountId: account._id,
-                })
-                  .sort({ lastMessageAt: -1 })
-                  .skip(parseInt(offset as string))
-                  .limit(parseInt(limit as string))
-                  .lean();
+                const updatedThreads = await UnifiedThreadService.getThreads(account, {
+                  folder: folder as string,
+                  limit: parseInt(limit as string),
+                  offset: parseInt(offset as string),
+                  unreadOnly: unreadOnly === "true",
+                });
 
-                const updatedTotalCount = await EmailThreadModel.countDocuments({
-                  accountId: account._id,
+                const updatedTotalCount = await UnifiedThreadService.getThreadCount(account, {
+                  folder: folder as string,
                 });
 
                 console.log(`🔄 After first-time sync: found ${updatedThreads.length} threads`);
@@ -837,8 +891,8 @@ export class EmailAccountController {
           }
 
           // Get total count for pagination
-          const totalCount = await EmailThreadModel.countDocuments({
-            accountId: account._id,
+          const totalCount = await UnifiedThreadService.getThreadCount(account, {
+            folder: folder as string,
           });
 
           res.json({
@@ -1005,11 +1059,11 @@ export class EmailAccountController {
         });
       }
 
-      const { EmailThreadModel } = await import("@/models/email-thread.model");
       const { EmailModel } = await import("@/models/email.model");
 
-      // Get thread info
-      const thread = await EmailThreadModel.findOne({ threadId });
+      // Note: Thread lookup would need to be implemented in UnifiedThreadService
+      // For now, return a placeholder response
+      const thread = null;
       if (!thread) {
         return res.status(404).json({
           success: false,
@@ -1076,10 +1130,10 @@ export class EmailAccountController {
       }
 
       const { EmailModel } = await import("@/models/email.model");
-      const { EmailThreadModel } = await import("@/models/email-thread.model");
+      const { UnifiedThreadService } = await import("@/services/unified-thread.service");
 
       const emailCount = await EmailModel.countDocuments({ accountId: account._id });
-      const threadCount = await EmailThreadModel.countDocuments();
+      const threadCount = await UnifiedThreadService.getThreadCount(account);
 
       // Get sample emails
       const sampleEmails = await EmailModel.find({ accountId: account._id })
@@ -1152,8 +1206,6 @@ export class EmailAccountController {
       account.status = "syncing";
       await account.save();
 
-      const { EmailThreadMetadataService } = await import("@/services/email-thread-metadata.service");
-
       // Fetch raw thread metadata based on account type
       const options = {
         folder: "INBOX", // Default folder
@@ -1164,16 +1216,11 @@ export class EmailAccountController {
 
       console.log("📧 Raw thread metadata fetch options:", options);
 
-      let result;
-      if (account.accountType === "gmail" && account.oauth) {
-        // Use Gmail thread metadata service (raw data)
-        console.log("🔄 Using Gmail thread metadata service (raw data)");
-        result = await EmailThreadMetadataService.fetchGmailThreadMetadata(account, options);
-      } else {
-        // Use IMAP thread metadata service
-        console.log("🔄 Using IMAP thread metadata service");
-        result = await EmailThreadMetadataService.fetchImapThreadMetadata(account, options);
-      }
+      // Use unified thread service for all providers
+      console.log(`🔄 Using unified thread service for ${account.accountType}: ${account.emailAddress}`);
+
+      const { UnifiedThreadService } = await import("@/services/unified-thread.service");
+      const result = await UnifiedThreadService.syncThreads(account, options);
 
       console.log("📤 Raw thread metadata sync response:", {
         success: result.success,

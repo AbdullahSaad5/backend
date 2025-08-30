@@ -39,6 +39,8 @@ const RevenueSchema = new Schema<IRevenue, IRevenueModel>({
     type: Boolean,
     default: false,
   },
+}, {
+  timestamps: true,
 });
 
 export const RevenueModel = model<IRevenue>("Revenue", RevenueSchema);

@@ -213,6 +213,8 @@ export const RevenueController = {
         isBlocked, 
         source, 
         receiveType, 
+        startDate,
+        endDate,
         page = 1, 
         limit = 10 
       } = req.query;
@@ -223,6 +225,8 @@ export const RevenueController = {
       const parsedIsBlocked = isBlocked !== undefined ? isBlocked === 'true' : undefined;
       const parsedSource = source as string;
       const parsedReceiveType = receiveType as string;
+      const parsedStartDate = startDate as string;
+      const parsedEndDate = endDate as string;
 
       // Validate pagination parameters
       if (parsedPage < 1) {
@@ -239,11 +243,26 @@ export const RevenueController = {
         });
       }
 
+      // Validate date range
+      if (parsedStartDate && parsedEndDate) {
+        const start = new Date(parsedStartDate);
+        const end = new Date(parsedEndDate);
+        
+        if (start > end) {
+          return res.status(StatusCodes.BAD_REQUEST).json({
+            success: false,
+            message: "Start date cannot be after end date"
+          });
+        }
+      }
+
       const result = await RevenueService.searchRevenues({
         searchQuery: searchQuery as string,
         isBlocked: parsedIsBlocked,
         source: parsedSource,
         receiveType: parsedReceiveType,
+        startDate: parsedStartDate,
+        endDate: parsedEndDate,
         page: parsedPage,
         limit: parsedLimit
       });

@@ -7,7 +7,7 @@ import {
   EmailPriority,
 } from "@/contracts/mailbox.contract";
 import { EmailModel } from "@/models/email.model";
-import { EmailThreadModel } from "@/models/email-thread.model";
+
 import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
 import crypto from "crypto";
