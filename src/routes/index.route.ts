@@ -84,12 +84,10 @@ import tokenManagement from "./token-management.route";
 
 import { ForumCategory } from "./forum-category.route";
 import { Comment } from "./comment.route";
-import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
 import { website } from "./website.route";
 import { deals } from "./deal.route";
 import { realTimeSync } from "./real-time-sync.route";
-import { outlookWebhook } from "./outlook-webhook.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -194,16 +192,6 @@ for (const route in routes) {
   routeHandler(tempRouter);
   router.use(basePath, tempRouter);
 }
-
-// Add Gmail webhook route with correct path
-const gmailWebhookRouter = Router();
-gmailWebhook(gmailWebhookRouter);
-router.use("/gmail-webhook", gmailWebhookRouter);
-
-// Add Outlook webhook route
-const outlookWebhookRouter = Router();
-outlookWebhook(outlookWebhookRouter);
-router.use("/outlook-webhook", outlookWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({
