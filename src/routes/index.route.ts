@@ -4,6 +4,7 @@ import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { multer as files } from "./multer.route";
 import { user } from "./user.route";
 import { auth } from "./user-auth.route";
+import { customerAuth } from "./customer-auth.route";
 import { userCategory } from "./user-category.route";
 import { supplier } from "./supplier.route";
 import { supplierCategory } from "./supplier-category.routes";
@@ -87,6 +88,8 @@ import { gmailWebhook } from "./gmail-webhook.route";
 import { multiInstanceGmail } from "./multi-instance-gmail.route";
 import { website } from "./website.route";
 import { deals } from "./deal.route";
+import { realTimeSync } from "./real-time-sync.route";
+import { outlookWebhook } from "./outlook-webhook.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -100,6 +103,7 @@ const routes: {
   permissions,
   user,
   auth,
+  customerAuth,
   userCategory,
   variations,
   complaint,
@@ -177,6 +181,7 @@ const routes: {
   multiInstanceGmail,
   website,
   deals,
+  realTimeSync,
 };
 
 // Loop through all routes and pass the router to each route
@@ -194,6 +199,11 @@ for (const route in routes) {
 const gmailWebhookRouter = Router();
 gmailWebhook(gmailWebhookRouter);
 router.use("/gmail-webhook", gmailWebhookRouter);
+
+// Add Outlook webhook route
+const outlookWebhookRouter = Router();
+outlookWebhook(outlookWebhookRouter);
+router.use("/outlook-webhook", outlookWebhookRouter);
 
 router.all("*", (req, res) => {
   res.status(StatusCodes.NOT_FOUND).json({

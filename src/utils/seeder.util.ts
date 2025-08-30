@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { createHash } from "./hash.util";
 import dotenv from "dotenv";
 import { IntegrationTokenModel } from "@/models/integration-token.model";
-import { cleanupTokenCollections } from "./cleanup-tokens.util";
 import { TokenInitializationService } from "@/services/token-initialization.service";
 import { seedSystemExpenseCategories } from "@/scripts/seed-system-categories";
 dotenv.config();

@@ -618,4 +618,133 @@ export class EmailOAuthService {
       return false;
     }
   }
+
+  /**
+   * Centralized token refresh and auto-update logic
+   * This method handles token refresh for both Gmail and Outlook accounts
+   */
+  static async refreshAndUpdateTokens(account: IEmailAccount): Promise<{
+    success: boolean;
+    accessToken?: string;
+    error?: string;
+  }> {
+    try {
+      if (!account.oauth?.refreshToken) {
+        return { success: false, error: "No refresh token available" };
+      }
+
+      if (account.oauth.provider === "gmail") {
+        return await this.refreshGmailToken(account);
+      } else if (account.oauth.provider === "outlook") {
+        return await this.refreshOutlookToken(account);
+      }
+
+      return { success: false, error: "Unsupported OAuth provider" };
+    } catch (error: any) {
+      console.error("Token refresh failed:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Refresh Gmail OAuth token
+   */
+  private static async refreshGmailToken(account: IEmailAccount): Promise<{
+    success: boolean;
+    accessToken?: string;
+    error?: string;
+  }> {
+    try {
+      const provider = EmailProviderService.getProvider("gmail");
+      if (!provider?.oauth) {
+        return { success: false, error: "Gmail provider configuration not found" };
+      }
+
+      const decryptedClientSecret = this.decryptData(account.oauth!.clientSecret!);
+      const decryptedRefreshToken = this.decryptData(account.oauth!.refreshToken!);
+
+      const oauth2Client = new OAuth2Client(provider.oauth.clientId, decryptedClientSecret);
+      oauth2Client.setCredentials({
+        refresh_token: decryptedRefreshToken,
+      });
+
+      const { credentials } = await oauth2Client.refreshAccessToken();
+
+      if (!credentials.access_token) {
+        return { success: false, error: "No access token received from refresh" };
+      }
+
+      // Update the account with new tokens
+      const { EmailAccountModel } = await import("@/models/email-account.model");
+      await EmailAccountModel.findByIdAndUpdate(account._id, {
+        $set: {
+          "oauth.accessToken": this.encryptData(credentials.access_token),
+          "oauth.tokenExpiry": credentials.expiry_date ? new Date(credentials.expiry_date) : undefined,
+        },
+      });
+
+      console.log("✅ [OAuth] Gmail token refreshed for:", account.emailAddress);
+      return { success: true, accessToken: credentials.access_token };
+    } catch (error: any) {
+      console.error("❌ [OAuth] Gmail token refresh failed:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Refresh Outlook OAuth token
+   */
+  private static async refreshOutlookToken(account: IEmailAccount): Promise<{
+    success: boolean;
+    accessToken?: string;
+    error?: string;
+  }> {
+    try {
+      const provider = EmailProviderService.getProvider("outlook");
+      if (!provider?.oauth) {
+        return { success: false, error: "Outlook provider configuration not found" };
+      }
+
+      const decryptedClientSecret = this.decryptData(account.oauth!.clientSecret!);
+      const decryptedRefreshToken = this.decryptData(account.oauth!.refreshToken!);
+
+      const tokenUrl = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
+      const response = await fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: provider.oauth.clientId,
+          client_secret: decryptedClientSecret,
+          refresh_token: decryptedRefreshToken,
+          grant_type: "refresh_token",
+        }),
+      });
+
+      const tokens = await response.json();
+
+      if (!response.ok || !tokens.access_token) {
+        return { success: false, error: tokens.error_description || "Token refresh failed" };
+      }
+
+      // Update the account with new tokens
+      const { EmailAccountModel } = await import("@/models/email-account.model");
+      await EmailAccountModel.findByIdAndUpdate(account._id, {
+        $set: {
+          "oauth.accessToken": this.encryptData(tokens.access_token),
+          "oauth.refreshToken": tokens.refresh_token
+            ? this.encryptData(tokens.refresh_token)
+            : account.oauth!.refreshToken,
+          "oauth.tokenExpiry": tokens.expires_in ? new Date(Date.now() + tokens.expires_in * 1000) : undefined,
+        },
+      });
+
+      console.log("✅ [OAuth] Outlook token refreshed for:", account.emailAddress);
+      return { success: true, accessToken: tokens.access_token };
+    } catch (error: any) {
+      console.error("❌ [OAuth] Outlook token refresh failed:", error);
+      return { success: false, error: error.message };
+    }
+  }
 }
