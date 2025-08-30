@@ -1,5 +1,5 @@
 import { EmailModel } from "@/models/email.model";
-import { EmailThreadModel } from "@/models/email-thread.model";
+
 import { logger } from "@/utils/logger.util";
 import { IEmail, EmailDirection, EmailStatus } from "@/contracts/mailbox.contract";
 
@@ -70,7 +70,7 @@ export const LambdaEmailIntegrationService = {
   applyBusinessRules: async (email: IEmail): Promise<void> => {
     try {
       // 1. Email Classification (similar to your existing logic)
-      email.type = LambdaEmailIntegrationService.classifyEmail(email);
+      email.type = LambdaEmailIntegrationService.classifyEmail(email) as any;
 
       // 2. Priority Detection
       email.priority = LambdaEmailIntegrationService.determinePriority(email);
@@ -310,24 +310,24 @@ export const LambdaEmailIntegrationService = {
     }
 
     // Update or create thread
-    let thread = await EmailThreadModel.findOne({ threadId: email.threadId });
+    // let thread = await EmailThreadModel.findOne({ threadId: email.threadId });
 
-    if (thread) {
-      thread.messageCount += 1;
-      thread.lastMessageAt = new Date();
-      await thread.save();
-    } else {
-      // Create new thread
-      thread = new EmailThreadModel({
-        threadId: email.threadId,
-        subject: email.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim(),
-        participants: [email.from, ...email.to],
-        messageCount: 1,
-        lastMessageAt: new Date(),
-        status: "active",
-      });
-      await thread.save();
-    }
+    // if (thread) {
+    //   thread.messageCount += 1;
+    //   thread.lastMessageAt = new Date();
+    //   await thread.save();
+    // } else {
+    //   // Create new thread
+    //   thread = new EmailThreadModel({
+    //     threadId: email.threadId,
+    //     subject: email.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim(),
+    //     participants: [email.from, ...email.to],
+    //     messageCount: 1,
+    //     lastMessageAt: new Date(),
+    //     status: "active",
+    //   });
+    //   await thread.save();
+    // }
   },
 
   /**

@@ -9,21 +9,21 @@ export const seedSystemExpenseCategories = async () => {
     const systemCategories = [
       {
         _id: new mongoose.Types.ObjectId("688a0f06484b26aea1095f82"),
-        title: "Inventory Purchase",
+        title: "inventory purchase",
         description: "System generated category for inventory purchase expenses",
         isSystemGenerated: true,
         isBlocked: false,
       },
       {
         _id: new mongoose.Types.ObjectId("688a23bc78554b400be341cb"),
-        title: "Payroll",
+        title: "payroll",
         description: "System generated category for payroll expenses",
         isSystemGenerated: true,
         isBlocked: false,
       },
       {
         _id: new mongoose.Types.ObjectId("68a35f896286d84c0499eff2"), // Existing Recursive Expense category
-        title: "Recursive Expense",
+        title: "recursive expense",
         description: "System generated category for recurring expenses",
         isSystemGenerated: true,
         isBlocked: false,

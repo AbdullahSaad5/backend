@@ -111,20 +111,29 @@ export const documentService = {
         }
 
         // Validate version number if provided
-        if (updateData.version && updateData.version !== currentDoc.version) {
-            const isValidVersion = documentVersionService.validateVersionNumber(
-                currentDoc.version, 
-                updateData.version
-            );
-            
-            if (!isValidVersion) {
-                throw new Error(`New version ${updateData.version} must be greater than current version ${currentDoc.version}`);
-            }
+        if (updateData.version) {
+            // If version is the same as current, check if it already exists in version history
+            if (updateData.version === currentDoc.version) {
+                const versionExists = await documentVersionService.versionExists(id, updateData.version);
+                if (versionExists) {
+                    throw new Error(`Version ${updateData.version} already exists for this document. Please increment the version number to create a new version.`);
+                }
+            } else {
+                // Version is different, validate it's greater than current
+                const isValidVersion = documentVersionService.validateVersionNumber(
+                    currentDoc.version, 
+                    updateData.version
+                );
+                
+                if (!isValidVersion) {
+                    throw new Error(`New version ${updateData.version} must be greater than current version ${currentDoc.version}`);
+                }
 
-            // Check if version already exists
-            const versionExists = await documentVersionService.versionExists(id, updateData.version);
-            if (versionExists) {
-                throw new Error(`Version ${updateData.version} already exists for this document`);
+                // Check if version already exists
+                const versionExists = await documentVersionService.versionExists(id, updateData.version);
+                if (versionExists) {
+                    throw new Error(`Version ${updateData.version} already exists for this document`);
+                }
             }
         }
 

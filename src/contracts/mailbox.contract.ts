@@ -168,6 +168,30 @@ export interface IEmailThread {
   hasAttachments?: boolean;
   lastActivity?: Date;
 
+  // Latest email metadata for frontend compatibility
+  latestEmailFrom?: IEmailAddress;
+  latestEmailTo?: IEmailAddress[];
+  latestEmailPreview?: string;
+
+  // Raw Gmail data for performance (no parsing)
+  rawGmailData?: {
+    threadId?: string;
+    historyId?: string;
+    messages?: any[];
+  };
+
+  // Raw Outlook data for performance (no parsing)
+  rawOutlookData?: {
+    conversationId?: string;
+    topic?: string;
+    hasAttachments?: boolean;
+    lastDeliveredDateTime?: string;
+    uniqueSenders?: any[];
+    preview?: string;
+    importance?: string;
+    conversationThreads?: any[];
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
