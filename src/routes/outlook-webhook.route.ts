@@ -117,7 +117,7 @@ export const outlookWebhook = (router: Router) => {
   router.post("/:accountId", async (req, res) => {
     try {
       const { accountId } = req.params;
-      const { value } = req.body;
+      const { validationToken } = req.query;
 
       logger.info(`📧 [Outlook] Webhook received for account: ${accountId}`, {
         method: req.method,
@@ -127,6 +127,23 @@ export const outlookWebhook = (router: Router) => {
         ip: req.ip || req.connection.remoteAddress,
         userAgent: req.get("User-Agent"),
       });
+
+      // Handle Microsoft's validation request first
+      if (validationToken) {
+        logger.info(
+          `✅ [Outlook] Validation request received for account: ${accountId} with token: ${validationToken}`
+        );
+
+        // Set proper headers for validation response
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Cache-Control", "no-cache");
+
+        // Send the validation token exactly as received
+        return res.status(StatusCodes.OK).send(validationToken);
+      }
+
+      // Process actual webhook notification
+      const { value } = req.body;
 
       if (!value || !Array.isArray(value)) {
         logger.warn(`⚠️ [Outlook] Invalid webhook payload for account: ${accountId}`);

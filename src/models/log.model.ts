@@ -11,7 +11,7 @@ const logSchema: Schema = new Schema(
     route: { type: String, required: true },
     statusCode: { type: Number, required: true },
     duration: { type: Number, required: true },
-    userAgent: { type: String, required: true },
+    userAgent: { type: String, required: false, default: "Unknown" },
     timestamp: { type: Date, default: Date.now },
     message: { type: String, required: false },
   },
