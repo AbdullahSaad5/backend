@@ -137,6 +137,7 @@ export class RealTimeEmailSyncService {
       logger.error(`❌ [Gmail] Failed to setup polling fallback for ${account.emailAddress}:`, error);
       return {
         success: false,
+        message: "Failed to setup polling fallback",
         error: error.message,
       };
     }
@@ -195,7 +196,7 @@ export class RealTimeEmailSyncService {
       // Create webhook subscription for new emails
       const subscription = await graphClient.api("/subscriptions").post({
         changeType: "created,updated",
-        notificationUrl: `${webhookUrl}/outlook/webhook/${account._id}`,
+        notificationUrl: `${webhookUrl}/${account._id}`,
         resource: "/me/messages",
         expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
         clientState: account._id,
@@ -258,6 +259,7 @@ export class RealTimeEmailSyncService {
       logger.error(`❌ [Outlook] Failed to setup polling fallback for ${account.emailAddress}:`, error);
       return {
         success: false,
+        message: "Failed to setup polling fallback",
         error: error.message,
       };
     }
@@ -314,7 +316,7 @@ export class RealTimeEmailSyncService {
           // Get full message details
           const messageDetails = await gmail.users.messages.get({
             userId: "me",
-            id: message.id,
+            id: message.id!,
             format: "full",
           });
 
@@ -340,7 +342,7 @@ export class RealTimeEmailSyncService {
             to: this.extractRecipients(headers, "To"),
             cc: this.extractRecipients(headers, "Cc"),
             bcc: this.extractRecipients(headers, "Bcc"),
-            receivedAt: new Date(parseInt(messageData.internalDate)),
+            receivedAt: new Date(parseInt(messageData.internalDate || Date.now().toString())),
             isRead: !messageData.labelIds?.includes("UNREAD"),
             isReplied: messageData.labelIds?.includes("REPLIED") || false,
             isForwarded: messageData.labelIds?.includes("FORWARDED") || false,
@@ -387,7 +389,10 @@ export class RealTimeEmailSyncService {
                 lastMessageFrom: savedEmail.from,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
-                  ...savedEmail.to.map((recipient) => ({ email: recipient.email, name: recipient.name })),
+                  ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
                 ],
                 firstMessageAt: savedEmail.receivedAt,
                 lastActivity: savedEmail.receivedAt,
@@ -417,7 +422,7 @@ export class RealTimeEmailSyncService {
 
           logger.info(`📧 [Gmail] Saved email: ${savedEmail.subject} for ${account.emailAddress}`);
         } catch (messageError: any) {
-          logger.error(`❌ [Gmail] Failed to process message ${message.id}:`, messageError);
+          logger.error(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
         }
       }
 
@@ -440,6 +445,7 @@ export class RealTimeEmailSyncService {
       logger.error(`❌ [Gmail] Sync failed for ${account.emailAddress}:`, error);
       return {
         success: false,
+        message: "Gmail sync failed",
         error: error.message,
       };
     }
@@ -565,7 +571,10 @@ export class RealTimeEmailSyncService {
                 lastMessageFrom: savedEmail.from,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
-                  ...savedEmail.to.map((recipient) => ({ email: recipient.email, name: recipient.name })),
+                  ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                    email: recipient.email,
+                    name: recipient.name,
+                  })),
                 ],
                 firstMessageAt: savedEmail.receivedAt,
                 lastActivity: savedEmail.receivedAt,
@@ -618,6 +627,7 @@ export class RealTimeEmailSyncService {
       logger.error(`❌ [Outlook] Sync failed for ${account.emailAddress}:`, error);
       return {
         success: false,
+        message: "Outlook sync failed",
         error: error.message,
       };
     }
