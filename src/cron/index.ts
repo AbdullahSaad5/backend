@@ -3,6 +3,7 @@ import { autoCheckoutCron } from "./attendance";
 import { markAbsentCron } from "./attendance";
 import { tokenRefreshCron } from "./token-refresh.cron";
 import { GmailSyncCron } from "./gmail-sync.cron";
+import { RealTimeEmailSyncCron } from "./real-time-email-sync.cron";
 import { startDealCron } from "./dealCron";
 import * as cron from "node-cron";
 import { startRecurringExpenseCron, stopRecurringExpenseCron } from "./recurring-expense.cron";
@@ -19,6 +20,7 @@ export function initCron() {
   ebayMessageSync();
   tokenRefreshCron();
   GmailSyncCron.start(); // Start the new Gmail sync cron jobs
+  RealTimeEmailSyncCron.start(); // Start real-time email sync cron jobs
   startRecurringExpenseCron();
   startDealCron();
 }
@@ -36,6 +38,7 @@ export function stopAllCronJobs() {
 
   // Stop Gmail sync cron specifically
   GmailSyncCron.stop();
+  RealTimeEmailSyncCron.stop();
   stopRecurringExpenseCron();
 
   console.log("✅ All cron jobs stopped");

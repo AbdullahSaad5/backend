@@ -1,37 +1,40 @@
 import { Schema, model } from "mongoose";
 import {
-    IExpenseCategory,
-    IExpenseCategoryModel,
+  IExpenseCategory,
+  IExpenseCategoryModel,
 } from "@/contracts/expensecategory.contract";
 
-const IExpensecat = new Schema<IExpenseCategory, IExpenseCategoryModel>({
-  title: {
-    type: String,
-    required: [true, "Title is required"],
-    unique: true,
-    maxlength: [100, "Title cannot exceed 100 characters"],
+const IExpensecat = new Schema<IExpenseCategory, IExpenseCategoryModel>(
+  {
+    title: {
+      type: String,
+      required: [true, "Title is required"],
+      maxlength: [100, "Title cannot exceed 100 characters"],
+      unique: true,
+      lowercase: true,
+    },
+    description: {
+      type: String,
+      required: [true, "Description is required"],
+      trim: true,
+      maxlength: [500, "Description cannot exceed 500 characters"],
+    },
+    image: {
+      type: String,
+      default: "",
+    },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+    isSystemGenerated: {
+      type: Boolean,
+      default: false,
+    },
   },
-  description: {
-    type: String,
-    required: [true, "Description is required"],
-    trim: true,
-    maxlength: [500, "Description cannot exceed 500 characters"],
-  },
-  image: {
-    type: String,
-    default: "",
-  },
-  isBlocked: {
-    type: Boolean,
-    default: false,
-  },
-  isSystemGenerated: {
-    type: Boolean,
-    default: false,
-  },
-}, {
-  timestamps: true
-});
+  {
+    timestamps: true,
+  }
+);
 
-
-export const ExpenseCategory = model("ExpenseCategory", IExpensecat)
+export const ExpenseCategory = model("ExpenseCategory", IExpensecat);
