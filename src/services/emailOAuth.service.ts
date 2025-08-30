@@ -293,6 +293,29 @@ export class EmailOAuthService {
       }
 
       logger.info(`Google OAuth account created/updated: ${emailAddress}`);
+
+      // Automatically setup real-time sync webhook for Gmail accounts
+      if (account.accountType === "gmail" && account.oauth?.accessToken) {
+        try {
+          logger.info(`🔄 [Gmail] Auto-setting up real-time sync webhook for: ${emailAddress}`);
+
+          // Import the real-time sync service
+          const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+
+          // Setup the webhook automatically
+          const webhookResult = await RealTimeEmailSyncService.setupGmailRealTimeSync(account);
+
+          if (webhookResult.success) {
+            logger.info(`✅ [Gmail] Auto-webhook setup successful for: ${emailAddress}`);
+          } else {
+            logger.warn(`⚠️ [Gmail] Auto-webhook setup failed for: ${emailAddress}: ${webhookResult.error}`);
+          }
+        } catch (webhookError: any) {
+          logger.error(`❌ [Gmail] Auto-webhook setup error for ${emailAddress}:`, webhookError);
+          // Don't fail the OAuth flow if webhook setup fails
+        }
+      }
+
       return { success: true, account };
     } catch (error: any) {
       logger.error("Google OAuth callback overall error:", error);
@@ -437,6 +460,29 @@ export class EmailOAuthService {
       }
 
       logger.info(`Outlook OAuth account created/updated: ${emailAddress}`);
+
+      // Automatically setup real-time sync webhook for Outlook accounts
+      if (account.accountType === "outlook" && account.oauth?.accessToken) {
+        try {
+          logger.info(`🔄 [Outlook] Auto-setting up real-time sync webhook for: ${emailAddress}`);
+
+          // Import the real-time sync service
+          const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+
+          // Setup the webhook automatically
+          const webhookResult = await RealTimeEmailSyncService.setupOutlookRealTimeSync(account);
+
+          if (webhookResult.success) {
+            logger.info(`✅ [Outlook] Auto-webhook setup successful for: ${emailAddress}`);
+          } else {
+            logger.warn(`⚠️ [Outlook] Auto-webhook setup failed for: ${emailAddress}: ${webhookResult.error}`);
+          }
+        } catch (webhookError: any) {
+          logger.error(`❌ [Outlook] Auto-webhook setup error for ${emailAddress}:`, webhookError);
+          // Don't fail the OAuth flow if webhook setup fails
+        }
+      }
+
       return { success: true, account };
     } catch (error: any) {
       logger.error("Outlook OAuth callback error:", error);
