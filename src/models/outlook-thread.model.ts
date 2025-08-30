@@ -4,23 +4,12 @@ export interface IOutlookThread {
   conversationId: string;
   accountId: Schema.Types.ObjectId;
 
-  // Outlook-specific raw data
+  // Outlook-specific raw data (lightweight - only metadata)
   rawOutlookData: {
     conversationId: string;
-    messages: Array<{
-      id: string;
-      conversationId: string;
-      subject: string;
-      from: any;
-      toRecipients: any[];
-      ccRecipients?: any[];
-      receivedDateTime: string;
-      isRead: boolean;
-      bodyPreview: string;
-      hasAttachments: boolean;
-      importance: string;
-      flag?: any;
-    }>;
+    messageIds: string[]; // Only store message IDs, not full content
+    messageCount: number;
+    lastMessageId: string;
   };
 
   // Computed metadata for quick access
@@ -74,25 +63,12 @@ const OutlookThreadSchema = new Schema<IOutlookThread>(
       index: true,
     },
 
-    // Outlook-specific raw data
+    // Outlook-specific raw data (lightweight - only metadata)
     rawOutlookData: {
       conversationId: { type: String, required: true },
-      messages: [
-        {
-          id: { type: String, required: true },
-          conversationId: { type: String, required: true },
-          subject: { type: String, default: "" },
-          from: { type: Schema.Types.Mixed },
-          toRecipients: [{ type: Schema.Types.Mixed }],
-          ccRecipients: [{ type: Schema.Types.Mixed }],
-          receivedDateTime: { type: String, required: true },
-          isRead: { type: Boolean, default: false },
-          bodyPreview: { type: String, default: "" },
-          hasAttachments: { type: Boolean, default: false },
-          importance: { type: String, default: "normal" },
-          flag: { type: Schema.Types.Mixed },
-        },
-      ],
+      messageIds: [{ type: String }], // Only store message IDs
+      messageCount: { type: Number, required: true },
+      lastMessageId: { type: String, required: true },
     },
 
     // Computed metadata
