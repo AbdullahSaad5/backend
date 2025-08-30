@@ -3,9 +3,7 @@ import express, { Express } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
 import path from "path";
-import path from "path";
 import { mongoose } from "./datasources";
-import { authMiddleware, corsMiddleware, apiRateLimiter } from "./middlewares";
 import { authMiddleware, corsMiddleware, apiRateLimiter } from "./middlewares";
 import { router } from "./routes/index.route";
 import { socketManager } from "./datasources/socket.datasource";
@@ -16,6 +14,7 @@ import { ApiDocumentation } from "./utils/api-documentation.util";
 import { documentationConfig } from "./config/documentation.config";
 import { outlookWebhook } from "./routes/outlook-webhook.route";
 import { gmailWebhook } from "./routes/gmail-webhook.route";
+
 // Configure dotenv to use .env file like .env.dev or .env.prod
 dotenv.config({
   path: `.env.${process.env.NODE_ENV || "dev"}`,
@@ -24,8 +23,6 @@ dotenv.config({
 const app: Express = express();
 
 // Connect to MongoDB and seed data, then start server
-// console.log("🚀 Starting application initialization...");
-
 mongoose
   .run()
   .then(() => {
@@ -34,62 +31,17 @@ mongoose
   })
   .then(() => {
     console.log("✅ Database seeded successfully.");
-    // console.log("🌐 Starting HTTP server...");
-
-    // Start the server only after seeding is complete
-    app.options("*", corsMiddleware);
-// Connect to MongoDB and seed data, then start server
-// console.log("🚀 Starting application initialization...");
-
-mongoose
-  .run()
-  .then(() => {
-    console.log("📡 MongoDB connected, starting database seeding...");
-    return seedData();
-  })
-  .then(() => {
-    console.log("✅ Database seeded successfully.");
-    // console.log("🌐 Starting HTTP server...");
 
     // Start the server only after seeding is complete
     app.options("*", corsMiddleware);
 
-    // This route is specifically handled before the express.json() middleware to allow raw JSON requests
-    // from Stripe webhook
-    // Don't remove this route from here
-    // I tried to move this route to the stripe.route.ts file but it didn't work
-    // So, I had to keep it here
-    // To make sure it keeps working, don't remove this route from here
-    // app.post("/api/stripe/handle-webhook", express.raw({ type: "application/json" }), stripeController.webhookHandler);
     app.use(requestLogger); // Use the request logger middleware
-    // Use morgan for logging requests
-    // const accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" });
+
     app.use(
       apiRateLimiter, // Apply API rate limiting globally
       express.json({ limit: "10mb" }),
       express.urlencoded({ limit: "10mb", extended: true }),
       morgan("dev"),
-      // morgan("combined", { stream: accessLogStream }),
-      corsMiddleware,
-      authMiddleware,
-      helmet()
-    );
-    // This route is specifically handled before the express.json() middleware to allow raw JSON requests
-    // from Stripe webhook
-    // Don't remove this route from here
-    // I tried to move this route to the stripe.route.ts file but it didn't work
-    // So, I had to keep it here
-    // To make sure it keeps working, don't remove this route from here
-    // app.post("/api/stripe/handle-webhook", express.raw({ type: "application/json" }), stripeController.webhookHandler);
-    app.use(requestLogger); // Use the request logger middleware
-    // Use morgan for logging requests
-    // const accessLogStream = fs.createWriteStream(path.join(__dirname, "access.log"), { flags: "a" });
-    app.use(
-      apiRateLimiter, // Apply API rate limiting globally
-      express.json({ limit: "10mb" }),
-      express.urlencoded({ limit: "10mb", extended: true }),
-      morgan("dev"),
-      // morgan("combined", { stream: accessLogStream }),
       corsMiddleware,
       authMiddleware,
       helmet()
@@ -127,11 +79,9 @@ mongoose
 
     initCron();
     const port = process.env.PORT || 5000;
-    // console.log(`🔧 Attempting to start server on port: ${port}`);
 
     const httpServer = app.listen(port, () => {
       console.log(`🚀 Server is running on port: ${port}`);
-      // console.log(`🌍 Server URL: http://localhost:${port}`);
     });
 
     // Add socket.io to the server
@@ -165,4 +115,4 @@ process.on("uncaughtException", (error) => {
   });
 });
 
-export { app };
+module.exports = { app };
