@@ -247,9 +247,13 @@ async function processGmailNotification(
 
     if (!account) {
       logger.warn(`[${requestId}] Gmail account not found or not active: ${emailAddress}`);
+      logger.info(`[${requestId}] This might be an orphaned subscription for a deleted account: ${emailAddress}`);
+
+      // Return success to prevent Google from retrying the notification
+      // The subscription should be cleaned up manually or will expire eventually
       return {
-        success: false,
-        error: `Gmail account not found or not active: ${emailAddress}`,
+        success: true,
+        data: { message: `Account ${emailAddress} not found - likely orphaned subscription` },
       };
     }
 
