@@ -83,6 +83,7 @@ export interface IEmailAccount {
     };
     // Gmail-specific webhook tracking
     gmailTopic?: string;
+    gmailSubscription?: string;
     isAutoCreated?: boolean;
     // Outlook-specific webhook tracking
     webhookId?: string;
