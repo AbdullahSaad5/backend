@@ -611,11 +611,16 @@ export class RealTimeEmailSyncService {
    */
   static async syncGmailEmails(account: IEmailAccount, historyId?: string): Promise<RealTimeSyncResult> {
     try {
+      console.log(`🔄 [Gmail] ===== STARTING GMAIL EMAIL SYNC =====`);
+      console.log(`🔄 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`🔄 [Gmail] History ID: ${historyId || 'undefined'}`);
+      
       logger.info(
         `🔄 [Gmail] Syncing emails for: ${account.emailAddress}${historyId ? ` with historyId: ${historyId}` : ""}`
       );
 
       // Get decrypted access token
+      console.log(`🔓 [Gmail] Decrypting OAuth tokens...`);
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
       const decryptedRefreshToken = account.oauth!.refreshToken
         ? EmailOAuthService.decryptData(account.oauth!.refreshToken)
@@ -638,6 +643,7 @@ export class RealTimeEmailSyncService {
 
       if (historyId) {
         // Use historyId to get specific changes (webhook flow)
+        console.log(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
         logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
 
         try {
@@ -648,6 +654,11 @@ export class RealTimeEmailSyncService {
           });
 
           const history = historyResponse.data;
+          console.log(`📧 [Gmail] History response:`, {
+            historyCount: history.history?.length || 0,
+            nextPageToken: history.nextPageToken || 'none'
+          });
+          
           if (history.history && history.history.length > 0) {
             // Extract message IDs from history
             const messageIds = history.history
@@ -655,25 +666,33 @@ export class RealTimeEmailSyncService {
               .map((m) => m.message?.id)
               .filter(Boolean);
 
+            console.log(`📧 [Gmail] Found ${messageIds.length} new messages in history:`, messageIds);
             logger.info(`📧 [Gmail] Found ${messageIds.length} new messages in history`);
 
             // Get full message details for each new message
             for (const messageId of messageIds) {
               try {
+                console.log(`📧 [Gmail] Fetching full details for message: ${messageId}`);
                 const messageDetails = await gmail.users.messages.get({
                   userId: "me",
                   id: messageId!,
                   format: "full",
                 });
                 messages.push(messageDetails.data);
+                console.log(`✅ [Gmail] Successfully fetched message: ${messageId}`);
               } catch (messageError: any) {
+                console.log(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
                 logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
               }
             }
+          } else {
+            console.log(`📧 [Gmail] No new messages found in history`);
           }
         } catch (historyError: any) {
+          console.log(`❌ [Gmail] Failed to fetch history:`, historyError);
           logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
           // Fallback to recent messages if history fails
+          console.log(`📧 [Gmail] Falling back to recent messages...`);
           const messagesResponse = await gmail.users.messages.list({
             userId: "me",
             maxResults: 10,
@@ -683,6 +702,7 @@ export class RealTimeEmailSyncService {
         }
       } else {
         // Fallback: Get recent messages (polling flow)
+        console.log(`📧 [Gmail] Fetching recent messages (polling mode)`);
         logger.info(`📧 [Gmail] Fetching recent messages (polling mode)`);
         const messagesResponse = await gmail.users.messages.list({
           userId: "me",
@@ -692,10 +712,13 @@ export class RealTimeEmailSyncService {
         messages = messagesResponse.data.messages || [];
       }
 
+      console.log(`📧 [Gmail] Total messages to process: ${messages.length}`);
       let emailsProcessed = 0;
 
       for (const message of messages) {
         try {
+          console.log(`📧 [Gmail] Processing message: ${message.id}`);
+          
           // Check if email already exists
           const existingEmail = await EmailModel.findOne({
             messageId: message.id,
@@ -703,6 +726,7 @@ export class RealTimeEmailSyncService {
           });
 
           if (existingEmail) {
+            console.log(`⏭️ [Gmail] Email ${message.id} already exists, skipping...`);
             continue; // Skip if already processed
           }
 
@@ -723,6 +747,7 @@ export class RealTimeEmailSyncService {
             const threadKey = `${subject.toLowerCase().trim()}_${from}_${to}`;
             threadId = `generated_${Buffer.from(threadKey).toString("base64").substring(0, 16)}`;
 
+            console.log(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
             logger.info(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
           }
 
@@ -755,18 +780,33 @@ export class RealTimeEmailSyncService {
             category: "primary",
           };
 
+          console.log(`📧 [Gmail] Email data prepared:`, {
+            messageId: emailData.messageId,
+            subject: emailData.subject,
+            from: emailData.from.email,
+            threadId: emailData.threadId
+          });
+
           // Ensure we have a valid threadId before proceeding
           if (!emailData.threadId) {
+            console.log(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             logger.warn(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             continue;
           }
 
           // Save email to database
+          console.log(`💾 [Gmail] Saving email to database: ${emailData.messageId}`);
           const savedEmail = await EmailModel.create(emailData);
           emailsProcessed++;
+          console.log(`✅ [Gmail] Email saved to database successfully:`, {
+            emailId: savedEmail._id,
+            messageId: savedEmail.messageId,
+            subject: savedEmail.subject
+          });
 
           // Create or update Gmail thread
           try {
+            console.log(`🧵 [Gmail] Creating/updating thread for email: ${savedEmail.threadId}`);
             const existingThread = await GmailThreadModel.findOne({
               threadId: savedEmail.threadId,
               accountId: account._id,
@@ -774,6 +814,7 @@ export class RealTimeEmailSyncService {
 
             if (existingThread) {
               // Update existing thread
+              console.log(`🔄 [Gmail] Updating existing thread: ${savedEmail.threadId}`);
               await GmailThreadModel.findByIdAndUpdate(existingThread._id, {
                 $inc: {
                   messageCount: 1,
@@ -797,9 +838,11 @@ export class RealTimeEmailSyncService {
                   "rawGmailData.messageIds": savedEmail.messageId,
                 },
               });
+              console.log(`✅ [Gmail] Thread updated successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Updated thread: ${savedEmail.threadId}`);
             } else {
               // Create new thread
+              console.log(`🆕 [Gmail] Creating new thread: ${savedEmail.threadId}`);
               const threadData = {
                 threadId: savedEmail.threadId,
                 accountId: account._id,
@@ -843,13 +886,16 @@ export class RealTimeEmailSyncService {
               };
 
               await GmailThreadModel.create(threadData);
+              console.log(`✅ [Gmail] New thread created successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Created new thread: ${savedEmail.threadId}`);
             }
           } catch (threadError: any) {
+            console.log(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
             logger.error(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
           }
 
           // Emit real-time notification
+          console.log(`📡 [Gmail] Emitting real-time notification for email: ${savedEmail.messageId}`);
           socketManager.emitNewEmail(account.emailAddress, {
             emailId: savedEmail._id,
             messageId: savedEmail.messageId,
@@ -860,19 +906,27 @@ export class RealTimeEmailSyncService {
             threadId: savedEmail.threadId,
           });
 
+          console.log(`📧 [Gmail] Email processing completed: ${savedEmail.subject} for ${account.emailAddress}`);
           logger.info(`📧 [Gmail] Saved email: ${savedEmail.subject} for ${account.emailAddress}`);
         } catch (messageError: any) {
+          console.log(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
           logger.error(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
         }
       }
 
       // Update account sync state
+      console.log(`💾 [Gmail] Updating account sync state...`);
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
           "syncState.lastSyncAt": new Date(),
           "stats.lastSyncAt": new Date(),
         },
       });
+
+      console.log(`✅ [Gmail] ===== GMAIL SYNC COMPLETED =====`);
+      console.log(`✅ [Gmail] Account: ${account.emailAddress}`);
+      console.log(`✅ [Gmail] Emails processed: ${emailsProcessed}`);
+      console.log(`✅ [Gmail] Sync completed at: ${new Date().toISOString()}`);
 
       logger.info(`✅ [Gmail] Sync completed for ${account.emailAddress}: ${emailsProcessed} emails processed`);
 
@@ -882,6 +936,9 @@ export class RealTimeEmailSyncService {
         emailsProcessed,
       };
     } catch (error: any) {
+      console.log(`💥 [Gmail] ===== GMAIL SYNC FAILED =====`);
+      console.log(`💥 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`💥 [Gmail] Error:`, error);
       logger.error(`❌ [Gmail] Sync failed for ${account.emailAddress}:`, error);
       return {
         success: false,
