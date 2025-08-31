@@ -18,4 +18,5 @@ export const gmailWebhook = (router: Router) => {
   router.get("/status", GmailWebhookController.getWebhookStatus);
   router.post("/validate", GmailWebhookController.validateWebhookSetup);
   router.get("/debug/subscription-hashes", GmailWebhookController.debugSubscriptionHashes);
+  router.post("/cleanup/orphaned-subscriptions", GmailWebhookController.cleanupOrphanedSubscriptions);
 };

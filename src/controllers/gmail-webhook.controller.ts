@@ -400,6 +400,126 @@ export const GmailWebhookController = {
       });
     }
   },
+
+  /**
+   * Clean up orphaned Gmail subscriptions
+   */
+  cleanupOrphanedSubscriptions: async (req: Request, res: Response) => {
+    try {
+      console.log(`🧹 [Cleanup] Starting orphaned subscription cleanup`);
+
+      const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+      const pubsub = (RealTimeEmailSyncService as any).getPubSubClient();
+
+      // Get all existing subscriptions
+      const [allSubscriptions] = await pubsub.getSubscriptions();
+      const gmailSubscriptions = allSubscriptions.filter(
+        (sub: any) => sub.name.includes("gmail-sync-") && sub.name.includes("-webhook")
+      );
+
+      console.log(`🔍 [Cleanup] Found ${gmailSubscriptions.length} Gmail subscriptions in Google Cloud`);
+
+      // Get all active Gmail accounts
+      const activeGmailAccounts = await EmailAccountModel.find({
+        accountType: "gmail",
+        isActive: true,
+      });
+
+      // Build set of expected subscription names
+      const expectedSubscriptions = new Set();
+      activeGmailAccounts.forEach((account) => {
+        const accountHash = crypto
+          .createHash("md5")
+          .update(`${account.emailAddress}-${account._id}`)
+          .digest("hex")
+          .substring(0, 8);
+        expectedSubscriptions.add(`gmail-sync-${accountHash}-webhook`);
+
+        // Also add stored subscription if different
+        if (account.syncState?.gmailSubscription) {
+          const storedName = account.syncState.gmailSubscription.split("/").pop();
+          if (storedName) {
+            expectedSubscriptions.add(storedName);
+          }
+        }
+      });
+
+      console.log(`🔍 [Cleanup] Expected subscriptions:`, Array.from(expectedSubscriptions));
+
+      // Find orphaned subscriptions
+      const orphanedSubscriptions = [];
+      const activeSubscriptions = [];
+
+      for (const subscription of gmailSubscriptions) {
+        const subscriptionName = subscription.name.split("/").pop();
+        if (expectedSubscriptions.has(subscriptionName)) {
+          activeSubscriptions.push(subscriptionName);
+        } else {
+          orphanedSubscriptions.push(subscriptionName);
+        }
+      }
+
+      console.log(`🔍 [Cleanup] Found ${orphanedSubscriptions.length} orphaned subscriptions`);
+      console.log(`🔍 [Cleanup] Orphaned subscriptions:`, orphanedSubscriptions);
+
+      // Clean up orphaned subscriptions (dry run by default)
+      const dryRun = req.query.dryRun !== "false";
+      const cleanupResults = [];
+
+      if (dryRun) {
+        console.log(`🔍 [Cleanup] DRY RUN MODE - No actual deletions performed`);
+        orphanedSubscriptions.forEach((subName) => {
+          cleanupResults.push({
+            subscriptionName: subName,
+            action: "would_delete",
+            status: "dry_run",
+          });
+        });
+      } else {
+        console.log(`🧹 [Cleanup] LIVE MODE - Deleting orphaned subscriptions`);
+        for (const subName of orphanedSubscriptions) {
+          try {
+            await pubsub.subscription(subName).delete();
+            console.log(`✅ [Cleanup] Deleted orphaned subscription: ${subName}`);
+            cleanupResults.push({
+              subscriptionName: subName,
+              action: "deleted",
+              status: "success",
+            });
+          } catch (error: any) {
+            console.log(`❌ [Cleanup] Failed to delete subscription ${subName}:`, error.message);
+            cleanupResults.push({
+              subscriptionName: subName,
+              action: "delete_failed",
+              status: "error",
+              error: error.message,
+            });
+          }
+        }
+      }
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          dryRun,
+          totalSubscriptionsFound: gmailSubscriptions.length,
+          activeSubscriptions: activeSubscriptions.length,
+          orphanedSubscriptions: orphanedSubscriptions.length,
+          cleanupResults,
+          note: dryRun
+            ? "This was a dry run. Add ?dryRun=false to actually delete orphaned subscriptions"
+            : "Live cleanup completed",
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error cleaning up orphaned subscriptions:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to cleanup orphaned subscriptions",
+        error: error.message,
+      });
+    }
+  },
 };
 
 /**
