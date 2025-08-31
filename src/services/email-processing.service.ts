@@ -7,6 +7,8 @@ import {
   EmailPriority,
 } from "@/contracts/mailbox.contract";
 import { EmailModel } from "@/models/email.model";
+import { GmailThreadModel } from "@/models/gmail-thread.model";
+import { OutlookThreadModel } from "@/models/outlook-thread.model";
 
 import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
@@ -297,6 +299,20 @@ const createOrUpdateEmailThread = async (email: any) => {
       toCount: email.to?.length || 0,
     });
 
+    // Determine which thread model to use based on email source
+    let ThreadModel;
+    if (email.from?.email.includes("@gmail.com")) {
+      ThreadModel = GmailThreadModel;
+      logger.info(`[${threadRequestId}] Using GmailThreadModel for Gmail email`);
+    } else if (email.from?.email.includes("@outlook.com") || email.from?.email.includes("@hotmail.com")) {
+      ThreadModel = OutlookThreadModel;
+      logger.info(`[${threadRequestId}] Using OutlookThreadModel for Outlook email`);
+    } else {
+      // Fallback to default if source is unknown
+      ThreadModel = GmailThreadModel;
+      logger.warn(`[${threadRequestId}] Email source not recognized, using default GmailThreadModel`);
+    }
+
     // Generate thread ID based on subject (normalize by removing Re: Fwd: etc.)
     const normalizedSubject = email.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, "").trim();
     const threadId = email.threadId || `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}`;
@@ -328,7 +344,7 @@ const createOrUpdateEmailThread = async (email: any) => {
     });
 
     // Find existing thread or create new one
-    let thread = await EmailThreadModel.findOne({ threadId });
+    let thread = await ThreadModel.findOne({ threadId });
 
     if (thread) {
       logger.info(`[${threadRequestId}] Existing thread found - updating`, {
@@ -367,7 +383,7 @@ const createOrUpdateEmailThread = async (email: any) => {
       });
 
       // Create new thread
-      thread = new EmailThreadModel({
+      thread = new ThreadModel({
         threadId,
         subject: normalizedSubject,
         participants,
