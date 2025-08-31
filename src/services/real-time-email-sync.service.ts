@@ -102,6 +102,20 @@ export class RealTimeEmailSyncService {
         logger.warn(`⚠️ [Gmail] Falling back to shared topic: ${topicName} for ${account.emailAddress}`);
       }
 
+      // Create Pub/Sub subscription for the topic to deliver notifications to webhook
+      let subscriptionName: string;
+      try {
+        logger.info(`📧 [Gmail] Creating Pub/Sub subscription for: ${account.emailAddress}`);
+        subscriptionName = await this.ensureGmailSubscriptionExists(account, topicName);
+        logger.info(`✅ [Gmail] Pub/Sub subscription created: ${subscriptionName}`);
+      } catch (subscriptionError: any) {
+        logger.error(
+          `❌ [Gmail] Failed to create Pub/Sub subscription for ${account.emailAddress}:`,
+          subscriptionError
+        );
+        throw new Error(`Pub/Sub subscription creation failed: ${subscriptionError.message}`);
+      }
+
       logger.info(`📧 [Gmail] Setting up watch with topic: ${topicName} for: ${account.emailAddress}`);
 
       const watchResponse = await gmail.users.watch({
@@ -130,6 +144,7 @@ export class RealTimeEmailSyncService {
           {
             $set: {
               "syncState.gmailTopic": topicName,
+              "syncState.gmailSubscription": subscriptionName,
               "syncState.isAutoCreated": isAutoCreated,
               "syncState.watchExpiration": expirationTime,
               "syncState.lastWatchRenewal": new Date(),
@@ -172,6 +187,76 @@ export class RealTimeEmailSyncService {
 
       // Fallback to polling
       return this.setupGmailPollingFallback(account);
+    }
+  }
+
+  /**
+   * Automatically create Pub/Sub subscription for Gmail account
+   */
+  private static async ensureGmailSubscriptionExists(account: IEmailAccount, topicName: string): Promise<string> {
+    try {
+      // Generate unique subscription name for this account
+      const accountHash = crypto
+        .createHash("md5")
+        .update(`${account.emailAddress}-${account._id}`)
+        .digest("hex")
+        .substring(0, 8);
+
+      const subscriptionName = `gmail-sync-${accountHash}-webhook`;
+      const fullSubscriptionName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/${subscriptionName}`;
+
+      // Get webhook endpoint URL
+      const webhookUrl =
+        process.env.GMAIL_WEBHOOK_URL ||
+        `${process.env.BACKEND_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com"}/api/gmail-webhook/webhook`;
+
+      try {
+        // Check if subscription exists
+        const pubsub = this.getPubSubClient();
+        const [subscriptions] = await pubsub.getSubscriptions();
+        const subscriptionExists = subscriptions.some((sub) => sub.name.includes(subscriptionName));
+
+        if (!subscriptionExists) {
+          // Create subscription with push delivery to webhook
+          logger.info(`📧 [Gmail] Creating subscription: ${subscriptionName} → ${webhookUrl}`);
+
+          // Create subscription through the topic (required by Google Cloud Pub/Sub)
+          const topic = pubsub.topic(topicName);
+          await topic.createSubscription(subscriptionName, {
+            pushConfig: {
+              pushEndpoint: webhookUrl,
+            },
+            ackDeadlineSeconds: 60,
+            messageRetentionDuration: {
+              seconds: 7 * 24 * 60 * 60, // 7 days
+            },
+            retryPolicy: {
+              minimumBackoff: {
+                seconds: 10,
+              },
+              maximumBackoff: {
+                seconds: 600,
+              },
+            },
+          });
+
+          logger.info(`✅ [Gmail] Auto-created Pub/Sub subscription: ${subscriptionName} for ${account.emailAddress}`);
+        } else {
+          logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already exists for ${account.emailAddress}`);
+        }
+      } catch (error: any) {
+        if (error.code === 6) {
+          // Subscription already exists (race condition)
+          logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already exists for ${account.emailAddress}`);
+        } else {
+          throw error;
+        }
+      }
+
+      return fullSubscriptionName;
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to create subscription for ${account.emailAddress}:`, error);
+      throw error;
     }
   }
 
@@ -453,13 +538,18 @@ export class RealTimeEmailSyncService {
       const subscription = await subscriptionResponse.json();
       logger.info(`✅ [Outlook] Subscription created successfully: ${subscription.id}`);
 
-      // Update account sync state
+      // Parse subscription expiry
+      const subscriptionExpiry = new Date(subscription.expirationDateTime);
+
+      // Update account sync state with complete webhook information
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
           "syncState.syncStatus": "webhook",
           "syncState.lastWatchRenewal": new Date(),
           "syncState.isWatching": true,
           "syncState.webhookId": subscription.id,
+          "syncState.webhookUrl": `${webhookUrl}/${account._id}`,
+          "syncState.subscriptionExpiry": subscriptionExpiry,
         },
       });
 
@@ -1062,10 +1152,75 @@ export class RealTimeEmailSyncService {
   }
 
   /**
-   * Clean up Gmail topic when account is removed
+   * Clean up Outlook webhook subscription when account is removed
+   */
+  static async cleanupOutlookSubscription(account: IEmailAccount): Promise<void> {
+    try {
+      if (account.syncState?.webhookId && account.oauth?.accessToken) {
+        try {
+          // Get decrypted access token
+          const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+
+          // Delete the webhook subscription
+          const deleteResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/subscriptions/${account.syncState.webhookId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${decryptedAccessToken}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (deleteResponse.ok) {
+            logger.info(
+              `✅ [Outlook] Deleted webhook subscription: ${account.syncState.webhookId} for ${account.emailAddress}`
+            );
+          } else {
+            const errorText = await deleteResponse.text();
+            logger.warn(
+              `⚠️ [Outlook] Failed to delete subscription ${account.syncState.webhookId}: ${deleteResponse.status} ${errorText}`
+            );
+          }
+        } catch (error: any) {
+          logger.error(`❌ [Outlook] Failed to delete subscription ${account.syncState.webhookId}:`, error);
+        }
+      }
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Failed to cleanup subscription for ${account.emailAddress}:`, error);
+    }
+  }
+
+  /**
+   * Clean up Gmail topic and subscription when account is removed
    */
   static async cleanupGmailTopic(account: IEmailAccount): Promise<void> {
     try {
+      // Clean up subscription first
+      if (account.syncState?.gmailSubscription) {
+        const subscriptionName = account.syncState.gmailSubscription.split("/").pop(); // Extract subscription name from full path
+
+        if (subscriptionName && subscriptionName.startsWith("gmail-sync-")) {
+          try {
+            const pubsub = this.getPubSubClient();
+            const subscription = pubsub.subscription(subscriptionName);
+            await subscription.delete();
+            logger.info(
+              `✅ [Gmail] Deleted auto-created subscription: ${subscriptionName} for ${account.emailAddress}`
+            );
+          } catch (error: any) {
+            if (error.code === 5) {
+              // Subscription not found (already deleted)
+              logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already deleted for ${account.emailAddress}`);
+            } else {
+              logger.error(`❌ [Gmail] Failed to delete subscription ${subscriptionName}:`, error);
+            }
+          }
+        }
+      }
+
+      // Clean up topic
       if (account.syncState?.gmailTopic && account.syncState?.isAutoCreated) {
         const topicName = account.syncState.gmailTopic.split("/").pop(); // Extract topic name from full path
 
@@ -1085,7 +1240,29 @@ export class RealTimeEmailSyncService {
         }
       }
     } catch (error: any) {
-      logger.error(`❌ [Gmail] Failed to cleanup topic for ${account.emailAddress}:`, error);
+      logger.error(`❌ [Gmail] Failed to cleanup resources for ${account.emailAddress}:`, error);
+    }
+  }
+
+  /**
+   * Clean up all webhook resources when account is removed
+   */
+  static async cleanupAccountWebhooks(account: IEmailAccount): Promise<void> {
+    try {
+      logger.info(`🧹 [${account.accountType.toUpperCase()}] Cleaning up webhooks for: ${account.emailAddress}`);
+
+      if (account.accountType === "gmail") {
+        await this.cleanupGmailTopic(account);
+      } else if (account.accountType === "outlook") {
+        await this.cleanupOutlookSubscription(account);
+      }
+
+      logger.info(`✅ [${account.accountType.toUpperCase()}] Webhook cleanup completed for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(
+        `❌ [${account.accountType.toUpperCase()}] Webhook cleanup failed for ${account.emailAddress}:`,
+        error
+      );
     }
   }
 
@@ -1104,9 +1281,23 @@ export class RealTimeEmailSyncService {
       for (const account of accounts) {
         try {
           if (account.accountType === "gmail") {
-            await this.setupGmailRealTimeSync(account);
+            // Check if Gmail watch is expiring soon (within 24 hours)
+            if (
+              account.syncState?.watchExpiration &&
+              new Date(account.syncState.watchExpiration).getTime() - Date.now() < 24 * 60 * 60 * 1000
+            ) {
+              logger.info(`🔄 [Gmail] Renewing expiring watch for: ${account.emailAddress}`);
+              await this.setupGmailRealTimeSync(account);
+            }
           } else if (account.accountType === "outlook") {
-            await this.setupOutlookRealTimeSync(account);
+            // Check if Outlook subscription is expiring soon (within 12 hours)
+            if (
+              account.syncState?.subscriptionExpiry &&
+              new Date(account.syncState.subscriptionExpiry).getTime() - Date.now() < 12 * 60 * 60 * 1000
+            ) {
+              logger.info(`🔄 [Outlook] Renewing expiring subscription for: ${account.emailAddress}`);
+              await this.setupOutlookRealTimeSync(account);
+            }
           }
         } catch (error: any) {
           logger.error(`❌ Failed to renew subscription for ${account.emailAddress}:`, error);
