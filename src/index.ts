@@ -60,19 +60,13 @@ mongoose
 
     // Add webhook routes BEFORE authentication middleware
     // These routes need to be accessible without authentication for external services
-    app.use("/api/outlook-webhook", (req, res, next) => {
-      // Create a temporary router for webhook routes
-      const webhookRouter = express.Router();
-      outlookWebhook(webhookRouter);
-      webhookRouter(req, res, next);
-    });
+    const outlookWebhookRouter = express.Router();
+    outlookWebhook(outlookWebhookRouter);
+    app.use("/api/outlook-webhook", outlookWebhookRouter);
 
-    app.use("/api/gmail-webhook", (req, res, next) => {
-      // Create a temporary router for Gmail webhook routes
-      const webhookRouter = express.Router();
-      gmailWebhook(webhookRouter);
-      webhookRouter(req, res, next);
-    });
+    const gmailWebhookRouter = express.Router();
+    gmailWebhook(gmailWebhookRouter);
+    app.use("/api/gmail-webhook", gmailWebhookRouter);
 
     // Admin API routes (with authentication)
     app.use("/api", router);
