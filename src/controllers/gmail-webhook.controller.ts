@@ -343,6 +343,63 @@ export const GmailWebhookController = {
       });
     }
   },
+
+  /**
+   * Debug subscription hash mismatches
+   */
+  debugSubscriptionHashes: async (req: Request, res: Response) => {
+    try {
+      console.log(`🔍 [Debug] Getting all Gmail accounts and their subscription hashes`);
+
+      const activeGmailAccounts = await EmailAccountModel.find({
+        accountType: "gmail",
+        isActive: true,
+      });
+
+      const accountDetails = activeGmailAccounts.map((account) => {
+        const accountHash = crypto
+          .createHash("md5")
+          .update(`${account.emailAddress}-${account._id}`)
+          .digest("hex")
+          .substring(0, 8);
+
+        const expectedSubscription = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/gmail-sync-${accountHash}-webhook`;
+
+        return {
+          accountId: account._id,
+          emailAddress: account.emailAddress,
+          accountHash: accountHash,
+          expectedSubscription: expectedSubscription,
+          storedSubscription: account.syncState?.gmailSubscription || "Not set",
+          isWatching: account.syncState?.isWatching || false,
+          lastSyncAt: account.syncState?.lastSyncAt || "Never",
+        };
+      });
+
+      console.log(`🔍 [Debug] Found ${accountDetails.length} Gmail accounts`);
+      accountDetails.forEach((account) => {
+        console.log(
+          `🔍 [Debug] ${account.emailAddress}: hash=${account.accountHash}, subscription=${account.expectedSubscription}`
+        );
+      });
+
+      res.status(StatusCodes.OK).json({
+        success: true,
+        data: {
+          totalAccounts: accountDetails.length,
+          accounts: accountDetails,
+          note: "Use this to identify subscription hash mismatches and fix orphaned subscriptions",
+        },
+      });
+    } catch (error: any) {
+      logger.error("Error debugging subscription hashes:", error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to debug subscription hashes",
+        error: error.message,
+      });
+    }
+  },
 };
 
 /**
@@ -407,6 +464,8 @@ async function processGmailNotification(
 
     // Find the account that matches the subscription hash
     let targetAccount = null;
+    const accountHashMap = new Map();
+
     for (const account of activeGmailAccounts) {
       const accountHashFromDb = crypto
         .createHash("md5")
@@ -414,6 +473,7 @@ async function processGmailNotification(
         .digest("hex")
         .substring(0, 8);
 
+      accountHashMap.set(accountHashFromDb, account);
       console.log(`🔍 [${requestId}] Checking account ${account.emailAddress} with hash: ${accountHashFromDb}`);
 
       if (accountHashFromDb === accountHash) {
@@ -423,16 +483,59 @@ async function processGmailNotification(
       }
     }
 
+    // If no exact match found, try fallback strategies
     if (!targetAccount) {
-      console.log(`❌ [${requestId}] No account found matching subscription hash: ${accountHash}`);
+      console.log(`⚠️ [${requestId}] No exact hash match found for: ${accountHash}`);
+      console.log(`⚠️ [${requestId}] Available account hashes:`, Array.from(accountHashMap.keys()));
       console.log(
-        `❌ [${requestId}] Available accounts:`,
+        `⚠️ [${requestId}] Available accounts:`,
         activeGmailAccounts.map((a) => a.emailAddress)
       );
-      return {
-        success: false,
-        error: `No account found matching subscription hash: ${accountHash}`,
-      };
+
+      // FALLBACK STRATEGY 1: Check if we have a stored subscription hash in the account
+      for (const account of activeGmailAccounts) {
+        if (account.syncState?.gmailSubscription && account.syncState.gmailSubscription.includes(accountHash)) {
+          targetAccount = account;
+          console.log(`✅ [${requestId}] Found account via stored subscription: ${account.emailAddress}`);
+          break;
+        }
+      }
+
+      // FALLBACK STRATEGY 2: If only one active Gmail account, use it (common scenario)
+      if (!targetAccount && activeGmailAccounts.length === 1) {
+        targetAccount = activeGmailAccounts[0];
+        console.log(`✅ [${requestId}] Using single active Gmail account: ${targetAccount.emailAddress}`);
+
+        // Update the account with correct subscription info
+        try {
+          const correctSubscription = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/gmail-sync-${accountHash}-webhook`;
+          await EmailAccountModel.findByIdAndUpdate(targetAccount._id, {
+            $set: {
+              "syncState.gmailSubscription": correctSubscription,
+              "syncState.lastWatchRenewal": new Date(),
+            },
+          });
+          console.log(`🔄 [${requestId}] Updated account with correct subscription: ${correctSubscription}`);
+        } catch (updateError) {
+          console.log(`⚠️ [${requestId}] Failed to update subscription info:`, updateError);
+        }
+      }
+
+      // FALLBACK STRATEGY 3: If still no match, log detailed debug info and fail gracefully
+      if (!targetAccount) {
+        console.log(`❌ [${requestId}] SUBSCRIPTION HASH MISMATCH DETECTED:`);
+        console.log(`❌ [${requestId}] Webhook subscription hash: ${accountHash}`);
+        console.log(`❌ [${requestId}] This indicates an orphaned subscription or account recreation.`);
+        console.log(`❌ [${requestId}] Possible solutions:`);
+        console.log(`❌ [${requestId}] 1. Delete orphaned subscription: gmail-sync-${accountHash}-webhook`);
+        console.log(`❌ [${requestId}] 2. Recreate Gmail watch for existing accounts`);
+        console.log(`❌ [${requestId}] 3. Check if account was deleted/recreated`);
+
+        return {
+          success: false,
+          error: `Subscription hash mismatch. Webhook hash: ${accountHash}, Available accounts: ${activeGmailAccounts.map((a) => `${a.emailAddress}(${crypto.createHash("md5").update(`${a.emailAddress}-${a._id}`).digest("hex").substring(0, 8)})`).join(", ")}`,
+        };
+      }
     }
 
     const account = targetAccount;
