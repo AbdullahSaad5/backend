@@ -10,6 +10,8 @@ import { Client } from "@microsoft/microsoft-graph-client";
 import crypto from "crypto";
 import { IEmail } from "@/contracts/mailbox.contract";
 import { getStoredGmailAuthClient } from "@/utils/gmail-helpers.util";
+import { GmailThreadModel } from "@/models/gmail-thread.model";
+import { OutlookThreadModel } from "@/models/outlook-thread.model";
 
 export interface FetchedEmail {
   messageId: string;
@@ -48,6 +50,7 @@ export interface EmailFetchResult {
     hasNextPage: boolean;
     nextPageToken?: string;
   };
+  message?: string;
   historyId?: string; // New field for Gmail History API
 }
 
@@ -1446,7 +1449,6 @@ export class EmailFetchingService {
       console.log(`💾 Processing ${newEmails.length} new emails out of ${emails.length} total`);
 
       // Use the threading service to find or create threads
-      const { EmailThreadingService } = await import("@/services/email-threading.service");
 
       // Prepare email data for bulk insertion
       const emailDocs = [];
@@ -1482,8 +1484,45 @@ export class EmailFetchingService {
             folder: "INBOX",
           };
 
-          // Find or create thread using the threading service
-          const threadId = await EmailThreadingService.findOrCreateThread(emailData as IEmail);
+          // Find or create thread using the appropriate thread model
+          let threadId = email.threadId;
+
+          if (!threadId) {
+            // Determine which thread model to use based on email source
+            let ThreadModel;
+            if (email.from?.email.includes("@gmail.com")) {
+              ThreadModel = GmailThreadModel;
+            } else if (email.from?.email.includes("@outlook.com") || email.from?.email.includes("@hotmail.com")) {
+              ThreadModel = OutlookThreadModel;
+            } else {
+              // Fallback to Gmail thread model
+              ThreadModel = GmailThreadModel;
+            }
+
+            // Generate thread ID based on subject
+            const normalizedSubject = this.normalizeSubject(email.subject);
+            threadId = `thread_${normalizedSubject.replace(/[^a-zA-Z0-9]/g, "_")}_${Date.now()}`;
+
+            // Create thread in appropriate collection
+            try {
+              const threadData = {
+                threadId: threadId,
+                accountId: emailAccount._id,
+                subject: email.subject,
+                normalizedSubject: normalizedSubject,
+                messageCount: 1,
+                participants: [email.from, ...email.to],
+                firstMessageAt: email.date,
+                lastMessageAt: email.date,
+                status: "active",
+              };
+
+              await ThreadModel.create(threadData);
+            } catch (threadError: any) {
+              logger.error(`Error creating thread:`, threadError);
+              // Continue with generated threadId even if thread creation fails
+            }
+          }
 
           // Update email data with thread ID
           emailData.threadId = threadId;
