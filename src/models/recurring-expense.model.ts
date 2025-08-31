@@ -10,6 +10,8 @@ const RecurringExpenseSchema = new Schema<IRecurringExpense, IRecurringExpenseMo
     required: [true, "Title is required"],
     trim: true,
     maxlength: [100, "Title cannot exceed 100 characters"],
+    unique: true,
+    lowercase: true,
   },
   description: {
     type: String,
