@@ -30,7 +30,7 @@ export const GmailWebhookController = {
 
       // Gmail sends notifications via Google Cloud Pub/Sub
       // The body contains a base64-encoded message with the actual notification
-      const { message } = req.body;
+      const { message, subscription } = req.body;
 
       if (!message) {
         console.log(`❌ [${requestId}] No message in Gmail webhook payload`);
@@ -43,6 +43,7 @@ export const GmailWebhookController = {
       }
 
       console.log(`📨 [${requestId}] Message object received:`, JSON.stringify(message, null, 2));
+      console.log(`📨 [${requestId}] Subscription:`, subscription);
 
       // Decode the base64 message
       let decodedMessage;
@@ -75,9 +76,9 @@ export const GmailWebhookController = {
         type: decodedMessage.type,
       });
 
-      // Process the Gmail notification
+      // Process the Gmail notification with subscription info
       console.log(`🔄 [${requestId}] Starting to process Gmail notification...`);
-      const result = await processGmailNotification(decodedMessage, requestId);
+      const result = await processGmailNotification(decodedMessage, subscription, requestId);
 
       if (result.success) {
         console.log(`✅ [${requestId}] Gmail notification processed successfully:`, result.data);
@@ -144,7 +145,11 @@ export const GmailWebhookController = {
       }
 
       console.log(`🧪 [Gmail Webhook] Processing test notification for: ${emailAddress}, historyId: ${historyId}`);
-      const result = await processGmailNotification({ emailAddress, historyId }, crypto.randomUUID());
+      const result = await processGmailNotification(
+        { emailAddress, historyId },
+        "test-subscription",
+        crypto.randomUUID()
+      );
 
       if (result.success) {
         console.log(`✅ [Gmail Webhook] Test notification processed successfully:`, result.data);
@@ -168,6 +173,81 @@ export const GmailWebhookController = {
       res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: "Failed to process test notification",
+        error: error.message,
+      });
+    }
+  },
+
+  /**
+   * Test endpoint for manual Gmail sync (protected)
+   */
+  testGmailSync: async (req: Request, res: Response) => {
+    try {
+      console.log(`🧪 [Gmail Webhook] Test Gmail sync requested`);
+      console.log(`🧪 [Gmail Webhook] Test payload:`, req.body);
+
+      const { emailAddress, historyId } = req.body;
+
+      if (!emailAddress) {
+        console.log(`❌ [Gmail Webhook] Test sync missing emailAddress`);
+        return res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: "emailAddress is required",
+        });
+      }
+
+      console.log(
+        `🧪 [Gmail Webhook] Processing test sync for: ${emailAddress}, historyId: ${historyId || "undefined"}`
+      );
+
+      // Find the account
+      const account = await EmailAccountModel.findOne({
+        emailAddress: emailAddress,
+        accountType: "gmail",
+        isActive: true,
+      });
+
+      if (!account) {
+        console.log(`❌ [Gmail Webhook] Account not found: ${emailAddress}`);
+        return res.status(StatusCodes.NOT_FOUND).json({
+          success: false,
+          message: "Gmail account not found",
+        });
+      }
+
+      console.log(`✅ [Gmail Webhook] Found account: ${account.emailAddress}`);
+
+      // Trigger sync
+      const syncResult = await RealTimeEmailSyncService.syncGmailEmails(account, historyId);
+
+      if (syncResult.success) {
+        console.log(`✅ [Gmail Webhook] Test sync completed successfully:`, {
+          emailsProcessed: syncResult.emailsProcessed,
+          message: syncResult.message,
+        });
+        res.status(StatusCodes.OK).json({
+          success: true,
+          message: "Test Gmail sync completed successfully",
+          data: {
+            emailsProcessed: syncResult.emailsProcessed,
+            message: syncResult.message,
+          },
+        });
+      } else {
+        console.log(`❌ [Gmail Webhook] Test sync failed:`, syncResult.error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: "Failed to complete test Gmail sync",
+          error: syncResult.error,
+        });
+      }
+    } catch (error: any) {
+      console.log(`💥 [Gmail Webhook] Test sync error:`, error);
+      logger.error("Error processing test Gmail sync:", error);
+
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Failed to process test Gmail sync",
         error: error.message,
       });
     }
@@ -270,6 +350,7 @@ export const GmailWebhookController = {
  */
 async function processGmailNotification(
   notification: { emailAddress: string; historyId: string; type?: string },
+  subscription: string,
   requestId: string
 ): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
@@ -279,32 +360,83 @@ async function processGmailNotification(
     console.log(`🔄 [${requestId}] Email Address: ${emailAddress}`);
     console.log(`🔄 [${requestId}] History ID: ${historyId}`);
     console.log(`🔄 [${requestId}] Type: ${type || "undefined"}`);
+    console.log(`🔄 [${requestId}] Subscription: ${subscription}`);
 
     logger.info(`[${requestId}] Processing Gmail notification for: ${emailAddress}, historyId: ${historyId}`);
 
-    // Find the Gmail account
-    console.log(`🔍 [${requestId}] Searching for Gmail account in database...`);
-    const account = await EmailAccountModel.findOne({
-      emailAddress: emailAddress,
-      accountType: "gmail",
-      isActive: true,
-    });
+    // IMPORTANT: In Gmail push notifications, the emailAddress is the SENDER, not the receiver
+    // We need to find the account that should process this notification based on the subscription
+    // The subscription name contains the account hash, so we can identify the specific account
 
-    if (!account) {
-      console.log(`❌ [${requestId}] Gmail account not found or not active: ${emailAddress}`);
-      console.log(`❌ [${requestId}] This might be an orphaned subscription for a deleted account`);
-      logger.warn(`[${requestId}] Gmail account not found or not active: ${emailAddress}`);
-      logger.info(`[${requestId}] This might be an orphaned subscription for a deleted account: ${emailAddress}`);
+    console.log(`🔍 [${requestId}] Gmail push notification received - emailAddress is the SENDER, not the receiver`);
+    console.log(`🔍 [${requestId}] We need to find the RECEIVER account that should process this notification`);
+    console.log(`🔍 [${requestId}] Using subscription to identify the correct account: ${subscription}`);
 
-      // Return success to prevent Google from retrying the notification
-      // The subscription should be cleaned up manually or will expire eventually
+    // Extract account hash from subscription name
+    // Subscription format: projects/build-my-rig-468317/subscriptions/gmail-sync-{accountHash}-webhook
+    const subscriptionMatch = subscription.match(/gmail-sync-([a-f0-9]+)-webhook/);
+
+    if (!subscriptionMatch) {
+      console.log(`❌ [${requestId}] Could not extract account hash from subscription: ${subscription}`);
       return {
-        success: true,
-        data: { message: `Account ${emailAddress} not found - likely orphaned subscription` },
+        success: false,
+        error: "Invalid subscription format - cannot identify account",
       };
     }
 
-    console.log(`✅ [${requestId}] Gmail account found:`, {
+    const accountHash = subscriptionMatch[1];
+    console.log(`🔍 [${requestId}] Extracted account hash: ${accountHash}`);
+
+    // Find the account that matches this subscription hash
+    console.log(`🔍 [${requestId}] Searching for Gmail account with hash: ${accountHash}`);
+    const activeGmailAccounts = await EmailAccountModel.find({
+      accountType: "gmail",
+      isActive: true,
+      "syncState.isWatching": true,
+    });
+
+    console.log(`🔍 [${requestId}] Found ${activeGmailAccounts.length} active Gmail accounts`);
+
+    if (activeGmailAccounts.length === 0) {
+      console.log(`❌ [${requestId}] No active Gmail accounts found`);
+      return {
+        success: false,
+        error: "No active Gmail accounts found",
+      };
+    }
+
+    // Find the account that matches the subscription hash
+    let targetAccount = null;
+    for (const account of activeGmailAccounts) {
+      const accountHashFromDb = crypto
+        .createHash("md5")
+        .update(`${account.emailAddress}-${account._id}`)
+        .digest("hex")
+        .substring(0, 8);
+
+      console.log(`🔍 [${requestId}] Checking account ${account.emailAddress} with hash: ${accountHashFromDb}`);
+
+      if (accountHashFromDb === accountHash) {
+        targetAccount = account;
+        console.log(`✅ [${requestId}] Found matching account: ${account.emailAddress}`);
+        break;
+      }
+    }
+
+    if (!targetAccount) {
+      console.log(`❌ [${requestId}] No account found matching subscription hash: ${accountHash}`);
+      console.log(
+        `❌ [${requestId}] Available accounts:`,
+        activeGmailAccounts.map((a) => a.emailAddress)
+      );
+      return {
+        success: false,
+        error: `No account found matching subscription hash: ${accountHash}`,
+      };
+    }
+
+    const account = targetAccount;
+    console.log(`✅ [${requestId}] Using account to process notification:`, {
       accountId: account._id,
       emailAddress: account.emailAddress,
       isActive: account.isActive,
@@ -312,26 +444,27 @@ async function processGmailNotification(
     });
 
     if (!account.oauth?.accessToken) {
-      console.log(`❌ [${requestId}] Gmail account has no OAuth token: ${emailAddress}`);
-      logger.warn(`[${requestId}] Gmail account has no OAuth token: ${emailAddress}`);
+      console.log(`❌ [${requestId}] Gmail account has no OAuth token: ${account.emailAddress}`);
+      logger.warn(`[${requestId}] Gmail account has no OAuth token: ${account.emailAddress}`);
       return {
         success: false,
-        error: `Gmail account has no OAuth token: ${emailAddress}`,
+        error: `Gmail account has no OAuth token: ${account.emailAddress}`,
       };
     }
 
-    console.log(`🔄 [${requestId}] Triggering Gmail sync for account: ${emailAddress}`);
-    logger.info(`[${requestId}] Triggering Gmail sync for account: ${emailAddress}`);
+    console.log(`🔄 [${requestId}] Triggering Gmail sync for account: ${account.emailAddress}`);
+    console.log(`🔄 [${requestId}] Note: This will sync emails for the receiver account, not the sender`);
+    logger.info(`[${requestId}] Triggering Gmail sync for account: ${account.emailAddress}`);
 
     // Trigger immediate sync for this account using the historyId
     console.log(`🔄 [${requestId}] Calling RealTimeEmailSyncService.syncGmailEmails...`);
     const syncResult = await RealTimeEmailSyncService.syncGmailEmails(account, historyId);
 
     if (syncResult.success) {
-      console.log(`✅ [${requestId}] Gmail sync completed successfully for: ${emailAddress}`, {
+      console.log(`✅ [${requestId}] Gmail sync completed successfully for: ${account.emailAddress}`, {
         emailsProcessed: syncResult.emailsProcessed,
       });
-      logger.info(`[${requestId}] Gmail sync completed successfully for: ${emailAddress}`, {
+      logger.info(`[${requestId}] Gmail sync completed successfully for: ${account.emailAddress}`, {
         emailsProcessed: syncResult.emailsProcessed,
       });
 
@@ -343,13 +476,14 @@ async function processGmailNotification(
           historyId: historyId,
           emailsProcessed: syncResult.emailsProcessed,
           syncType: type || "webhook",
+          note: "Processed for receiver account, sender was: " + emailAddress,
         },
       };
     } else {
-      console.log(`❌ [${requestId}] Gmail sync failed for: ${emailAddress}`, {
+      console.log(`❌ [${requestId}] Gmail sync failed for: ${account.emailAddress}`, {
         error: syncResult.error,
       });
-      logger.error(`[${requestId}] Gmail sync failed for: ${emailAddress}`, {
+      logger.error(`[${requestId}] Gmail sync failed for: ${account.emailAddress}`, {
         error: syncResult.error,
       });
 
