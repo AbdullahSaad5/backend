@@ -7,7 +7,7 @@ import { LogData } from "@/contracts/log.contract";
 export const requestLogger = async (req: any, res: Response, next: NextFunction) => {
   const { method, url, headers } = req;
   const ip = req.ip || req.connection.remoteAddress || "";
-  const userAgent = headers["user-agent"] || "";
+  const userAgent = headers["user-agent"] || "Unknown";
   const start = Date.now();
   res.on("finish", async () => {
     const duration = Date.now() - start; // Calculate response duration
