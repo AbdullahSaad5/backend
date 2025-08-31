@@ -1300,10 +1300,13 @@ export class EmailAccountController {
         });
       }
 
-      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+      // Setup watch notifications using the complete flow
+      const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+      const result = await RealTimeEmailSyncService.setupGmailRealTimeSync(account);
 
-      // Setup watch notifications
-      await EmailFetchingService.setupGmailWatch(account);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to setup Gmail watch");
+      }
 
       res.status(200).json({
         success: true,
