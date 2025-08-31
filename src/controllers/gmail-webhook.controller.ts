@@ -117,7 +117,7 @@ export const GmailWebhookController = {
     console.log(`🏥 [Gmail Webhook] Headers:`, Object.keys(req.headers));
     console.log(`🏥 [Gmail Webhook] Method:`, req.method);
     console.log(`🏥 [Gmail Webhook] URL:`, req.url);
-    
+
     res.status(StatusCodes.OK).json({
       success: true,
       message: "Gmail webhook is healthy",
@@ -132,7 +132,7 @@ export const GmailWebhookController = {
     try {
       console.log(`🧪 [Gmail Webhook] Test notification requested`);
       console.log(`🧪 [Gmail Webhook] Test payload:`, req.body);
-      
+
       const { emailAddress, historyId } = req.body;
 
       if (!emailAddress || !historyId) {
