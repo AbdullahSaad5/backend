@@ -129,15 +129,32 @@ export const outlookWebhook = (router: Router) => {
   // POST endpoint for webhook notifications (same structure as Gmail)
   router.post("/", async (req, res) => {
     try {
-      logger.info(`📧 [Outlook] Webhook notification received at base URL`, {
+      const { validationToken } = req.query;
+
+      logger.info(`📧 [Outlook] Webhook request received at base URL`, {
         method: req.method,
         url: req.url,
         headers: req.headers,
         body: req.body,
+        query: req.query,
+        validationToken,
         ip: req.ip || req.connection.remoteAddress,
         userAgent: req.get("User-Agent"),
         timestamp: new Date().toISOString(),
       });
+
+      // Check if this is a validation request from Microsoft Graph
+      if (validationToken) {
+        // Microsoft is validating the webhook endpoint via POST request
+        logger.info(`✅ [Outlook] Base POST validation request with token: ${validationToken}`);
+
+        // Set proper headers for validation response
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Cache-Control", "no-cache");
+
+        // Send the validation token exactly as received
+        return res.status(StatusCodes.OK).send(validationToken);
+      }
 
       // Extract account information from clientState (same as Gmail approach)
       const { value } = req.body;
@@ -202,15 +219,31 @@ export const outlookWebhook = (router: Router) => {
   router.post("/:emailPrefix", async (req, res) => {
     try {
       const { emailPrefix } = req.params;
+      const { validationToken } = req.query;
 
-      logger.info(`📧 [Outlook] Webhook notification received for email prefix: ${emailPrefix}`, {
+      logger.info(`📧 [Outlook] Webhook request received for email prefix: ${emailPrefix}`, {
         method: req.method,
         url: req.url,
         headers: req.headers,
         body: req.body,
+        query: req.query,
+        validationToken,
         ip: req.ip || req.connection.remoteAddress,
         userAgent: req.get("User-Agent"),
       });
+
+      // Check if this is a validation request from Microsoft Graph
+      if (validationToken) {
+        // Microsoft is validating the webhook endpoint via POST request
+        logger.info(`✅ [Outlook] POST validation request for ${emailPrefix} with token: ${validationToken}`);
+
+        // Set proper headers for validation response
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Cache-Control", "no-cache");
+
+        // Send the validation token exactly as received
+        return res.status(StatusCodes.OK).send(validationToken);
+      }
 
       // Process actual webhook notification
       const { value } = req.body;
