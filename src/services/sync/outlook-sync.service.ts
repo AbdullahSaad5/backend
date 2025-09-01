@@ -32,16 +32,18 @@ export class OutlookSyncService {
       // Import Microsoft Graph client
       const { Client } = await import("@microsoft/microsoft-graph-client");
 
-      // Decrypt access token
-      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+      // Get access token with proper validation and refresh
+      const accessToken = await this.getValidAccessToken(account);
+      if (!accessToken) {
+        throw new Error("Unable to obtain valid access token for Outlook account");
+      }
 
       // Create Microsoft Graph client with proper authentication
       const graphClient = Client.init({
         authProvider: (done) => {
           // Microsoft Graph accepts opaque access tokens (not JWT format)
           // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
+          done(null, accessToken);
         },
       });
 
@@ -272,16 +274,18 @@ export class OutlookSyncService {
       // Import Microsoft Graph client
       const { Client } = await import("@microsoft/microsoft-graph-client");
 
-      // Decrypt access token
-      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+      // Get access token with proper validation and refresh
+      const accessToken = await this.getValidAccessToken(account);
+      if (!accessToken) {
+        throw new Error("Unable to obtain valid access token for Outlook account");
+      }
 
       // Create Microsoft Graph client with proper authentication
       const graphClient = Client.init({
         authProvider: (done) => {
           // Microsoft Graph accepts opaque access tokens (not JWT format)
           // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
+          done(null, accessToken);
         },
       });
 
@@ -419,6 +423,72 @@ export class OutlookSyncService {
         success: false,
         error: errorMessage,
       };
+    }
+  }
+
+  /**
+   * Get a valid access token for Outlook account with proper validation
+   */
+  private static async getValidAccessToken(account: IEmailAccount): Promise<string | null> {
+    try {
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+
+      // Validate OAuth configuration
+      if (!account.oauth?.accessToken || !account.oauth?.refreshToken) {
+        console.error("❌ [Outlook] OAuth configuration missing for account:", account.emailAddress);
+        return null;
+      }
+
+      // Check if current access token is still valid
+      if (account.oauth.tokenExpiry) {
+        const now = new Date();
+        const expiry = new Date(account.oauth.tokenExpiry);
+        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+
+        if (now.getTime() < expiry.getTime() - bufferTime) {
+          // Token is still valid with buffer time, decrypt and return
+          const decryptedToken = EmailOAuthService.getDecryptedAccessToken(account);
+
+          // Validate the decrypted token
+          if (!decryptedToken || decryptedToken.trim().length === 0) {
+            console.warn("⚠️ [Outlook] Decrypted access token is empty, attempting refresh for:", account.emailAddress);
+          } else {
+            console.log("✅ [Outlook] Using valid cached access token for:", account.emailAddress);
+            return decryptedToken;
+          }
+        } else {
+          console.log("🔄 [Outlook] Access token expired or expiring soon, refreshing for:", account.emailAddress);
+        }
+      }
+
+      // Token expired, missing, or invalid - refresh it
+      console.log("🔄 [Outlook] Refreshing access token for:", account.emailAddress);
+
+      const refreshResult = await EmailOAuthService.refreshTokens(account);
+      if (!refreshResult.success) {
+        console.error("❌ [Outlook] Failed to refresh tokens for:", account.emailAddress, refreshResult.error);
+        return null;
+      }
+
+      // Get the refreshed token from the database
+      const { EmailAccountModel } = await import("@/models/email-account.model");
+      const refreshedAccount = await EmailAccountModel.findById(account._id);
+      if (!refreshedAccount?.oauth?.accessToken) {
+        console.error("❌ [Outlook] No access token found after refresh for:", account.emailAddress);
+        return null;
+      }
+
+      const newDecryptedToken = EmailOAuthService.getDecryptedAccessToken(refreshedAccount);
+      if (!newDecryptedToken || newDecryptedToken.trim().length === 0) {
+        console.error("❌ [Outlook] Decrypted access token is empty after refresh for:", account.emailAddress);
+        return null;
+      }
+
+      console.log("✅ [Outlook] Successfully refreshed access token for:", account.emailAddress);
+      return newDecryptedToken;
+    } catch (error: any) {
+      console.error("❌ [Outlook] Error getting valid access token:", error.message, "for:", account.emailAddress);
+      return null;
     }
   }
 
