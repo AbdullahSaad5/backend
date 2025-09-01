@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { RealTimeEmailSyncService } from "@/services/real-time-email-sync.service";
 import { EmailAccountModel } from "@/models/email-account.model";
+import { OutlookWebhookManager } from "@/services/outlook-webhook-manager.service";
 import { logger } from "@/utils/logger.util";
 import { StatusCodes } from "http-status-codes";
 
@@ -138,7 +139,7 @@ export const outlookWebhook = (router: Router) => {
   });
 
   // Note: Account-specific routes removed - all webhooks now handled at base URL
-  // Account-specific webhook endpoints for proper webhook differentiation
+  // Account-specific webhook endpoints using email prefix for proper differentiation
   // This ensures each Outlook account has its own unique webhook URL using email prefix
 
   // GET endpoint for webhook validation (Microsoft Graph sends validation requests here)
@@ -186,13 +187,12 @@ export const outlookWebhook = (router: Router) => {
     }
   });
 
-  // Outlook webhook endpoint for real-time notifications
-  router.post("/:accountId", async (req, res) => {
+  // Outlook webhook endpoint for real-time notifications using email prefix
+  router.post("/:emailPrefix", async (req, res) => {
     try {
-      const { accountId } = req.params;
-      const { validationToken } = req.query;
+      const { emailPrefix } = req.params;
 
-      logger.info(`📧 [Outlook] Webhook received for account: ${accountId}`, {
+      logger.info(`📧 [Outlook] Webhook notification received for email prefix: ${emailPrefix}`, {
         method: req.method,
         url: req.url,
         headers: req.headers,
@@ -212,16 +212,13 @@ export const outlookWebhook = (router: Router) => {
         });
       }
 
-      // Find the account by email prefix
-      const account = await EmailAccountModel.findOne({
-        "syncState.emailPrefix": emailPrefix,
-        "oauth.provider": "outlook",
-      });
+      // Find the account by email prefix (primary) or webhook hash (fallback)
+      const account = await OutlookWebhookManager.findAccountByEmailPrefix(emailPrefix);
       if (!account) {
         logger.error(`❌ [Outlook] Account not found for email prefix: ${emailPrefix}`);
         return res.status(StatusCodes.NOT_FOUND).json({
           success: false,
-          message: "Account not found",
+          message: "Account not found for email prefix",
         });
       }
 
@@ -238,18 +235,26 @@ export const outlookWebhook = (router: Router) => {
       // Process each notification
       for (const notification of value) {
         try {
-          if (notification.changeType === "created" && notification.resource) {
+          const { clientState, changeType, resource } = notification;
+
+          // Verify clientState matches our email prefix
+          if (clientState !== emailPrefix) {
+            logger.warn(
+              `⚠️ [Outlook] ClientState mismatch for ${account.emailAddress}. Expected: ${emailPrefix}, Got: ${clientState}`
+            );
+            continue;
+          }
+
+          if (changeType === "created" && resource) {
             // New email received
             logger.info(`📧 [Outlook] New email notification for: ${account.emailAddress}`);
-
-            // Trigger immediate sync for this account
             await RealTimeEmailSyncService.syncOutlookEmails(account);
-          } else if (notification.changeType === "updated" && notification.resource) {
+          } else if (changeType === "updated" && resource) {
             // Email updated (read status, etc.)
             logger.info(`📧 [Outlook] Email update notification for: ${account.emailAddress}`);
-
-            // For updates, we might want to sync specific email or just do a quick sync
             await RealTimeEmailSyncService.syncOutlookEmails(account);
+          } else {
+            logger.info(`📧 [Outlook] Unhandled notification type: ${changeType} for: ${account.emailAddress}`);
           }
         } catch (notificationError: any) {
           logger.error(`❌ [Outlook] Failed to process notification for ${account.emailAddress}:`, notificationError);
@@ -262,6 +267,7 @@ export const outlookWebhook = (router: Router) => {
         success: true,
         message: "Webhook processed successfully",
         notificationsProcessed: value.length,
+        accountEmail: account.emailAddress,
       });
     } catch (error: any) {
       logger.error("❌ [Outlook] Webhook processing failed:", error);
