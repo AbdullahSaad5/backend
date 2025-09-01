@@ -1,7 +1,7 @@
 import { IEmailAccount, EmailAccountModel } from "@/models/email-account.model";
 import { logger } from "@/utils/logger.util";
 import crypto from "crypto";
-import { getOutlookWebhookUrl } from "@/config/real-time-sync.config";
+import { getOutlookWebhookUrl } from "@/config/instance-config";
 
 export interface OutlookWebhookInfo {
   webhookId: string;
@@ -88,18 +88,67 @@ export class OutlookWebhookManager {
         clientState: emailPrefix, // Use email prefix for identification
       };
 
-      const response = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(subscriptionPayload),
-      });
+      // Add retry logic with exponential backoff for rate limiting
+      let response;
+      let retryCount = 0;
+      const maxRetries = 3;
+      const baseDelay = 2000; // 2 seconds
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to create subscription: ${response.status} ${errorText}`);
+      while (retryCount <= maxRetries) {
+        try {
+          response = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(subscriptionPayload),
+          });
+
+          if (response.ok) {
+            break; // Success, exit retry loop
+          }
+
+          // Handle rate limiting specifically
+          if (response.status === 429) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+              logger.warn(
+                `⚠️ [Outlook] Rate limited (429), retrying in ${delay}ms (attempt ${retryCount}/${maxRetries}) for: ${account.emailAddress}`
+              );
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+
+          // For other errors, don't retry
+          break;
+        } catch (fetchError: any) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            const delay = baseDelay * Math.pow(2, retryCount - 1);
+            logger.warn(
+              `⚠️ [Outlook] Fetch error, retrying in ${delay}ms (attempt ${retryCount}/${maxRetries}): ${fetchError.message}`
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+          throw fetchError;
+        }
+      }
+
+      if (!response || !response.ok) {
+        const errorText = (await response?.text()) || "No response";
+
+        // Provide specific guidance for rate limiting
+        if (response?.status === 429) {
+          throw new Error(
+            `Rate limited by Microsoft Graph. Please wait before creating more webhooks. Error: ${errorText}`
+          );
+        }
+
+        throw new Error(`Failed to create subscription: ${response?.status} ${errorText}`);
       }
 
       const subscription = await response.json();
@@ -271,11 +320,17 @@ export class OutlookWebhookManager {
   static async validateWebhookEndpoint(webhookUrl: string): Promise<boolean> {
     try {
       const healthUrl = `${webhookUrl}/health`;
+
+      // Use AbortController for timeout functionality
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch(healthUrl, {
         method: "GET",
-        timeout: 5000,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
       logger.warn(`⚠️ [Outlook] Webhook endpoint validation failed for ${webhookUrl}:`, error);
