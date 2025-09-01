@@ -757,15 +757,15 @@ export const websiteService = {
         const stockFilter = {
           $or: inStock
             ? [
-                { "selectedStockId.usableUnits": { $gt: 0 } },
-                { "stock.available": { $gt: 0 } },
-                { availableStock: { $gt: 0 } },
-              ]
+              { "selectedStockId.usableUnits": { $gt: 0 } },
+              { "stock.available": { $gt: 0 } },
+              { availableStock: { $gt: 0 } },
+            ]
             : [
-                { "selectedStockId.usableUnits": { $lte: 0 } },
-                { "stock.available": { $lte: 0 } },
-                { availableStock: { $lte: 0 } },
-              ],
+              { "selectedStockId.usableUnits": { $lte: 0 } },
+              { "stock.available": { $lte: 0 } },
+              { availableStock: { $lte: 0 } },
+            ],
         };
 
         if (query.$and) {
@@ -822,9 +822,9 @@ export const websiteService = {
               "prodPricing.retailPrice":
                 priceRange.min || priceRange.max
                   ? {
-                      $gte: priceRange.min || 0,
-                      $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
-                    }
+                    $gte: priceRange.min || 0,
+                    $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                  }
                   : {},
             },
             {
@@ -833,9 +833,9 @@ export const websiteService = {
                   retailPrice:
                     priceRange.min || priceRange.max
                       ? {
-                          $gte: priceRange.min || 0,
-                          $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
-                        }
+                        $gte: priceRange.min || 0,
+                        $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                      }
                       : {},
                 },
               },
@@ -1008,6 +1008,7 @@ export const websiteService = {
             ebay: listing.publishToEbay || false,
             amazon: listing.publishToAmazon || false,
           },
+          dealInfo: listing.dealInfo,
           technicalInfo: (() => {
             const techInfo = listing.prodTechInfo || {};
             const {
@@ -1429,6 +1430,7 @@ export const websiteService = {
             })) || [],
           currency: "GBP", // Default currency
         },
+        dealInfo: listing.dealInfo,
         stock: {
           available: listing.selectedStockId?.usableUnits || 0,
           threshold: listing.stockThreshold || 0,
