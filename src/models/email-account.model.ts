@@ -89,6 +89,9 @@ export interface IEmailAccount {
     webhookId?: string;
     webhookUrl?: string;
     subscriptionExpiry?: Date;
+    emailPrefix?: string; // Email username part for webhook routing
+    webhookHash?: string; // Unique hash for webhook identification
+    lastWebhookValidation?: Date; // Last time webhook was validated
   };
 
   createdAt: Date;
@@ -193,6 +196,9 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
     webhookId: { type: String },
     webhookUrl: { type: String },
     subscriptionExpiry: { type: Date },
+    emailPrefix: { type: String },
+    webhookHash: { type: String },
+    lastWebhookValidation: { type: Date },
   },
 
   createdAt: { type: Date, default: Date.now },
@@ -207,5 +213,9 @@ EmailAccountSchema.index({ "syncState.isWatching": 1 });
 EmailAccountSchema.index({ "syncState.gmailTopic": 1 });
 EmailAccountSchema.index({ "syncState.gmailSubscription": 1 });
 EmailAccountSchema.index({ "syncState.webhookId": 1 });
+EmailAccountSchema.index({ "syncState.webhookHash": 1 });
+EmailAccountSchema.index({ "syncState.emailPrefix": 1 });
+EmailAccountSchema.index({ accountType: 1, isActive: 1, "oauth.provider": 1 });
+EmailAccountSchema.index({ "syncState.subscriptionExpiry": 1 });
 
 export const EmailAccountModel = models.EmailAccount || model<IEmailAccount>("EmailAccount", EmailAccountSchema);
