@@ -134,8 +134,8 @@ const orderSchema = z.object({
   marketplaceFee: z.number().min(0, "Marketplace fee must be non-negative").default(0),
 
   // Customer Information
-  customer: objectId,
-  customerId: objectId,
+  customer: objectId || null,
+  customerId: objectId || null,
   customerDetails: customerDetailsSchema.optional(),
   email: z.string().email("Invalid email format"),
 
