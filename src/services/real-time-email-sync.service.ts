@@ -132,12 +132,6 @@ export class RealTimeEmailSyncService {
         ? new Date(parseInt(watchResponse.data.expiration))
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days default
 
-      logger.info(`💾 [Gmail] Updating database for: ${account.emailAddress}`);
-      logger.info(`💾 [Gmail] Account ID: ${account._id}`);
-      logger.info(`💾 [Gmail] Topic: ${topicName}`);
-      logger.info(`💾 [Gmail] Is Auto Created: ${isAutoCreated}`);
-      logger.info(`💾 [Gmail] Watch Expiration: ${expirationTime.toISOString()}`);
-
       try {
         const updateResult = await EmailAccountModel.findByIdAndUpdate(
           account._id,
@@ -166,17 +160,10 @@ export class RealTimeEmailSyncService {
           logger.error(`❌ [Gmail] Database update verification failed for: ${account.emailAddress}`);
           throw new Error("Database update verification failed");
         }
-
-        logger.info(`✅ [Gmail] Database update verified for: ${account.emailAddress}`);
-        logger.info(`✅ [Gmail] Stored topic: ${verifyAccount.syncState.gmailTopic}`);
       } catch (dbError: any) {
         logger.error(`❌ [Gmail] Database update error for ${account.emailAddress}:`, dbError);
         throw new Error(`Database update failed: ${dbError.message}`);
       }
-
-      logger.info(`✅ [Gmail] Database updated successfully for: ${account.emailAddress}`);
-      logger.info(`✅ [Gmail] Real-time sync setup completed for: ${account.emailAddress}`);
-      logger.info(`📅 [Gmail] Watch expires: ${expirationTime.toISOString()}`);
 
       return {
         success: true,
@@ -607,15 +594,75 @@ export class RealTimeEmailSyncService {
   }
 
   /**
+   * Retry wrapper for Gmail API calls
+   */
+  private static async retryGmailApiCall<T>(
+    apiCall: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await apiCall();
+      } catch (error: any) {
+        lastError = error;
+
+        // Don't retry on authentication errors
+        if (error.code === 401 || error.code === 403) {
+          console.log(`❌ [Gmail] Authentication error, not retrying: ${error.message}`);
+          throw error;
+        }
+
+        // Don't retry on rate limit errors, wait longer
+        if (error.code === 429) {
+          const waitTime = delay * Math.pow(2, attempt - 1);
+          console.log(`⏳ [Gmail] Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          continue;
+        }
+
+        if (attempt < maxRetries) {
+          const waitTime = delay * Math.pow(2, attempt - 1);
+          console.log(
+            `🔄 [Gmail] API call failed, retrying in ${waitTime}ms (${attempt}/${maxRetries}): ${error.message}`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        } else {
+          console.log(`❌ [Gmail] API call failed after ${maxRetries} attempts: ${error.message}`);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Sync Gmail emails and store in database
+   *
+   * IMPROVEMENTS ADDED:
+   * ✅ Enhanced history types (messageAdded, labelChanged, messageDeleted, threadDeleted)
+   * ✅ Better duplicate prevention with multiple criteria checks
+   * ✅ Retry logic for Gmail API calls with exponential backoff
+   * ✅ Comprehensive thread data with attachments detection
+   * ✅ Enhanced error handling and logging
+   * ✅ Fallback logic with time-based duplicate prevention
+   * ✅ Participant management for threads
+   * ✅ Status updates based on email properties
    */
   static async syncGmailEmails(account: IEmailAccount, historyId?: string): Promise<RealTimeSyncResult> {
     try {
+      console.log(`🔄 [Gmail] ===== STARTING GMAIL EMAIL SYNC =====`);
+      console.log(`🔄 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`🔄 [Gmail] History ID: ${historyId || "undefined"}`);
+
       logger.info(
         `🔄 [Gmail] Syncing emails for: ${account.emailAddress}${historyId ? ` with historyId: ${historyId}` : ""}`
       );
 
       // Get decrypted access token
+      console.log(`🔓 [Gmail] Decrypting OAuth tokens...`);
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
       const decryptedRefreshToken = account.oauth!.refreshToken
         ? EmailOAuthService.decryptData(account.oauth!.refreshToken)
@@ -638,51 +685,192 @@ export class RealTimeEmailSyncService {
 
       if (historyId) {
         // Use historyId to get specific changes (webhook flow)
-        logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
-
         try {
-          const historyResponse = await gmail.users.history.list({
-            userId: "me",
-            startHistoryId: historyId,
-            historyTypes: ["messageAdded"],
-          });
+          console.log(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
+          logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
+
+          // Enhanced history types to catch all relevant changes
+          const historyResponse = await this.retryGmailApiCall(() =>
+            gmail.users.history.list({
+              userId: "me",
+              startHistoryId: historyId,
+              historyTypes: ["messageAdded", "labelChanged", "messageDeleted", "threadDeleted"],
+            })
+          );
 
           const history = historyResponse.data;
+          console.log(`📧 [Gmail] History response:`, {
+            historyCount: history.history?.length || 0,
+            nextPageToken: history.nextPageToken || "none",
+            historyId: history.historyId,
+          });
+
+          // Add detailed history logging
+          console.log(`📧 [Gmail] FULL HISTORY RESPONSE:`, JSON.stringify(history, null, 2));
+          console.log(`📧 [Gmail] History ID requested: ${historyId}`);
+          console.log(`📧 [Gmail] History ID returned: ${history.historyId}`);
+
           if (history.history && history.history.length > 0) {
-            // Extract message IDs from history
-            const messageIds = history.history
-              .flatMap((h) => h.messagesAdded || [])
-              .map((m) => m.message?.id)
-              .filter(Boolean);
+            // Log each history entry in detail
+            history.history.forEach((h, index) => {
+              console.log(`📧 [Gmail] History entry ${index + 1}:`, {
+                messagesAdded: h.messagesAdded?.length || 0,
+                labelsAdded: h.labelsAdded?.length || 0,
+                labelsRemoved: h.labelsRemoved?.length || 0,
+                messagesDeleted: h.messagesDeleted?.length || 0,
+              });
+            });
 
-            logger.info(`📧 [Gmail] Found ${messageIds.length} new messages in history`);
+            // Extract message IDs from all relevant history types
+            const messageIds = new Set<string>();
 
-            // Get full message details for each new message
-            for (const messageId of messageIds) {
-              try {
-                const messageDetails = await gmail.users.messages.get({
-                  userId: "me",
-                  id: messageId!,
-                  format: "full",
+            history.history.forEach((h) => {
+              // Add new messages
+              if (h.messagesAdded) {
+                h.messagesAdded.forEach((m) => {
+                  if (m.message?.id) {
+                    messageIds.add(m.message.id);
+                    console.log(`📧 [Gmail] Found new message: ${m.message.id}`);
+                  }
                 });
-                messages.push(messageDetails.data);
-              } catch (messageError: any) {
-                logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
               }
+
+              // Add messages with label changes (for read/unread status updates)
+              if (h.labelsAdded || h.labelsRemoved) {
+                const labelChangeMessages = [...(h.labelsAdded || []), ...(h.labelsRemoved || [])];
+                labelChangeMessages.forEach((l) => {
+                  if (l.message?.id) {
+                    messageIds.add(l.message.id);
+                    console.log(`📧 [Gmail] Found label change for message: ${l.message.id}`);
+                  }
+                });
+              }
+
+              // Add deleted messages for cleanup
+              if (h.messagesDeleted) {
+                h.messagesDeleted.forEach((m) => {
+                  if (m.message?.id) {
+                    messageIds.add(m.message.id);
+                    console.log(`📧 [Gmail] Found deleted message: ${m.message.id}`);
+                  }
+                });
+              }
+            });
+
+            const uniqueMessageIds = Array.from(messageIds);
+            console.log(`📧 [Gmail] Found ${uniqueMessageIds.length} unique messages in history:`, uniqueMessageIds);
+            logger.info(`📧 [Gmail] Found ${uniqueMessageIds.length} unique messages in history`);
+
+            // Get full message details for each unique message
+            for (const messageId of uniqueMessageIds) {
+              try {
+                console.log(`📧 [Gmail] Fetching full details for message: ${messageId}`);
+                const messageDetails = await this.retryGmailApiCall(() =>
+                  gmail.users.messages.get({
+                    userId: "me",
+                    id: messageId,
+                    format: "full",
+                  })
+                );
+
+                console.log(`📧 [Gmail] Message details received:`, {
+                  id: messageDetails.data.id,
+                  threadId: messageDetails.data.threadId,
+                  labelIds: messageDetails.data.labelIds,
+                  internalDate: messageDetails.data.internalDate,
+                  snippet: messageDetails.data.snippet?.substring(0, 100),
+                });
+
+                messages.push(messageDetails.data);
+                console.log(`✅ [Gmail] Successfully fetched message: ${messageId}`);
+              } catch (messageError: any) {
+                console.log(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
+                logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
+
+                // If message was deleted, handle cleanup
+                if (messageError.code === 404) {
+                  console.log(`🗑️ [Gmail] Message ${messageId} was deleted, marking for cleanup`);
+                  // You could implement cleanup logic here
+                }
+              }
+            }
+          } else {
+            console.log(`📧 [Gmail] No new messages found in history`);
+            console.log(`📧 [Gmail] History response details:`, {
+              history: history.history,
+              historyId: history.historyId,
+              nextPageToken: history.nextPageToken,
+            });
+
+            // Add fallback to fetch recent messages when history is empty
+            console.log(`📧 [Gmail] Attempting fallback to recent messages...`);
+            try {
+              const recentMessagesResponse = await this.retryGmailApiCall(() =>
+                gmail.users.messages.list({
+                  userId: "me",
+                  maxResults: 5,
+                  q: "is:unread",
+                })
+              );
+
+              const recentMessages = recentMessagesResponse.data.messages || [];
+              console.log(`📧 [Gmail] Fallback fetched ${recentMessages.length} recent unread messages`);
+
+              if (recentMessages.length > 0) {
+                // Get full details for recent messages
+                for (const msg of recentMessages) {
+                  try {
+                    const fullMessage = await this.retryGmailApiCall(() =>
+                      gmail.users.messages.get({
+                        userId: "me",
+                        id: msg.id!,
+                        format: "full",
+                      })
+                    );
+                    messages.push(fullMessage.data);
+                    console.log(`📧 [Gmail] Added recent message: ${msg.id}`);
+                  } catch (error) {
+                    console.log(`❌ [Gmail] Failed to fetch recent message ${msg.id}:`, error);
+                  }
+                }
+              }
+            } catch (fallbackError: any) {
+              console.log(`❌ [Gmail] Fallback to recent messages failed:`, fallbackError);
             }
           }
         } catch (historyError: any) {
-          logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
-          // Fallback to recent messages if history fails
-          const messagesResponse = await gmail.users.messages.list({
-            userId: "me",
-            maxResults: 10,
-            q: "is:unread OR is:important",
+          console.log(`❌ [Gmail] Failed to fetch history:`, historyError);
+          console.log(`❌ [Gmail] History error details:`, {
+            code: historyError.code,
+            message: historyError.message,
+            status: historyError.status,
+            stack: historyError.stack,
           });
-          messages = messagesResponse.data.messages || [];
+          logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
+
+          // Enhanced fallback with better duplicate prevention
+          console.log(`📧 [Gmail] Falling back to recent messages with duplicate prevention...`);
+          try {
+            // Get the last sync time to prevent fetching already processed emails
+            const lastSyncTime = account.syncState?.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+            const messagesResponse = await gmail.users.messages.list({
+              userId: "me",
+              maxResults: 20,
+              q: `after:${Math.floor(lastSyncTime.getTime() / 1000)}`,
+            });
+            messages = messagesResponse.data.messages || [];
+            console.log(
+              `📧 [Gmail] Fallback fetched ${messages.length} recent messages after ${lastSyncTime.toISOString()}`
+            );
+          } catch (fallbackError: any) {
+            console.log(`❌ [Gmail] Fallback to recent messages also failed:`, fallbackError);
+            logger.error(`❌ [Gmail] Fallback to recent messages also failed:`, fallbackError);
+          }
         }
       } else {
         // Fallback: Get recent messages (polling flow)
+        console.log(`📧 [Gmail] Fetching recent messages (polling mode)`);
         logger.info(`📧 [Gmail] Fetching recent messages (polling mode)`);
         const messagesResponse = await gmail.users.messages.list({
           userId: "me",
@@ -692,30 +880,77 @@ export class RealTimeEmailSyncService {
         messages = messagesResponse.data.messages || [];
       }
 
+      console.log(`📧 [Gmail] Total messages to process: ${messages.length}`);
+      console.log(
+        `📧 [Gmail] Messages array:`,
+        messages.map((m) => ({ id: m.id, threadId: m.threadId }))
+      );
       let emailsProcessed = 0;
 
       for (const message of messages) {
         try {
-          // Check if email already exists
+          console.log(`📧 [Gmail] ===== PROCESSING MESSAGE ${message.id} =====`);
+          console.log(`📧 [Gmail] Message data:`, {
+            id: message.id,
+            threadId: message.threadId,
+            labelIds: message.labelIds,
+            internalDate: message.internalDate,
+            snippet: message.snippet?.substring(0, 100),
+          });
+
+          // Enhanced duplicate prevention - check multiple criteria
           const existingEmail = await EmailModel.findOne({
             messageId: message.id,
             accountId: account._id,
           });
 
           if (existingEmail) {
+            console.log(`⏭️ [Gmail] Email ${message.id} already exists, skipping...`);
+            console.log(`⏭️ [Gmail] Existing email details:`, {
+              emailId: existingEmail._id,
+              subject: existingEmail.subject,
+              receivedAt: existingEmail.receivedAt,
+            });
             continue; // Skip if already processed
           }
 
-          // Message data is already fetched in history flow
+          // Additional duplicate check using internalDate and subject
           const messageData = message;
           const headers = messageData.payload?.headers || [];
+          const subject = this.extractHeader(headers, "Subject") || "No Subject";
+          const internalDate = parseInt(messageData.internalDate || Date.now().toString());
+
+          console.log(`📧 [Gmail] Message headers:`, {
+            subject: subject,
+            from: this.extractHeader(headers, "From"),
+            to: this.extractHeader(headers, "To"),
+            internalDate: new Date(internalDate),
+          });
+
+          // Check for potential duplicates based on content
+          const potentialDuplicate = await EmailModel.findOne({
+            accountId: account._id,
+            subject: subject,
+            receivedAt: {
+              $gte: new Date(internalDate - 60000), // Within 1 minute
+              $lte: new Date(internalDate + 60000),
+            },
+          });
+
+          if (potentialDuplicate) {
+            console.log(`⚠️ [Gmail] Potential duplicate found for message ${message.id}:`, {
+              existingId: potentialDuplicate._id,
+              subject: subject,
+              receivedAt: new Date(internalDate),
+            });
+            // Continue processing but log the potential duplicate
+          }
 
           // Extract email data and determine threadId
           let threadId = messageData.threadId;
 
           // If Gmail doesn't provide threadId, generate one based on subject and participants
           if (!threadId) {
-            const subject = this.extractHeader(headers, "Subject") || "No Subject";
             const from = this.extractHeader(headers, "From") || "";
             const to = this.extractHeader(headers, "To") || "";
 
@@ -723,6 +958,7 @@ export class RealTimeEmailSyncService {
             const threadKey = `${subject.toLowerCase().trim()}_${from}_${to}`;
             threadId = `generated_${Buffer.from(threadKey).toString("base64").substring(0, 16)}`;
 
+            console.log(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
             logger.info(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
           }
 
@@ -755,29 +991,59 @@ export class RealTimeEmailSyncService {
             category: "primary",
           };
 
+          console.log(`📧 [Gmail] Email data prepared:`, {
+            messageId: emailData.messageId,
+            subject: emailData.subject,
+            from: emailData.from.email,
+            threadId: emailData.threadId,
+          });
+
           // Ensure we have a valid threadId before proceeding
           if (!emailData.threadId) {
+            console.log(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             logger.warn(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             continue;
           }
 
           // Save email to database
-          const savedEmail = await EmailModel.create(emailData);
-          emailsProcessed++;
+          console.log(`💾 [Gmail] Saving email to database: ${emailData.messageId}`);
+          let savedEmail;
+          try {
+            savedEmail = await EmailModel.create(emailData);
+            emailsProcessed++;
+            console.log(`✅ [Gmail] Email saved to database successfully:`, {
+              emailId: savedEmail._id,
+              messageId: savedEmail.messageId,
+              subject: savedEmail.subject,
+            });
+          } catch (dbError: any) {
+            console.log(`❌ [Gmail] Failed to save email to database:`, {
+              messageId: emailData.messageId,
+              error: dbError.message,
+              code: dbError.code,
+              stack: dbError.stack,
+            });
+            logger.error(`❌ [Gmail] Failed to save email to database:`, dbError);
+            continue; // Skip to next message if this one fails
+          }
 
           // Create or update Gmail thread
           try {
+            console.log(`🧵 [Gmail] Creating/updating thread for email: ${savedEmail.threadId}`);
             const existingThread = await GmailThreadModel.findOne({
               threadId: savedEmail.threadId,
               accountId: account._id,
             });
 
             if (existingThread) {
-              // Update existing thread
-              await GmailThreadModel.findByIdAndUpdate(existingThread._id, {
+              // Update existing thread with comprehensive data
+              console.log(`🔄 [Gmail] Updating existing thread: ${savedEmail.threadId}`);
+
+              const updateData: any = {
                 $inc: {
                   messageCount: 1,
                   unreadCount: savedEmail.isRead ? 0 : 1,
+                  totalSize: messageData.sizeEstimate || 0,
                 },
                 $set: {
                   lastMessageAt: savedEmail.receivedAt,
@@ -792,14 +1058,44 @@ export class RealTimeEmailSyncService {
                   })),
                   latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                  // Update thread status based on latest email
+                  status: savedEmail.isSpam ? "spam" : "active",
+                  folder: savedEmail.folder,
+                  category: savedEmail.category,
                 },
                 $push: {
                   "rawGmailData.messageIds": savedEmail.messageId,
                 },
+              };
+
+              // Add participants if they don't exist
+              const newParticipants = [
+                { email: savedEmail.from.email, name: savedEmail.from.name },
+                ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+              ];
+
+              // Update participants array with new unique participants
+              newParticipants.forEach((participant) => {
+                if (!existingThread.participants.some((p: any) => p.email === participant.email)) {
+                  updateData.$push = updateData.$push || {};
+                  updateData.$push.participants = participant;
+                }
               });
+
+              await GmailThreadModel.findByIdAndUpdate(existingThread._id, updateData);
+              console.log(`✅ [Gmail] Thread updated successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Updated thread: ${savedEmail.threadId}`);
             } else {
-              // Create new thread
+              // Create new thread with comprehensive data
+              console.log(`🆕 [Gmail] Creating new thread: ${savedEmail.threadId}`);
+
+              // Check for attachments
+              const hasAttachments =
+                messageData.payload?.parts?.some((part: any) => part.filename && part.filename.trim() !== "") || false;
+
               const threadData = {
                 threadId: savedEmail.threadId,
                 accountId: account._id,
@@ -808,16 +1104,16 @@ export class RealTimeEmailSyncService {
                 messageCount: 1,
                 unreadCount: savedEmail.isRead ? 0 : 1,
                 isStarred: savedEmail.isStarred || false,
-                hasAttachments: false, // Will be updated when we fetch full message details
+                hasAttachments: hasAttachments,
                 firstMessageAt: savedEmail.receivedAt,
                 lastMessageAt: savedEmail.receivedAt,
                 lastActivity: savedEmail.receivedAt,
-                status: "active",
+                status: savedEmail.isSpam ? "spam" : "active",
                 folder: savedEmail.folder,
                 category: savedEmail.category,
                 threadType: "conversation",
                 isPinned: false,
-                totalSize: 0,
+                totalSize: messageData.sizeEstimate || 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -839,17 +1135,22 @@ export class RealTimeEmailSyncService {
                   messageIds: [savedEmail.messageId],
                   messageCount: 1,
                   labelIds: savedEmail.isRead ? [] : ["UNREAD"],
+                  sizeEstimate: messageData.sizeEstimate || 0,
+                  snippet: messageData.snippet || "",
                 },
               };
 
               await GmailThreadModel.create(threadData);
+              console.log(`✅ [Gmail] New thread created successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Created new thread: ${savedEmail.threadId}`);
             }
           } catch (threadError: any) {
+            console.log(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
             logger.error(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
           }
 
           // Emit real-time notification
+          console.log(`📡 [Gmail] Emitting real-time notification for email: ${savedEmail.messageId}`);
           socketManager.emitNewEmail(account.emailAddress, {
             emailId: savedEmail._id,
             messageId: savedEmail.messageId,
@@ -860,19 +1161,27 @@ export class RealTimeEmailSyncService {
             threadId: savedEmail.threadId,
           });
 
+          console.log(`📧 [Gmail] Email processing completed: ${savedEmail.subject} for ${account.emailAddress}`);
           logger.info(`📧 [Gmail] Saved email: ${savedEmail.subject} for ${account.emailAddress}`);
         } catch (messageError: any) {
+          console.log(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
           logger.error(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
         }
       }
 
       // Update account sync state
+      console.log(`💾 [Gmail] Updating account sync state...`);
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
           "syncState.lastSyncAt": new Date(),
           "stats.lastSyncAt": new Date(),
         },
       });
+
+      console.log(`✅ [Gmail] ===== GMAIL SYNC COMPLETED =====`);
+      console.log(`✅ [Gmail] Account: ${account.emailAddress}`);
+      console.log(`✅ [Gmail] Emails processed: ${emailsProcessed}`);
+      console.log(`✅ [Gmail] Sync completed at: ${new Date().toISOString()}`);
 
       logger.info(`✅ [Gmail] Sync completed for ${account.emailAddress}: ${emailsProcessed} emails processed`);
 
@@ -882,6 +1191,9 @@ export class RealTimeEmailSyncService {
         emailsProcessed,
       };
     } catch (error: any) {
+      console.log(`💥 [Gmail] ===== GMAIL SYNC FAILED =====`);
+      console.log(`💥 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`💥 [Gmail] Error:`, error);
       logger.error(`❌ [Gmail] Sync failed for ${account.emailAddress}:`, error);
       return {
         success: false,

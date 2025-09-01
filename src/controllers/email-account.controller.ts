@@ -523,11 +523,23 @@ export class EmailAccountController {
         });
       }
 
+      // ✅ CRITICAL: Clean up webhook resources BEFORE deleting from database
+      try {
+        logger.info(`🧹 [Account Delete] Cleaning up webhook resources for: ${account.emailAddress}`);
+        const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+        await RealTimeEmailSyncService.cleanupAccountWebhooks(account);
+        logger.info(`✅ [Account Delete] Webhook cleanup completed for: ${account.emailAddress}`);
+      } catch (cleanupError: any) {
+        logger.warn(`⚠️ [Account Delete] Webhook cleanup failed for ${account.emailAddress}:`, cleanupError);
+        // Don't fail the deletion if cleanup fails - log and continue
+      }
+
+      // Delete account from database
       await EmailAccountModel.findByIdAndDelete(accountId);
 
       res.json({
         success: true,
-        message: "Email account deleted successfully",
+        message: "Email account deleted successfully (including webhook cleanup)",
       });
     } catch (error: any) {
       logger.error("Error deleting email account:", error);
@@ -1300,10 +1312,13 @@ export class EmailAccountController {
         });
       }
 
-      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+      // Setup watch notifications using the complete flow
+      const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+      const result = await RealTimeEmailSyncService.setupGmailRealTimeSync(account);
 
-      // Setup watch notifications
-      await EmailFetchingService.setupGmailWatch(account);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to setup Gmail watch");
+      }
 
       res.status(200).json({
         success: true,
