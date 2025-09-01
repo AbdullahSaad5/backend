@@ -35,6 +35,24 @@ mongoose
     // Start the server only after seeding is complete
     app.options("*", corsMiddleware);
 
+    // CRITICAL: Add webhook routes FIRST, before ANY middleware
+    // These routes must be accessible without rate limiting or authentication for external services
+    const outlookWebhookRouter = express.Router();
+    // Add minimal middleware for webhook routes only (no rate limiting, no auth)
+    outlookWebhookRouter.use(express.json({ limit: "10mb" }));
+    outlookWebhookRouter.use(express.urlencoded({ limit: "10mb", extended: true }));
+    outlookWebhookRouter.use(corsMiddleware);
+    outlookWebhook(outlookWebhookRouter);
+    app.use("/api/outlook-webhook", outlookWebhookRouter);
+
+    const gmailWebhookRouter = express.Router();
+    // Add minimal middleware for webhook routes only (no rate limiting, no auth)
+    gmailWebhookRouter.use(express.json({ limit: "10mb" }));
+    gmailWebhookRouter.use(express.urlencoded({ limit: "10mb", extended: true }));
+    gmailWebhookRouter.use(corsMiddleware);
+    gmailWebhook(gmailWebhookRouter);
+    app.use("/api/gmail-webhook", gmailWebhookRouter);
+
     app.use(requestLogger); // Use the request logger middleware
 
     // IMPORTANT: Stripe webhook route MUST be before express.json() middleware
@@ -61,16 +79,6 @@ mongoose
 
     // Setup API documentation
     const apiDoc = new ApiDocumentation(app, documentationConfig);
-
-    // Add webhook routes BEFORE authentication middleware
-    // These routes need to be accessible without authentication for external services
-    const outlookWebhookRouter = express.Router();
-    outlookWebhook(outlookWebhookRouter);
-    app.use("/api/outlook-webhook", outlookWebhookRouter);
-
-    const gmailWebhookRouter = express.Router();
-    gmailWebhook(gmailWebhookRouter);
-    app.use("/api/gmail-webhook", gmailWebhookRouter);
 
     // Admin API routes (with authentication)
     app.use("/api", router);
