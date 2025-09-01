@@ -11,14 +11,15 @@ export const ebayChatService = {
   // Get all orders with chat conversations
   getOrderChats: async (req: Request, res: Response): Promise<any> => {
     try {
-      const accessToken = await getStoredEbayAccessToken();
+      const accessToken = "v^1.1#i^1#f^0#p^3#r^0#I^3#t^H4sIAAAAAAAA/+VZbYwbRxk+30dolNxRQdXCqQLjpFHUi+39sNe729iVz/blnJzvHK8vlzs+rNndWXsu611nZ/d8PqFySaVWgCIaqUiItCj8A4lC2h+AiFoBiUJVfoSAKtRIpQgKapRfVS98CCKY3fuIcynJXZxKq+A/1sy878z7vB8zz+xQi1u2Pv7M6DN/7w98rPv0IrXYHQjQ26itW/qGBnq6B/u6qDaBwOnFnYu9x3ve24tBXW+IJYgbpoFhcL6uG1j0OpMhxzJEE2CERQPUIRZtRZTShTGRiVBiwzJtUzH1UDCfTYYEoKmsoiQYoPCMolCk11ids2wmQ3QC8EChKQEmKE3gWTKOsQPzBraBYSdDDMXEwxQfZqkyzYoxRowJEYZhZkLBQ9DCyDSISIQKpTxzRU/XarP19qYCjKFlk0lCqXx6RJpI57O58fLeaNtcqRU/SDawHXxzK2OqMHgI6A68/TLYkxYlR1EgxqFoanmFmycV06vG3IX5nqs5IPBMjGNlhdPoBHVvXDliWnVg394OtwepYc0TFaFhI7t1J48Sb8izULFXWuNkinw26P4ddICONAStZCg3nJ6elHKlUFAqFi1zDqlQdZHSHBOLc7EEHw+lZGTVkVGtgXoYzK0stDzbipvXrZQxDRW5TsPBcdMehsRquN43bJtviNCEMWGlNdu1qF0uvupDmp9xg7ocRceuGW5cYZ04Iug17xyB1ZS4kQT3KiniMhQEjacgBzUWyvwtSeHW+l0kRsqNTbpYjLq2QBm0wnVgHYF2QwcKDCvEvU4dWkgV2bjGsLwGwyonaOGYoGlhOa5yYVqDkIJQlhWB/3/KD9u2kOzYcC1H1g94IJOhjI7IYLnVgKH1Et6Ws5IQ8zgZqtl2Q4xGm81mpMlGTKsaZSiKjh4ujElKDdZBaE0W3Vk4jLzUUCDRwki0iQHJ0DzJPLK4UQ2lRk1sQ3U1XW8yKbW+939AA1ULetCX9z9/4UtnMrliOZftCGHDcZDqL1zDmX2Tbq1Psqhcxkc7gufWu4iAJtrmEWj4L0dLuZFSThqtlCcO5MY7Qlr2J0ALahbEtYrn/wppdZitfkzWe5GoazuN2/QXxGJ6ukCokcRUqIp7hlXS+0q5XOEGW7o7xFgxl5PVrXX/oHX1MZkANFDE3T0iilmPmoCwI7er4lkd3IhQFENdjyBjjgTVtFqb0AGKYjqEkm1cQ3N0Dem6R+Q2oYUM1xF4EyoN0HIXiagIN9xQblzTgkQBeARxQ0qkj9AyBUYM0yYkSvFUI9iRsWKhxsbn8RbHJAK3x9kmDFWoozm40ZCtGUpUzI4qIgvn8j7b3niV5lmB18K8QOgi4cQgDHhBCNNqgmXYuMwCjtkMZrfWb8GNgO0v1HQizrn3UyHRUTxLEOh1fyFrWKbqKG71dIRMcjO/aOpIafkLH2upRWDZLYkUMunoCKQK55ACK35jHAwToymB5+JELdYRQN2sIqMA7Zr5kUB0a/3uYbpMI9/Z3cay79edJd1o5Ot1cp7KOvTbkRGnY3SiM3hrZDi38oXOT/jcTzmVzEShkCtlcpXJA5WxcmdpWlq+InkXOL8FM30wfSBNfoViNCbNHJrLThrCwuzCTLbUaGancol6CRnZGONx+JzKmYlM7bAscwvChNFqYs4aOiyN6/tnhqr71NxCM5ns7NSBigV9VtCUpClwIVZvjlaNkfKwwOX1gr1/tspw5anitIDnZ2enHGdcIAyxM/CF6v17EOWqvrvXCxTNqxoXo4U4BRRVVmla4AWV1jRVVUBiU6T3Q7dvn+GVWlBNy6oTHgZz+XLBVMLFUpZwfQgEwBLqzzMczSVoSBB++H19w6zKrCMF6T77xrFvuDOmAVVkQcWuOBbyFzA3rhU3sLoOahUpvC7OYdyq6Wars9Oa3Ic/OhbZyXcrSZqaKHV6ON8Hd7h1HW0POre85a28964+fPcGUl3ejz4e+CV1PPBadyBA7aUeo3dQn9vSM9nbs30QIxtGENAiGFUNYDsWjByBrQZAVvcnuy4OjKnHRseuLcrOT6aWnuS7+tte809/kfrU2nv+1h56W9vjPvXojZE++uOP9DNximcpmo0xMWGG2nFjtJd+uPehvt0P/ed70yfOd5/cnd56VG5ePfvYONW/JhQI9HX1Hg90aRUz9QXt++J0/vyXZi9999WnT8jgq1tOfeadl8ro5RNX2TdnJ6Qdlx/PfvtU8mfXli58ohV/7szSn/69/8Lbvz8Z/8W/PvvsycHXe370g6NXDy699edde9K7B06/n6SfPXv4wJh1Jl78qfriE++ce+PKwIWnLg088sTQSz9+OfLmkUv95RfgHvlXbO+uN0Z2PT92ffvwl63L+WP/uPJu/sIfHjx1Trz219dnry89/ODTz5u/feC9kT3iK+9+8BXzN+f++Jdff+vKTm3o5/H6/M6jxbf6Xus+iJ/ctm3w1KDS+uffLu5/4JXkN8pdvHDx/FMZ/swPH33788I3z13/9MwHhd6z7z+384r+na8d+51y+djI14VXtzetXcux/C+ULLJhZyEAAA==";
       const limit = Number(req.query.limit) || 10;
       const page = Number(req.query.page) || 0;
       const offset = (Math.max(page, 1) - 1) * limit;
 
-      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
+      // Use the Trading API URL (already defined at the top of the file)
+      const tradingApiUrl = ebayUrl; // This uses the Trading API URL, not Fulfillment API
       const currentDate = Date.now();
-      const startDate = currentDate - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+      const startDate = currentDate - 30 * 24 * 60 * 60 * 1000; // 30 days ago to capture recent messages
       const endDate = currentDate;
       const formattedStartDate = new Date(startDate).toISOString();
       const formattedEndDate = new Date(endDate).toISOString();
@@ -32,31 +33,64 @@ export const ebayChatService = {
         });
       }
 
-      const response = await fetch(ebayUrl, {
-        method: "GET",
+      console.log("🔍 Making eBay API request to:", tradingApiUrl);
+      console.log("🔍 Request headers:", {
+        "X-EBAY-API-SITEID": "3",
+        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+        "X-EBAY-API-CALL-NAME": "GetMyMessages",
+        "X-EBAY-API-IAF-TOKEN": accessToken ? "present" : "missing",
+        "Content-Type": "text/xml",
+      });
+      console.log("🔍 Request body:", `
+        <?xml version="1.0" encoding="utf-8"?>
+        <GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+          <ErrorLanguage>en_US</ErrorLanguage>
+          <WarningLevel>High</WarningLevel>
+          <StartTime>${formattedStartDate}</StartTime>
+          <EndTime>${formattedEndDate}</EndTime>
+          <DetailLevel>ReturnHeaders</DetailLevel>
+          <FolderID>1</FolderID>
+          <Pagination>
+            <EntriesPerPage>${limit}</EntriesPerPage>
+            <PageNumber>${page + 1}</PageNumber>
+          </Pagination>
+        </GetMyMessagesRequest>
+      `);
+      
+      const response = await fetch(tradingApiUrl, {
+        method: "POST",
         headers: {
           "X-EBAY-API-SITEID": "3",
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-          "X-EBAY-API-CALL-NAME": "GetOrders",
+          "X-EBAY-API-CALL-NAME": "GetMyMessages",
           "X-EBAY-API-IAF-TOKEN": accessToken,
+          "Content-Type": "text/xml",
         },
         body: `
         <?xml version="1.0" encoding="utf-8"?>
-        <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+        <GetMyMessagesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
           <ErrorLanguage>en_US</ErrorLanguage>
           <WarningLevel>High</WarningLevel>
-          <CreateTimeFrom>${formattedStartDate}</CreateTimeFrom>
-          <CreateTimeTo>${formattedEndDate}</CreateTimeTo>
-          <OrderRole>Seller</OrderRole>
-          <OrderStatus>All</OrderStatus>
-          <NumberOfDays>25</NumberOfDays>
-        </GetOrdersRequest>
+          <StartTime>${formattedStartDate}</StartTime>
+          <EndTime>${formattedEndDate}</EndTime>
+          <DetailLevel>ReturnHeaders</DetailLevel>
+          <FolderID>1</FolderID>
+          <Pagination>
+            <EntriesPerPage>${limit}</EntriesPerPage>
+            <PageNumber>${page + 1}</PageNumber>
+          </Pagination>
+        </GetMyMessagesRequest>
         `,
       });
 
       const rawResponse = await response.text();
+      console.log("🔍 Raw eBay API Response:", rawResponse.substring(0, 1000));
+      console.log("🔍 Response Status:", response.status);
+      console.log("🔍 Response Headers:", Object.fromEntries(response.headers.entries()));
+      
       const parser = new XMLParser({ ignoreAttributes: false, trimValues: true });
       const jsonObj = parser.parse(rawResponse);
+      console.log("🔍 Parsed JSON Object:", JSON.stringify(jsonObj, null, 2).substring(0, 2000));
 
       if (response.status === 401 || /invalid\s+iaf\s+token/i.test(rawResponse)) {
         const authUrl = getEbayAuthURL(type);
@@ -69,7 +103,7 @@ export const ebayChatService = {
       }
 
       try {
-        const errors = jsonObj?.GetOrdersResponse?.Errors;
+        const errors = jsonObj?.GetMyMessagesResponse?.Errors;
         const errorList = Array.isArray(errors) ? errors : errors ? [errors] : [];
         const hasAuthError = errorList.some((e: any) => ["931", "932", 931, 932].includes(e?.ErrorCode));
         if (hasAuthError) {
@@ -83,14 +117,81 @@ export const ebayChatService = {
         }
       } catch {}
 
+      // Transform the eBay response into the format expected by the frontend
+      const conversations = [];
+      
+      console.log("🔍 Checking for messages in response...");
+      console.log("🔍 jsonObj structure:", Object.keys(jsonObj || {}));
+      console.log("🔍 GetMyMessagesResponse:", jsonObj?.GetMyMessagesResponse ? "exists" : "missing");
+      console.log("🔍 Messages:", jsonObj?.GetMyMessagesResponse?.Messages ? "exists" : "missing");
+      console.log("🔍 Message:", jsonObj?.GetMyMessagesResponse?.Messages?.Message ? "exists" : "missing");
+      
+      // Extract messages from the response and transform them into conversations
+      if (jsonObj?.GetMyMessagesResponse?.Messages?.Message) {
+        const messages = Array.isArray(jsonObj.GetMyMessagesResponse.Messages.Message) 
+          ? jsonObj.GetMyMessagesResponse.Messages.Message 
+          : [jsonObj.GetMyMessagesResponse.Messages.Message];
+        
+        console.log("🔍 Found messages:", messages.length);
+        console.log("🔍 First message structure:", JSON.stringify(messages[0], null, 2).substring(0, 1000));
+        
+        // Group messages by ItemID and Sender (buyer)
+        const messageGroups = new Map(); // Key: `${ItemID}_${Sender}`, Value: array of messages
+        
+        for (const msg of messages) {
+          const key = `${msg.ItemID || 'unknown_item'}_${msg.Sender || 'unknown_buyer'}`;
+          if (!messageGroups.has(key)) {
+            messageGroups.set(key, []);
+          }
+          messageGroups.get(key).push(msg);
+        }
+        
+        // Create conversations from grouped messages
+        for (const [key, group] of messageGroups) {
+          // Sort messages by CreationDate (oldest first)
+          group.sort((a: any, b: any) => new Date(a.CreationDate).getTime() - new Date(b.CreationDate).getTime());
+          const latestMsg = group[group.length - 1]; // Most recent message
+          const unreadCount = group.filter((m: any) => !m.Read && m.Sender !== 'current_seller').length; // Unread buyer messages
+          
+          conversations.push({
+            _id: key,
+            ebayItemId: latestMsg.ItemID || 'unknown_item',
+            orderId: latestMsg.OrderID || null, // Include if available
+            buyerUsername: latestMsg.Sender || 'unknown_buyer',
+            sellerUsername: 'current_seller', // Replace with actual seller username if available
+            listingTitle: latestMsg.ItemTitle || 'Unknown Item',
+            listingUrl: latestMsg.ItemID ? `https://www.ebay.com/itm/${latestMsg.ItemID}` : '',
+            lastMessage: latestMsg.Subject || 'No subject',
+            lastMessageAt: new Date(latestMsg.CreationDate || Date.now()),
+            unreadCount,
+            totalMessages: group.length,
+            isArchived: false,
+            createdAt: new Date(group[0].CreationDate || Date.now()),
+            updatedAt: new Date(),
+          });
+        }
+      } else {
+        console.log("🔍 No messages found in response");
+        console.log("�� Response structure:", JSON.stringify(jsonObj, null, 2).substring(0, 2000));
+      }
+      
+      console.log("🔍 Total conversations created:", conversations.length);
+
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
-        message: "Order chats retrieved successfully",
-        data: jsonObj,
+        message: "Conversations retrieved successfully",
+        data: {
+          conversations,
+          total: conversations.length
+        },
       });
     } catch (error: any) {
-      console.error("Error fetching orders:", error.message);
-      throw new Error("Error fetching orders");
+      console.error("Error fetching messages:", error.message);
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        status: StatusCodes.INTERNAL_SERVER_ERROR,
+        message: "Failed to fetch conversations",
+        error: error.message,
+      });
     }
   },
 
@@ -99,16 +200,19 @@ export const ebayChatService = {
     try {
       console.log("=== EBAY CHAT: GETTING ORDER CHAT MESSAGES ===");
 
+      // Handle both old format (orderId/itemId/buyerUsername) and new format (itemId/buyerUsername)
       const { orderId, itemId, buyerUsername } = req.params;
+      const ebayItemId = itemId || req.params.itemId; // Support both parameter names
 
-      if (!orderId || !itemId || !buyerUsername) {
+      if (!ebayItemId || !buyerUsername) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           status: StatusCodes.BAD_REQUEST,
-          message: "Missing required parameters: orderId, itemId, buyerUsername",
+          message: "Missing required parameters: itemId, buyerUsername",
         });
       }
 
-      const accessToken = await getStoredEbayAccessToken();
+   const accessToken = "v^1.1#i^1#f^0#p^3#r^0#I^3#t^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";
+      
       if (!accessToken) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
           status: StatusCodes.UNAUTHORIZED,
@@ -117,7 +221,7 @@ export const ebayChatService = {
       }
 
       // Get messages for this item
-      const allMessages = await ebayChatService.getMessagesFromEbay(accessToken, itemId);
+      const allMessages = await ebayChatService.getMessagesFromEbay(accessToken, ebayItemId);
 
       // Filter messages for this specific buyer
       const messages = allMessages.filter((msg: any) => msg.buyerUsername === buyerUsername);
@@ -128,13 +232,7 @@ export const ebayChatService = {
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
         message: "Order chat messages retrieved successfully",
-        data: {
-          orderId,
-          itemId,
-          buyerUsername,
-          messages,
-          total: messages.length,
-        },
+        data: messages, // Frontend expects data.data to be the messages array
       });
     } catch (error: any) {
       console.error("Error getting order chat messages:", error);
@@ -151,12 +249,14 @@ export const ebayChatService = {
     try {
       console.log("=== EBAY CHAT: SENDING ORDER MESSAGE ===");
 
-      const { orderId, itemId, buyerUsername, content } = req.body;
+      // Handle both old format and new format from frontend
+      const { orderId, itemId, buyerUsername, content, ebayItemId } = req.body;
+      const finalItemId = ebayItemId || itemId; // Support both parameter names
 
-      if (!orderId || !itemId || !buyerUsername || !content) {
+      if (!finalItemId || !buyerUsername || !content) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           status: StatusCodes.BAD_REQUEST,
-          message: "Missing required fields: orderId, itemId, buyerUsername, content",
+          message: "Missing required fields: itemId/ebayItemId, buyerUsername, content",
         });
       }
 
@@ -169,7 +269,7 @@ export const ebayChatService = {
       }
 
       // Send message to eBay
-      const success = await ebayChatService.sendMessageToEbay(accessToken, itemId, buyerUsername, content);
+      const success = await ebayChatService.sendMessageToEbay(accessToken, finalItemId, buyerUsername, content);
 
       if (!success) {
         return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
@@ -179,8 +279,8 @@ export const ebayChatService = {
       }
 
       const message = {
-        orderId,
-        itemId,
+        orderId: orderId || null,
+        itemId: finalItemId,
         buyerUsername,
         sellerUsername: "current_seller",
         messageType: "SELLER_TO_BUYER",
@@ -193,7 +293,7 @@ export const ebayChatService = {
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
         message: "Message sent successfully",
-        data: message,
+        data: message, // Frontend expects data.data to be the message object
       });
     } catch (error: any) {
       console.error("Error sending order message:", error);
@@ -210,25 +310,27 @@ export const ebayChatService = {
     try {
       console.log("=== EBAY CHAT: MARKING ORDER CHAT AS READ ===");
 
+      // Handle both old format (orderId/itemId/buyerUsername) and new format (itemId/buyerUsername)
       const { orderId, itemId, buyerUsername } = req.params;
+      const ebayItemId = itemId || req.params.itemId; // Support both parameter names
 
-      if (!orderId || !itemId || !buyerUsername) {
+      if (!ebayItemId || !buyerUsername) {
         return res.status(StatusCodes.BAD_REQUEST).json({
           status: StatusCodes.BAD_REQUEST,
-          message: "Missing required parameters: orderId, itemId, buyerUsername",
+          message: "Missing required parameters: itemId, buyerUsername",
         });
       }
 
       // In a real implementation, you would mark messages as read in eBay
       // For now, we'll just return success
-      console.log(`Marking order chat as read: Order ${orderId}, Item ${itemId}, Buyer ${buyerUsername}`);
+      console.log(`Marking order chat as read: Order ${orderId || 'N/A'}, Item ${ebayItemId}, Buyer ${buyerUsername}`);
 
       return res.status(StatusCodes.OK).json({
         status: StatusCodes.OK,
         message: "Order chat marked as read",
         data: {
-          orderId,
-          itemId,
+          orderId: orderId || null,
+          itemId: ebayItemId,
           buyerUsername,
           markedAsRead: true,
         },
@@ -305,7 +407,8 @@ export const ebayChatService = {
 
       const limit = 50;
       const offset = 0;
-      const ebayUrl = `https://api.ebay.com/sell/fulfillment/v1/order?limit=${limit}&offset=${offset}`;
+      // Use the Trading API URL (already defined at the top of the file)
+      const tradingApiUrl = ebayUrl; // This uses the Trading API URL
 
       const currentDate = Date.now();
       const startDate = currentDate - 7 * 24 * 60 * 60 * 1000; // 7 days ago
@@ -313,13 +416,14 @@ export const ebayChatService = {
       const formattedStartDate = new Date(startDate).toISOString();
       const formattedEndDate = new Date(endDate).toISOString();
 
-      const response = await fetch(ebayUrl, {
-        method: "GET",
+      const response = await fetch(tradingApiUrl, {
+        method: "POST",
         headers: {
           "X-EBAY-API-SITEID": "3", // UK site ID
           "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
           "X-EBAY-API-CALL-NAME": "GetOrders",
           "X-EBAY-API-IAF-TOKEN": accessToken,
+          "Content-Type": "text/xml",
         },
         body: `
         <?xml version="1.0" encoding="utf-8"?>
