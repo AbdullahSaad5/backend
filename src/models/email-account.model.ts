@@ -187,6 +187,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
     },
     // Gmail-specific webhook tracking
     gmailTopic: { type: String },
+    gmailSubscription: { type: String },
     isAutoCreated: { type: Boolean, default: false },
     // Outlook-specific webhook tracking
     webhookId: { type: String },
@@ -204,6 +205,7 @@ EmailAccountSchema.index({ "syncState.syncStatus": 1 });
 EmailAccountSchema.index({ "syncState.watchExpiration": 1 });
 EmailAccountSchema.index({ "syncState.isWatching": 1 });
 EmailAccountSchema.index({ "syncState.gmailTopic": 1 });
+EmailAccountSchema.index({ "syncState.gmailSubscription": 1 });
 EmailAccountSchema.index({ "syncState.webhookId": 1 });
 
 export const EmailAccountModel = models.EmailAccount || model<IEmailAccount>("EmailAccount", EmailAccountSchema);

@@ -11,7 +11,12 @@ export const gmailWebhook = (router: Router) => {
   // Test endpoint for manual notification processing (protected)
   router.post("/webhook/test", GmailWebhookController.testNotification);
 
+  // Test endpoint for manual Gmail sync (protected)
+  router.post("/webhook/test-sync", GmailWebhookController.testGmailSync);
+
   // Additional webhook management endpoints
   router.get("/status", GmailWebhookController.getWebhookStatus);
   router.post("/validate", GmailWebhookController.validateWebhookSetup);
+  router.get("/debug/subscription-hashes", GmailWebhookController.debugSubscriptionHashes);
+  router.post("/cleanup/orphaned-subscriptions", GmailWebhookController.cleanupOrphanedSubscriptions);
 };
