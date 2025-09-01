@@ -182,12 +182,9 @@ export class RealTimeEmailSyncService {
    */
   private static async ensureGmailSubscriptionExists(account: IEmailAccount, topicName: string): Promise<string> {
     try {
-      // Generate unique subscription name for this account
-      const accountHash = crypto
-        .createHash("md5")
-        .update(`${account.emailAddress}-${account._id}`)
-        .digest("hex")
-        .substring(0, 8);
+      // Generate unique subscription name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
 
       const subscriptionName = `gmail-sync-${accountHash}-webhook`;
       const fullSubscriptionName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/${subscriptionName}`;
@@ -252,12 +249,9 @@ export class RealTimeEmailSyncService {
    */
   private static async ensureGmailTopicExists(account: IEmailAccount): Promise<string> {
     try {
-      // Generate unique topic name for this account
-      const accountHash = crypto
-        .createHash("md5")
-        .update(`${account.emailAddress}-${account._id}`)
-        .digest("hex")
-        .substring(0, 8);
+      // Generate unique topic name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
 
       const topicName = `gmail-sync-${accountHash}`;
       const fullTopicName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/${topicName}`;
