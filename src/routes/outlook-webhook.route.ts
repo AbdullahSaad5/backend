@@ -22,7 +22,67 @@ export const outlookWebhook = (router: Router) => {
     next();
   });
 
-  // Base route for webhook validation and notifications (same structure as Gmail)
+  // Debug route registration
+  logger.info("📝 [Outlook] Registering webhook routes:", [
+    "GET /:emailPrefix",
+    "POST /:emailPrefix",
+    "GET /:emailPrefix/health",
+    "GET /",
+    "POST /",
+    "GET /health",
+  ]);
+
+  // Email prefix-based route for webhook validation and notifications (MUST COME FIRST)
+  router.get("/:emailPrefix", async (req, res) => {
+    try {
+      const { emailPrefix } = req.params;
+      const { validationToken } = req.query;
+
+      logger.info(`🔍 [Outlook] Email prefix validation request received for: ${emailPrefix}`, {
+        method: req.method,
+        url: req.url,
+        emailPrefix,
+        validationToken,
+        headers: req.headers,
+        query: req.query,
+        ip: req.ip || req.connection.remoteAddress,
+        userAgent: req.get("User-Agent"),
+      });
+
+      if (validationToken) {
+        // Microsoft is validating the webhook endpoint
+        logger.info(
+          `✅ [Outlook] Email prefix route: Responding to validation request with token: ${validationToken} for: ${emailPrefix}`
+        );
+
+        // Set proper headers for validation response
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Cache-Control", "no-cache");
+
+        // Send the validation token exactly as received
+        return res.status(StatusCodes.OK).send(validationToken);
+      }
+
+      // Regular GET request to email prefix URL
+      logger.info(`📧 [Outlook] Email prefix route GET request received for: ${emailPrefix}`);
+      res.status(StatusCodes.OK).json({
+        success: true,
+        message: `Outlook webhook endpoint for ${emailPrefix} is accessible`,
+        emailPrefix,
+        timestamp: new Date().toISOString(),
+        note: "This endpoint handles validation requests from Microsoft Graph",
+      });
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Email prefix validation endpoint failed for ${req.params.emailPrefix}:`, error);
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: "Email prefix validation failed",
+        error: error.message,
+      });
+    }
+  });
+
+  // Base route for webhook validation and notifications (MUST COME AFTER email prefix routes)
   router.get("/", async (req, res) => {
     try {
       const { validationToken } = req.query;
@@ -138,55 +198,6 @@ export const outlookWebhook = (router: Router) => {
     }
   });
 
-  // Note: Account-specific routes removed - all webhooks now handled at base URL
-  // Account-specific webhook endpoints using email prefix for proper differentiation
-  // This ensures each Outlook account has its own unique webhook URL using email prefix
-
-  // GET endpoint for webhook validation (Microsoft Graph sends validation requests here)
-  router.get("/:emailPrefix", async (req, res) => {
-    try {
-      const { emailPrefix } = req.params;
-      const { validationToken } = req.query;
-
-      logger.info(`🔍 [Outlook] Account-specific validation request for email prefix: ${emailPrefix}`, {
-        method: req.method,
-        url: req.url,
-        headers: req.headers,
-        query: req.query,
-        ip: req.ip || req.connection.remoteAddress,
-        userAgent: req.get("User-Agent"),
-      });
-
-      if (validationToken) {
-        // Microsoft is validating the webhook endpoint
-        logger.info(`✅ [Outlook] Validation response for email prefix ${emailPrefix} with token: ${validationToken}`);
-
-        // Set proper headers for validation response
-        res.setHeader("Content-Type", "text/plain");
-        res.setHeader("Cache-Control", "no-cache");
-
-        // Send the validation token exactly as received
-        return res.status(StatusCodes.OK).send(validationToken);
-      }
-
-      // Regular GET request (not validation)
-      logger.info(`📧 [Outlook] Account-specific GET request for email prefix: ${emailPrefix}`);
-      res.status(StatusCodes.OK).json({
-        success: true,
-        message: "Outlook webhook endpoint is accessible",
-        emailPrefix,
-        timestamp: new Date().toISOString(),
-      });
-    } catch (error: any) {
-      logger.error("❌ [Outlook] Account-specific validation endpoint failed:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Account-specific validation failed",
-        error: error.message,
-      });
-    }
-  });
-
   // Outlook webhook endpoint for real-time notifications using email prefix
   router.post("/:emailPrefix", async (req, res) => {
     try {
@@ -288,6 +299,38 @@ export const outlookWebhook = (router: Router) => {
     });
   });
 
+  // Health check endpoint for email prefix-based webhooks (Microsoft Graph validation)
+  router.get("/:emailPrefix/health", (req, res) => {
+    const { emailPrefix } = req.params;
+    const { validationToken } = req.query;
+
+    logger.info(`🔍 [Outlook] Health check for email prefix: ${emailPrefix}`, {
+      emailPrefix,
+      validationToken,
+      url: req.url,
+    });
+
+    if (validationToken) {
+      // Microsoft is validating the webhook endpoint
+      logger.info(`✅ [Outlook] Health validation response for ${emailPrefix} with token: ${validationToken}`);
+
+      // Set proper headers for validation response
+      res.setHeader("Content-Type", "text/plain");
+      res.setHeader("Cache-Control", "no-cache");
+
+      // Send the validation token exactly as received
+      return res.status(StatusCodes.OK).send(validationToken);
+    }
+
+    // Regular health check
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: `Outlook webhook health check for ${emailPrefix}`,
+      emailPrefix,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
   // Test endpoint for webhook validation
   router.get("/test-account", (req, res) => {
     const { validationToken } = req.query;
@@ -315,6 +358,9 @@ export const outlookWebhook = (router: Router) => {
     logger.warn(`⚠️ [Outlook] Unhandled webhook request: ${req.method} ${req.url}`, {
       method: req.method,
       url: req.url,
+      path: req.path,
+      params: req.params,
+      query: req.query,
       headers: req.headers,
       body: req.body,
       ip: req.ip || req.connection.remoteAddress,
@@ -326,6 +372,8 @@ export const outlookWebhook = (router: Router) => {
       message: "Webhook endpoint not found",
       method: req.method,
       url: req.url,
+      path: req.path,
+      params: req.params,
     });
   });
 };
