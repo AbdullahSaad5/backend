@@ -467,7 +467,7 @@ export class RealTimeEmailSyncService {
   }
 
   /**
-   * Setup Outlook webhook subscription
+   * Setup Outlook webhook subscription using same hashing logic as Gmail
    */
   private static async setupOutlookWebhook(
     account: IEmailAccount,
@@ -476,17 +476,27 @@ export class RealTimeEmailSyncService {
     accessToken: string
   ): Promise<RealTimeSyncResult> {
     try {
-      // Create webhook subscription for new emails using direct HTTP request with access token
+      // Generate unique webhook URL using email prefix (same as Gmail approach)
+      // This ensures proper webhook differentiation for multiple Outlook accounts
+      const emailPrefix = account.emailAddress.split("@")[0];
+      if (!emailPrefix) {
+        throw new Error("Invalid email address format");
+      }
+
+      // Create account-specific webhook URL using email prefix
+      const finalWebhookUrl = `${webhookUrl}/${emailPrefix}`;
+
       logger.info(`📧 [Outlook] Creating webhook subscription for: ${account.emailAddress}`);
-      logger.info(`📧 [Outlook] Webhook URL: ${webhookUrl}/${account._id}`);
-      logger.info(`📧 [Outlook] Full notification URL: ${webhookUrl}/${account._id}`);
+      logger.info(`📧 [Outlook] Email prefix: ${emailPrefix}`);
+      logger.info(`📧 [Outlook] Base webhook URL: ${webhookUrl}`);
+      logger.info(`📧 [Outlook] Final notification URL: ${finalWebhookUrl}`);
 
       const subscriptionPayload = {
         changeType: "created,updated",
-        notificationUrl: `${webhookUrl}/${account._id}`,
+        notificationUrl: finalWebhookUrl, // Use account-specific URL with email prefix
         resource: "/me/messages",
         expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
-        clientState: account._id,
+        clientState: emailPrefix, // Use email prefix for proper identification
       };
 
       logger.info(`📧 [Outlook] Subscription payload:`, subscriptionPayload);
@@ -529,8 +539,9 @@ export class RealTimeEmailSyncService {
           "syncState.lastWatchRenewal": new Date(),
           "syncState.isWatching": true,
           "syncState.webhookId": subscription.id,
-          "syncState.webhookUrl": `${webhookUrl}/${account._id}`,
+          "syncState.webhookUrl": finalWebhookUrl, // Store account-specific webhook URL
           "syncState.subscriptionExpiry": subscriptionExpiry,
+          "syncState.emailPrefix": emailPrefix, // Store email prefix for webhook management
         },
       });
 
@@ -543,6 +554,137 @@ export class RealTimeEmailSyncService {
     } catch (error: any) {
       logger.error(`❌ [Outlook] Webhook setup failed for ${account.emailAddress}:`, error);
       return this.setupOutlookPollingFallback(account);
+    }
+  }
+
+  /**
+   * Clean up Outlook webhook subscriptions when account is deleted or deactivated
+   */
+  static async cleanupOutlookWebhook(account: IEmailAccount): Promise<void> {
+    try {
+      if (!account.syncState?.webhookId) {
+        logger.info(`📧 [Outlook] No webhook to cleanup for: ${account.emailAddress}`);
+        return;
+      }
+
+      logger.info(`🧹 [Outlook] Cleaning up webhook subscription for: ${account.emailAddress}`, {
+        webhookId: account.syncState.webhookId,
+        webhookUrl: account.syncState.webhookUrl,
+      });
+
+      // Get fresh access token for cleanup using EmailOAuthService
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const accessToken = await EmailOAuthService.getDecryptedAccessToken(account);
+      if (!accessToken) {
+        logger.warn(`⚠️ [Outlook] Cannot cleanup webhook - no valid access token for: ${account.emailAddress}`);
+        return;
+      }
+
+      // Delete the webhook subscription from Microsoft Graph
+      const response = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${account.syncState.webhookId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        logger.info(`✅ [Outlook] Webhook subscription deleted successfully for: ${account.emailAddress}`);
+      } else if (response.status === 404) {
+        logger.info(`ℹ️ [Outlook] Webhook subscription already deleted for: ${account.emailAddress}`);
+      } else {
+        logger.warn(
+          `⚠️ [Outlook] Failed to delete webhook subscription for ${account.emailAddress}: ${response.status}`
+        );
+      }
+
+      // Update account sync state
+      await EmailAccountModel.findByIdAndUpdate(account._id, {
+        $unset: {
+          "syncState.webhookId": 1,
+          "syncState.webhookUrl": 1,
+          "syncState.subscriptionExpiry": 1,
+          "syncState.emailPrefix": 1,
+        },
+        $set: {
+          "syncState.syncStatus": "inactive",
+          "syncState.isWatching": false,
+          "syncState.lastWatchRenewal": new Date(),
+        },
+      });
+
+      logger.info(`✅ [Outlook] Webhook cleanup completed for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error cleaning up webhook for ${account.emailAddress}:`, error);
+      // Don't throw error - cleanup should not fail the main operation
+    }
+  }
+
+  /**
+   * Process Outlook webhook notifications
+   */
+  static async processOutlookWebhookNotification(account: IEmailAccount, notification: any): Promise<void> {
+    try {
+      logger.info(`📧 [Outlook] Processing webhook notification for: ${account.emailAddress}`, {
+        changeType: notification.changeType,
+        resourceData: notification.resourceData,
+        clientState: notification.clientState,
+      });
+
+      // Handle different change types
+      if (notification.changeType === "created") {
+        logger.info(`📧 [Outlook] New email created for: ${account.emailAddress}`);
+        // Trigger email sync for new emails
+        await this.syncOutlookEmails(account);
+      } else if (notification.changeType === "updated") {
+        logger.info(`📧 [Outlook] Email updated for: ${account.emailAddress}`);
+        // Trigger email sync for updated emails
+        await this.syncOutlookEmails(account);
+      }
+
+      logger.info(`✅ [Outlook] Webhook notification processed successfully for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error processing webhook notification for ${account.emailAddress}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Renew Outlook webhook subscription before expiry
+   */
+  static async renewOutlookWebhook(account: IEmailAccount): Promise<boolean> {
+    try {
+      if (!account.syncState?.webhookId || !account.syncState?.subscriptionExpiry) {
+        logger.info(`📧 [Outlook] No active webhook to renew for: ${account.emailAddress}`);
+        return false;
+      }
+
+      const now = new Date();
+      const expiry = new Date(account.syncState.subscriptionExpiry);
+      const bufferTime = 24 * 60 * 60 * 1000; // 24 hours buffer
+
+      if (now.getTime() < expiry.getTime() - bufferTime) {
+        logger.info(`📧 [Outlook] Webhook subscription not yet ready for renewal for: ${account.emailAddress}`, {
+          expiresAt: expiry.toISOString(),
+          now: now.toISOString(),
+        });
+        return true; // Still valid
+      }
+
+      logger.info(`🔄 [Outlook] Renewing webhook subscription for: ${account.emailAddress}`, {
+        expiresAt: expiry.toISOString(),
+        now: now.toISOString(),
+      });
+
+      // Clean up old webhook first
+      await this.cleanupOutlookWebhook(account);
+
+      // Setup new webhook
+      const result = await this.setupOutlookRealTimeSync(account);
+      return result.success;
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error renewing webhook for ${account.emailAddress}:`, error);
+      return false;
     }
   }
 
