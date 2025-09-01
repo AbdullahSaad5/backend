@@ -42,3 +42,4 @@ export { productTypeWorkflowController } from "./product-type-workflow.controlle
 export { announcementBarController } from "./announcement-bar.controller";
 export { websiteController } from "./website.contoller";
 export { ebayChatController } from "./ebay-chat.controller";
+export { stripeController } from "./stripe.controller";

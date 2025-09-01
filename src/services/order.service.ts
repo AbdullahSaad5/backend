@@ -321,10 +321,56 @@ export const orderService = {
       if (!updatedOrder) {
         throw new Error("Order not found");
       }
+
       return updatedOrder;
     } catch (error) {
       console.error("Error updating order status:", error);
       throw new Error("Failed to update order status");
+    }
+  },
+
+  // Find order by transaction ID (payment intent ID)
+  findOrderByTransactionId: async (transactionId: string) => {
+    try {
+      const order = await Order.findOne({ transactionId })
+        .populate("customer", "firstName lastName email")
+        .populate("customerId", "firstName lastName email");
+
+      return order;
+    } catch (error) {
+      console.error("Error finding order by transaction ID:", error);
+      throw new Error("Failed to find order by transaction ID");
+    }
+  },
+
+  // Update payment status of an order
+  updatePaymentStatus: async (transactionId: string, paymentStatus: PaymentStatus, orderStatus?: OrderStatus) => {
+    try {
+      const updateData: any = {
+        paymentStatus,
+        updatedAt: new Date(),
+      };
+
+      // If payment is successful and no specific order status provided, update to next logical status
+      if (paymentStatus === "PAID" && !orderStatus) {
+        updateData.status = "PENDING_ADMIN_CONFIGURATION";
+      } else if (orderStatus) {
+        updateData.status = orderStatus;
+      }
+
+      const updatedOrder = await Order.findOneAndUpdate({ transactionId }, updateData, {
+        new: true,
+        runValidators: true,
+      }).populate("customer", "firstName lastName email");
+
+      if (!updatedOrder) {
+        throw new Error("Order not found with transaction ID: " + transactionId);
+      }
+
+      return updatedOrder;
+    } catch (error) {
+      console.error("Error updating payment status:", error);
+      throw new Error("Failed to update payment status");
     }
   },
 

@@ -182,12 +182,9 @@ export class RealTimeEmailSyncService {
    */
   private static async ensureGmailSubscriptionExists(account: IEmailAccount, topicName: string): Promise<string> {
     try {
-      // Generate unique subscription name for this account
-      const accountHash = crypto
-        .createHash("md5")
-        .update(`${account.emailAddress}-${account._id}`)
-        .digest("hex")
-        .substring(0, 8);
+      // Generate unique subscription name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
 
       const subscriptionName = `gmail-sync-${accountHash}-webhook`;
       const fullSubscriptionName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/${subscriptionName}`;
@@ -252,12 +249,9 @@ export class RealTimeEmailSyncService {
    */
   private static async ensureGmailTopicExists(account: IEmailAccount): Promise<string> {
     try {
-      // Generate unique topic name for this account
-      const accountHash = crypto
-        .createHash("md5")
-        .update(`${account.emailAddress}-${account._id}`)
-        .digest("hex")
-        .substring(0, 8);
+      // Generate unique topic name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
 
       const topicName = `gmail-sync-${accountHash}`;
       const fullTopicName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/${topicName}`;
@@ -689,12 +683,12 @@ export class RealTimeEmailSyncService {
           console.log(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
           logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
 
-          // Enhanced history types to catch all relevant changes
+          // Use only valid Gmail API history types
           const historyResponse = await this.retryGmailApiCall(() =>
             gmail.users.history.list({
               userId: "me",
               startHistoryId: historyId,
-              historyTypes: ["messageAdded", "labelChanged", "messageDeleted", "threadDeleted"],
+              historyTypes: ["messageAdded", "labelAdded", "labelRemoved", "messageDeleted"],
             })
           );
 
@@ -898,6 +892,13 @@ export class RealTimeEmailSyncService {
             snippet: message.snippet?.substring(0, 100),
           });
 
+          // Validate message has required data
+          if (!message.id || !message.payload) {
+            console.log(`⚠️ [Gmail] Skipping message ${message.id} - missing required data`);
+            logger.warn(`⚠️ [Gmail] Skipping message ${message.id} - missing required data`);
+            continue;
+          }
+
           // Enhanced duplicate prevention - check multiple criteria
           const existingEmail = await EmailModel.findOne({
             messageId: message.id,
@@ -960,6 +961,13 @@ export class RealTimeEmailSyncService {
 
             console.log(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
             logger.info(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
+          }
+
+          // Ensure we have a valid threadId before proceeding
+          if (!threadId) {
+            console.log(`⚠️ [Gmail] Skipping email ${message.id} - no threadId available`);
+            logger.warn(`⚠️ [Gmail] Skipping email ${message.id} - no threadId available`);
+            continue;
           }
 
           const emailData = {
@@ -1647,6 +1655,11 @@ export class RealTimeEmailSyncService {
   }
 
   private static extractTextContent(payload: any): string {
+    // Handle undefined or null payload
+    if (!payload) {
+      return "";
+    }
+
     if (payload.body?.data) {
       return Buffer.from(payload.body.data, "base64").toString();
     }
@@ -1663,6 +1676,11 @@ export class RealTimeEmailSyncService {
   }
 
   private static extractHtmlContent(payload: any): string {
+    // Handle undefined or null payload
+    if (!payload) {
+      return "";
+    }
+
     if (payload.parts) {
       for (const part of payload.parts) {
         if (part.mimeType === "text/html" && part.body?.data) {
