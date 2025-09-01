@@ -357,11 +357,9 @@ export const GmailWebhookController = {
       });
 
       const accountDetails = activeGmailAccounts.map((account) => {
-        const accountHash = crypto
-          .createHash("md5")
-          .update(`${account.emailAddress}-${account._id}`)
-          .digest("hex")
-          .substring(0, 8);
+        // Extract Gmail username (part before @gmail.com) as hash
+        const gmailUsername = account.emailAddress.split("@")[0];
+        const accountHash = gmailUsername; // Use Gmail username directly as hash
 
         const expectedSubscription = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/gmail-sync-${accountHash}-webhook`;
 
@@ -428,11 +426,9 @@ export const GmailWebhookController = {
       // Build set of expected subscription names
       const expectedSubscriptions = new Set();
       activeGmailAccounts.forEach((account) => {
-        const accountHash = crypto
-          .createHash("md5")
-          .update(`${account.emailAddress}-${account._id}`)
-          .digest("hex")
-          .substring(0, 8);
+        // Extract Gmail username (part before @gmail.com) as hash
+        const gmailUsername = account.emailAddress.split("@")[0];
+        const accountHash = gmailUsername; // Use Gmail username directly as hash
         expectedSubscriptions.add(`gmail-sync-${accountHash}-webhook`);
 
         // Also add stored subscription if different
@@ -550,8 +546,8 @@ async function processGmailNotification(
     console.log(`🔍 [${requestId}] Using subscription to identify the correct account: ${subscription}`);
 
     // Extract account hash from subscription name
-    // Subscription format: projects/build-my-rig-468317/subscriptions/gmail-sync-{accountHash}-webhook
-    const subscriptionMatch = subscription.match(/gmail-sync-([a-f0-9]+)-webhook/);
+    // Subscription format: projects/build-my-rig-468317/subscriptions/gmail-sync-{gmailUsername}-webhook
+    const subscriptionMatch = subscription.match(/gmail-sync-([a-zA-Z0-9._-]+)-webhook/);
 
     if (!subscriptionMatch) {
       console.log(`❌ [${requestId}] Could not extract account hash from subscription: ${subscription}`);
@@ -562,10 +558,10 @@ async function processGmailNotification(
     }
 
     const accountHash = subscriptionMatch[1];
-    console.log(`🔍 [${requestId}] Extracted account hash: ${accountHash}`);
+    console.log(`🔍 [${requestId}] Extracted Gmail username as hash: ${accountHash}`);
 
-    // Find the account that matches this subscription hash
-    console.log(`🔍 [${requestId}] Searching for Gmail account with hash: ${accountHash}`);
+    // Find the account that matches this Gmail username (used as hash)
+    console.log(`🔍 [${requestId}] Searching for Gmail account with username: ${accountHash}`);
     const activeGmailAccounts = await EmailAccountModel.find({
       accountType: "gmail",
       isActive: true,
@@ -587,11 +583,9 @@ async function processGmailNotification(
     const accountHashMap = new Map();
 
     for (const account of activeGmailAccounts) {
-      const accountHashFromDb = crypto
-        .createHash("md5")
-        .update(`${account.emailAddress}-${account._id}`)
-        .digest("hex")
-        .substring(0, 8);
+      // Extract Gmail username (part before @gmail.com) as hash
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHashFromDb = gmailUsername; // Use Gmail username directly as hash
 
       accountHashMap.set(accountHashFromDb, account);
       console.log(`🔍 [${requestId}] Checking account ${account.emailAddress} with hash: ${accountHashFromDb}`);
@@ -653,7 +647,7 @@ async function processGmailNotification(
 
         return {
           success: false,
-          error: `Subscription hash mismatch. Webhook hash: ${accountHash}, Available accounts: ${activeGmailAccounts.map((a) => `${a.emailAddress}(${crypto.createHash("md5").update(`${a.emailAddress}-${a._id}`).digest("hex").substring(0, 8)})`).join(", ")}`,
+          error: `Subscription hash mismatch. Webhook hash: ${accountHash}, Available accounts: ${activeGmailAccounts.map((a) => `${a.emailAddress}(${a.emailAddress.split("@")[0]})`).join(", ")}`,
         };
       }
     }
