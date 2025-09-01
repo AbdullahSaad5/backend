@@ -207,30 +207,87 @@ export class OutlookEmailService {
   }
 
   /**
-   * Get access token for Outlook account
+   * Get access token for Outlook account with proper validation
    */
   private static async getAccessToken(emailAccount: IEmailAccount): Promise<string | null> {
     try {
+      // Validate OAuth configuration
+      if (!emailAccount.oauth?.accessToken || !emailAccount.oauth?.refreshToken) {
+        throw new Error("OAuth configuration missing for Outlook account");
+      }
+
       // Check if current access token is still valid
-      if (emailAccount.oauth?.accessToken && emailAccount.oauth?.tokenExpiry) {
+      if (emailAccount.oauth.tokenExpiry) {
         const now = new Date();
         const expiry = new Date(emailAccount.oauth.tokenExpiry);
+        const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
 
-        if (now < expiry) {
-          // Token is still valid, decrypt and return
-          return EmailOAuthService.getDecryptedAccessToken(emailAccount);
+        if (now.getTime() < expiry.getTime() - bufferTime) {
+          // Token is still valid with buffer time, decrypt and return
+          const decryptedToken = EmailOAuthService.getDecryptedAccessToken(emailAccount);
+
+          // Validate the decrypted token
+          if (!decryptedToken || decryptedToken.trim().length === 0) {
+            logger.warn("Decrypted access token is empty, attempting refresh", {
+              emailAddress: emailAccount.emailAddress,
+              hasAccessToken: !!emailAccount.oauth.accessToken,
+              tokenExpiry: emailAccount.oauth.tokenExpiry,
+            });
+          } else {
+            logger.info("Using valid cached access token", {
+              emailAddress: emailAccount.emailAddress,
+              tokenLength: decryptedToken.length,
+              expiresAt: expiry.toISOString(),
+            });
+            return decryptedToken;
+          }
+        } else {
+          logger.info("Access token expired or expiring soon, refreshing", {
+            emailAddress: emailAccount.emailAddress,
+            expiresAt: expiry.toISOString(),
+            now: now.toISOString(),
+          });
         }
       }
 
-      // Token expired or not available, refresh it
+      // Token expired, missing, or invalid - refresh it
+      logger.info("Refreshing Outlook access token", {
+        emailAddress: emailAccount.emailAddress,
+        reason: !emailAccount.oauth.tokenExpiry ? "no_expiry" : "expired_or_invalid",
+      });
+
       const refreshResult = await EmailOAuthService.refreshTokens(emailAccount);
       if (!refreshResult.success) {
         throw new Error(`Failed to refresh Outlook tokens: ${refreshResult.error}`);
       }
 
-      return EmailOAuthService.getDecryptedAccessToken(emailAccount);
+      // Get the refreshed token from the database
+      const { EmailAccountModel } = await import("@/models/email-account.model");
+      const refreshedAccount = await EmailAccountModel.findById(emailAccount._id);
+      if (!refreshedAccount?.oauth?.accessToken) {
+        throw new Error("No access token found after refresh");
+      }
+
+      const newDecryptedToken = EmailOAuthService.getDecryptedAccessToken(refreshedAccount);
+      if (!newDecryptedToken || newDecryptedToken.trim().length === 0) {
+        throw new Error("Decrypted access token is empty after refresh");
+      }
+
+      logger.info("Successfully refreshed Outlook access token", {
+        emailAddress: emailAccount.emailAddress,
+        tokenLength: newDecryptedToken.length,
+      });
+
+      return newDecryptedToken;
     } catch (error: any) {
-      logger.error("Error getting Outlook access token:", error);
+      logger.error("Error getting Outlook access token:", {
+        error: error.message,
+        emailAddress: emailAccount.emailAddress,
+        hasOAuth: !!emailAccount.oauth,
+        hasAccessToken: !!emailAccount.oauth?.accessToken,
+        hasRefreshToken: !!emailAccount.oauth?.refreshToken,
+        tokenExpiry: emailAccount.oauth?.tokenExpiry,
+      });
       return null;
     }
   }
