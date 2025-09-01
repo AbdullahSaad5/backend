@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { ReasonPhrases } from "http-status-codes";
-import { getStoredEbayAccessToken, getEbayAuthURL } from "@/utils/ebay-helpers.util";
+import { getEbayAuthURL } from "@/utils/ebay-helpers.util";
 import { XMLParser } from "fast-xml-parser";
 
 const type = process.env.EBAY_TOKEN_ENV === "production" ? "production" : "sandbox";
@@ -11,7 +11,7 @@ export const ebayChatService = {
   // Get all orders with chat conversations
   getOrderChats: async (req: Request, res: Response): Promise<any> => {
     try {
-      const accessToken = "v^1.1#i^1#f^0#p^3#r^0#I^3#t^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";
+      const accessToken = process.env.EBAY_ACCESS_TOKEN;
       const limit = Number(req.query.limit) || 10;
       const page = Number(req.query.page) || 0;
       const offset = (Math.max(page, 1) - 1) * limit;
@@ -211,7 +211,7 @@ export const ebayChatService = {
         });
       }
 
-   const accessToken = "v^1.1#i^1#f^0#p^3#r^0#I^3#t^H4sIAAAAAAAA/+VZbYwbRxk+30dolNxRQdXCqQLjpFHUi+39sNe729iVz/blnJzvHK8vlzs+rNndWXsu611nZ/d8PqFySaVWgCIaqUiItCj8A4lC2h+AiFoBiUJVfoSAKtRIpQgKapRfVS98CCKY3fuIcynJXZxKq+A/1sy878z7vB8zz+xQi1u2Pv7M6DN/7w98rPv0IrXYHQjQ26itW/qGBnq6B/u6qDaBwOnFnYu9x3ve24tBXW+IJYgbpoFhcL6uG1j0OpMhxzJEE2CERQPUIRZtRZTShTGRiVBiwzJtUzH1UDCfTYYEoKmsoiQYoPCMolCk11ids2wmQ3QC8EChKQEmKE3gWTKOsQPzBraBYSdDDMXEwxQfZqkyzYoxRowJEYZhZkLBQ9DCyDSISIQKpTxzRU/XarP19qYCjKFlk0lCqXx6RJpI57O58fLeaNtcqRU/SDawHXxzK2OqMHgI6A68/TLYkxYlR1EgxqFoanmFmycV06vG3IX5nqs5IPBMjGNlhdPoBHVvXDliWnVg394OtwepYc0TFaFhI7t1J48Sb8izULFXWuNkinw26P4ddICONAStZCg3nJ6elHKlUFAqFi1zDqlQdZHSHBOLc7EEHw+lZGTVkVGtgXoYzK0stDzbipvXrZQxDRW5TsPBcdMehsRquN43bJtviNCEMWGlNdu1qF0uvupDmp9xg7ocRceuGW5cYZ04Iug17xyB1ZS4kQT3KiniMhQEjacgBzUWyvwtSeHW+l0kRsqNTbpYjLq2QBm0wnVgHYF2QwcKDCvEvU4dWkgV2bjGsLwGwyonaOGYoGlhOa5yYVqDkIJQlhWB/3/KD9u2kOzYcC1H1g94IJOhjI7IYLnVgKH1Et6Ws5IQ8zgZqtl2Q4xGm81mpMlGTKsaZSiKjh4ujElKDdZBaE0W3Vk4jLzUUCDRwki0iQHJ0DzJPLK4UQ2lRk1sQ3U1XW8yKbW+939AA1ULetCX9z9/4UtnMrliOZftCGHDcZDqL1zDmX2Tbq1Psqhcxkc7gufWu4iAJtrmEWj4L0dLuZFSThqtlCcO5MY7Qlr2J0ALahbEtYrn/wppdZitfkzWe5GoazuN2/QXxGJ6ukCokcRUqIp7hlXS+0q5XOEGW7o7xFgxl5PVrXX/oHX1MZkANFDE3T0iilmPmoCwI7er4lkd3IhQFENdjyBjjgTVtFqb0AGKYjqEkm1cQ3N0Dem6R+Q2oYUM1xF4EyoN0HIXiagIN9xQblzTgkQBeARxQ0qkj9AyBUYM0yYkSvFUI9iRsWKhxsbn8RbHJAK3x9kmDFWoozm40ZCtGUpUzI4qIgvn8j7b3niV5lmB18K8QOgi4cQgDHhBCNNqgmXYuMwCjtkMZrfWb8GNgO0v1HQizrn3UyHRUTxLEOh1fyFrWKbqKG71dIRMcjO/aOpIafkLH2upRWDZLYkUMunoCKQK55ACK35jHAwToymB5+JELdYRQN2sIqMA7Zr5kUB0a/3uYbpMI9/Z3cay79edJd1o5Ot1cp7KOvTbkRGnY3SiM3hrZDi38oXOT/jcTzmVzEShkCtlcpXJA5WxcmdpWlq+InkXOL8FM30wfSBNfoViNCbNHJrLThrCwuzCTLbUaGancol6CRnZGONx+JzKmYlM7bAscwvChNFqYs4aOiyN6/tnhqr71NxCM5ns7NSBigV9VtCUpClwIVZvjlaNkfKwwOX1gr1/tspw5anitIDnZ2enHGdcIAyxM/CF6v17EOWqvrvXCxTNqxoXo4U4BRRVVmla4AWV1jRVVUBiU6T3Q7dvn+GVWlBNy6oTHgZz+XLBVMLFUpZwfQgEwBLqzzMczSVoSBB++H19w6zKrCMF6T77xrFvuDOmAVVkQcWuOBbyFzA3rhU3sLoOahUpvC7OYdyq6Wars9Oa3Ic/OhbZyXcrSZqaKHV6ON8Hd7h1HW0POre85a28964+fPcGUl3ejz4e+CV1PPBadyBA7aUeo3dQn9vSM9nbs30QIxtGENAiGFUNYDsWjByBrQZAVvcnuy4OjKnHRseuLcrOT6aWnuS7+tte809/kfrU2nv+1h56W9vjPvXojZE++uOP9DNximcpmo0xMWGG2nFjtJd+uPehvt0P/ed70yfOd5/cnd56VG5ePfvYONW/JhQI9HX1Hg90aRUz9QXt++J0/vyXZi9999WnT8jgq1tOfeadl8ro5RNX2TdnJ6Qdlx/PfvtU8mfXli58ohV/7szSn/69/8Lbvz8Z/8W/PvvsycHXe370g6NXDy699edde9K7B06/n6SfPXv4wJh1Jl78qfriE++ce+PKwIWnLg088sTQSz9+OfLmkUv95RfgHvlXbO+uN0Z2PT92ffvwl63L+WP/uPJu/sIfHjx1Trz219dnry89/ODTz5u/feC9kT3iK+9+8BXzN+f++Jdff+vKTm3o5/H6/M6jxbf6Xus+iJ/ctm3w1KDS+uffLu5/4JXkN8pdvHDx/FMZ/swPH33788I3z13/9MwHhd6z7z+384r+na8d+51y+djI14VXtzetXcux/C+ULLJhZyEAAA==";
+      const accessToken = process.env.EBAY_ACCESS_TOKEN;
       
       if (!accessToken) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
@@ -260,7 +260,7 @@ export const ebayChatService = {
         });
       }
 
-      const accessToken = await getStoredEbayAccessToken();
+      const accessToken = process.env.EBAY_ACCESS_TOKEN;
       if (!accessToken) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
           status: StatusCodes.UNAUTHORIZED,
@@ -350,7 +350,7 @@ export const ebayChatService = {
     try {
       console.log("=== EBAY CHAT: GETTING UNREAD COUNT ===");
 
-      const accessToken = await getStoredEbayAccessToken();
+      const accessToken = process.env.EBAY_ACCESS_TOKEN;
       if (!accessToken) {
         return res.status(StatusCodes.UNAUTHORIZED).json({
           status: StatusCodes.UNAUTHORIZED,
@@ -399,7 +399,7 @@ export const ebayChatService = {
       console.log("🔍 Getting orders from eBay using Fulfillment API...");
 
       // Use the same approach as the working ebayListingService.getOrders
-      const accessToken = await getStoredEbayAccessToken();
+      const accessToken = process.env.EBAY_ACCESS_TOKEN;
       if (!accessToken) {
         console.error("❌ No eBay user access token available");
         return [];
