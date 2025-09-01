@@ -72,10 +72,40 @@ export class EmailOAuthService {
 
   // Decrypt sensitive data
   static decryptData(encryptedData: string | any): string {
-    const decipher = crypto.createDecipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
-    let decrypted = decipher.update(encryptedData, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+    try {
+      // Validate input
+      if (!encryptedData || typeof encryptedData !== "string") {
+        throw new Error(`Invalid encrypted data: expected string, got ${typeof encryptedData}`);
+      }
+
+      if (encryptedData.trim().length === 0) {
+        throw new Error("Encrypted data is empty");
+      }
+
+      // Validate hex format
+      if (!/^[0-9a-fA-F]+$/.test(encryptedData)) {
+        throw new Error("Encrypted data is not in valid hex format");
+      }
+
+      const decipher = crypto.createDecipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
+      let decrypted = decipher.update(encryptedData, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
+      // Validate decrypted result
+      if (!decrypted || decrypted.trim().length === 0) {
+        throw new Error("Decryption resulted in empty data");
+      }
+
+      return decrypted;
+    } catch (error: any) {
+      logger.error("Error in decryptData:", {
+        error: error.message,
+        inputType: typeof encryptedData,
+        inputLength: encryptedData ? encryptedData.length : 0,
+        isValidHex: encryptedData && typeof encryptedData === "string" ? /^[0-9a-fA-F]+$/.test(encryptedData) : false,
+      });
+      throw error;
+    }
   }
 
   // Generate OAuth state for security
@@ -611,11 +641,48 @@ export class EmailOAuthService {
   static getDecryptedAccessToken(account: IEmailAccount): string | null {
     try {
       if (!account.oauth?.accessToken) {
+        logger.warn("No access token found in account OAuth data", {
+          emailAddress: account.emailAddress,
+          hasOAuth: !!account.oauth,
+          oauthProvider: account.oauth?.provider,
+        });
         return null;
       }
-      return this.decryptData(account.oauth.accessToken);
-    } catch (error) {
-      logger.error("Error decrypting access token:", error);
+
+      const decryptedToken = this.decryptData(account.oauth.accessToken);
+
+      // Validate the decrypted token
+      if (!decryptedToken || typeof decryptedToken !== "string" || decryptedToken.trim().length === 0) {
+        logger.warn("Decrypted access token is invalid or empty", {
+          emailAddress: account.emailAddress,
+          tokenExists: !!decryptedToken,
+          tokenType: typeof decryptedToken,
+          tokenLength: decryptedToken ? decryptedToken.length : 0,
+        });
+        return null;
+      }
+
+      // For Outlook tokens, they should be opaque strings (not JWT format)
+      // JWT tokens have dots, but Outlook access tokens don't
+      if (account.oauth.provider === "outlook") {
+        // Outlook tokens are typically long strings without dots
+        if (decryptedToken.includes(".") && decryptedToken.split(".").length === 3) {
+          logger.warn("Outlook access token appears to be in JWT format, which is unexpected", {
+            emailAddress: account.emailAddress,
+            tokenLength: decryptedToken.length,
+            hasDots: decryptedToken.includes("."),
+          });
+        }
+      }
+
+      return decryptedToken;
+    } catch (error: any) {
+      logger.error("Error decrypting access token:", {
+        error: error.message,
+        emailAddress: account.emailAddress,
+        hasAccessToken: !!account.oauth?.accessToken,
+        provider: account.oauth?.provider,
+      });
       return null;
     }
   }
