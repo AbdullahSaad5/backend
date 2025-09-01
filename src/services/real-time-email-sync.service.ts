@@ -16,6 +16,7 @@ export interface RealTimeSyncResult {
   message: string;
   emailsProcessed?: number;
   error?: string;
+  webhookInfo?: any;
 }
 
 export class RealTimeEmailSyncService {
@@ -448,16 +449,19 @@ export class RealTimeEmailSyncService {
         },
       });
 
-      // Setup Outlook webhook subscription using instance-based configuration
-      const webhookUrl = getOutlookWebhookUrl();
-      if (webhookUrl) {
-        logger.info(`📧 [Outlook] Using webhook URL: ${webhookUrl} for: ${account.emailAddress}`);
-        return this.setupOutlookWebhook(account, graphClient, webhookUrl, decryptedAccessToken);
+      // Setup Outlook webhook subscription using enhanced webhook manager
+      const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
+      const webhookInfo = await OutlookWebhookManager.createWebhookSubscription(account, decryptedAccessToken);
+
+      if (webhookInfo) {
+        logger.info(`✅ [Outlook] Webhook subscription created successfully for: ${account.emailAddress}`);
+        return {
+          success: true,
+          message: "Outlook webhook setup successful",
+          webhookInfo,
+        };
       } else {
-        logger.warn(
-          `⚠️ [Outlook] No webhook URL configured for instance, using polling fallback for: ${account.emailAddress}`
-        );
-        // Fallback to polling
+        logger.warn(`⚠️ [Outlook] Webhook setup failed, using polling fallback for: ${account.emailAddress}`);
         return this.setupOutlookPollingFallback(account);
       }
     } catch (error: any) {
@@ -1928,7 +1932,9 @@ export class RealTimeEmailSyncService {
       if (account.accountType === "gmail") {
         await this.cleanupGmailTopic(account);
       } else if (account.accountType === "outlook") {
-        await this.cleanupOutlookSubscription(account);
+        // Use the new OutlookWebhookManager for cleanup
+        const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
+        await OutlookWebhookManager.cleanupAccountWebhooks(account);
       }
 
       logger.info(`✅ [${account.accountType.toUpperCase()}] Webhook cleanup completed for: ${account.emailAddress}`);
