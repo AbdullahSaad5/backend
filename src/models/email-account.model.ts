@@ -81,6 +81,14 @@ export interface IEmailAccount {
       daily: number;
       lastReset: Date;
     };
+    // Gmail-specific webhook tracking
+    gmailTopic?: string;
+    gmailSubscription?: string;
+    isAutoCreated?: boolean;
+    // Outlook-specific webhook tracking
+    webhookId?: string;
+    webhookUrl?: string;
+    subscriptionExpiry?: Date;
   };
 
   createdAt: Date;
@@ -161,7 +169,7 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
     lastHistoryId: { type: String },
     syncStatus: {
       type: String,
-      enum: ["initial", "historical", "partial", "complete", "error"],
+      enum: ["initial", "historical", "partial", "complete", "error", "watching"],
       default: "initial",
     },
     lastSyncAt: { type: Date },
@@ -172,10 +180,19 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
     },
     watchExpiration: { type: Date },
     lastWatchRenewal: { type: Date },
+    isWatching: { type: Boolean, default: false },
     quotaUsage: {
       daily: { type: Number, default: 0 },
       lastReset: { type: Date, default: Date.now },
     },
+    // Gmail-specific webhook tracking
+    gmailTopic: { type: String },
+    gmailSubscription: { type: String },
+    isAutoCreated: { type: Boolean, default: false },
+    // Outlook-specific webhook tracking
+    webhookId: { type: String },
+    webhookUrl: { type: String },
+    subscriptionExpiry: { type: Date },
   },
 
   createdAt: { type: Date, default: Date.now },
@@ -186,5 +203,9 @@ const EmailAccountSchema = new Schema<IEmailAccount>({
 EmailAccountSchema.index({ userId: 1, emailAddress: 1 });
 EmailAccountSchema.index({ "syncState.syncStatus": 1 });
 EmailAccountSchema.index({ "syncState.watchExpiration": 1 });
+EmailAccountSchema.index({ "syncState.isWatching": 1 });
+EmailAccountSchema.index({ "syncState.gmailTopic": 1 });
+EmailAccountSchema.index({ "syncState.gmailSubscription": 1 });
+EmailAccountSchema.index({ "syncState.webhookId": 1 });
 
 export const EmailAccountModel = models.EmailAccount || model<IEmailAccount>("EmailAccount", EmailAccountSchema);
