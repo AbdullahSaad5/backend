@@ -79,6 +79,7 @@ export const dealsService = {
       if (updateData.selectionType === "products") {
         updateObject.products = updateData.products || [];
         updateObject.categories = [];
+        await removeDealFromListings(id)
       } else if (updateData.selectionType === "categories") {
         updateObject.categories = updateData.categories || [];
         updateObject.products = [];
@@ -94,7 +95,6 @@ export const dealsService = {
     if (!updatedDeal) {
       throw new Error('Deal not found');
     }
-    console.log(updateData);
 
     if (updatedDeal.isActive) {
       await applyDealToListings(updatedDeal._id.toString());
@@ -142,8 +142,12 @@ export const dealsService = {
   },
 
   deleteDeal: async (id: string) => {
-    const deletedDeal = await dealsModel.findByIdAndDelete(id);
-    return deletedDeal;
+    const remove = await removeDealFromListings(id);
+    if (remove) {
+      const deletedDeal = await dealsModel.findByIdAndDelete(id);
+      return deletedDeal;
+    }
+
   },
   getDealById: async (id: string) => {
     const deal = await dealsModel
@@ -241,6 +245,7 @@ export const applyDealToListings = async (dealId: string) => {
       discountValue: deal.discountValue,
       startDate: deal.startDate,
       endDate: deal.endDate,
+      isActive: deal.isActive,
     };
 
     let updateResult;
@@ -342,6 +347,7 @@ export const removeDealFromListings = async (dealId: string) => {
         removeConditions
       );
     }
+    return true;
   } catch (error) {
     console.error("Error removing deal from listings:", error);
     throw error;
