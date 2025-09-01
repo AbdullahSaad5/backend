@@ -109,8 +109,9 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
             "Hot-Lead",
             "Cold-Lead",
             "Bad-Contact",
+            "Assignment Changed",
           ],
-          required: true,
+          required: false,
         },
         changedAt: {
           type: Date,
@@ -123,6 +124,14 @@ const LeadSchema = new Schema<ILead, ILeadModel>(
         assignedUsers: {
           type: [Schema.Types.ObjectId],
           ref: "User",
+          default: undefined,
+        },
+        noteDescription: {
+          type: String,
+          default: undefined,
+        },
+        noteImages: {
+          type: [String],
           default: undefined,
         },
       },

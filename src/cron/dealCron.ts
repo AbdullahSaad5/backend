@@ -3,8 +3,7 @@ import cron from "node-cron";
 import { dealsService } from "@/services/deals.service";
 export const startDealCron = (): void => {
     // Run every day at midnight
-    // cron.schedule("0 0 * * *", async ()
-    cron.schedule("* * * * *", async () => {
+    cron.schedule("0 0,12 * * *", async () => {
 
         try {
             const { expired } = await dealsService.checkAndUpdateDeals();
