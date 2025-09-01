@@ -50,12 +50,20 @@ export const RecurringExpenseController = {
       });
 
       res.status(StatusCodes.CREATED).json({ success: true, data: created });
-    } catch (error) {
-      console.error("Error creating recurring expense:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to create recurring expense",
-      });
+    } catch (error: any) {
+      if (error.name === "MongoServerError" && error.code === 11000) {
+        const field = Object.keys(error.keyPattern)[0];
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
+        });
+      } else {
+        console.error("Error creating recurring expense:", error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: "Failed to create recurring expense",
+        });
+      }
     }
   },
 
@@ -69,12 +77,20 @@ export const RecurringExpenseController = {
           .json({ success: false, message: "Recurring expense not found" });
       }
       res.status(StatusCodes.OK).json({ success: true, data: updated });
-    } catch (error) {
-      console.error("Error updating recurring expense:", error);
-      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
-        success: false,
-        message: "Failed to update recurring expense",
-      });
+    } catch (error: any) {
+      if (error.name === "MongoServerError" && error.code === 11000) {
+        const field = Object.keys(error.keyPattern)[0];
+        res.status(StatusCodes.BAD_REQUEST).json({
+          success: false,
+          message: `The ${field} must be unique. "${req.body[field]}" is already in use.`,
+        });
+      } else {
+        console.error("Error updating recurring expense:", error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+          success: false,
+          message: "Failed to update recurring expense",
+        });
+      }
     }
   },
 
