@@ -8,6 +8,14 @@ export interface CategoryFieldMapping {
   mapping: string;
 }
 
+export interface DealInfo {
+  dealId: Types.ObjectId;
+  dealType: "percentage" | "fixed";
+  discountValue: number;
+  startDate: Date;
+  endDate: Date;
+}
+
 // Interface for Product Category
 export interface IProductCategory extends Document {
   name: string;
@@ -20,6 +28,7 @@ export interface IProductCategory extends Document {
   isPart?: boolean;
   isFeatured?: boolean;
   categoryFieldsMapping?: CategoryFieldMapping[];
+  dealInfo?: DealInfo
 }
 
 export type ProductCategoryModel = Model<IProductCategory>;
