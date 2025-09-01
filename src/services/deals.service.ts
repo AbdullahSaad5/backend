@@ -83,6 +83,7 @@ export const dealsService = {
       } else if (updateData.selectionType === "categories") {
         updateObject.categories = updateData.categories || [];
         updateObject.products = [];
+        await removeDealFromListings(id)
       }
     }
 
@@ -266,8 +267,8 @@ export const applyDealToListings = async (dealId: string) => {
     } else if (deal.selectionType === "categories" && deal.categories.length > 0) {
       console.log(`Applying to categories: ${deal.categories}`);
 
-      updateResult = await Listing.updateMany(
-        { category: { $in: deal.categories } },
+      updateResult = await ProductCategory.updateMany(
+        { _id: { $in: deal.categories } },
         {
           $set: { dealInfo: dealInfo },
           // $addToSet: { deals: deal._id } // optional: keep reference array
@@ -333,7 +334,7 @@ export const removeDealFromListings = async (dealId: string) => {
 
     const removeConditions: any = {
       $set: { dealInfo: null },
-      $pull: { deals: deal._id }
+      // $pull: { deals: deal._id }
     };
 
     if (deal.selectionType === "products" && deal.products.length > 0) {
@@ -342,8 +343,8 @@ export const removeDealFromListings = async (dealId: string) => {
         removeConditions
       );
     } else if (deal.selectionType === "categories" && deal.categories.length > 0) {
-      await Listing.updateMany(
-        { category: { $in: deal.categories } },
+      await ProductCategory.updateMany(
+        { _id: { $in: deal.categories } },
         removeConditions
       );
     }

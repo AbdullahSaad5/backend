@@ -48,8 +48,9 @@ const orderSchema = new Schema(
     marketplaceFee: { type: Number, default: 0, min: 0 },
 
     // Customer Information
-    customer: { type: Types.ObjectId, ref: "User", required: true, index: true },
-    customerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    customer: { type: Types.ObjectId, ref: "User", required: false, index: true }, // Made optional for Stripe orders
+    customerId: { type: Schema.Types.ObjectId, ref: "User", required: false, index: true }, // Made optional for Stripe orders
+    stripeCustomerId: { type: String, trim: true, sparse: true, index: true }, // Added for Stripe customer ID storage
     customerDetails: {
       firstName: { type: String, trim: true },
       lastName: { type: String, trim: true },

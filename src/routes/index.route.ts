@@ -28,6 +28,7 @@ import { discriminatorRouter } from "./discriminator.route";
 import { faqsPolicy } from "./faqs-policy.route";
 import { coupon } from "./coupon.route";
 import { discount } from "./discount.route";
+import { stripe } from "./stripe.route";
 import { taxes } from "./taxes.route";
 import { stock } from "./stock.route";
 import { customPolicy } from "./custom-policy.route";
@@ -182,6 +183,7 @@ const routes: {
   website,
   deals,
   realTimeSync,
+  stripe,
 };
 
 // Loop through all routes and pass the router to each route

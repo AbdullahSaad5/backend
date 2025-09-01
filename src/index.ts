@@ -37,6 +37,10 @@ mongoose
 
     app.use(requestLogger); // Use the request logger middleware
 
+    // IMPORTANT: Stripe webhook route MUST be before express.json() middleware
+    // to preserve raw body for signature verification
+    app.use("/api/stripe/webhook", express.raw({ type: "application/json" }));
+
     app.use(
       apiRateLimiter, // Apply API rate limiting globally
       express.json({ limit: "10mb" }),
