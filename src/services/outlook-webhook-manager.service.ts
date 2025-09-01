@@ -43,6 +43,7 @@ export class OutlookWebhookManager {
       return null;
     }
     // Use email prefix as primary identifier in URL
+    // Microsoft Graph will validate this endpoint by sending a GET request with validationToken
     return `${baseUrl}/${emailPrefix}`;
   }
 
