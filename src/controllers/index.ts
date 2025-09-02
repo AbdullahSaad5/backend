@@ -43,3 +43,4 @@ export { announcementBarController } from "./announcement-bar.controller";
 export { websiteController } from "./website.contoller";
 export { ebayChatController } from "./ebay-chat.controller";
 export { stripeController } from "./stripe.controller";
+export { analyticsController } from "./analytics.controller";

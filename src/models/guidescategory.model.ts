@@ -25,6 +25,8 @@ const GuidesCategorySchema = new Schema<IGuidesCategory, IGuidesCategoryModel>({
     type: Boolean,
     default: false,
   },
+}, {
+  timestamps: true
 });
 
 export const GuidesCategoryModel = model("GuidesCategory", GuidesCategorySchema);
