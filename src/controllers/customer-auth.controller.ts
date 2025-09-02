@@ -115,10 +115,10 @@ export const customerAuthController = {
         });
       }
 
-      console.log("Customer role from database:", customer.userType?.role);
+      console.log("Customer role from database:", customer.userType?.categoryType);
 
       // Restrict admin users from using customer login
-      if (customer.userType?.role === "admin" || customer.userType?.role === "super admin") {
+      if (customer.userType?.categoryType === "admin" || customer.userType?.categoryType === "super admin") {
         return res.status(StatusCodes.FORBIDDEN).json({
           message: "Admin users cannot use the customer login. Please use the admin login page.",
           status: StatusCodes.FORBIDDEN,
@@ -237,7 +237,7 @@ export const customerAuthController = {
         console.log("🔍 Customer userType:", customer.userType);
 
         // Restrict admin users from using customer Google login
-        if (customer.userType?.role === "admin" || customer.userType?.role === "super admin") {
+        if (customer.userType?.categoryType === "admin" || customer.userType?.categoryType === "super admin") {
           console.log("🚫 Admin user attempting customer Google login");
           return res.status(StatusCodes.FORBIDDEN).json({
             message: "Admin users cannot use customer Google login.",
@@ -330,7 +330,7 @@ export const customerAuthController = {
 
       if (customer) {
         // Restrict admin users from using customer Facebook login
-        if (customer.userType?.role === "admin" || customer.userType?.role === "super admin") {
+        if (customer.userType?.categoryType === "admin" || customer.userType?.categoryType === "super admin") {
           return res.status(StatusCodes.FORBIDDEN).json({
             message: "Admin users cannot use customer Facebook login.",
             status: StatusCodes.FORBIDDEN,
@@ -411,7 +411,7 @@ export const customerAuthController = {
       console.log("🔍 Customer userType:", customer.userType);
 
       // Restrict admin users from using customer password reset
-      if (customer.userType?.role === "admin" || customer.userType?.role === "super admin") {
+      if (customer.userType?.categoryType === "admin" || customer.userType?.categoryType === "super admin") {
         console.log("🚫 Admin user attempting customer password reset");
         return res.status(StatusCodes.FORBIDDEN).json({
           message: "Admin users cannot use customer password reset. Please use the admin password reset.",

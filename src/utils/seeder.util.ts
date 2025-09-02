@@ -6,6 +6,42 @@ import { IntegrationTokenModel } from "@/models/integration-token.model";
 import { TokenInitializationService } from "@/services/token-initialization.service";
 import { seedSystemExpenseCategories } from "@/scripts/seed-system-categories";
 dotenv.config();
+
+// Utility function to deeply compare objects (excluding _id, createdAt, updatedAt)
+const deepCompareObjects = (
+  obj1: any,
+  obj2: any,
+  excludeFields: string[] = ["_id", "createdAt", "updatedAt", "password", "resetPasswordExpires", "resetPasswordToken"]
+): boolean => {
+  if (obj1 === obj2) return true;
+
+  if (obj1 == null || obj2 == null) return obj1 === obj2;
+
+  if (typeof obj1 !== "object" || typeof obj2 !== "object") return obj1 === obj2;
+
+  const keys1 = Object.keys(obj1).filter((key) => !excludeFields.includes(key));
+  const keys2 = Object.keys(obj2).filter((key) => !excludeFields.includes(key));
+
+  if (keys1.length !== keys2.length) return false;
+
+  for (const key of keys1) {
+    if (!keys2.includes(key)) return false;
+
+    if (Array.isArray(obj1[key]) && Array.isArray(obj2[key])) {
+      if (obj1[key].length !== obj2[key].length) return false;
+      for (let i = 0; i < obj1[key].length; i++) {
+        if (!deepCompareObjects(obj1[key][i], obj2[key][i], excludeFields)) return false;
+      }
+    } else if (typeof obj1[key] === "object" && typeof obj2[key] === "object") {
+      if (!deepCompareObjects(obj1[key], obj2[key], excludeFields)) return false;
+    } else if (obj1[key] !== obj2[key]) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 // Sample seed data for UserCategory, SuperAdmin, and ProductCategories
 const seedData = async () => {
   // ❌ DISABLED: This was deleting all tokens on every server restart!
@@ -27,11 +63,11 @@ const seedData = async () => {
     console.log("⚠️ Token initialization failed, falling back to seeder...");
     await seedIntegrationTokens();
   }
+
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
-    _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
-    role: "super admin",
-    description: "This category is just for super admin usage.",
+    role: "dev admin",
+    description: "This category is just for dev admin usage.",
     permissions: [
       "DASHBOARD",
 
@@ -142,7 +178,6 @@ const seedData = async () => {
   };
 
   const adminCategoryData = {
-    _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"), // Unique ID for super admin
     role: "admin",
     description: "Admin has Access to Everything",
     categoryType: "admin",
@@ -261,18 +296,16 @@ const seedData = async () => {
     // If not found, create the user category (role)
     userCategory = new UserCategory(superAdminCategoryData);
     await userCategory.save();
-    console.log("Super Admin User Category created.");
+    console.log("Dev Admin User Category created.");
   } else {
     // If found, check for changes, if any, overwrite the data
-    if (
-      userCategory.description !== superAdminCategoryData.description ||
-      !userCategory.permissions.every((permission, index) => permission === superAdminCategoryData.permissions[index])
-    ) {
+    if (!deepCompareObjects(userCategory, superAdminCategoryData)) {
+      console.log("Dev Admin User Category differs from seeder data, updating...");
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
-      console.log("Super Admin User Category updated.");
+      console.log("Dev Admin User Category updated.");
     } else {
-      // console.log("Super Admin User Category already exists and matches.");
+      console.log("Dev Admin User Category already exists and matches seeder data exactly.");
     }
   }
   if (!adminUserCategory) {
@@ -281,21 +314,18 @@ const seedData = async () => {
     console.log("Admin User Category created.");
   } else {
     // If found, check for changes, if any, overwrite the data
-    if (
-      adminUserCategory.description !== adminCategoryData.description ||
-      !adminUserCategory.permissions.every((permission, index) => permission === adminCategoryData.permissions[index])
-    ) {
+    if (!deepCompareObjects(adminUserCategory, adminCategoryData)) {
+      console.log("Admin User Category differs from seeder data, updating...");
       adminUserCategory.set(adminCategoryData);
       await adminUserCategory.save();
-      // console.log("Admin User Category updated.");
+      console.log("Admin User Category updated.");
     } else {
-      // console.log("Admin User Category already exists and matches.");
+      console.log("Admin User Category already exists and matches seeder data exactly.");
     }
   }
 
   // 2. Seed Supplier User Category (New Category)
   const supplierCategoryData = {
-    _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"), // Unique ID for supplier
     role: "supplier",
     description: "This is Supplier Category",
     permissions: [
@@ -376,15 +406,13 @@ const seedData = async () => {
     console.log("Supplier User Category created.");
   } else {
     // If found, check for changes, if any, overwrite the data
-    if (
-      supplierCategory.description !== supplierCategoryData.description ||
-      !supplierCategory.permissions.every((permission, index) => permission === supplierCategoryData.permissions[index])
-    ) {
+    if (!deepCompareObjects(supplierCategory, supplierCategoryData)) {
+      console.log("Supplier User Category differs from seeder data, updating...");
       supplierCategory.set(supplierCategoryData);
       await supplierCategory.save();
-      // console.log("Supplier User Category updated.");
+      console.log("Supplier User Category updated.");
     } else {
-      // console.log("Supplier User Category already exists and matches.");
+      console.log("Supplier User Category already exists and matches seeder data exactly.");
     }
   }
   const actualPassword: any = process.env.SYS_PASS; // Hardcoded password for seeding
@@ -392,17 +420,16 @@ const seedData = async () => {
   const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
   const superAdminData = {
-    _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
-    firstName: "SUPER",
+    firstName: "DEV",
     lastName: "ADMIN",
-    email: "superadmin@gmail.com",
-    password: hashedPassword, // Already hashed
+    email: "devadmin@gmail.com",
+    password: hashedPassword, // Already hashed`
     phoneNumber: "443452452344",
     dob: "2024-12-16",
     signUpThrough: "Web",
     isEmailVerified: true,
     employeeId: "BMR-SADM12",
-    userType: userCategory._id, // Associate with the user category (Super Admin Role)
+    userType: userCategory._id, // Associate with the user category (Dev Admin Role)
     additionalAccessRights: [],
     restrictedAccessRights: [],
     isBlocked: false,
@@ -416,7 +443,6 @@ const seedData = async () => {
 
   // 3. Seed admin User
   const adminData = {
-    _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
     firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
@@ -442,20 +468,16 @@ const seedData = async () => {
   if (!superAdmin) {
     superAdmin = new User(superAdminData);
     await superAdmin.save();
-    console.log("Super Admin user created.");
+    console.log("Dev Admin user created.");
   } else {
     // Compare existing data and update if needed
-    if (
-      superAdmin.firstName !== superAdminData.firstName ||
-      superAdmin.lastName !== superAdminData.lastName ||
-      superAdmin.phoneNumber !== superAdminData.phoneNumber ||
-      superAdmin.dob !== superAdminData.dob
-    ) {
+    if (!deepCompareObjects(superAdmin, superAdminData)) {
+      console.log("Dev Admin user differs from seeder data, updating...");
       superAdmin.set(superAdminData);
       await superAdmin.save();
-      console.log("SuperAdmin user updated.");
+      console.log("Dev Admin user updated.");
     } else {
-      console.log("SuperAdmin user already exists and matches.");
+      console.log("Dev Admin user already exists and matches seeder data exactly.");
     }
   }
 
@@ -464,27 +486,28 @@ const seedData = async () => {
   if (!admin) {
     admin = new User(adminData);
     await admin.save();
-    console.log("admin user created.");
+    console.log("Admin user created.");
   } else {
     // Compare existing data and update if needed
-    if (
-      admin.firstName !== adminData.firstName ||
-      admin.lastName !== adminData.lastName ||
-      admin.phoneNumber !== adminData.phoneNumber ||
-      admin.dob !== adminData.dob
-    ) {
+    if (!deepCompareObjects(admin, adminData)) {
+      console.log("Admin user differs from seeder data, updating...");
       admin.set(adminData);
       await admin.save();
-      console.log("admin user updated.");
+      console.log("Admin user updated.");
     } else {
-      console.log("admin user already exists and matches.");
+      console.log("Admin user already exists and matches seeder data exactly.");
     }
   }
 
   // Seed system expense categories
   await seedSystemExpenseCategories();
 
-  console.log("Seeder completed.");
+  console.log("✅ Database seeding completed successfully!");
+  console.log("📊 Seeding Summary:");
+  console.log("   - User Categories: Dev Admin, Admin, Supplier");
+  console.log("   - Users: Dev Admin, Admin");
+  console.log("   - System Categories: Expense Categories");
+  console.log("   - Integration Tokens: Environment-driven");
 };
 
 // Export the seeder function for use in other files

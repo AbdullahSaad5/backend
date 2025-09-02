@@ -99,9 +99,9 @@ export const supplierService = {
         },
       },
       {
-        // Match only users where the userType role is "Supplier"
+        // Match only users where the userType categoryType is "Supplier"
         $match: {
-          "userType.role": "supplier",
+          "userType.categoryType": "supplier",
         },
       },
       {
@@ -199,7 +199,7 @@ export const supplierService = {
 
       // Build the query dynamically based on filters
       const query: Record<string, any> = {};
-      
+
       // Find the supplier userType dynamically
       const supplierUserType = await UserCategory.findOne({ role: "supplier" });
       if (supplierUserType) {
@@ -221,17 +221,17 @@ export const supplierService = {
 
       if (searchQuery) {
         console.log("Searching for:", searchQuery);
-        
+
         // First, try to find supplier categories that match the search query
         const SupplierCategory = mongoose.model("SupplierCategory");
         const matchingCategories = await SupplierCategory.find({
           name: { $regex: searchQuery, $options: "i" }
         });
-        
+
         const categoryIds = matchingCategories.map(cat => cat._id);
         console.log("Found matching supplier categories:", matchingCategories.map(cat => cat.name));
         console.log("Category IDs:", categoryIds);
-        
+
         const searchConditions: Record<string, any>[] = [
           { firstName: { $regex: searchQuery, $options: "i" } },
           { lastName: { $regex: searchQuery, $options: "i" } },
@@ -241,13 +241,13 @@ export const supplierService = {
           { supplierKey: { $regex: searchQuery, $options: "i" } },
           { niNumber: { $regex: searchQuery, $options: "i" } },
         ];
-        
+
         // Add combined name search for full name searches
         // This will match when someone searches for "John Smith" or similar combined names
         const searchTerms = searchQuery.trim().split(/\s+/);
         if (searchTerms.length > 1) {
           console.log("Multiple search terms detected:", searchTerms);
-          
+
           // If search query has multiple words, try to match them as first and last name combinations
           searchConditions.push({
             $and: [
@@ -255,7 +255,7 @@ export const supplierService = {
               { lastName: { $regex: searchTerms[searchTerms.length - 1], $options: "i" } }
             ]
           });
-          
+
           // Also try reverse order (last name first, then first name)
           if (searchTerms.length === 2) {
             searchConditions.push({
@@ -265,15 +265,15 @@ export const supplierService = {
               ]
             });
           }
-          
+
           console.log("Added combined name search for:", searchTerms);
         }
-        
+
         // If we found matching categories, add them to the search
         if (categoryIds.length > 0) {
           searchConditions.push({ supplierCategory: { $in: categoryIds } });
         }
-        
+
         // Use $and to combine the userType filter with the search conditions
         query.$and = [
           { userType: query.userType },
