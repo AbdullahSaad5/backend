@@ -61,7 +61,7 @@ export class OutlookSyncService {
       console.log(`📧 [Outlook] Found ${messages.length} messages`);
 
       // Debug: Check conversationId values
-      const conversationIds = [...new Set(messages.map((m) => m.conversationId).filter(Boolean))];
+      const conversationIds = [...new Set(messages.map((m: any) => m.conversationId).filter(Boolean))];
       console.log(`📧 [Outlook] Unique conversationIds found: ${conversationIds.length}`);
       console.log(`📧 [Outlook] Sample conversationIds:`, conversationIds.slice(0, 5));
 
@@ -123,7 +123,7 @@ export class OutlookSyncService {
           // Create Outlook thread data
           const outlookThreadData: Partial<IOutlookThread> = {
             conversationId,
-            accountId: account._id?.toString() || account._id,
+            accountId: account._id as any,
 
             // Store only essential metadata, not full message content
             rawOutlookData: {
@@ -170,7 +170,7 @@ export class OutlookSyncService {
 
           const existingThread = await OutlookThreadModel.findOne({
             conversationId,
-            accountId: account._id?.toString() || account._id,
+            accountId: account._id as any,
           });
 
           let savedThread: IOutlookThread;
@@ -186,7 +186,9 @@ export class OutlookSyncService {
             newCount++;
           }
 
-          console.log(`✅ [Outlook] Saved thread: ${savedThread._id}, messageCount: ${savedThread.messageCount}`);
+          console.log(
+            `✅ [Outlook] Saved thread for conversationId: ${conversationId}, messageCount: ${savedThread.messageCount}`
+          );
           processedThreads.push(savedThread);
         } catch (threadError) {
           console.error("❌ [Outlook] Error processing conversation:", conversationId, threadError);
@@ -245,11 +247,13 @@ export class OutlookSyncService {
       filter.unreadCount = { $gt: 0 };
     }
 
-    return OutlookThreadModel.find(filter)
+    const results = await OutlookThreadModel.find(filter)
       .sort({ lastActivity: -1 })
       .limit(options.limit || 20)
       .skip(options.offset || 0)
       .lean();
+
+    return results as unknown as IOutlookThread[];
   }
 
   /**

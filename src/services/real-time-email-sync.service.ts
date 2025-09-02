@@ -393,29 +393,10 @@ export class RealTimeEmailSyncService {
         throw new Error("No OAuth access token available");
       }
 
-      // Check if token is expired and refresh if needed
-      let decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
-
-      if (account.oauth.tokenExpiry && new Date() > account.oauth.tokenExpiry) {
-        logger.info(`🔄 [Outlook] Token expired for: ${account.emailAddress}, refreshing...`);
-        try {
-          const refreshResult = await EmailOAuthService.refreshTokens(account);
-          if (refreshResult.success) {
-            // Get the refreshed token
-            const updatedAccount = await EmailAccountModel.findById(account._id);
-            if (updatedAccount?.oauth?.accessToken) {
-              decryptedAccessToken = EmailOAuthService.decryptData(updatedAccount.oauth.accessToken);
-              logger.info(`✅ [Outlook] Token refreshed successfully for: ${account.emailAddress}`);
-            } else {
-              throw new Error("Failed to get refreshed token");
-            }
-          } else {
-            throw new Error(`Token refresh failed: ${refreshResult.error}`);
-          }
-        } catch (refreshError: any) {
-          logger.error(`❌ [Outlook] Token refresh failed: ${refreshError.message}`);
-          throw new Error(`Token refresh failed: ${refreshError.message}`);
-        }
+      // Always obtain a validated, decrypted access token (auto-refresh if needed)
+      const decryptedAccessToken = await this.getValidOutlookAccessToken(account);
+      if (!decryptedAccessToken) {
+        throw new Error("Unable to obtain valid Outlook access token");
       }
 
       // Test the access token first to ensure it's valid
@@ -440,16 +421,8 @@ export class RealTimeEmailSyncService {
         throw new Error(`Token validation failed: ${tokenError.message}`);
       }
 
-      // Create Microsoft Graph client with proper authentication
-      // We'll use direct HTTP requests instead of the Graph client to avoid JWT issues
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // This won't be used, but required by the Client.init interface
-          done(null, "");
-        },
-      });
-
       // Setup Outlook webhook subscription using enhanced webhook manager
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
       const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
       const webhookInfo = await OutlookWebhookManager.createWebhookSubscription(account, decryptedAccessToken);
 
@@ -1576,29 +1549,55 @@ export class RealTimeEmailSyncService {
     try {
       logger.info(`🔄 [Outlook] Syncing emails for: ${account.emailAddress}`);
 
-      // Get decrypted access token
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
+      // Get a valid decrypted access token (auto-refresh if needed)
+      let decryptedAccessToken = await this.getValidOutlookAccessToken(account);
+      if (!decryptedAccessToken) {
+        throw new Error("Unable to obtain valid Outlook access token");
+      }
 
-      // Create Microsoft Graph client with proper authentication
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // Microsoft Graph accepts opaque access tokens (not JWT format)
-          // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
-        },
-      });
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
+      // This matches the approach used in the webhook flow
+      let messagesResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments",
+        {
+          headers: {
+            Authorization: `Bearer ${decryptedAccessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      // Get recent messages
-      const messagesResponse = await graphClient
-        .api("/me/messages")
-        .top(50)
-        .orderby("receivedDateTime desc")
-        .select(
-          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments"
-        )
-        .get();
+      // If unauthorized, attempt one refresh and retry
+      if (messagesResponse.status === 401) {
+        logger.warn(
+          `⚠️ [Outlook] 401 Unauthorized when fetching messages. Attempting token refresh for: ${account.emailAddress}`
+        );
+        decryptedAccessToken = await this.getValidOutlookAccessToken(account, true);
+        if (!decryptedAccessToken) {
+          throw new Error("Failed to refresh Outlook access token");
+        }
+        messagesResponse = await fetch(
+          "https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments",
+          {
+            headers: {
+              Authorization: `Bearer ${decryptedAccessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
 
-      const messages = messagesResponse.value || [];
+      if (!messagesResponse.ok) {
+        const errorText = await messagesResponse.text();
+        logger.error(
+          `❌ [Outlook] Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`
+        );
+        logger.error(`❌ [Outlook] Error details: ${errorText}`);
+        throw new Error(`Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+      }
+
+      const messagesData = await messagesResponse.json();
+      const messages = messagesData.value || [];
       let emailsProcessed = 0;
 
       for (const message of messages) {
@@ -1795,6 +1794,45 @@ export class RealTimeEmailSyncService {
         message: "Outlook sync failed",
         error: error.message,
       };
+    }
+  }
+
+  /**
+   * Get a valid Outlook access token, decrypting and refreshing as needed.
+   * If forceRefresh is true, always refresh first.
+   */
+  private static async getValidOutlookAccessToken(
+    account: IEmailAccount,
+    forceRefresh: boolean = false
+  ): Promise<string | null> {
+    try {
+      // If not forcing refresh and token not near expiry, use decrypted existing
+      if (!forceRefresh && account.oauth?.tokenExpiry) {
+        const now = Date.now();
+        const expiry = new Date(account.oauth.tokenExpiry).getTime();
+        const bufferMs = 5 * 60 * 1000; // 5 min buffer
+        if (now < expiry - bufferMs) {
+          const token = EmailOAuthService.getDecryptedAccessToken(account);
+          if (token) return token;
+        }
+      }
+
+      // Refresh tokens centrally
+      const refreshResult = await EmailOAuthService.refreshTokens(account);
+      if (!refreshResult.success) {
+        logger.error(`❌ [Outlook] Token refresh failed for ${account.emailAddress}: ${refreshResult.error}`);
+        return null;
+      }
+
+      // Re-fetch account to get updated encrypted token
+      const updated = await EmailAccountModel.findById(account._id);
+      if (!updated?.oauth?.accessToken) {
+        return null;
+      }
+      return EmailOAuthService.getDecryptedAccessToken(updated);
+    } catch (e: any) {
+      logger.error(`❌ [Outlook] Error obtaining valid access token for ${account.emailAddress}:`, e);
+      return null;
     }
   }
 
