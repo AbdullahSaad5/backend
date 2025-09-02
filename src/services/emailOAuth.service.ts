@@ -603,13 +603,24 @@ export class EmailOAuthService {
             client_secret: decryptedClientSecret,
             refresh_token: decryptedRefreshToken,
             grant_type: "refresh_token",
+            // Microsoft v2.0 endpoint often requires scopes on refresh
+            scope: provider.oauth.scopes.join(" "),
           }),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          logger.error("Failed to refresh Outlook token:", errorText);
-          throw new Error(`Failed to refresh Outlook token: ${response.status}`);
+          let errorDetail: any = null;
+          try {
+            errorDetail = await response.json();
+          } catch (_) {
+            errorDetail = await response.text();
+          }
+          logger.error("Failed to refresh Outlook token:", errorDetail);
+          const description =
+            typeof errorDetail === "object" ? errorDetail.error_description || errorDetail.error : String(errorDetail);
+          throw new Error(
+            `Failed to refresh Outlook token: ${response.status}${description ? ` - ${description}` : ""}`
+          );
         }
 
         const tokens: OAuthTokenResponse = await response.json();
@@ -832,13 +843,21 @@ export class EmailOAuthService {
           client_secret: decryptedClientSecret,
           refresh_token: decryptedRefreshToken,
           grant_type: "refresh_token",
+          scope: provider.oauth.scopes.join(" "),
         }),
       });
 
-      const tokens = await response.json();
+      let tokens: any = null;
+      try {
+        tokens = await response.json();
+      } catch (_) {
+        // keep as null to trigger error handling below
+      }
 
-      if (!response.ok || !tokens.access_token) {
-        return { success: false, error: tokens.error_description || "Token refresh failed" };
+      if (!response.ok || !tokens?.access_token) {
+        const errorMessage =
+          tokens?.error_description || tokens?.error || (await response.text?.()) || "Token refresh failed";
+        return { success: false, error: errorMessage };
       }
 
       // Update the account with new tokens

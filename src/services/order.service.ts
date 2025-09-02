@@ -8,9 +8,17 @@ export const orderService = {
   // Create a new order
   createOrder: async (orderData: Partial<IOrder>) => {
     try {
+      console.log("🔵 [ORDER_SERVICE] Creating order with data:", JSON.stringify(orderData, null, 2));
+      
       // 1) Create and persist the order
       const newOrder = new Order(orderData);
+      
+      console.log("🔵 [ORDER_SERVICE] Order object before save:", JSON.stringify(newOrder.toObject(), null, 2));
+      
       await newOrder.save();
+      
+      console.log("🔵 [ORDER_SERVICE] Order saved successfully with ID:", newOrder._id);
+      console.log("🔵 [ORDER_SERVICE] Saved order data:", JSON.stringify(newOrder.toObject(), null, 2));
 
       // 2) Resolve relevant workflows ONCE for all item conditions for efficiency
       const appliesToOrderType = newOrder.type ?? ("SALE" as any);
