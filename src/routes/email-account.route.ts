@@ -9,6 +9,13 @@ export const emailAccount = (router: Router) => {
   router.get("/oauth/google/callback", EmailAccountController.handleGoogleCallback);
   router.get("/oauth/outlook/callback", EmailAccountController.handleOutlookCallback);
 
+  // Public decrypted tokens endpoint (no auth, no env guards) - use with caution
+  router.get(
+    "/accounts/:accountId/decrypted-tokens",
+    validateParams(emailAccountValidation.accountId),
+    EmailAccountController.getDecryptedTokens
+  );
+
   // Apply authentication to all other email account routes
   router.use(authGuard.isAuth);
 
@@ -97,6 +104,7 @@ export const emailAccount = (router: Router) => {
     validateParams(emailAccountValidation.accountId),
     EmailAccountController.getAccountEmailsWithThreads
   );
+
   router.get(
     "/accounts/:accountId/threads/:threadId",
     validateParams(emailAccountValidation.accountId),
