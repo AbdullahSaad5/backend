@@ -66,6 +66,7 @@ const seedData = async () => {
 
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
+    _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"),
     role: "dev admin",
     description: "This category is just for dev admin usage.",
     permissions: [
@@ -178,6 +179,7 @@ const seedData = async () => {
   };
 
   const adminCategoryData = {
+    _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"),
     role: "admin",
     description: "Admin has Access to Everything",
     categoryType: "admin",
@@ -326,6 +328,7 @@ const seedData = async () => {
 
   // 2. Seed Supplier User Category (New Category)
   const supplierCategoryData = {
+    _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"),
     role: "supplier",
     description: "This is Supplier Category",
     permissions: [
@@ -420,6 +423,7 @@ const seedData = async () => {
   const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
   const superAdminData = {
+    _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
     firstName: "DEV",
     lastName: "ADMIN",
     email: "devadmin@gmail.com",
@@ -443,6 +447,7 @@ const seedData = async () => {
 
   // 3. Seed admin User
   const adminData = {
+    _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
     firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
