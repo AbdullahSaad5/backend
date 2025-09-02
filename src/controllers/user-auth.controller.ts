@@ -130,7 +130,10 @@ export const authController = {
       }
 
       // Restrict Admin and SuperAdmin to login only with 'X-User-Type: Admin'
-      if ((user.userType.role === "admin" || user.userType.role === "super admin") && userTypeFromHeader !== "admin") {
+      if (
+        (user.userType.categoryType === "admin" || user.userType.categoryType === "super admin") &&
+        userTypeFromHeader !== "admin"
+      ) {
         return res.status(StatusCodes.FORBIDDEN).json({
           message: "Admin must use their respective login page.",
           status: StatusCodes.FORBIDDEN,
@@ -138,7 +141,11 @@ export const authController = {
       }
 
       // Restrict other roles to login only without 'X-User-Type: Admin'
-      if (userTypeFromHeader === "admin" && user.userType.role !== "admin" && user.userType.role !== "super admin") {
+      if (
+        userTypeFromHeader === "admin" &&
+        user.userType.categoryType !== "admin" &&
+        user.userType.categoryType !== "dev admin"
+      ) {
         return res.status(StatusCodes.FORBIDDEN).json({
           message: "You are not authorized to use the Admin login page.",
           status: StatusCodes.FORBIDDEN,
