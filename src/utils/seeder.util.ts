@@ -261,7 +261,7 @@ const seedData = async () => {
     // If not found, create the user category (role)
     userCategory = new UserCategory(superAdminCategoryData);
     await userCategory.save();
-    console.log("Super Admin User Category created.");
+    console.log("Dev Admin User Category created.");
   } else {
     // If found, check for changes, if any, overwrite the data
     if (
@@ -270,9 +270,9 @@ const seedData = async () => {
     ) {
       userCategory.set(superAdminCategoryData);
       await userCategory.save();
-      console.log("Super Admin User Category updated.");
+      console.log("Dev Admin User Category updated.");
     } else {
-      // console.log("Super Admin User Category already exists and matches.");
+      // console.log("DEV Admin User Category already exists and matches.");
     }
   }
   if (!adminUserCategory) {
@@ -442,7 +442,7 @@ const seedData = async () => {
   if (!superAdmin) {
     superAdmin = new User(superAdminData);
     await superAdmin.save();
-    console.log("Super Admin user created.");
+    console.log("Dev Admin user created.");
   } else {
     // Compare existing data and update if needed
     if (
