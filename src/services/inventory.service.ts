@@ -519,7 +519,8 @@ export const inventoryService = {
         .populate("productInfo.productCategory")
         // .populate("productInfo.productSupplier")
         .skip(skip)
-        .limit(limitNumber);
+        .limit(limitNumber)
+        .sort({ createdAt: -1 });
 
       // Count total filtered inventory
       const totalInventory = await Inventory.countDocuments(query);

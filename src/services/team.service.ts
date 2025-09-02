@@ -3,7 +3,7 @@ import { TeamCreatePayload, TeamUpdatePayload } from "@/contracts/team.contract"
 
 export const teamService = {
   getAllTeams: () => {
-    return Team.find().populate('userCategoryId', 'role description');
+    return Team.find().populate('userCategoryId', 'role description').sort({ createdAt: -1 });;
   },
 
   getTeamsByCategory: (userCategoryId: string) => {

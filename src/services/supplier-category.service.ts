@@ -20,7 +20,7 @@ export const supplierCategoryService = {
   },
 
   getAllCategory: () => {
-    return SupplierCategory.find().populate('productCategories', 'name image');
+    return SupplierCategory.find().populate('productCategories', 'name image').sort({ createdAt: -1 });
   },
 
   getById: (id: string) => {
