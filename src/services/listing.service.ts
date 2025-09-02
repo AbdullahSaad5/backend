@@ -275,7 +275,8 @@ export const listingService = {
       return await Listing.find()
         .populate("productInfo.productCategory")
         .populate("productInfo.productSupplier")
-        .populate("prodPricing.paymentPolicy");
+        .populate("prodPricing.paymentPolicy")
+        .sort({ createdAt: -1 });
     } catch (error) {
       console.error("Error fetching all listing:", error);
       throw new Error("Failed to fetch listing");
@@ -571,7 +572,8 @@ export const listingService = {
         .populate("productInfo.productSupplier")
         .populate("selectedStockId")
         .skip(skip)
-        .limit(limitNumber);
+        .limit(limitNumber)
+        .sort({ createdAt: -1 });
 
       const totalListing = await Listing.countDocuments(query);
 

@@ -66,6 +66,7 @@ const seedData = async () => {
 
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
+    _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"),
     role: "dev admin",
     description: "This category is just for dev admin usage.",
     permissions: [
@@ -178,6 +179,7 @@ const seedData = async () => {
   };
 
   const adminCategoryData = {
+    _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"),
     role: "admin",
     description: "Admin has Access to Everything",
     categoryType: "admin",
@@ -301,8 +303,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(userCategory, superAdminCategoryData)) {
       console.log("Dev Admin User Category differs from seeder data, updating...");
-      userCategory.set(superAdminCategoryData);
-      await userCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = superAdminCategoryData;
+      await UserCategory.findByIdAndUpdate(userCategory._id, { $set: updateData }, { new: true });
       console.log("Dev Admin User Category updated.");
     } else {
       console.log("Dev Admin User Category already exists and matches seeder data exactly.");
@@ -316,8 +319,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(adminUserCategory, adminCategoryData)) {
       console.log("Admin User Category differs from seeder data, updating...");
-      adminUserCategory.set(adminCategoryData);
-      await adminUserCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = adminCategoryData;
+      await UserCategory.findByIdAndUpdate(adminUserCategory._id, { $set: updateData }, { new: true });
       console.log("Admin User Category updated.");
     } else {
       console.log("Admin User Category already exists and matches seeder data exactly.");
@@ -326,6 +330,7 @@ const seedData = async () => {
 
   // 2. Seed Supplier User Category (New Category)
   const supplierCategoryData = {
+    _id: new mongoose.Types.ObjectId("68026f5f66b4649dc9c4d401"),
     role: "supplier",
     description: "This is Supplier Category",
     permissions: [
@@ -408,8 +413,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(supplierCategory, supplierCategoryData)) {
       console.log("Supplier User Category differs from seeder data, updating...");
-      supplierCategory.set(supplierCategoryData);
-      await supplierCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = supplierCategoryData;
+      await UserCategory.findByIdAndUpdate(supplierCategory._id, { $set: updateData }, { new: true });
       console.log("Supplier User Category updated.");
     } else {
       console.log("Supplier User Category already exists and matches seeder data exactly.");
@@ -420,6 +426,7 @@ const seedData = async () => {
   const hashedPassword = await createHash(actualPassword);
   // 3. Seed SuperAdmin User
   const superAdminData = {
+    _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
     firstName: "DEV",
     lastName: "ADMIN",
     email: "devadmin@gmail.com",
@@ -443,6 +450,7 @@ const seedData = async () => {
 
   // 3. Seed admin User
   const adminData = {
+    _id: new mongoose.Types.ObjectId("675715ba31ef09b1e5edde03"),
     firstName: "Hammad",
     lastName: "ADMIN",
     email: "admin@gmail.com",
@@ -473,8 +481,9 @@ const seedData = async () => {
     // Compare existing data and update if needed
     if (!deepCompareObjects(superAdmin, superAdminData)) {
       console.log("Dev Admin user differs from seeder data, updating...");
-      superAdmin.set(superAdminData);
-      await superAdmin.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = superAdminData;
+      await User.findByIdAndUpdate(superAdmin._id, { $set: updateData }, { new: true });
       console.log("Dev Admin user updated.");
     } else {
       console.log("Dev Admin user already exists and matches seeder data exactly.");
@@ -491,8 +500,9 @@ const seedData = async () => {
     // Compare existing data and update if needed
     if (!deepCompareObjects(admin, adminData)) {
       console.log("Admin user differs from seeder data, updating...");
-      admin.set(adminData);
-      await admin.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = adminData;
+      await User.findByIdAndUpdate(admin._id, { $set: updateData }, { new: true });
       console.log("Admin user updated.");
     } else {
       console.log("Admin user already exists and matches seeder data exactly.");

@@ -54,19 +54,19 @@ export const BlogCategoryService = {
       ];
     }
 
-    // Build sort object
-    const sort: any = {};
-    sort[sortBy] = sortOrder === "desc" ? -1 : 1;
+    // // Build sort object
+    // const sort: any = {};
+    // sort[sortBy] = sortOrder === "desc" ? -1 : 1;
 
     // Calculate skip value for pagination
     const skip = (page - 1) * limit;
 
     // Execute query with pagination
     const blogCategories = await BlogCategory.find(query)
-      .sort(sort)
       .skip(skip)
       .limit(limit)
-      .lean();
+      .lean()
+      .sort({ createdAt: -1 });
 
     // Get total count for pagination
     const total = await BlogCategory.countDocuments(query);

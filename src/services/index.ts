@@ -41,3 +41,4 @@ export { announcementBarService } from "./announcement-bar.service";
 export { websiteService } from "./website.service";
 export { stripeService } from "./stripe.service";
 export { pendingOrderService } from "./pending-order.service";
+export { analyticsService } from "./analytics.service";

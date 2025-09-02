@@ -668,7 +668,8 @@ export const userService = {
           },
         })
         .skip(skip) // Correct application of skip
-        .limit(limitNumber); // Correct application of limit
+        .limit(limitNumber) // Correct application of limit
+        .sort({ createdAt: -1 });
 
       // Count total users
       const totalUsers = await User.countDocuments(query);
