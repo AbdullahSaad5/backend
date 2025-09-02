@@ -440,16 +440,8 @@ export class RealTimeEmailSyncService {
         throw new Error(`Token validation failed: ${tokenError.message}`);
       }
 
-      // Create Microsoft Graph client with proper authentication
-      // We'll use direct HTTP requests instead of the Graph client to avoid JWT issues
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // This won't be used, but required by the Client.init interface
-          done(null, "");
-        },
-      });
-
       // Setup Outlook webhook subscription using enhanced webhook manager
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
       const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
       const webhookInfo = await OutlookWebhookManager.createWebhookSubscription(account, decryptedAccessToken);
 
@@ -1579,26 +1571,29 @@ export class RealTimeEmailSyncService {
       // Get decrypted access token
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
 
-      // Create Microsoft Graph client with proper authentication
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // Microsoft Graph accepts opaque access tokens (not JWT format)
-          // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
-        },
-      });
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
+      // This matches the approach used in the webhook flow
+      const messagesResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments",
+        {
+          headers: {
+            Authorization: `Bearer ${decryptedAccessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      // Get recent messages
-      const messagesResponse = await graphClient
-        .api("/me/messages")
-        .top(50)
-        .orderby("receivedDateTime desc")
-        .select(
-          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments"
-        )
-        .get();
+      if (!messagesResponse.ok) {
+        const errorText = await messagesResponse.text();
+        logger.error(
+          `❌ [Outlook] Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`
+        );
+        logger.error(`❌ [Outlook] Error details: ${errorText}`);
+        throw new Error(`Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+      }
 
-      const messages = messagesResponse.value || [];
+      const messagesData = await messagesResponse.json();
+      const messages = messagesData.value || [];
       let emailsProcessed = 0;
 
       for (const message of messages) {
