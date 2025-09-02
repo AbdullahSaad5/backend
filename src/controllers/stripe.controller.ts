@@ -6,6 +6,7 @@ import { stripeService } from "@/services/stripe.service";
 import { pendingOrderService } from "@/services/pending-order.service";
 import { orderService } from "@/services/order.service";
 import { stripeLogger } from "@/utils/stripe-logger.util";
+import { resolveProductIds, createProductIdMap } from "@/utils/product-resolver";
 import {
   CreateSubscriptionPayload,
   CancelSubscriptionPayload,
@@ -256,22 +257,8 @@ export const stripeController = {
         transactionId: pendingOrder.paymentIntentId,
         paymentDetails: `Stripe Payment Intent: ${pendingOrder.paymentIntentId}`,
 
-        // Items - Fixed condition enum value
-        items:
-          pendingOrder.orderData?.items?.map((item: any, index: number) => ({
-            itemId: `item_${index + 1}`,
-            productId: item.productId || null,
-            sku: item.sku || `SKU_${index + 1}`,
-            name: item.name,
-            description: item.description || "",
-            quantity: item.quantity,
-            unitPrice: item.price,
-            condition: "New", // Fixed: Changed from "NEW" to "New" to match enum
-            itemTotal: item.price * item.quantity,
-            discountAmount: 0,
-            taxAmount: 0,
-            finalPrice: item.price * item.quantity,
-          })) || [],
+        // Items will be added after product resolution
+        items: [], // Temporary - will be set below
 
         // Products (legacy support)
         products: [],
@@ -321,6 +308,112 @@ export const stripeController = {
         taskIds: [],
         suggestedTasks: [],
       };
+
+      // Resolve product IDs from aliases/strings to actual ObjectIds
+      const productIdentifiers = pendingOrder.orderData?.items?.map((item: any) => item.productId).filter(Boolean) || [];
+      console.log("🔵 [STRIPE_CONTROLLER] Product identifiers from pending order:", productIdentifiers);
+      
+      const productResolution = await resolveProductIds(productIdentifiers);
+      console.log("🔵 [STRIPE_CONTROLLER] Product resolution result:", {
+        found: productResolution.found.length,
+        missing: productResolution.missing.length,
+        foundProducts: productResolution.found,
+        missingProducts: productResolution.missing
+      });
+      
+      const productIdMap = createProductIdMap(productResolution);
+
+      // Log missing products for debugging
+      if (productResolution.missing.length > 0) {
+        console.warn(`⚠️ Missing products in database:`, productResolution.missing);
+        console.warn(`Missing products for order ${pendingOrder.orderId}:`, productResolution.missing);
+      }
+
+      // Log found products
+      if (productResolution.found.length > 0) {
+        console.log(`✅ Found ${productResolution.found.length} products in database`);
+      }
+
+      // Items - Only include items with valid productIds
+      console.log("🔵 [STRIPE_CONTROLLER] Raw items from frontend before processing:", 
+        JSON.stringify(pendingOrder.orderData?.items, null, 2));
+      
+      const validItems = pendingOrder.orderData?.items?.filter((item: any) => {
+        if (!item.productId) return false;
+        const hasValidProduct = productIdMap.has(item.productId);
+        if (!hasValidProduct) {
+          console.warn(`Skipping item with missing product: ${item.productId} - ${item.name}`);
+        }
+        return hasValidProduct;
+      }) || [];
+
+      console.log("🔵 [STRIPE_CONTROLLER] Valid items after filtering:", JSON.stringify(validItems, null, 2));
+
+      const resolvedItems = validItems.map((item: any, index: number) => {
+        // Debug: Log the exact structure of each item from frontend
+        console.log(`🔍 [ITEM_${index + 1}] Raw item from frontend:`, {
+          price: item.price,
+          unitPrice: item.unitPrice,
+          discountAmount: item.discountAmount,
+          finalPrice: item.finalPrice,
+          allKeys: Object.keys(item),
+          fullItem: item
+        });
+
+        const mappedItem = {
+          itemId: `item_${index + 1}`,
+          productId: productIdMap.get(item.productId), // Use resolved ObjectId
+          sku: item.sku || `SKU_${index + 1}`,
+          name: item.name,
+          description: item.description || "",
+          quantity: item.quantity,
+          // Ensure we use the original price, not the discounted price
+          unitPrice: item.unitPrice || item.originalPrice || item.price,
+          condition: "New" as any,
+          itemTotal: item.finalPrice || (item.price * item.quantity),
+          // Ensure we preserve the discount amount
+          discountAmount: item.discountAmount || item.discount || 0,
+          taxAmount: item.taxAmount || 0,
+          // Use the final discounted price
+          finalPrice: item.finalPrice || (item.price * item.quantity),
+        };
+
+        // Validation: Check if the math makes sense
+        const expectedFinalPrice = (mappedItem.unitPrice - mappedItem.discountAmount) * mappedItem.quantity;
+        if (Math.abs(mappedItem.finalPrice - expectedFinalPrice) > 0.01) {
+          console.warn(`⚠️ [ITEM_${index + 1}] Price calculation mismatch:`, {
+            unitPrice: mappedItem.unitPrice,
+            discountAmount: mappedItem.discountAmount,
+            quantity: mappedItem.quantity,
+            expectedFinalPrice,
+            actualFinalPrice: mappedItem.finalPrice,
+            difference: mappedItem.finalPrice - expectedFinalPrice
+          });
+        }
+
+        console.log(`🔍 [ITEM_${index + 1}] Mapped item:`, mappedItem);
+        return mappedItem;
+      });
+
+      console.log("🔵 [STRIPE_CONTROLLER] Items after transformation to resolvedItems:", 
+        JSON.stringify(resolvedItems, null, 2));
+
+      // Validate that we have at least one valid item
+      if (resolvedItems.length === 0) {
+        throw new Error(`No valid products found for order. Missing products: ${productResolution.missing.join(', ')}`);
+      }
+
+      // Update orderData with resolved items and adjusted totals
+      const validItemsTotal = resolvedItems.reduce((sum: number, item: any) => sum + item.finalPrice, 0);
+      orderData.items = resolvedItems;
+      orderData.subtotal = validItemsTotal;
+      orderData.grandTotal = validItemsTotal; // Adjust if needed based on shipping/tax
+
+      console.log("🔵 [STRIPE_CONTROLLER] Final order data being sent to order service:");
+      console.log(JSON.stringify(orderData, null, 2));
+      
+      console.log("🔵 [STRIPE_CONTROLLER] Resolved items being saved:");
+      console.log(JSON.stringify(resolvedItems, null, 2));
 
       // Create the order using your existing order service
       const createdOrder = await orderService.createOrder(orderData);
