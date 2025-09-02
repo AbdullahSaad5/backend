@@ -303,8 +303,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(userCategory, superAdminCategoryData)) {
       console.log("Dev Admin User Category differs from seeder data, updating...");
-      userCategory.set(superAdminCategoryData);
-      await userCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = superAdminCategoryData;
+      await UserCategory.findByIdAndUpdate(userCategory._id, { $set: updateData }, { new: true });
       console.log("Dev Admin User Category updated.");
     } else {
       console.log("Dev Admin User Category already exists and matches seeder data exactly.");
@@ -318,8 +319,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(adminUserCategory, adminCategoryData)) {
       console.log("Admin User Category differs from seeder data, updating...");
-      adminUserCategory.set(adminCategoryData);
-      await adminUserCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = adminCategoryData;
+      await UserCategory.findByIdAndUpdate(adminUserCategory._id, { $set: updateData }, { new: true });
       console.log("Admin User Category updated.");
     } else {
       console.log("Admin User Category already exists and matches seeder data exactly.");
@@ -411,8 +413,9 @@ const seedData = async () => {
     // If found, check for changes, if any, overwrite the data
     if (!deepCompareObjects(supplierCategory, supplierCategoryData)) {
       console.log("Supplier User Category differs from seeder data, updating...");
-      supplierCategory.set(supplierCategoryData);
-      await supplierCategory.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = supplierCategoryData;
+      await UserCategory.findByIdAndUpdate(supplierCategory._id, { $set: updateData }, { new: true });
       console.log("Supplier User Category updated.");
     } else {
       console.log("Supplier User Category already exists and matches seeder data exactly.");
@@ -478,8 +481,9 @@ const seedData = async () => {
     // Compare existing data and update if needed
     if (!deepCompareObjects(superAdmin, superAdminData)) {
       console.log("Dev Admin user differs from seeder data, updating...");
-      superAdmin.set(superAdminData);
-      await superAdmin.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = superAdminData;
+      await User.findByIdAndUpdate(superAdmin._id, { $set: updateData }, { new: true });
       console.log("Dev Admin user updated.");
     } else {
       console.log("Dev Admin user already exists and matches seeder data exactly.");
@@ -496,8 +500,9 @@ const seedData = async () => {
     // Compare existing data and update if needed
     if (!deepCompareObjects(admin, adminData)) {
       console.log("Admin user differs from seeder data, updating...");
-      admin.set(adminData);
-      await admin.save();
+      // Use $set to update only specific fields without replacing the entire document
+      const { _id, ...updateData } = adminData;
+      await User.findByIdAndUpdate(admin._id, { $set: updateData }, { new: true });
       console.log("Admin user updated.");
     } else {
       console.log("Admin user already exists and matches seeder data exactly.");

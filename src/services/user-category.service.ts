@@ -2,7 +2,7 @@ import { UserCategory } from "@/models";
 
 export const userCategoryService = {
   getAllUsersCategories: () => {
-    return UserCategory.find();
+    return UserCategory.find().sort({ createdAt: -1 });
   },
 
   createCategory: (role: string, description: string, permissions: [string], categoryType: string) => {
