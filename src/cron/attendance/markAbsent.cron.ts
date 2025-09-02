@@ -2,12 +2,17 @@ import nodeCron from "node-cron";
 import { markAbsentForUsers } from "@/services/attendance.service";
 
 export const markAbsentCron = () => {
-  // Run every 2 hours to handle different shift end times:
-  // - Morning shifts (6 AM - 2 PM) processed around 4 PM
-  // - Evening shifts (2 PM - 10 PM) processed around 12 AM
-  // - Overnight shifts (10 PM - 6 AM) processed around 8 AM
-  nodeCron.schedule("0 */2 * * 1-5", async () => {
-    await markAbsentForUsers();
-    console.log("Mark Absent cron job executed");
+  // Run at strategic times with date-specific processing:
+  // - 8 AM: Process yesterday's overnight shifts (22:00-06:00)
+  // - 4 PM: Process today's morning shifts (06:00-14:00)
+  // - Midnight: Process yesterday's evening shifts (14:00-22:00)
+  // Each run processes only ONE specific date to avoid duplicates
+  nodeCron.schedule("0 8,16,0 * * 1-5", async () => {
+    try {
+      await markAbsentForUsers();
+      console.log("Mark Absent cron job executed successfully");
+    } catch (error) {
+      console.error("Mark Absent cron job failed:", error);
+    }
   });
 };

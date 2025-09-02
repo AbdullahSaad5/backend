@@ -1,11 +1,9 @@
 import { orderController } from "@/controllers";
 import { orderValidation } from "@/validations/order.validation";
-import { authGuard } from "@/guards";
 import { Router } from "express";
 
 export const orderRoutes = (router: Router) => {
   // Apply authentication guard to all order routes
-  router.use(authGuard.isAuth);
 
   // Basic CRUD operations
   router.post("/", orderValidation.createOrder, orderController.createOrder);

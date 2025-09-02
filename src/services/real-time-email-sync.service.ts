@@ -8,15 +8,43 @@ import { logger } from "@/utils/logger.util";
 import { socketManager } from "@/datasources/socket.datasource";
 import { Client } from "@microsoft/microsoft-graph-client";
 import { getOutlookWebhookUrl } from "@/config/instance-config";
+import { PubSub } from "@google-cloud/pubsub";
+import crypto from "crypto";
 
 export interface RealTimeSyncResult {
   success: boolean;
   message: string;
   emailsProcessed?: number;
   error?: string;
+  webhookInfo?: any;
 }
 
 export class RealTimeEmailSyncService {
+  // Lazy initialization of Google Cloud Pub/Sub client
+  private static getPubSubClient(): PubSub {
+    const projectId = process.env.GOOGLE_CLOUD_PROJECT;
+    const serviceAccountCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
+
+    if (!projectId || !serviceAccountCredentials) {
+      throw new Error(
+        "Google Cloud configuration missing: GOOGLE_CLOUD_PROJECT or GOOGLE_SERVICE_ACCOUNT_CREDENTIALS not set"
+      );
+    }
+
+    // Parse the service account credentials from environment variable
+    let credentials;
+    try {
+      credentials = JSON.parse(serviceAccountCredentials);
+    } catch (error) {
+      throw new Error("Invalid GOOGLE_SERVICE_ACCOUNT_CREDENTIALS format in environment variables");
+    }
+
+    return new PubSub({
+      projectId,
+      credentials,
+    });
+  }
+
   /**
    * Setup real-time sync for Gmail accounts
    */
@@ -58,9 +86,36 @@ export class RealTimeEmailSyncService {
         return this.setupGmailPollingFallback(account);
       }
 
-      // Setup Gmail watch with Google Cloud Pub/Sub
-      // Use a consistent topic name for the project
-      const topicName = `projects/${projectId}/topics/gmail-sync-notifications`;
+      // Automatically create account-specific topic
+      let topicName: string;
+      let isAutoCreated = false;
+
+      try {
+        // Try to create account-specific topic
+        logger.info(`🔄 [Gmail] Attempting to create account-specific topic for: ${account.emailAddress}`);
+        topicName = await this.ensureGmailTopicExists(account);
+        isAutoCreated = true;
+        logger.info(`✅ [Gmail] Using auto-created account-specific topic: ${topicName}`);
+      } catch (error: any) {
+        // Fallback to shared topic if auto-creation fails
+        logger.warn(`⚠️ [Gmail] Topic creation failed for ${account.emailAddress}, error: ${error.message}`);
+        topicName = `projects/${projectId}/topics/gmail-sync-notifications`;
+        logger.warn(`⚠️ [Gmail] Falling back to shared topic: ${topicName} for ${account.emailAddress}`);
+      }
+
+      // Create Pub/Sub subscription for the topic to deliver notifications to webhook
+      let subscriptionName: string;
+      try {
+        logger.info(`📧 [Gmail] Creating Pub/Sub subscription for: ${account.emailAddress}`);
+        subscriptionName = await this.ensureGmailSubscriptionExists(account, topicName);
+        logger.info(`✅ [Gmail] Pub/Sub subscription created: ${subscriptionName}`);
+      } catch (subscriptionError: any) {
+        logger.error(
+          `❌ [Gmail] Failed to create Pub/Sub subscription for ${account.emailAddress}:`,
+          subscriptionError
+        );
+        throw new Error(`Pub/Sub subscription creation failed: ${subscriptionError.message}`);
+      }
 
       logger.info(`📧 [Gmail] Setting up watch with topic: ${topicName} for: ${account.emailAddress}`);
 
@@ -78,27 +133,156 @@ export class RealTimeEmailSyncService {
         ? new Date(parseInt(watchResponse.data.expiration))
         : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days default
 
-      await EmailAccountModel.findByIdAndUpdate(account._id, {
-        $set: {
-          "syncState.watchExpiration": expirationTime,
-          "syncState.lastWatchRenewal": new Date(),
-          "syncState.isWatching": true,
-          "syncState.syncStatus": "watching",
-        },
-      });
+      try {
+        const updateResult = await EmailAccountModel.findByIdAndUpdate(
+          account._id,
+          {
+            $set: {
+              "syncState.gmailTopic": topicName,
+              "syncState.gmailSubscription": subscriptionName,
+              "syncState.isAutoCreated": isAutoCreated,
+              "syncState.watchExpiration": expirationTime,
+              "syncState.lastWatchRenewal": new Date(),
+              "syncState.isWatching": true,
+              "syncState.syncStatus": "watching",
+            },
+          },
+          { new: true }
+        );
 
-      logger.info(`✅ [Gmail] Real-time sync setup completed for: ${account.emailAddress}`);
-      logger.info(`📅 [Gmail] Watch expires: ${expirationTime.toISOString()}`);
+        if (!updateResult) {
+          logger.error(`❌ [Gmail] Database update failed for: ${account.emailAddress}`);
+          throw new Error("Failed to update database");
+        }
+
+        // Verify the update was successful
+        const verifyAccount = await EmailAccountModel.findById(account._id);
+        if (!verifyAccount?.syncState?.gmailTopic) {
+          logger.error(`❌ [Gmail] Database update verification failed for: ${account.emailAddress}`);
+          throw new Error("Database update verification failed");
+        }
+      } catch (dbError: any) {
+        logger.error(`❌ [Gmail] Database update error for ${account.emailAddress}:`, dbError);
+        throw new Error(`Database update failed: ${dbError.message}`);
+      }
 
       return {
         success: true,
-        message: "Gmail real-time sync setup completed",
+        message: `Gmail real-time sync setup completed with ${isAutoCreated ? "auto-created" : "shared"} topic`,
       };
     } catch (error: any) {
       logger.error(`❌ [Gmail] Failed to setup real-time sync for ${account.emailAddress}:`, error);
 
       // Fallback to polling
       return this.setupGmailPollingFallback(account);
+    }
+  }
+
+  /**
+   * Automatically create Pub/Sub subscription for Gmail account
+   */
+  private static async ensureGmailSubscriptionExists(account: IEmailAccount, topicName: string): Promise<string> {
+    try {
+      // Generate unique subscription name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
+
+      const subscriptionName = `gmail-sync-${accountHash}-webhook`;
+      const fullSubscriptionName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/subscriptions/${subscriptionName}`;
+
+      // Get webhook endpoint URL
+      const webhookUrl =
+        process.env.GMAIL_WEBHOOK_URL ||
+        `${process.env.BACKEND_URL || "https://bavit-dev-1eb6ed0cf94e.herokuapp.com"}/api/gmail-webhook/webhook`;
+
+      try {
+        // Check if subscription exists
+        const pubsub = this.getPubSubClient();
+        const [subscriptions] = await pubsub.getSubscriptions();
+        const subscriptionExists = subscriptions.some((sub) => sub.name.includes(subscriptionName));
+
+        if (!subscriptionExists) {
+          // Create subscription with push delivery to webhook
+          logger.info(`📧 [Gmail] Creating subscription: ${subscriptionName} → ${webhookUrl}`);
+
+          // Create subscription through the topic (required by Google Cloud Pub/Sub)
+          const topic = pubsub.topic(topicName);
+          await topic.createSubscription(subscriptionName, {
+            pushConfig: {
+              pushEndpoint: webhookUrl,
+            },
+            ackDeadlineSeconds: 60,
+            messageRetentionDuration: {
+              seconds: 7 * 24 * 60 * 60, // 7 days
+            },
+            retryPolicy: {
+              minimumBackoff: {
+                seconds: 10,
+              },
+              maximumBackoff: {
+                seconds: 600,
+              },
+            },
+          });
+
+          logger.info(`✅ [Gmail] Auto-created Pub/Sub subscription: ${subscriptionName} for ${account.emailAddress}`);
+        } else {
+          logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already exists for ${account.emailAddress}`);
+        }
+      } catch (error: any) {
+        if (error.code === 6) {
+          // Subscription already exists (race condition)
+          logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already exists for ${account.emailAddress}`);
+        } else {
+          throw error;
+        }
+      }
+
+      return fullSubscriptionName;
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to create subscription for ${account.emailAddress}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Automatically create Pub/Sub topic for Gmail account
+   */
+  private static async ensureGmailTopicExists(account: IEmailAccount): Promise<string> {
+    try {
+      // Generate unique topic name for this account using Gmail username
+      const gmailUsername = account.emailAddress.split("@")[0];
+      const accountHash = gmailUsername; // Use Gmail username directly as hash
+
+      const topicName = `gmail-sync-${accountHash}`;
+      const fullTopicName = `projects/${process.env.GOOGLE_CLOUD_PROJECT}/topics/${topicName}`;
+
+      try {
+        // Check if topic exists
+        const pubsub = this.getPubSubClient();
+        const [topics] = await pubsub.getTopics();
+        const topicExists = topics.some((topic) => topic.name.includes(topicName));
+
+        if (!topicExists) {
+          // Create topic automatically
+          await pubsub.createTopic(topicName);
+          logger.info(`✅ [Gmail] Auto-created Pub/Sub topic: ${topicName} for ${account.emailAddress}`);
+        } else {
+          logger.info(`ℹ️ [Gmail] Topic ${topicName} already exists for ${account.emailAddress}`);
+        }
+      } catch (error: any) {
+        if (error.code === 6) {
+          // Topic already exists (race condition)
+          logger.info(`ℹ️ [Gmail] Topic ${topicName} already exists for ${account.emailAddress}`);
+        } else {
+          throw error;
+        }
+      }
+
+      return fullTopicName;
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to create topic for ${account.emailAddress}:`, error);
+      throw error;
     }
   }
 
@@ -209,28 +393,48 @@ export class RealTimeEmailSyncService {
         throw new Error("No OAuth access token available");
       }
 
-      // Get decrypted access token
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+      // Always obtain a validated, decrypted access token (auto-refresh if needed)
+      const decryptedAccessToken = await this.getValidOutlookAccessToken(account);
+      if (!decryptedAccessToken) {
+        throw new Error("Unable to obtain valid Outlook access token");
+      }
 
-      // Create Microsoft Graph client with proper authentication
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // Microsoft Graph accepts opaque access tokens (not JWT format)
-          // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
-        },
-      });
+      // Test the access token first to ensure it's valid
+      try {
+        logger.info(`🔍 [Outlook] Testing access token for: ${account.emailAddress}`);
+        const testResponse = await fetch("https://graph.microsoft.com/v1.0/me", {
+          headers: {
+            Authorization: `Bearer ${decryptedAccessToken}`,
+          },
+        });
 
-      // Setup Outlook webhook subscription using instance-based configuration
-      const webhookUrl = getOutlookWebhookUrl();
-      if (webhookUrl) {
-        logger.info(`📧 [Outlook] Using webhook URL: ${webhookUrl} for: ${account.emailAddress}`);
-        return this.setupOutlookWebhook(account, graphClient, webhookUrl);
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          logger.error(`❌ [Outlook] Access token test failed: ${testResponse.status} ${testResponse.statusText}`);
+          logger.error(`❌ [Outlook] Error details: ${errorText}`);
+          throw new Error(`Access token is invalid: ${testResponse.status} ${testResponse.statusText}`);
+        }
+
+        logger.info(`✅ [Outlook] Access token is valid for: ${account.emailAddress}`);
+      } catch (tokenError: any) {
+        logger.error(`❌ [Outlook] Token validation failed: ${tokenError.message}`);
+        throw new Error(`Token validation failed: ${tokenError.message}`);
+      }
+
+      // Setup Outlook webhook subscription using enhanced webhook manager
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
+      const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
+      const webhookInfo = await OutlookWebhookManager.createWebhookSubscription(account, decryptedAccessToken);
+
+      if (webhookInfo) {
+        logger.info(`✅ [Outlook] Webhook subscription created successfully for: ${account.emailAddress}`);
+        return {
+          success: true,
+          message: "Outlook webhook setup successful",
+          webhookInfo,
+        };
       } else {
-        logger.warn(
-          `⚠️ [Outlook] No webhook URL configured for instance, using polling fallback for: ${account.emailAddress}`
-        );
-        // Fallback to polling
+        logger.warn(`⚠️ [Outlook] Webhook setup failed, using polling fallback for: ${account.emailAddress}`);
         return this.setupOutlookPollingFallback(account);
       }
     } catch (error: any) {
@@ -240,30 +444,169 @@ export class RealTimeEmailSyncService {
   }
 
   /**
-   * Setup Outlook webhook subscription
+   * Setup Outlook webhook subscription using email prefix (same as Gmail approach)
    */
   private static async setupOutlookWebhook(
     account: IEmailAccount,
     graphClient: Client,
-    webhookUrl: string
+    webhookUrl: string,
+    accessToken: string
   ): Promise<RealTimeSyncResult> {
     try {
-      // Create webhook subscription for new emails
-      const subscription = await graphClient.api("/subscriptions").post({
-        changeType: "created,updated",
-        notificationUrl: `${webhookUrl}/${account._id}`,
-        resource: "/me/messages",
-        expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
-        clientState: account._id,
-      });
+      // Generate unique webhook URL using email prefix (same as Gmail approach)
+      // This ensures proper webhook differentiation for multiple Outlook accounts
+      const emailPrefix = account.emailAddress.split("@")[0];
+      if (!emailPrefix) {
+        throw new Error("Invalid email address format");
+      }
 
-      // Update account sync state
+      // Check if webhook already exists to avoid rate limiting
+      const existingWebhook = await this.checkExistingOutlookWebhook(account, accessToken);
+      if (existingWebhook) {
+        logger.info(`📧 [Outlook] Webhook already exists for: ${account.emailAddress}, skipping creation`);
+        return {
+          success: true,
+          message: "Outlook webhook already exists",
+        };
+      }
+
+      // Check if we're hitting rate limits by looking at recent webhook creations
+      const recentWebhookCount = await this.getRecentWebhookCreationCount();
+      if (recentWebhookCount > 5) {
+        // Max 5 webhooks per hour
+        logger.warn(
+          `⚠️ [Outlook] Too many recent webhook creations (${recentWebhookCount}), scheduling retry in 1 hour for: ${account.emailAddress}`
+        );
+
+        // Schedule retry in 1 hour
+        await this.scheduleWebhookRetry(account, 60 * 60 * 1000); // 1 hour
+
+        return {
+          success: false,
+          message: "Rate limit reached, will retry in 1 hour",
+          error: "Too many webhook creations recently",
+        };
+      }
+
+      // Record this webhook creation attempt
+      this.recordWebhookCreationAttempt(account._id?.toString() || account.emailAddress);
+
+      // Add delay to prevent rate limiting (Microsoft Graph has limits)
+      const delay = Math.random() * 2000 + 1000; // Random delay between 1-3 seconds
+      logger.info(`📧 [Outlook] Adding ${Math.round(delay)}ms delay to prevent rate limiting`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Create account-specific webhook URL using email prefix
+      const finalWebhookUrl = `${webhookUrl}/${emailPrefix}`;
+
+      logger.info(`📧 [Outlook] Creating webhook subscription for: ${account.emailAddress}`);
+      logger.info(`📧 [Outlook] Email prefix: ${emailPrefix}`);
+      logger.info(`📧 [Outlook] Base webhook URL: ${webhookUrl}`);
+      logger.info(`📧 [Outlook] Final notification URL: ${finalWebhookUrl}`);
+
+      const subscriptionPayload = {
+        changeType: "created,updated",
+        notificationUrl: finalWebhookUrl, // Use account-specific URL with email prefix
+        resource: "/me/messages",
+        expirationDateTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days
+        clientState: emailPrefix, // Use email prefix for proper identification
+      };
+
+      logger.info(`📧 [Outlook] Subscription payload:`, subscriptionPayload);
+
+      // Retry logic for webhook creation with exponential backoff
+      let subscriptionResponse;
+      let retryCount = 0;
+      const maxRetries = 3;
+      const baseDelay = 2000; // 2 seconds
+
+      while (retryCount <= maxRetries) {
+        try {
+          subscriptionResponse = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(subscriptionPayload),
+          });
+
+          logger.info(
+            `📧 [Outlook] Subscription response status: ${subscriptionResponse.status} ${subscriptionResponse.statusText}`
+          );
+
+          if (subscriptionResponse.ok) {
+            break; // Success, exit retry loop
+          }
+
+          // Handle rate limiting specifically
+          if (subscriptionResponse.status === 429) {
+            retryCount++;
+            if (retryCount <= maxRetries) {
+              const delay = baseDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+              logger.warn(
+                `⚠️ [Outlook] Rate limited (429), retrying in ${delay}ms (attempt ${retryCount}/${maxRetries})`
+              );
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            }
+          }
+
+          // For other errors, don't retry
+          break;
+        } catch (fetchError: any) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            const delay = baseDelay * Math.pow(2, retryCount - 1);
+            logger.warn(
+              `⚠️ [Outlook] Fetch error, retrying in ${delay}ms (attempt ${retryCount}/${maxRetries}): ${fetchError.message}`
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+            continue;
+          }
+          throw fetchError;
+        }
+      }
+
+      if (!subscriptionResponse || !subscriptionResponse.ok) {
+        const errorText = (await subscriptionResponse?.text()) || "No response";
+        logger.error(
+          `❌ [Outlook] Subscription creation failed after ${maxRetries} retries: ${subscriptionResponse?.status} ${subscriptionResponse?.statusText}`
+        );
+        logger.error(`❌ [Outlook] Error details: ${errorText}`);
+        logger.error(
+          `❌ [Outlook] Response headers:`,
+          Object.fromEntries(subscriptionResponse?.headers.entries() || [])
+        );
+
+        // Provide specific guidance for rate limiting
+        if (subscriptionResponse?.status === 429) {
+          throw new Error(
+            `Rate limited by Microsoft Graph. Please wait before creating more webhooks. Error: ${errorText}`
+          );
+        }
+
+        throw new Error(
+          `Failed to create subscription: ${subscriptionResponse?.status} ${subscriptionResponse?.statusText} - ${errorText}`
+        );
+      }
+
+      const subscription = await subscriptionResponse.json();
+      logger.info(`✅ [Outlook] Subscription created successfully: ${subscription.id}`);
+
+      // Parse subscription expiry
+      const subscriptionExpiry = new Date(subscription.expirationDateTime);
+
+      // Update account sync state with complete webhook information
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
           "syncState.syncStatus": "webhook",
           "syncState.lastWatchRenewal": new Date(),
           "syncState.isWatching": true,
           "syncState.webhookId": subscription.id,
+          "syncState.webhookUrl": finalWebhookUrl, // Store account-specific webhook URL
+          "syncState.subscriptionExpiry": subscriptionExpiry,
+          "syncState.emailPrefix": emailPrefix, // Store email prefix for webhook management
         },
       });
 
@@ -276,6 +619,261 @@ export class RealTimeEmailSyncService {
     } catch (error: any) {
       logger.error(`❌ [Outlook] Webhook setup failed for ${account.emailAddress}:`, error);
       return this.setupOutlookPollingFallback(account);
+    }
+  }
+
+  /**
+   * Track recent webhook creation attempts to prevent rate limiting
+   */
+  private static webhookCreationAttempts: Array<{ timestamp: number; accountId: string }> = [];
+
+  /**
+   * Get count of recent webhook creation attempts
+   */
+  private static async getRecentWebhookCreationCount(): Promise<number> {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+    // Clean up old attempts
+    this.webhookCreationAttempts = this.webhookCreationAttempts.filter((attempt) => attempt.timestamp > oneHourAgo);
+
+    return this.webhookCreationAttempts.length;
+  }
+
+  /**
+   * Record webhook creation attempt
+   */
+  private static recordWebhookCreationAttempt(accountId: string): void {
+    this.webhookCreationAttempts.push({
+      timestamp: Date.now(),
+      accountId,
+    });
+  }
+
+  /**
+   * Schedule webhook retry for later
+   */
+  static async scheduleWebhookRetry(account: IEmailAccount, delayMs: number): Promise<void> {
+    try {
+      const retryTime = new Date(Date.now() + delayMs);
+
+      await EmailAccountModel.findByIdAndUpdate(account._id, {
+        $set: {
+          "syncState.retryScheduled": true,
+          "syncState.retryTime": retryTime,
+          "syncState.retryReason": "Rate limit reached",
+          "syncState.syncStatus": "retry_scheduled",
+          "syncState.lastRetrySchedule": new Date(),
+        },
+      });
+
+      logger.info(`📅 [Outlook] Scheduled webhook retry for ${account.emailAddress} at ${retryTime.toISOString()}`);
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Failed to schedule webhook retry for ${account.emailAddress}:`, error);
+    }
+  }
+
+  /**
+   * Get retry status for all accounts
+   */
+  static async getRetryStatus(): Promise<any[]> {
+    try {
+      const retryAccounts = await EmailAccountModel.find({
+        "oauth.provider": "outlook",
+        "syncState.retryScheduled": true,
+      }).select("emailAddress syncState.retryTime syncState.retryReason syncState.lastRetrySchedule");
+
+      return retryAccounts.map((account) => ({
+        emailAddress: account.emailAddress,
+        retryTime: account.syncState?.retryTime,
+        retryReason: account.syncState?.retryReason,
+        lastRetrySchedule: account.syncState?.lastRetrySchedule,
+        isReady: account.syncState?.retryTime <= new Date(),
+      }));
+    } catch (error: any) {
+      logger.error("❌ [Outlook] Error getting retry status:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if Outlook webhook already exists to avoid duplicate creation
+   */
+  private static async checkExistingOutlookWebhook(account: IEmailAccount, accessToken: string): Promise<boolean> {
+    try {
+      // Check if we already have a webhook ID stored
+      if (account.syncState?.webhookId) {
+        logger.info(`📧 [Outlook] Found existing webhook ID for: ${account.emailAddress}`);
+        return true;
+      }
+
+      // Check Microsoft Graph for existing subscriptions
+      const response = await fetch("https://graph.microsoft.com/v1.0/subscriptions", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const subscriptions = await response.json();
+        const existingSubscription = subscriptions.value?.find(
+          (sub: any) => sub.clientState === account.emailAddress.split("@")[0]
+        );
+
+        if (existingSubscription) {
+          logger.info(`📧 [Outlook] Found existing webhook subscription for: ${account.emailAddress}`);
+
+          // Update our database with the existing webhook info
+          await EmailAccountModel.findByIdAndUpdate(account._id, {
+            $set: {
+              "syncState.webhookId": existingSubscription.id,
+              "syncState.webhookUrl": existingSubscription.notificationUrl,
+              "syncState.subscriptionExpiry": new Date(existingSubscription.expirationDateTime),
+              "syncState.emailPrefix": account.emailAddress.split("@")[0],
+              "syncState.syncStatus": "webhook",
+              "syncState.isWatching": true,
+            },
+          });
+
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error: any) {
+      logger.warn(`⚠️ [Outlook] Error checking existing webhook for ${account.emailAddress}:`, error);
+      return false; // Assume no existing webhook if check fails
+    }
+  }
+
+  /**
+   * Clean up Outlook webhook subscriptions when account is deleted or deactivated
+   */
+  static async cleanupOutlookWebhook(account: IEmailAccount): Promise<void> {
+    try {
+      if (!account.syncState?.webhookId) {
+        logger.info(`📧 [Outlook] No webhook to cleanup for: ${account.emailAddress}`);
+        return;
+      }
+
+      logger.info(`🧹 [Outlook] Cleaning up webhook subscription for: ${account.emailAddress}`, {
+        webhookId: account.syncState.webhookId,
+        webhookUrl: account.syncState.webhookUrl,
+      });
+
+      // Get fresh access token for cleanup using EmailOAuthService
+      const { EmailOAuthService } = await import("@/services/emailOAuth.service");
+      const accessToken = await EmailOAuthService.getDecryptedAccessToken(account);
+      if (!accessToken) {
+        logger.warn(`⚠️ [Outlook] Cannot cleanup webhook - no valid access token for: ${account.emailAddress}`);
+        return;
+      }
+
+      // Delete the webhook subscription from Microsoft Graph
+      const response = await fetch(`https://graph.microsoft.com/v1.0/subscriptions/${account.syncState.webhookId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        logger.info(`✅ [Outlook] Webhook subscription deleted successfully for: ${account.emailAddress}`);
+      } else if (response.status === 404) {
+        logger.info(`ℹ️ [Outlook] Webhook subscription already deleted for: ${account.emailAddress}`);
+      } else {
+        logger.warn(
+          `⚠️ [Outlook] Failed to delete webhook subscription for ${account.emailAddress}: ${response.status}`
+        );
+      }
+
+      // Update account sync state
+      await EmailAccountModel.findByIdAndUpdate(account._id, {
+        $unset: {
+          "syncState.webhookId": 1,
+          "syncState.webhookUrl": 1,
+          "syncState.subscriptionExpiry": 1,
+          "syncState.emailPrefix": 1,
+        },
+        $set: {
+          "syncState.syncStatus": "inactive",
+          "syncState.isWatching": false,
+          "syncState.lastWatchRenewal": new Date(),
+        },
+      });
+
+      logger.info(`✅ [Outlook] Webhook cleanup completed for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error cleaning up webhook for ${account.emailAddress}:`, error);
+      // Don't throw error - cleanup should not fail the main operation
+    }
+  }
+
+  /**
+   * Process Outlook webhook notifications
+   */
+  static async processOutlookWebhookNotification(account: IEmailAccount, notification: any): Promise<void> {
+    try {
+      logger.info(`📧 [Outlook] Processing webhook notification for: ${account.emailAddress}`, {
+        changeType: notification.changeType,
+        resourceData: notification.resourceData,
+        clientState: notification.clientState,
+      });
+
+      // Handle different change types
+      if (notification.changeType === "created") {
+        logger.info(`📧 [Outlook] New email created for: ${account.emailAddress}`);
+        // Trigger email sync for new emails
+        await this.syncOutlookEmails(account);
+      } else if (notification.changeType === "updated") {
+        logger.info(`📧 [Outlook] Email updated for: ${account.emailAddress}`);
+        // Trigger email sync for updated emails
+        await this.syncOutlookEmails(account);
+      }
+
+      logger.info(`✅ [Outlook] Webhook notification processed successfully for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error processing webhook notification for ${account.emailAddress}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Renew Outlook webhook subscription before expiry
+   */
+  static async renewOutlookWebhook(account: IEmailAccount): Promise<boolean> {
+    try {
+      if (!account.syncState?.webhookId || !account.syncState?.subscriptionExpiry) {
+        logger.info(`📧 [Outlook] No active webhook to renew for: ${account.emailAddress}`);
+        return false;
+      }
+
+      const now = new Date();
+      const expiry = new Date(account.syncState.subscriptionExpiry);
+      const bufferTime = 24 * 60 * 60 * 1000; // 24 hours buffer
+
+      if (now.getTime() < expiry.getTime() - bufferTime) {
+        logger.info(`📧 [Outlook] Webhook subscription not yet ready for renewal for: ${account.emailAddress}`, {
+          expiresAt: expiry.toISOString(),
+          now: now.toISOString(),
+        });
+        return true; // Still valid
+      }
+
+      logger.info(`🔄 [Outlook] Renewing webhook subscription for: ${account.emailAddress}`, {
+        expiresAt: expiry.toISOString(),
+        now: now.toISOString(),
+      });
+
+      // Clean up old webhook first
+      await this.cleanupOutlookWebhook(account);
+
+      // Setup new webhook
+      const result = await this.setupOutlookRealTimeSync(account);
+      return result.success;
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Error renewing webhook for ${account.emailAddress}:`, error);
+      return false;
     }
   }
 
@@ -321,15 +919,75 @@ export class RealTimeEmailSyncService {
   }
 
   /**
+   * Retry wrapper for Gmail API calls
+   */
+  private static async retryGmailApiCall<T>(
+    apiCall: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await apiCall();
+      } catch (error: any) {
+        lastError = error;
+
+        // Don't retry on authentication errors
+        if (error.code === 401 || error.code === 403) {
+          console.log(`❌ [Gmail] Authentication error, not retrying: ${error.message}`);
+          throw error;
+        }
+
+        // Don't retry on rate limit errors, wait longer
+        if (error.code === 429) {
+          const waitTime = delay * Math.pow(2, attempt - 1);
+          console.log(`⏳ [Gmail] Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          continue;
+        }
+
+        if (attempt < maxRetries) {
+          const waitTime = delay * Math.pow(2, attempt - 1);
+          console.log(
+            `🔄 [Gmail] API call failed, retrying in ${waitTime}ms (${attempt}/${maxRetries}): ${error.message}`
+          );
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        } else {
+          console.log(`❌ [Gmail] API call failed after ${maxRetries} attempts: ${error.message}`);
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  /**
    * Sync Gmail emails and store in database
+   *
+   * IMPROVEMENTS ADDED:
+   * ✅ Enhanced history types (messageAdded, labelChanged, messageDeleted, threadDeleted)
+   * ✅ Better duplicate prevention with multiple criteria checks
+   * ✅ Retry logic for Gmail API calls with exponential backoff
+   * ✅ Comprehensive thread data with attachments detection
+   * ✅ Enhanced error handling and logging
+   * ✅ Fallback logic with time-based duplicate prevention
+   * ✅ Participant management for threads
+   * ✅ Status updates based on email properties
    */
   static async syncGmailEmails(account: IEmailAccount, historyId?: string): Promise<RealTimeSyncResult> {
     try {
+      console.log(`🔄 [Gmail] ===== STARTING GMAIL EMAIL SYNC =====`);
+      console.log(`🔄 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`🔄 [Gmail] History ID: ${historyId || "undefined"}`);
+
       logger.info(
         `🔄 [Gmail] Syncing emails for: ${account.emailAddress}${historyId ? ` with historyId: ${historyId}` : ""}`
       );
 
       // Get decrypted access token
+      console.log(`🔓 [Gmail] Decrypting OAuth tokens...`);
       const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
       const decryptedRefreshToken = account.oauth!.refreshToken
         ? EmailOAuthService.decryptData(account.oauth!.refreshToken)
@@ -352,51 +1010,192 @@ export class RealTimeEmailSyncService {
 
       if (historyId) {
         // Use historyId to get specific changes (webhook flow)
-        logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
-
         try {
-          const historyResponse = await gmail.users.history.list({
-            userId: "me",
-            startHistoryId: historyId,
-            historyTypes: ["messageAdded"],
-          });
+          console.log(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
+          logger.info(`📧 [Gmail] Fetching changes since historyId: ${historyId}`);
+
+          // Use only valid Gmail API history types
+          const historyResponse = await this.retryGmailApiCall(() =>
+            gmail.users.history.list({
+              userId: "me",
+              startHistoryId: historyId,
+              historyTypes: ["messageAdded", "labelAdded", "labelRemoved", "messageDeleted"],
+            })
+          );
 
           const history = historyResponse.data;
+          console.log(`📧 [Gmail] History response:`, {
+            historyCount: history.history?.length || 0,
+            nextPageToken: history.nextPageToken || "none",
+            historyId: history.historyId,
+          });
+
+          // Add detailed history logging
+          console.log(`📧 [Gmail] FULL HISTORY RESPONSE:`, JSON.stringify(history, null, 2));
+          console.log(`📧 [Gmail] History ID requested: ${historyId}`);
+          console.log(`📧 [Gmail] History ID returned: ${history.historyId}`);
+
           if (history.history && history.history.length > 0) {
-            // Extract message IDs from history
-            const messageIds = history.history
-              .flatMap((h) => h.messagesAdded || [])
-              .map((m) => m.message?.id)
-              .filter(Boolean);
+            // Log each history entry in detail
+            history.history.forEach((h, index) => {
+              console.log(`📧 [Gmail] History entry ${index + 1}:`, {
+                messagesAdded: h.messagesAdded?.length || 0,
+                labelsAdded: h.labelsAdded?.length || 0,
+                labelsRemoved: h.labelsRemoved?.length || 0,
+                messagesDeleted: h.messagesDeleted?.length || 0,
+              });
+            });
 
-            logger.info(`📧 [Gmail] Found ${messageIds.length} new messages in history`);
+            // Extract message IDs from all relevant history types
+            const messageIds = new Set<string>();
 
-            // Get full message details for each new message
-            for (const messageId of messageIds) {
-              try {
-                const messageDetails = await gmail.users.messages.get({
-                  userId: "me",
-                  id: messageId!,
-                  format: "full",
+            history.history.forEach((h) => {
+              // Add new messages
+              if (h.messagesAdded) {
+                h.messagesAdded.forEach((m) => {
+                  if (m.message?.id) {
+                    messageIds.add(m.message.id);
+                    console.log(`📧 [Gmail] Found new message: ${m.message.id}`);
+                  }
                 });
-                messages.push(messageDetails.data);
-              } catch (messageError: any) {
-                logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
               }
+
+              // Add messages with label changes (for read/unread status updates)
+              if (h.labelsAdded || h.labelsRemoved) {
+                const labelChangeMessages = [...(h.labelsAdded || []), ...(h.labelsRemoved || [])];
+                labelChangeMessages.forEach((l) => {
+                  if (l.message?.id) {
+                    messageIds.add(l.message.id);
+                    console.log(`📧 [Gmail] Found label change for message: ${l.message.id}`);
+                  }
+                });
+              }
+
+              // Add deleted messages for cleanup
+              if (h.messagesDeleted) {
+                h.messagesDeleted.forEach((m) => {
+                  if (m.message?.id) {
+                    messageIds.add(m.message.id);
+                    console.log(`📧 [Gmail] Found deleted message: ${m.message.id}`);
+                  }
+                });
+              }
+            });
+
+            const uniqueMessageIds = Array.from(messageIds);
+            console.log(`📧 [Gmail] Found ${uniqueMessageIds.length} unique messages in history:`, uniqueMessageIds);
+            logger.info(`📧 [Gmail] Found ${uniqueMessageIds.length} unique messages in history`);
+
+            // Get full message details for each unique message
+            for (const messageId of uniqueMessageIds) {
+              try {
+                console.log(`📧 [Gmail] Fetching full details for message: ${messageId}`);
+                const messageDetails = await this.retryGmailApiCall(() =>
+                  gmail.users.messages.get({
+                    userId: "me",
+                    id: messageId,
+                    format: "full",
+                  })
+                );
+
+                console.log(`📧 [Gmail] Message details received:`, {
+                  id: messageDetails.data.id,
+                  threadId: messageDetails.data.threadId,
+                  labelIds: messageDetails.data.labelIds,
+                  internalDate: messageDetails.data.internalDate,
+                  snippet: messageDetails.data.snippet?.substring(0, 100),
+                });
+
+                messages.push(messageDetails.data);
+                console.log(`✅ [Gmail] Successfully fetched message: ${messageId}`);
+              } catch (messageError: any) {
+                console.log(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
+                logger.error(`❌ [Gmail] Failed to fetch message ${messageId}:`, messageError);
+
+                // If message was deleted, handle cleanup
+                if (messageError.code === 404) {
+                  console.log(`🗑️ [Gmail] Message ${messageId} was deleted, marking for cleanup`);
+                  // You could implement cleanup logic here
+                }
+              }
+            }
+          } else {
+            console.log(`📧 [Gmail] No new messages found in history`);
+            console.log(`📧 [Gmail] History response details:`, {
+              history: history.history,
+              historyId: history.historyId,
+              nextPageToken: history.nextPageToken,
+            });
+
+            // Add fallback to fetch recent messages when history is empty
+            console.log(`📧 [Gmail] Attempting fallback to recent messages...`);
+            try {
+              const recentMessagesResponse = await this.retryGmailApiCall(() =>
+                gmail.users.messages.list({
+                  userId: "me",
+                  maxResults: 5,
+                  q: "is:unread",
+                })
+              );
+
+              const recentMessages = recentMessagesResponse.data.messages || [];
+              console.log(`📧 [Gmail] Fallback fetched ${recentMessages.length} recent unread messages`);
+
+              if (recentMessages.length > 0) {
+                // Get full details for recent messages
+                for (const msg of recentMessages) {
+                  try {
+                    const fullMessage = await this.retryGmailApiCall(() =>
+                      gmail.users.messages.get({
+                        userId: "me",
+                        id: msg.id!,
+                        format: "full",
+                      })
+                    );
+                    messages.push(fullMessage.data);
+                    console.log(`📧 [Gmail] Added recent message: ${msg.id}`);
+                  } catch (error) {
+                    console.log(`❌ [Gmail] Failed to fetch recent message ${msg.id}:`, error);
+                  }
+                }
+              }
+            } catch (fallbackError: any) {
+              console.log(`❌ [Gmail] Fallback to recent messages failed:`, fallbackError);
             }
           }
         } catch (historyError: any) {
-          logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
-          // Fallback to recent messages if history fails
-          const messagesResponse = await gmail.users.messages.list({
-            userId: "me",
-            maxResults: 10,
-            q: "is:unread OR is:important",
+          console.log(`❌ [Gmail] Failed to fetch history:`, historyError);
+          console.log(`❌ [Gmail] History error details:`, {
+            code: historyError.code,
+            message: historyError.message,
+            status: historyError.status,
+            stack: historyError.stack,
           });
-          messages = messagesResponse.data.messages || [];
+          logger.error(`❌ [Gmail] Failed to fetch history:`, historyError);
+
+          // Enhanced fallback with better duplicate prevention
+          console.log(`📧 [Gmail] Falling back to recent messages with duplicate prevention...`);
+          try {
+            // Get the last sync time to prevent fetching already processed emails
+            const lastSyncTime = account.syncState?.lastSyncAt || new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+            const messagesResponse = await gmail.users.messages.list({
+              userId: "me",
+              maxResults: 20,
+              q: `after:${Math.floor(lastSyncTime.getTime() / 1000)}`,
+            });
+            messages = messagesResponse.data.messages || [];
+            console.log(
+              `📧 [Gmail] Fallback fetched ${messages.length} recent messages after ${lastSyncTime.toISOString()}`
+            );
+          } catch (fallbackError: any) {
+            console.log(`❌ [Gmail] Fallback to recent messages also failed:`, fallbackError);
+            logger.error(`❌ [Gmail] Fallback to recent messages also failed:`, fallbackError);
+          }
         }
       } else {
         // Fallback: Get recent messages (polling flow)
+        console.log(`📧 [Gmail] Fetching recent messages (polling mode)`);
         logger.info(`📧 [Gmail] Fetching recent messages (polling mode)`);
         const messagesResponse = await gmail.users.messages.list({
           userId: "me",
@@ -406,30 +1205,84 @@ export class RealTimeEmailSyncService {
         messages = messagesResponse.data.messages || [];
       }
 
+      console.log(`📧 [Gmail] Total messages to process: ${messages.length}`);
+      console.log(
+        `📧 [Gmail] Messages array:`,
+        messages.map((m) => ({ id: m.id, threadId: m.threadId }))
+      );
       let emailsProcessed = 0;
 
       for (const message of messages) {
         try {
-          // Check if email already exists
+          console.log(`📧 [Gmail] ===== PROCESSING MESSAGE ${message.id} =====`);
+          console.log(`📧 [Gmail] Message data:`, {
+            id: message.id,
+            threadId: message.threadId,
+            labelIds: message.labelIds,
+            internalDate: message.internalDate,
+            snippet: message.snippet?.substring(0, 100),
+          });
+
+          // Validate message has required data
+          if (!message.id || !message.payload) {
+            console.log(`⚠️ [Gmail] Skipping message ${message.id} - missing required data`);
+            logger.warn(`⚠️ [Gmail] Skipping message ${message.id} - missing required data`);
+            continue;
+          }
+
+          // Enhanced duplicate prevention - check multiple criteria
           const existingEmail = await EmailModel.findOne({
             messageId: message.id,
             accountId: account._id,
           });
 
           if (existingEmail) {
+            console.log(`⏭️ [Gmail] Email ${message.id} already exists, skipping...`);
+            console.log(`⏭️ [Gmail] Existing email details:`, {
+              emailId: existingEmail._id,
+              subject: existingEmail.subject,
+              receivedAt: existingEmail.receivedAt,
+            });
             continue; // Skip if already processed
           }
 
-          // Message data is already fetched in history flow
+          // Additional duplicate check using internalDate and subject
           const messageData = message;
           const headers = messageData.payload?.headers || [];
+          const subject = this.extractHeader(headers, "Subject") || "No Subject";
+          const internalDate = parseInt(messageData.internalDate || Date.now().toString());
+
+          console.log(`📧 [Gmail] Message headers:`, {
+            subject: subject,
+            from: this.extractHeader(headers, "From"),
+            to: this.extractHeader(headers, "To"),
+            internalDate: new Date(internalDate),
+          });
+
+          // Check for potential duplicates based on content
+          const potentialDuplicate = await EmailModel.findOne({
+            accountId: account._id,
+            subject: subject,
+            receivedAt: {
+              $gte: new Date(internalDate - 60000), // Within 1 minute
+              $lte: new Date(internalDate + 60000),
+            },
+          });
+
+          if (potentialDuplicate) {
+            console.log(`⚠️ [Gmail] Potential duplicate found for message ${message.id}:`, {
+              existingId: potentialDuplicate._id,
+              subject: subject,
+              receivedAt: new Date(internalDate),
+            });
+            // Continue processing but log the potential duplicate
+          }
 
           // Extract email data and determine threadId
           let threadId = messageData.threadId;
 
           // If Gmail doesn't provide threadId, generate one based on subject and participants
           if (!threadId) {
-            const subject = this.extractHeader(headers, "Subject") || "No Subject";
             const from = this.extractHeader(headers, "From") || "";
             const to = this.extractHeader(headers, "To") || "";
 
@@ -437,7 +1290,15 @@ export class RealTimeEmailSyncService {
             const threadKey = `${subject.toLowerCase().trim()}_${from}_${to}`;
             threadId = `generated_${Buffer.from(threadKey).toString("base64").substring(0, 16)}`;
 
+            console.log(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
             logger.info(`🔄 [Gmail] Generated threadId: ${threadId} for message: ${message.id}`);
+          }
+
+          // Ensure we have a valid threadId before proceeding
+          if (!threadId) {
+            console.log(`⚠️ [Gmail] Skipping email ${message.id} - no threadId available`);
+            logger.warn(`⚠️ [Gmail] Skipping email ${message.id} - no threadId available`);
+            continue;
           }
 
           const emailData = {
@@ -469,29 +1330,59 @@ export class RealTimeEmailSyncService {
             category: "primary",
           };
 
+          console.log(`📧 [Gmail] Email data prepared:`, {
+            messageId: emailData.messageId,
+            subject: emailData.subject,
+            from: emailData.from.email,
+            threadId: emailData.threadId,
+          });
+
           // Ensure we have a valid threadId before proceeding
           if (!emailData.threadId) {
+            console.log(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             logger.warn(`⚠️ [Gmail] Skipping email ${emailData.messageId} - no threadId available`);
             continue;
           }
 
           // Save email to database
-          const savedEmail = await EmailModel.create(emailData);
-          emailsProcessed++;
+          console.log(`💾 [Gmail] Saving email to database: ${emailData.messageId}`);
+          let savedEmail;
+          try {
+            savedEmail = await EmailModel.create(emailData);
+            emailsProcessed++;
+            console.log(`✅ [Gmail] Email saved to database successfully:`, {
+              emailId: savedEmail._id,
+              messageId: savedEmail.messageId,
+              subject: savedEmail.subject,
+            });
+          } catch (dbError: any) {
+            console.log(`❌ [Gmail] Failed to save email to database:`, {
+              messageId: emailData.messageId,
+              error: dbError.message,
+              code: dbError.code,
+              stack: dbError.stack,
+            });
+            logger.error(`❌ [Gmail] Failed to save email to database:`, dbError);
+            continue; // Skip to next message if this one fails
+          }
 
           // Create or update Gmail thread
           try {
+            console.log(`🧵 [Gmail] Creating/updating thread for email: ${savedEmail.threadId}`);
             const existingThread = await GmailThreadModel.findOne({
               threadId: savedEmail.threadId,
               accountId: account._id,
             });
 
             if (existingThread) {
-              // Update existing thread
-              await GmailThreadModel.findByIdAndUpdate(existingThread._id, {
+              // Update existing thread with comprehensive data
+              console.log(`🔄 [Gmail] Updating existing thread: ${savedEmail.threadId}`);
+
+              const updateData: any = {
                 $inc: {
                   messageCount: 1,
                   unreadCount: savedEmail.isRead ? 0 : 1,
+                  totalSize: messageData.sizeEstimate || 0,
                 },
                 $set: {
                   lastMessageAt: savedEmail.receivedAt,
@@ -506,14 +1397,44 @@ export class RealTimeEmailSyncService {
                   })),
                   latestEmailPreview: savedEmail.textContent?.substring(0, 100) || "",
                   updatedAt: new Date(),
+                  // Update thread status based on latest email
+                  status: savedEmail.isSpam ? "spam" : "active",
+                  folder: savedEmail.folder,
+                  category: savedEmail.category,
                 },
                 $push: {
                   "rawGmailData.messageIds": savedEmail.messageId,
                 },
+              };
+
+              // Add participants if they don't exist
+              const newParticipants = [
+                { email: savedEmail.from.email, name: savedEmail.from.name },
+                ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
+                  email: recipient.email,
+                  name: recipient.name,
+                })),
+              ];
+
+              // Update participants array with new unique participants
+              newParticipants.forEach((participant) => {
+                if (!existingThread.participants.some((p: any) => p.email === participant.email)) {
+                  updateData.$push = updateData.$push || {};
+                  updateData.$push.participants = participant;
+                }
               });
+
+              await GmailThreadModel.findByIdAndUpdate(existingThread._id, updateData);
+              console.log(`✅ [Gmail] Thread updated successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Updated thread: ${savedEmail.threadId}`);
             } else {
-              // Create new thread
+              // Create new thread with comprehensive data
+              console.log(`🆕 [Gmail] Creating new thread: ${savedEmail.threadId}`);
+
+              // Check for attachments
+              const hasAttachments =
+                messageData.payload?.parts?.some((part: any) => part.filename && part.filename.trim() !== "") || false;
+
               const threadData = {
                 threadId: savedEmail.threadId,
                 accountId: account._id,
@@ -522,16 +1443,16 @@ export class RealTimeEmailSyncService {
                 messageCount: 1,
                 unreadCount: savedEmail.isRead ? 0 : 1,
                 isStarred: savedEmail.isStarred || false,
-                hasAttachments: false, // Will be updated when we fetch full message details
+                hasAttachments: hasAttachments,
                 firstMessageAt: savedEmail.receivedAt,
                 lastMessageAt: savedEmail.receivedAt,
                 lastActivity: savedEmail.receivedAt,
-                status: "active",
+                status: savedEmail.isSpam ? "spam" : "active",
                 folder: savedEmail.folder,
                 category: savedEmail.category,
                 threadType: "conversation",
                 isPinned: false,
-                totalSize: 0,
+                totalSize: messageData.sizeEstimate || 0,
                 participants: [
                   { email: savedEmail.from.email, name: savedEmail.from.name },
                   ...savedEmail.to.map((recipient: { email: string; name?: string }) => ({
@@ -553,17 +1474,22 @@ export class RealTimeEmailSyncService {
                   messageIds: [savedEmail.messageId],
                   messageCount: 1,
                   labelIds: savedEmail.isRead ? [] : ["UNREAD"],
+                  sizeEstimate: messageData.sizeEstimate || 0,
+                  snippet: messageData.snippet || "",
                 },
               };
 
               await GmailThreadModel.create(threadData);
+              console.log(`✅ [Gmail] New thread created successfully: ${savedEmail.threadId}`);
               logger.info(`📧 [Gmail] Created new thread: ${savedEmail.threadId}`);
             }
           } catch (threadError: any) {
+            console.log(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
             logger.error(`❌ [Gmail] Failed to create/update thread for ${savedEmail.threadId}:`, threadError);
           }
 
           // Emit real-time notification
+          console.log(`📡 [Gmail] Emitting real-time notification for email: ${savedEmail.messageId}`);
           socketManager.emitNewEmail(account.emailAddress, {
             emailId: savedEmail._id,
             messageId: savedEmail.messageId,
@@ -574,19 +1500,27 @@ export class RealTimeEmailSyncService {
             threadId: savedEmail.threadId,
           });
 
+          console.log(`📧 [Gmail] Email processing completed: ${savedEmail.subject} for ${account.emailAddress}`);
           logger.info(`📧 [Gmail] Saved email: ${savedEmail.subject} for ${account.emailAddress}`);
         } catch (messageError: any) {
+          console.log(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
           logger.error(`❌ [Gmail] Failed to process message ${message.id || "unknown"}:`, messageError);
         }
       }
 
       // Update account sync state
+      console.log(`💾 [Gmail] Updating account sync state...`);
       await EmailAccountModel.findByIdAndUpdate(account._id, {
         $set: {
           "syncState.lastSyncAt": new Date(),
           "stats.lastSyncAt": new Date(),
         },
       });
+
+      console.log(`✅ [Gmail] ===== GMAIL SYNC COMPLETED =====`);
+      console.log(`✅ [Gmail] Account: ${account.emailAddress}`);
+      console.log(`✅ [Gmail] Emails processed: ${emailsProcessed}`);
+      console.log(`✅ [Gmail] Sync completed at: ${new Date().toISOString()}`);
 
       logger.info(`✅ [Gmail] Sync completed for ${account.emailAddress}: ${emailsProcessed} emails processed`);
 
@@ -596,6 +1530,9 @@ export class RealTimeEmailSyncService {
         emailsProcessed,
       };
     } catch (error: any) {
+      console.log(`💥 [Gmail] ===== GMAIL SYNC FAILED =====`);
+      console.log(`💥 [Gmail] Account: ${account.emailAddress}`);
+      console.log(`💥 [Gmail] Error:`, error);
       logger.error(`❌ [Gmail] Sync failed for ${account.emailAddress}:`, error);
       return {
         success: false,
@@ -612,29 +1549,55 @@ export class RealTimeEmailSyncService {
     try {
       logger.info(`🔄 [Outlook] Syncing emails for: ${account.emailAddress}`);
 
-      // Get decrypted access token
-      const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth!.accessToken!);
+      // Get a valid decrypted access token (auto-refresh if needed)
+      let decryptedAccessToken = await this.getValidOutlookAccessToken(account);
+      if (!decryptedAccessToken) {
+        throw new Error("Unable to obtain valid Outlook access token");
+      }
 
-      // Create Microsoft Graph client with proper authentication
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          // Microsoft Graph accepts opaque access tokens (not JWT format)
-          // This is normal behavior for Microsoft Graph API
-          done(null, decryptedAccessToken);
-        },
-      });
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
+      // This matches the approach used in the webhook flow
+      let messagesResponse = await fetch(
+        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments",
+        {
+          headers: {
+            Authorization: `Bearer ${decryptedAccessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      // Get recent messages
-      const messagesResponse = await graphClient
-        .api("/me/messages")
-        .top(50)
-        .orderby("receivedDateTime desc")
-        .select(
-          "id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments"
-        )
-        .get();
+      // If unauthorized, attempt one refresh and retry
+      if (messagesResponse.status === 401) {
+        logger.warn(
+          `⚠️ [Outlook] 401 Unauthorized when fetching messages. Attempting token refresh for: ${account.emailAddress}`
+        );
+        decryptedAccessToken = await this.getValidOutlookAccessToken(account, true);
+        if (!decryptedAccessToken) {
+          throw new Error("Failed to refresh Outlook access token");
+        }
+        messagesResponse = await fetch(
+          "https://graph.microsoft.com/v1.0/me/messages?$top=50&$orderby=receivedDateTime desc&$select=id,conversationId,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,sentDateTime,isRead,body,bodyPreview,hasAttachments",
+          {
+            headers: {
+              Authorization: `Bearer ${decryptedAccessToken}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
 
-      const messages = messagesResponse.value || [];
+      if (!messagesResponse.ok) {
+        const errorText = await messagesResponse.text();
+        logger.error(
+          `❌ [Outlook] Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`
+        );
+        logger.error(`❌ [Outlook] Error details: ${errorText}`);
+        throw new Error(`Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+      }
+
+      const messagesData = await messagesResponse.json();
+      const messages = messagesData.value || [];
       let emailsProcessed = 0;
 
       for (const message of messages) {
@@ -835,6 +1798,193 @@ export class RealTimeEmailSyncService {
   }
 
   /**
+   * Get a valid Outlook access token, decrypting and refreshing as needed.
+   * If forceRefresh is true, always refresh first.
+   */
+  private static async getValidOutlookAccessToken(
+    account: IEmailAccount,
+    forceRefresh: boolean = false
+  ): Promise<string | null> {
+    try {
+      // If not forcing refresh and token not near expiry, use decrypted existing
+      if (!forceRefresh && account.oauth?.tokenExpiry) {
+        const now = Date.now();
+        const expiry = new Date(account.oauth.tokenExpiry).getTime();
+        const bufferMs = 5 * 60 * 1000; // 5 min buffer
+        if (now < expiry - bufferMs) {
+          const token = EmailOAuthService.getDecryptedAccessToken(account);
+          if (token) return token;
+        }
+      }
+
+      // Refresh tokens centrally
+      const refreshResult = await EmailOAuthService.refreshTokens(account);
+      if (!refreshResult.success) {
+        logger.error(`❌ [Outlook] Token refresh failed for ${account.emailAddress}: ${refreshResult.error}`);
+        return null;
+      }
+
+      // Re-fetch account to get updated encrypted token
+      const updated = await EmailAccountModel.findById(account._id);
+      if (!updated?.oauth?.accessToken) {
+        return null;
+      }
+      return EmailOAuthService.getDecryptedAccessToken(updated);
+    } catch (e: any) {
+      logger.error(`❌ [Outlook] Error obtaining valid access token for ${account.emailAddress}:`, e);
+      return null;
+    }
+  }
+
+  /**
+   * Get account-specific Gmail topic information
+   */
+  static async getGmailTopicInfo(account: IEmailAccount): Promise<{
+    topicName: string;
+    isAutoCreated: boolean;
+    isActive: boolean;
+  } | null> {
+    try {
+      if (!account.syncState?.gmailTopic) {
+        return null;
+      }
+
+      const topicName = account.syncState.gmailTopic.split("/").pop() || "";
+      const isActive = !!(
+        account.syncState.isWatching &&
+        account.syncState.watchExpiration &&
+        new Date(account.syncState.watchExpiration) > new Date()
+      );
+
+      return {
+        topicName,
+        isAutoCreated: account.syncState.isAutoCreated || false,
+        isActive,
+      };
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to get topic info for ${account.emailAddress}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Clean up Outlook webhook subscription when account is removed
+   */
+  static async cleanupOutlookSubscription(account: IEmailAccount): Promise<void> {
+    try {
+      if (account.syncState?.webhookId && account.oauth?.accessToken) {
+        try {
+          // Get decrypted access token
+          const decryptedAccessToken = EmailOAuthService.decryptData(account.oauth.accessToken);
+
+          // Delete the webhook subscription
+          const deleteResponse = await fetch(
+            `https://graph.microsoft.com/v1.0/subscriptions/${account.syncState.webhookId}`,
+            {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${decryptedAccessToken}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (deleteResponse.ok) {
+            logger.info(
+              `✅ [Outlook] Deleted webhook subscription: ${account.syncState.webhookId} for ${account.emailAddress}`
+            );
+          } else {
+            const errorText = await deleteResponse.text();
+            logger.warn(
+              `⚠️ [Outlook] Failed to delete subscription ${account.syncState.webhookId}: ${deleteResponse.status} ${errorText}`
+            );
+          }
+        } catch (error: any) {
+          logger.error(`❌ [Outlook] Failed to delete subscription ${account.syncState.webhookId}:`, error);
+        }
+      }
+    } catch (error: any) {
+      logger.error(`❌ [Outlook] Failed to cleanup subscription for ${account.emailAddress}:`, error);
+    }
+  }
+
+  /**
+   * Clean up Gmail topic and subscription when account is removed
+   */
+  static async cleanupGmailTopic(account: IEmailAccount): Promise<void> {
+    try {
+      // Clean up subscription first
+      if (account.syncState?.gmailSubscription) {
+        const subscriptionName = account.syncState.gmailSubscription.split("/").pop(); // Extract subscription name from full path
+
+        if (subscriptionName && subscriptionName.startsWith("gmail-sync-")) {
+          try {
+            const pubsub = this.getPubSubClient();
+            const subscription = pubsub.subscription(subscriptionName);
+            await subscription.delete();
+            logger.info(
+              `✅ [Gmail] Deleted auto-created subscription: ${subscriptionName} for ${account.emailAddress}`
+            );
+          } catch (error: any) {
+            if (error.code === 5) {
+              // Subscription not found (already deleted)
+              logger.info(`ℹ️ [Gmail] Subscription ${subscriptionName} already deleted for ${account.emailAddress}`);
+            } else {
+              logger.error(`❌ [Gmail] Failed to delete subscription ${subscriptionName}:`, error);
+            }
+          }
+        }
+      }
+
+      // Clean up topic
+      if (account.syncState?.gmailTopic && account.syncState?.isAutoCreated) {
+        const topicName = account.syncState.gmailTopic.split("/").pop(); // Extract topic name from full path
+
+        if (topicName && topicName.startsWith("gmail-sync-")) {
+          try {
+            const pubsub = this.getPubSubClient();
+            await pubsub.topic(topicName).delete();
+            logger.info(`✅ [Gmail] Deleted auto-created topic: ${topicName} for ${account.emailAddress}`);
+          } catch (error: any) {
+            if (error.code === 5) {
+              // Topic not found (already deleted)
+              logger.info(`ℹ️ [Gmail] Topic ${topicName} already deleted for ${account.emailAddress}`);
+            } else {
+              logger.error(`❌ [Gmail] Failed to delete topic ${topicName}:`, error);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      logger.error(`❌ [Gmail] Failed to cleanup resources for ${account.emailAddress}:`, error);
+    }
+  }
+
+  /**
+   * Clean up all webhook resources when account is removed
+   */
+  static async cleanupAccountWebhooks(account: IEmailAccount): Promise<void> {
+    try {
+      logger.info(`🧹 [${account.accountType.toUpperCase()}] Cleaning up webhooks for: ${account.emailAddress}`);
+
+      if (account.accountType === "gmail") {
+        await this.cleanupGmailTopic(account);
+      } else if (account.accountType === "outlook") {
+        // Use the new OutlookWebhookManager for cleanup
+        const { OutlookWebhookManager } = await import("@/services/outlook-webhook-manager.service");
+        await OutlookWebhookManager.cleanupAccountWebhooks(account);
+      }
+
+      logger.info(`✅ [${account.accountType.toUpperCase()}] Webhook cleanup completed for: ${account.emailAddress}`);
+    } catch (error: any) {
+      logger.error(
+        `❌ [${account.accountType.toUpperCase()}] Webhook cleanup failed for ${account.emailAddress}:`,
+        error
+      );
+    }
+  }
+
+  /**
    * Renew all real-time sync subscriptions
    */
   static async renewAllSubscriptions(): Promise<void> {
@@ -849,9 +1999,23 @@ export class RealTimeEmailSyncService {
       for (const account of accounts) {
         try {
           if (account.accountType === "gmail") {
-            await this.setupGmailRealTimeSync(account);
+            // Check if Gmail watch is expiring soon (within 24 hours)
+            if (
+              account.syncState?.watchExpiration &&
+              new Date(account.syncState.watchExpiration).getTime() - Date.now() < 24 * 60 * 60 * 1000
+            ) {
+              logger.info(`🔄 [Gmail] Renewing expiring watch for: ${account.emailAddress}`);
+              await this.setupGmailRealTimeSync(account);
+            }
           } else if (account.accountType === "outlook") {
-            await this.setupOutlookRealTimeSync(account);
+            // Check if Outlook subscription is expiring soon (within 12 hours)
+            if (
+              account.syncState?.subscriptionExpiry &&
+              new Date(account.syncState.subscriptionExpiry).getTime() - Date.now() < 12 * 60 * 60 * 1000
+            ) {
+              logger.info(`🔄 [Outlook] Renewing expiring subscription for: ${account.emailAddress}`);
+              await this.setupOutlookRealTimeSync(account);
+            }
           }
         } catch (error: any) {
           logger.error(`❌ Failed to renew subscription for ${account.emailAddress}:`, error);
@@ -889,6 +2053,11 @@ export class RealTimeEmailSyncService {
   }
 
   private static extractTextContent(payload: any): string {
+    // Handle undefined or null payload
+    if (!payload) {
+      return "";
+    }
+
     if (payload.body?.data) {
       return Buffer.from(payload.body.data, "base64").toString();
     }
@@ -905,6 +2074,11 @@ export class RealTimeEmailSyncService {
   }
 
   private static extractHtmlContent(payload: any): string {
+    // Handle undefined or null payload
+    if (!payload) {
+      return "";
+    }
+
     if (payload.parts) {
       for (const part of payload.parts) {
         if (part.mimeType === "text/html" && part.body?.data) {

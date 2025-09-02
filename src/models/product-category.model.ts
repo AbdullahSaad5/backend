@@ -20,6 +20,19 @@ const productCategorySchema = new Schema<IProductCategory, ProductCategoryModel>
     isPart: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
     categoryFieldsMapping: [categoryFieldMappingSchema],
+    dealInfo: {
+      dealId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Deal'
+      },
+      dealType: {
+        type: String,
+        enum: ['percentage', 'fixed'],
+      },
+      discountValue: Number,
+      startDate: Date,
+      endDate: Date
+    },
   },
   {
     timestamps: true,

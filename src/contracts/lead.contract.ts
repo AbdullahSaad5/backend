@@ -1,10 +1,12 @@
 import { Model, Document, Types } from "mongoose";
 
 export interface ITimelineEntry {
-  status: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact";
+  status?: "New" | "Contacted" | "Converted" | "Lost" | "Hot-Lead" | "Cold-Lead" | "Bad-Contact" | "Assignment Changed";
   changedAt: Date;
   changedBy: Types.ObjectId;
   assignedUsers?: Types.ObjectId[]; // For assignment changes
+  noteDescription?: string; // For note entries in timeline
+  noteImages?: string[]; // For note images in timeline
 }
 
 export interface INote {
@@ -38,7 +40,7 @@ export interface ILead extends Document {
   createdAt?: Date;
   updatedAt?: Date;
   notes?: INote[];
-  timeline?: ITimelineEntry;
+  timeline?: ITimelineEntry[];
   shippingAddress?: shippingAddress[];
 }
 

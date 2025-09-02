@@ -39,3 +39,5 @@ export { teamService } from "./team.service";
 export { productTypeWorkflowService } from "./product-type-workflow.service";
 export { announcementBarService } from "./announcement-bar.service";
 export { websiteService } from "./website.service";
+export { stripeService } from "./stripe.service";
+export { pendingOrderService } from "./pending-order.service";

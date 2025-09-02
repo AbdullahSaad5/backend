@@ -9,6 +9,109 @@ import { authService } from "@/services/user-auth.service";
 import { DirectEmailFetchingService } from "../services/direct-email-fetching.service";
 
 export class EmailAccountController {
+  // DEV-ONLY: Get decrypted OAuth tokens for an account (guarded by env flag)
+  static async getDecryptedTokens(req: Request, res: Response) {
+    try {
+      const { accountId } = req.params;
+      const forceRefresh = String(req.query.refresh || "false").toLowerCase() === "true";
+      let account = (await EmailAccountModel.findOne({ _id: accountId })) as IEmailAccount | null;
+      if (!account) {
+        return res.status(404).json({ success: false, message: "Email account not found" });
+      }
+
+      if (!account.oauth) {
+        return res.status(400).json({ success: false, message: "Account does not use OAuth" });
+      }
+
+      // Optionally refresh tokens first (useful if access token is expired or missing)
+      let refreshInfo: any = undefined;
+      if (forceRefresh) {
+        const refreshResult = await EmailOAuthService.refreshTokens(account);
+        refreshInfo = refreshResult;
+        // Re-fetch account after refresh to get updated encrypted values
+        account = (await EmailAccountModel.findById(accountId)) as IEmailAccount | null;
+        if (!account) {
+          return res.status(500).json({ success: false, message: "Failed to re-fetch account after refresh" });
+        }
+        if (!account.oauth) {
+          return res.status(400).json({ success: false, message: "Account does not use OAuth" });
+        }
+      }
+
+      // Decrypt available fields
+      const oauth = account.oauth!;
+      const decrypted: any = {
+        provider: oauth.provider,
+      };
+
+      // Diagnostics
+      const diagnostics: any = {
+        accessToken: {
+          exists: !!oauth.accessToken,
+          length: oauth.accessToken ? String(oauth.accessToken).length : 0,
+          isHex:
+            !!oauth.accessToken && typeof oauth.accessToken === "string" && /^[0-9a-fA-F]+$/.test(oauth.accessToken),
+        },
+        refreshToken: {
+          exists: !!oauth.refreshToken,
+          length: oauth.refreshToken ? String(oauth.refreshToken).length : 0,
+          isHex:
+            !!oauth.refreshToken && typeof oauth.refreshToken === "string" && /^[0-9a-fA-F]+$/.test(oauth.refreshToken),
+        },
+        clientSecret: {
+          exists: !!oauth.clientSecret,
+          length: oauth.clientSecret ? String(oauth.clientSecret).length : 0,
+          isHex:
+            !!oauth.clientSecret && typeof oauth.clientSecret === "string" && /^[0-9a-fA-F]+$/.test(oauth.clientSecret),
+        },
+        encryptionKeyConfigured: !!process.env.ENCRYPTION_KEY,
+        nodeEnv: process.env.NODE_ENV || "",
+      };
+
+      try {
+        if (oauth.accessToken) {
+          decrypted.accessToken = EmailOAuthService.decryptData(oauth.accessToken);
+        }
+      } catch (e: any) {
+        decrypted.accessTokenError = e.message;
+      }
+
+      try {
+        if (oauth.refreshToken) {
+          decrypted.refreshToken = EmailOAuthService.decryptData(oauth.refreshToken);
+        }
+      } catch (e: any) {
+        decrypted.refreshTokenError = e.message;
+      }
+
+      try {
+        if (oauth.clientSecret) {
+          decrypted.clientSecret = EmailOAuthService.decryptData(oauth.clientSecret);
+        }
+      } catch (e: any) {
+        decrypted.clientSecretError = e.message;
+      }
+
+      if (oauth.tokenExpiry) {
+        decrypted.tokenExpiry = oauth.tokenExpiry;
+      }
+
+      // Optionally include raw stored values for debugging if requested
+      const includeRaw = String(req.query.raw || "false").toLowerCase() === "true";
+      const raw = includeRaw
+        ? {
+            storedAccessToken: account.oauth.accessToken,
+            storedRefreshToken: account.oauth.refreshToken,
+            storedClientSecret: account.oauth.clientSecret,
+          }
+        : undefined;
+
+      return res.json({ success: true, data: decrypted, diagnostics, raw, refresh: refreshInfo });
+    } catch (error: any) {
+      logger.error("Error getting decrypted tokens:", error);
+      return res.status(500).json({ success: false, message: "Failed to get decrypted tokens", error: error.message });
+    }
+  }
   // Get all email providers
   static async getProviders(req: Request, res: Response) {
     try {
@@ -523,11 +626,23 @@ export class EmailAccountController {
         });
       }
 
+      // ✅ CRITICAL: Clean up webhook resources BEFORE deleting from database
+      try {
+        logger.info(`🧹 [Account Delete] Cleaning up webhook resources for: ${account.emailAddress}`);
+        const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+        await RealTimeEmailSyncService.cleanupAccountWebhooks(account);
+        logger.info(`✅ [Account Delete] Webhook cleanup completed for: ${account.emailAddress}`);
+      } catch (cleanupError: any) {
+        logger.warn(`⚠️ [Account Delete] Webhook cleanup failed for ${account.emailAddress}:`, cleanupError);
+        // Don't fail the deletion if cleanup fails - log and continue
+      }
+
+      // Delete account from database
       await EmailAccountModel.findByIdAndDelete(accountId);
 
       res.json({
         success: true,
-        message: "Email account deleted successfully",
+        message: "Email account deleted successfully (including webhook cleanup)",
       });
     } catch (error: any) {
       logger.error("Error deleting email account:", error);
@@ -1300,10 +1415,13 @@ export class EmailAccountController {
         });
       }
 
-      const { EmailFetchingService } = await import("@/services/email-fetching.service");
+      // Setup watch notifications using the complete flow
+      const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+      const result = await RealTimeEmailSyncService.setupGmailRealTimeSync(account);
 
-      // Setup watch notifications
-      await EmailFetchingService.setupGmailWatch(account);
+      if (!result.success) {
+        throw new Error(result.error || "Failed to setup Gmail watch");
+      }
 
       res.status(200).json({
         success: true,

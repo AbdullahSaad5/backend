@@ -24,7 +24,18 @@ export const LeadService = {
       country: string;
     };
   }) => {
-    const newLead = new LeadModel(leadData);
+    const initialStatus = leadData.status || "New";
+    
+    const newLead = new LeadModel({
+      ...leadData,
+      status: initialStatus,
+      // Initialize timeline with the initial status
+      timeline: [{
+        status: initialStatus,
+        changedAt: new Date(),
+        changedBy: new Types.ObjectId("000000000000000000000000"), // System user for initial creation
+      }]
+    });
     return newLead.save();
   },
 
@@ -53,9 +64,33 @@ export const LeadService = {
     userId?: string
   ) => {
     const updateOps: any = { $set: data };
+    const timelineEntries: any[] = [];
 
-    // If assignedTo is being updated, do not push assigned users into timeline per requirements
-    // We only keep timeline entries for status changes.
+    // If status is being updated, add timeline entry
+    if (data.status && userId && Types.ObjectId.isValid(userId)) {
+      timelineEntries.push({
+        status: data.status,
+        changedAt: new Date(),
+        changedBy: new Types.ObjectId(userId),
+      });
+    }
+
+    // If assignedTo is being updated, add timeline entry for assignment change
+    if (data.assignedTo && userId && Types.ObjectId.isValid(userId)) {
+      timelineEntries.push({
+        status: "Assignment Changed",
+        changedAt: new Date(),
+        changedBy: new Types.ObjectId(userId),
+        assignedUsers: data.assignedTo,
+      });
+    }
+
+    // Add timeline entries if any
+    if (timelineEntries.length > 0) {
+      updateOps.$push = {
+        timeline: { $each: timelineEntries }
+      };
+    }
 
     return LeadModel.findByIdAndUpdate(id, updateOps, {
       new: true,
@@ -70,6 +105,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
 
@@ -92,6 +128,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
   searchAndFilterLead: async (limitNum: number, skip: number, filter: Record<string, any>) => {
@@ -107,6 +144,7 @@ export const LeadService = {
             select: "firstName lastName email",
           })
           .populate("timeline.changedBy", "firstName lastName")
+          .populate("timeline.assignedUsers", "firstName lastName")
           .populate("notes.notedBy", "firstName lastName")
           .skip(skip)
           .limit(limitNum)
@@ -132,6 +170,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
 
@@ -163,6 +202,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
 
     if (!updatedLead) {
@@ -187,13 +227,30 @@ export const LeadService = {
       noteData.image = images;
     }
 
+    // Create timeline entry for the note
+    const timelineEntry: any = {
+      changedAt: new Date(),
+      changedBy: new Types.ObjectId(userId),
+      noteDescription: description,
+    };
+
+    if (images && images.length > 0) {
+      timelineEntry.noteImages = images;
+    }
+
     const updatedLead = await LeadModel.findByIdAndUpdate(
       leadId,
-      { $push: { notes: noteData } },
+      { 
+        $push: { 
+          notes: noteData,
+          timeline: timelineEntry
+        } 
+      },
       { new: true, runValidators: true }
     )
       .populate("assignedTo", "firstName lastName")
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
 
     if (!updatedLead) throw new Error("Failed to add note");
@@ -212,6 +269,7 @@ export const LeadService = {
     )
       .populate("assignedTo", "firstName lastName")
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
 
     if (!updatedLead) throw new Error("Failed to delete note");
@@ -229,6 +287,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
 
@@ -243,6 +302,7 @@ export const LeadService = {
         select: "firstName lastName email",
       })
       .populate("timeline.changedBy", "firstName lastName")
+      .populate("timeline.assignedUsers", "firstName lastName")
       .populate("notes.notedBy", "firstName lastName");
   },
 

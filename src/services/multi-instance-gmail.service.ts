@@ -12,9 +12,23 @@ export class MultiInstanceGmailService {
    */
   private static async getPubSubClient(): Promise<PubSub> {
     if (!this.pubsub) {
+      const serviceAccountCredentials = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS;
+
+      if (!serviceAccountCredentials) {
+        throw new Error("GOOGLE_SERVICE_ACCOUNT_CREDENTIALS not set in environment variables");
+      }
+
+      // Parse the service account credentials from environment variable
+      let credentials;
+      try {
+        credentials = JSON.parse(serviceAccountCredentials);
+      } catch (error) {
+        throw new Error("Invalid GOOGLE_SERVICE_ACCOUNT_CREDENTIALS format in environment variables");
+      }
+
       this.pubsub = new PubSub({
         projectId: this.PROJECT_ID,
-        keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+        credentials,
       });
     }
     return this.pubsub;
@@ -37,7 +51,7 @@ export class MultiInstanceGmailService {
   /**
    * Create subscription for a specific instance
    */
-  static async createInstanceSubscription(instanceConfig: InstanceConfig): Promise<void> {
+  static async createInstanceSubscription(instanceConfig: any | InstanceConfig): Promise<void> {
     try {
       const pubsub = await this.getPubSubClient();
       const topic = pubsub.topic(this.TOPIC_NAME);
@@ -75,7 +89,7 @@ export class MultiInstanceGmailService {
    */
   static async deleteInstanceSubscription(instanceId: string): Promise<void> {
     try {
-      const instanceConfig = getAllActiveInstances().find((config) => config.instanceId === instanceId);
+      const instanceConfig: any = getAllActiveInstances().find((config) => config.instanceId === instanceId);
       if (!instanceConfig) {
         throw new Error(`Instance configuration not found for ${instanceId}`);
       }
@@ -126,7 +140,7 @@ export class MultiInstanceGmailService {
    */
   static async getInstanceStats(instanceId: string): Promise<any> {
     try {
-      const instanceConfig = getAllActiveInstances().find((config) => config.instanceId === instanceId);
+      const instanceConfig: any = getAllActiveInstances().find((config) => config.instanceId === instanceId);
       if (!instanceConfig) {
         throw new Error(`Instance configuration not found for ${instanceId}`);
       }
@@ -159,7 +173,7 @@ export class MultiInstanceGmailService {
    */
   static async updateInstanceWebhookUrl(instanceId: string, newWebhookUrl: string): Promise<void> {
     try {
-      const instanceConfig = getAllActiveInstances().find((config) => config.instanceId === instanceId);
+      const instanceConfig: any = getAllActiveInstances().find((config) => config.instanceId === instanceId);
       if (!instanceConfig) {
         throw new Error(`Instance configuration not found for ${instanceId}`);
       }
@@ -195,7 +209,7 @@ export class MultiInstanceGmailService {
    */
   static async testInstanceWebhook(instanceId: string): Promise<any> {
     try {
-      const instanceConfig = getAllActiveInstances().find((config) => config.instanceId === instanceId);
+      const instanceConfig: any = getAllActiveInstances().find((config) => config.instanceId === instanceId);
       if (!instanceConfig) {
         throw new Error(`Instance configuration not found for ${instanceId}`);
       }

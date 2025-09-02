@@ -79,9 +79,11 @@ export const dealsService = {
       if (updateData.selectionType === "products") {
         updateObject.products = updateData.products || [];
         updateObject.categories = [];
+        await removeDealFromListings(id)
       } else if (updateData.selectionType === "categories") {
         updateObject.categories = updateData.categories || [];
         updateObject.products = [];
+        await removeDealFromListings(id)
       }
     }
 
@@ -94,7 +96,6 @@ export const dealsService = {
     if (!updatedDeal) {
       throw new Error('Deal not found');
     }
-    console.log(updateData);
 
     if (updatedDeal.isActive) {
       await applyDealToListings(updatedDeal._id.toString());
@@ -142,8 +143,12 @@ export const dealsService = {
   },
 
   deleteDeal: async (id: string) => {
-    const deletedDeal = await dealsModel.findByIdAndDelete(id);
-    return deletedDeal;
+    const remove = await removeDealFromListings(id);
+    if (remove) {
+      const deletedDeal = await dealsModel.findByIdAndDelete(id);
+      return deletedDeal;
+    }
+
   },
   getDealById: async (id: string) => {
     const deal = await dealsModel
@@ -241,6 +246,7 @@ export const applyDealToListings = async (dealId: string) => {
       discountValue: deal.discountValue,
       startDate: deal.startDate,
       endDate: deal.endDate,
+      isActive: deal.isActive,
     };
 
     let updateResult;
@@ -261,8 +267,8 @@ export const applyDealToListings = async (dealId: string) => {
     } else if (deal.selectionType === "categories" && deal.categories.length > 0) {
       console.log(`Applying to categories: ${deal.categories}`);
 
-      updateResult = await Listing.updateMany(
-        { category: { $in: deal.categories } },
+      updateResult = await ProductCategory.updateMany(
+        { _id: { $in: deal.categories } },
         {
           $set: { dealInfo: dealInfo },
           // $addToSet: { deals: deal._id } // optional: keep reference array
@@ -328,7 +334,7 @@ export const removeDealFromListings = async (dealId: string) => {
 
     const removeConditions: any = {
       $set: { dealInfo: null },
-      $pull: { deals: deal._id }
+      // $pull: { deals: deal._id }
     };
 
     if (deal.selectionType === "products" && deal.products.length > 0) {
@@ -337,11 +343,12 @@ export const removeDealFromListings = async (dealId: string) => {
         removeConditions
       );
     } else if (deal.selectionType === "categories" && deal.categories.length > 0) {
-      await Listing.updateMany(
-        { category: { $in: deal.categories } },
+      await ProductCategory.updateMany(
+        { _id: { $in: deal.categories } },
         removeConditions
       );
     }
+    return true;
   } catch (error) {
     console.error("Error removing deal from listings:", error);
     throw error;

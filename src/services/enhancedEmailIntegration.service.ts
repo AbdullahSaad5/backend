@@ -1,13 +1,11 @@
 // Enhanced Email Integration Service
 // Provides advanced features for email unification, threading, and sync
 
-export {};
-
-class EnhancedEmailIntegrationService {
+export const enhancedEmailIntegrationService = {
   // ADVANCED THREAD MANAGEMENT METHODS
 
   // Smart conversation grouping across providers
-  static generateUnifiedConversationId(email: any, provider: string): string {
+  generateUnifiedConversationId(email: any, provider: string): string {
     if (provider === "gmail") {
       return email.threadId;
     }
@@ -17,10 +15,9 @@ class EnhancedEmailIntegrationService {
 
     // Fallback: generate from message references
     return this.generateConversationIdFromReferences(email);
-  }
-
+  },
   // Generate conversation ID from RFC 2822 message references
-  static generateConversationIdFromReferences(email: any): string {
+  generateConversationIdFromReferences(email: any): string {
     const references = email.references || [];
     const inReplyTo = email.inReplyTo;
 
@@ -34,12 +31,12 @@ class EnhancedEmailIntegrationService {
 
     // No threading info - use subject hash
     return `conv_${this.hashString(email.subject || email.messageId)}`;
-  }
+  },
 
   // ENHANCED CATEGORY SYSTEM
 
   // Universal category mapping for all providers
-  static mapToUniversalCategory(providerCategory: string, provider: string): string {
+  mapToUniversalCategory(providerCategory: string, provider: string): string {
     const categoryMap: { [key: string]: { [key: string]: string | ((label: string) => string) } } = {
       gmail: {
         INBOX: "INBOX",
@@ -83,10 +80,10 @@ class EnhancedEmailIntegrationService {
     }
 
     return "OTHER";
-  }
+  },
 
   // Enhanced category determination with provider-specific logic
-  static determineEnhancedCategory(email: any, provider: string, folderContext?: string): string {
+  determineEnhancedCategory(email: any, provider: string, folderContext?: string): string {
     if (provider === "gmail") {
       const labels = email.labelIds || [];
 
@@ -133,12 +130,12 @@ class EnhancedEmailIntegrationService {
     }
 
     return "OTHER";
-  }
+  },
 
   // ENHANCED SYNC STATUS TRACKING
 
   // Track sync state with conflict resolution
-  static trackSyncState(email: any, provider: string, existingEmail?: any): any {
+  trackSyncState(email: any, provider: string, existingEmail?: any): any {
     const syncState: any = {
       lastSynced: new Date().toISOString(),
       provider: provider,
@@ -159,10 +156,10 @@ class EnhancedEmailIntegrationService {
     }
 
     return syncState;
-  }
+  },
 
   // Detect conflicts between email versions
-  static detectConflict(newEmail: any, existingEmail: any, provider: string): any[] | null {
+  detectConflict(newEmail: any, existingEmail: any, provider: string): any[] | null {
     const conflicts: any[] = [];
 
     // Check for content conflicts
@@ -199,12 +196,12 @@ class EnhancedEmailIntegrationService {
     }
 
     return conflicts.length > 0 ? conflicts : null;
-  }
+  },
 
   // DIRECT EMAIL OPERATIONS ENHANCEMENT
 
   // Enhanced draft creation with thread context
-  static createEnhancedDraftEmail(emailData: any, provider: string, threadContext?: any): any {
+  createEnhancedDraftEmail(emailData: any, provider: string, threadContext?: any): any {
     const draft = {
       subject: emailData.subject || "",
       body: emailData.body || "",
@@ -261,10 +258,10 @@ class EnhancedEmailIntegrationService {
     }
 
     return draft;
-  }
+  },
 
   // Enhanced reply creation with proper threading
-  static createReplyEmail(originalEmail: any, replyData: any, provider: string): any {
+  createReplyEmail(originalEmail: any, replyData: any, provider: string): any {
     const reply = {
       subject: this.generateReplySubject(originalEmail.subject),
       body: replyData.body || "",
@@ -278,36 +275,36 @@ class EnhancedEmailIntegrationService {
     };
 
     return this.createEnhancedDraftEmail(reply, provider, { threadId: originalEmail.threadId });
-  }
+  },
 
   // Generate proper reply subject
-  static generateReplySubject(originalSubject: string): string {
+  generateReplySubject(originalSubject: string): string {
     if (originalSubject.startsWith("Re:")) {
       return originalSubject;
     }
     return `Re: ${originalSubject}`;
-  }
+  },
 
   // Build references chain for proper threading
-  static buildReferencesChain(email: any): string[] {
+  buildReferencesChain(email: any): string[] {
     const references = email.references || [];
     if (email.messageId) {
       return [...references, email.messageId];
     }
     return references;
-  }
+  },
 
   // Extract reply recipients (exclude sender from recipients)
-  static extractReplyRecipients(email: any): any[] {
+  extractReplyRecipients(email: any): any[] {
     const allRecipients = [...(email.to || []), ...(email.cc || [])];
 
     // Remove the sender from recipients
     return allRecipients.filter((recipient) => recipient.email !== email.from?.email);
-  }
+  },
 
   // Utility methods for enhanced functionality
 
-  static hashString(str: string): string {
+  hashString(str: string): string {
     let hash = 0;
     if (str.length === 0) return hash.toString();
     for (let i = 0; i < str.length; i++) {
@@ -316,15 +313,15 @@ class EnhancedEmailIntegrationService {
       hash = hash & hash; // Convert to 32bit integer
     }
     return Math.abs(hash).toString(36);
-  }
+  },
 
-  static arraysEqual(a: any[], b: any[]): boolean {
+  arraysEqual(a: any[], b: any[]): boolean {
     if (a.length !== b.length) return false;
     return a.every((val, index) => val === b[index]);
-  }
+  },
 
   // Enhanced thread unification with advanced features
-  static unifyEnhancedThread(rawThread: any, provider: string, emails?: any[]): any {
+  unifyEnhancedThread(rawThread: any, provider: string, emails?: any[]): any {
     // Create base thread structure
     const baseThread = {
       id: rawThread.id,
@@ -371,28 +368,28 @@ class EnhancedEmailIntegrationService {
         priorityScore: this.calculatePriorityScore(rawThread, provider),
       },
     };
-  }
+  },
 
   // Check if conversation involves multiple participants
-  static isGroupConversation(thread: any, provider: string): boolean {
+  isGroupConversation(thread: any, provider: string): boolean {
     const participants = this.extractThreadParticipants(thread, provider);
     return participants.length > 2;
-  }
+  },
 
   // Get total participant count
-  static getParticipantCount(thread: any, provider: string): number {
+  getParticipantCount(thread: any, provider: string): number {
     const participants = this.extractThreadParticipants(thread, provider);
     return participants.length;
-  }
+  },
 
   // Check for external participants
-  static hasExternalParticipants(thread: any, provider: string): boolean {
+  hasExternalParticipants(thread: any, provider: string): boolean {
     // This would need domain checking logic
     return false; // Placeholder
-  }
+  },
 
   // Determine conversation type
-  static determineConversationType(thread: any, provider: string): string {
+  determineConversationType(thread: any, provider: string): string {
     const subject = this.extractThreadSubject(thread, provider);
     const messageCount = thread.messages?.length || 0;
 
@@ -400,38 +397,38 @@ class EnhancedEmailIntegrationService {
     if (subject.toLowerCase().includes("meeting") || subject.toLowerCase().includes("call")) return "meeting";
     if (subject.toLowerCase().includes("order") || subject.toLowerCase().includes("purchase")) return "business";
     return "conversation";
-  }
+  },
 
   // Calculate sync quality score
-  static calculateSyncQuality(thread: any, provider: string): string {
+  calculateSyncQuality(thread: any, provider: string): string {
     // Placeholder implementation
     return "high";
-  }
+  },
 
   // Estimate next sync time
-  static estimateNextSync(thread: any, provider: string): string {
+  estimateNextSync(thread: any, provider: string): string {
     const now = new Date();
     const lastSync = new Date(thread.syncStatus?.lastSynced || now);
     const estimatedNext = new Date(lastSync.getTime() + 15 * 60 * 1000); // 15 minutes
     return estimatedNext.toISOString();
-  }
+  },
 
   // Calculate average response time
-  static calculateAverageResponseTime(thread: any, provider: string): number {
+  calculateAverageResponseTime(thread: any, provider: string): number {
     // Placeholder implementation
     return 0;
-  }
+  },
 
   // Calculate engagement level
-  static calculateEngagementLevel(thread: any, provider: string): string {
+  calculateEngagementLevel(thread: any, provider: string): string {
     const messageCount = thread.messages?.length || 0;
     if (messageCount > 10) return "high";
     if (messageCount > 5) return "medium";
     return "low";
-  }
+  },
 
   // Calculate priority score
-  static calculatePriorityScore(thread: any, provider: string): number {
+  calculatePriorityScore(thread: any, provider: string): number {
     let score = 0;
 
     if (this.isThreadImportant(thread, provider)) score += 3;
@@ -439,10 +436,10 @@ class EnhancedEmailIntegrationService {
     if (thread.messageCount > 5) score += 1;
 
     return score;
-  }
+  },
 
   // Helper methods for thread processing
-  static extractThreadParticipants(threadData: any, provider: string): any[] {
+  extractThreadParticipants(threadData: any, provider: string): any[] {
     if (!threadData) return [];
 
     if (provider === "gmail") {
@@ -468,9 +465,9 @@ class EnhancedEmailIntegrationService {
     }
 
     return [];
-  }
+  },
 
-  static hasUnreadInThread(threadData: any, provider: string): boolean {
+  hasUnreadInThread(threadData: any, provider: string): boolean {
     if (!threadData) return false;
 
     if (provider === "gmail") {
@@ -482,9 +479,9 @@ class EnhancedEmailIntegrationService {
     }
 
     return false;
-  }
+  },
 
-  static getThreadLastActivity(threadData: any, provider: string): string | null {
+  getThreadLastActivity(threadData: any, provider: string): string | null {
     if (!threadData) return null;
 
     if (provider === "gmail") {
@@ -506,9 +503,9 @@ class EnhancedEmailIntegrationService {
     }
 
     return null;
-  }
+  },
 
-  static getThreadFirstDate(thread: any, provider: string): string {
+  getThreadFirstDate(thread: any, provider: string): string {
     if (provider === "gmail") {
       const firstMessage = thread.messages?.[0];
       if (firstMessage?.internalDate) {
@@ -522,9 +519,9 @@ class EnhancedEmailIntegrationService {
       }
     }
     return new Date().toISOString();
-  }
+  },
 
-  static isThreadImportant(thread: any, provider: string): boolean {
+  isThreadImportant(thread: any, provider: string): boolean {
     if (provider === "gmail") {
       return thread.messages?.some((msg: any) => msg.labelIds?.includes("IMPORTANT")) || false;
     }
@@ -532,9 +529,9 @@ class EnhancedEmailIntegrationService {
       return thread.messages?.some((msg: any) => msg.importance === "high") || false;
     }
     return false;
-  }
+  },
 
-  static isThreadFlagged(thread: any, provider: string): boolean {
+  isThreadFlagged(thread: any, provider: string): boolean {
     if (provider === "gmail") {
       return thread.messages?.some((msg: any) => msg.labelIds?.includes("STARRED")) || false;
     }
@@ -542,9 +539,9 @@ class EnhancedEmailIntegrationService {
       return thread.messages?.some((msg: any) => msg.flag?.flagStatus === "flagged") || false;
     }
     return false;
-  }
+  },
 
-  static extractThreadSubject(thread: any, provider: string): string {
+  extractThreadSubject(thread: any, provider: string): string {
     if (provider === "gmail") {
       return thread.messages?.[0]?.payload?.headers?.find((h: any) => h.name === "Subject")?.value || "(No Subject)";
     }
@@ -552,9 +549,9 @@ class EnhancedEmailIntegrationService {
       return thread.messages?.[0]?.subject || "(No Subject)";
     }
     return "(No Subject)";
-  }
+  },
 
-  static determineThreadCategory(thread: any, provider: string): string {
+  determineThreadCategory(thread: any, provider: string): string {
     if (provider === "gmail") {
       const firstMessage = thread.messages?.[0];
       if (firstMessage?.labelIds) {
@@ -568,9 +565,9 @@ class EnhancedEmailIntegrationService {
       }
     }
     return "OTHER";
-  }
+  },
 
-  static extractThreadLabels(thread: any, provider: string): string[] {
+  extractThreadLabels(thread: any, provider: string): string[] {
     if (provider === "gmail") {
       const allLabels = new Set<string>();
       thread.messages?.forEach((msg: any) => {
@@ -590,10 +587,10 @@ class EnhancedEmailIntegrationService {
       return Array.from(allLabels);
     }
     return [];
-  }
+  },
 
   // Gmail-specific helper methods
-  static getGmailHeaders(payload: any): { [key: string]: string } {
+  getGmailHeaders(payload: any): { [key: string]: string } {
     const headers: { [key: string]: string } = {};
     if (payload.headers) {
       payload.headers.forEach((header: any) => {
@@ -601,28 +598,28 @@ class EnhancedEmailIntegrationService {
       });
     }
     return headers;
-  }
+  },
 
-  static parseEmailAddress(emailStr: string): { name: string; email: string } {
+  parseEmailAddress(emailStr: string): { name: string; email: string } {
     if (!emailStr) return { name: "", email: "" };
     const match = emailStr.match(/^(.*?)\s*<(.+?)>$/) || [null, "", emailStr];
     return {
       name: match[1]?.replace(/"/g, "").trim() || "",
       email: match[2]?.trim() || emailStr,
     };
-  }
+  },
 
-  static parseEmailAddresses(emailStr: string): any[] {
+  parseEmailAddresses(emailStr: string): any[] {
     if (!emailStr) return [];
     return emailStr.split(",").map((addr: string) => this.parseEmailAddress(addr.trim()));
-  }
+  },
 
-  static formatEmailAddresses(addresses: any[]): string {
+  formatEmailAddresses(addresses: any[]): string {
     return addresses.map((addr: any) => (addr.name ? `"${addr.name}" <${addr.email}>` : addr.email)).join(", ");
-  }
+  },
 
   // Version extraction methods
-  static extractVersion(email: any, provider: string): string | null {
+  extractVersion(email: any, provider: string): string | null {
     if (provider === "gmail") {
       return email.historyId || null;
     }
@@ -630,21 +627,19 @@ class EnhancedEmailIntegrationService {
       return email["@odata.etag"] || null;
     }
     return null;
-  }
+  },
 
-  static extractETag(email: any, provider: string): string | null {
+  extractETag(email: any, provider: string): string | null {
     if (provider === "outlook") {
       return email["@odata.etag"] || null;
     }
     return null;
-  }
+  },
 
-  static extractChangeKey(email: any, provider: string): string | null {
+  extractChangeKey(email: any, provider: string): string | null {
     if (provider === "outlook") {
       return email.changeKey || null;
     }
     return null;
-  }
-}
-
-module.exports = EnhancedEmailIntegrationService;
+  },
+};

@@ -72,10 +72,40 @@ export class EmailOAuthService {
 
   // Decrypt sensitive data
   static decryptData(encryptedData: string | any): string {
-    const decipher = crypto.createDecipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
-    let decrypted = decipher.update(encryptedData, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+    try {
+      // Validate input
+      if (!encryptedData || typeof encryptedData !== "string") {
+        throw new Error(`Invalid encrypted data: expected string, got ${typeof encryptedData}`);
+      }
+
+      if (encryptedData.trim().length === 0) {
+        throw new Error("Encrypted data is empty");
+      }
+
+      // Validate hex format
+      if (!/^[0-9a-fA-F]+$/.test(encryptedData)) {
+        throw new Error("Encrypted data is not in valid hex format");
+      }
+
+      const decipher = crypto.createDecipheriv("aes-256-ctr", this.ENCRYPTION_KEY, Buffer.alloc(16, 0));
+      let decrypted = decipher.update(encryptedData, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+
+      // Validate decrypted result
+      if (!decrypted || decrypted.trim().length === 0) {
+        throw new Error("Decryption resulted in empty data");
+      }
+
+      return decrypted;
+    } catch (error: any) {
+      logger.error("Error in decryptData:", {
+        error: error.message,
+        inputType: typeof encryptedData,
+        inputLength: encryptedData ? encryptedData.length : 0,
+        isValidHex: encryptedData && typeof encryptedData === "string" ? /^[0-9a-fA-F]+$/.test(encryptedData) : false,
+      });
+      throw error;
+    }
   }
 
   // Generate OAuth state for security
@@ -293,6 +323,29 @@ export class EmailOAuthService {
       }
 
       logger.info(`Google OAuth account created/updated: ${emailAddress}`);
+
+      // Automatically setup real-time sync webhook for Gmail accounts
+      if (account.accountType === "gmail" && account.oauth?.accessToken) {
+        try {
+          logger.info(`🔄 [Gmail] Auto-setting up real-time sync webhook for: ${emailAddress}`);
+
+          // Import the real-time sync service
+          const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+
+          // Setup the webhook automatically
+          const webhookResult = await RealTimeEmailSyncService.setupGmailRealTimeSync(account);
+
+          if (webhookResult.success) {
+            logger.info(`✅ [Gmail] Auto-webhook setup successful for: ${emailAddress}`);
+          } else {
+            logger.warn(`⚠️ [Gmail] Auto-webhook setup failed for: ${emailAddress}: ${webhookResult.error}`);
+          }
+        } catch (webhookError: any) {
+          logger.error(`❌ [Gmail] Auto-webhook setup error for ${emailAddress}:`, webhookError);
+          // Don't fail the OAuth flow if webhook setup fails
+        }
+      }
+
       return { success: true, account };
     } catch (error: any) {
       logger.error("Google OAuth callback overall error:", error);
@@ -437,6 +490,29 @@ export class EmailOAuthService {
       }
 
       logger.info(`Outlook OAuth account created/updated: ${emailAddress}`);
+
+      // Automatically setup real-time sync webhook for Outlook accounts
+      if (account.accountType === "outlook" && account.oauth?.accessToken) {
+        try {
+          logger.info(`🔄 [Outlook] Auto-setting up real-time sync webhook for: ${emailAddress}`);
+
+          // Import the real-time sync service
+          const { RealTimeEmailSyncService } = await import("@/services/real-time-email-sync.service");
+
+          // Setup the webhook automatically
+          const webhookResult = await RealTimeEmailSyncService.setupOutlookRealTimeSync(account);
+
+          if (webhookResult.success) {
+            logger.info(`✅ [Outlook] Auto-webhook setup successful for: ${emailAddress}`);
+          } else {
+            logger.warn(`⚠️ [Outlook] Auto-webhook setup failed for: ${emailAddress}: ${webhookResult.error}`);
+          }
+        } catch (webhookError: any) {
+          logger.error(`❌ [Outlook] Auto-webhook setup error for ${emailAddress}:`, webhookError);
+          // Don't fail the OAuth flow if webhook setup fails
+        }
+      }
+
       return { success: true, account };
     } catch (error: any) {
       logger.error("Outlook OAuth callback error:", error);
@@ -527,13 +603,24 @@ export class EmailOAuthService {
             client_secret: decryptedClientSecret,
             refresh_token: decryptedRefreshToken,
             grant_type: "refresh_token",
+            // Microsoft v2.0 endpoint often requires scopes on refresh
+            scope: provider.oauth.scopes.join(" "),
           }),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          logger.error("Failed to refresh Outlook token:", errorText);
-          throw new Error(`Failed to refresh Outlook token: ${response.status}`);
+          let errorDetail: any = null;
+          try {
+            errorDetail = await response.json();
+          } catch (_) {
+            errorDetail = await response.text();
+          }
+          logger.error("Failed to refresh Outlook token:", errorDetail);
+          const description =
+            typeof errorDetail === "object" ? errorDetail.error_description || errorDetail.error : String(errorDetail);
+          throw new Error(
+            `Failed to refresh Outlook token: ${response.status}${description ? ` - ${description}` : ""}`
+          );
         }
 
         const tokens: OAuthTokenResponse = await response.json();
@@ -565,11 +652,48 @@ export class EmailOAuthService {
   static getDecryptedAccessToken(account: IEmailAccount): string | null {
     try {
       if (!account.oauth?.accessToken) {
+        logger.warn("No access token found in account OAuth data", {
+          emailAddress: account.emailAddress,
+          hasOAuth: !!account.oauth,
+          oauthProvider: account.oauth?.provider,
+        });
         return null;
       }
-      return this.decryptData(account.oauth.accessToken);
-    } catch (error) {
-      logger.error("Error decrypting access token:", error);
+
+      const decryptedToken = this.decryptData(account.oauth.accessToken);
+
+      // Validate the decrypted token
+      if (!decryptedToken || typeof decryptedToken !== "string" || decryptedToken.trim().length === 0) {
+        logger.warn("Decrypted access token is invalid or empty", {
+          emailAddress: account.emailAddress,
+          tokenExists: !!decryptedToken,
+          tokenType: typeof decryptedToken,
+          tokenLength: decryptedToken ? decryptedToken.length : 0,
+        });
+        return null;
+      }
+
+      // For Outlook tokens, they should be opaque strings (not JWT format)
+      // JWT tokens have dots, but Outlook access tokens don't
+      if (account.oauth.provider === "outlook") {
+        // Outlook tokens are typically long strings without dots
+        if (decryptedToken.includes(".") && decryptedToken.split(".").length === 3) {
+          logger.warn("Outlook access token appears to be in JWT format, which is unexpected", {
+            emailAddress: account.emailAddress,
+            tokenLength: decryptedToken.length,
+            hasDots: decryptedToken.includes("."),
+          });
+        }
+      }
+
+      return decryptedToken;
+    } catch (error: any) {
+      logger.error("Error decrypting access token:", {
+        error: error.message,
+        emailAddress: account.emailAddress,
+        hasAccessToken: !!account.oauth?.accessToken,
+        provider: account.oauth?.provider,
+      });
       return null;
     }
   }
@@ -719,13 +843,21 @@ export class EmailOAuthService {
           client_secret: decryptedClientSecret,
           refresh_token: decryptedRefreshToken,
           grant_type: "refresh_token",
+          scope: provider.oauth.scopes.join(" "),
         }),
       });
 
-      const tokens = await response.json();
+      let tokens: any = null;
+      try {
+        tokens = await response.json();
+      } catch (_) {
+        // keep as null to trigger error handling below
+      }
 
-      if (!response.ok || !tokens.access_token) {
-        return { success: false, error: tokens.error_description || "Token refresh failed" };
+      if (!response.ok || !tokens?.access_token) {
+        const errorMessage =
+          tokens?.error_description || tokens?.error || (await response.text?.()) || "Token refresh failed";
+        return { success: false, error: errorMessage };
       }
 
       // Update the account with new tokens
