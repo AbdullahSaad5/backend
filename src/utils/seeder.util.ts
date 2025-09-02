@@ -30,8 +30,8 @@ const seedData = async () => {
   // 1. Seed User Category (Super Admin Role)
   const superAdminCategoryData = {
     _id: new mongoose.Types.ObjectId("679bb2dad0461eda67da8e17"), // Unique ID for super admin
-    role: "super admin",
-    description: "This category is just for super admin usage.",
+    role: "dev admin",
+    description: "This category is just for dev admin usage.",
     permissions: [
       "DASHBOARD",
 
@@ -393,16 +393,16 @@ const seedData = async () => {
   // 3. Seed SuperAdmin User
   const superAdminData = {
     _id: new mongoose.Types.ObjectId("674d9bdb847b89c5b0766555"),
-    firstName: "SUPER",
+    firstName: "DEV",
     lastName: "ADMIN",
-    email: "superadmin@gmail.com",
-    password: hashedPassword, // Already hashed
+    email: "devadmin@gmail.com",
+    password: hashedPassword, // Already hashed`
     phoneNumber: "443452452344",
     dob: "2024-12-16",
     signUpThrough: "Web",
     isEmailVerified: true,
     employeeId: "BMR-SADM12",
-    userType: userCategory._id, // Associate with the user category (Super Admin Role)
+    userType: userCategory._id, // Associate with the user category (Dev Admin Role)
     additionalAccessRights: [],
     restrictedAccessRights: [],
     isBlocked: false,
@@ -453,9 +453,9 @@ const seedData = async () => {
     ) {
       superAdmin.set(superAdminData);
       await superAdmin.save();
-      console.log("SuperAdmin user updated.");
+      console.log("DevAdmin user updated.");
     } else {
-      console.log("SuperAdmin user already exists and matches.");
+      console.log("DevAdmin user already exists and matches.");
     }
   }
 
