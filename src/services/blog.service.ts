@@ -70,7 +70,7 @@ export const blogService = {
     const skip = (page - 1) * limit;
 
     // Execute query with pagination
-    const blogs = await Iblog.find(query).sort(sort).skip(skip).limit(limit).lean();
+    const blogs = await Iblog.find(query).sort(sort).skip(skip).limit(limit).lean().sort({ createdAt: -1 });;
 
     // Get total count for pagination
     const total = await Iblog.countDocuments(query);

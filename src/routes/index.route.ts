@@ -91,6 +91,7 @@ import { website } from "./website.route";
 import { deals } from "./deal.route";
 import { realTimeSync } from "./real-time-sync.route";
 import { outlookWebhook } from "./outlook-webhook.route";
+import { analytics } from "./analytics.route";
 const router: Router = Router();
 
 router.use("/discriminator", discriminatorRouter);
@@ -184,6 +185,7 @@ const routes: {
   deals,
   realTimeSync,
   stripe,
+  analytics,
 };
 
 // Loop through all routes and pass the router to each route

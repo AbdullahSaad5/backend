@@ -22,7 +22,8 @@ export const bundleService = {
       return await Bundle.find()
         .populate("items.productId")
         .populate("items.stockId")
-        .populate("items.selectedVariations.variationId");
+        .populate("items.selectedVariations.variationId")
+        .sort({ createdAt: -1 });
     } catch (error) {
       console.error("Error fetching bundles:", error);
       throw new Error("Failed to retrieve bundles from the database");
@@ -34,7 +35,8 @@ export const bundleService = {
       return await Bundle.find(condition)
         .populate("items.productId")
         .populate("items.stockId")
-        .populate("items.selectedVariations.variationId");
+        .populate("items.selectedVariations.variationId")
+        .sort({ createdAt: -1 });
     } catch (error) {
       console.error("Error fetching published bundles:", error);
       throw new Error("Failed to retrieve published bundles from the database");
