@@ -127,7 +127,7 @@ export const adminRoleCheck = async (
     user = dbUser;
     if (req.context) req.context.user = user;
   }
-  if (user.userType.role !== "admin" && user.userType.role !== "super admin") {
+  if (user.userType.categoryType !== "admin" && user.userType.categoryType !== "super admin") {
     return res.status(403).json({ message: "Forbidden: Admins only" });
   }
   next();
