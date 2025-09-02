@@ -144,7 +144,7 @@ export const authController = {
       if (
         userTypeFromHeader === "admin" &&
         user.userType.categoryType !== "admin" &&
-        user.userType.categoryType !== "dev admin"
+        user.userType.categoryType !== "super admin"
       ) {
         return res.status(StatusCodes.FORBIDDEN).json({
           message: "You are not authorized to use the Admin login page.",
