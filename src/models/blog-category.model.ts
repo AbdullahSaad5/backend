@@ -7,6 +7,8 @@ const blogcategorySchema = new Schema<IBlogcategory, BlogcategoryModel>({
   description: { type: String },
   image: { type: String },
   isBlocked: { type: Boolean, default: false },
+}, {
+  timestamps: true
 });
 
 export const BlogCategory = model("BlogCategory", blogcategorySchema);

@@ -317,7 +317,9 @@ export const supplierService = {
         .populate("userType")
         .populate("supplierCategory")
         .skip(skip) // Correct application of skip
-        .limit(limitNumber); // Correct application of limit
+        .limit(limitNumber) // Correct application of limit
+        .sort({ createdAt: -1 });
+
 
       console.log("Found suppliers:", suppliers.length);
       console.log("Sample supplier:", suppliers[0]);

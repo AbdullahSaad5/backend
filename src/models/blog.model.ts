@@ -11,6 +11,8 @@ const Blog = new Schema<IBlog, BlogModel>({
   authorName: { type: String, trim: true },
   coverImage: { type: String },
   focusKeyword: { type: [String], default: [] },
+}, {
+  timestamps: true
 });
 
 export const Iblog = model("blog", Blog);
