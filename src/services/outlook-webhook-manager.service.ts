@@ -1,4 +1,5 @@
 import { IEmailAccount, EmailAccountModel } from "@/models/email-account.model";
+import { EmailOAuthService } from "@/services/emailOAuth.service";
 import { logger } from "@/utils/logger.util";
 import crypto from "crypto";
 import { getOutlookWebhookUrl } from "@/config/instance-config";
@@ -396,7 +397,7 @@ export class OutlookWebhookManager {
       logger.info(`🧹 [Outlook] Starting webhook cleanup for account: ${account.emailAddress}`);
 
       // Get access token for cleanup
-      const accessToken = account.oauth?.accessToken;
+      const accessToken = EmailOAuthService.getDecryptedAccessToken(account) || undefined;
       if (!accessToken) {
         logger.warn(`⚠️ [Outlook] No access token available for webhook cleanup: ${account.emailAddress}`);
         return;

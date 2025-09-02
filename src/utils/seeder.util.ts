@@ -135,6 +135,7 @@ const seedData = async () => {
       "SETTINGS",
       "MANAGE_CONTENT",
     ],
+    categoryType: "super admin",
     isBlocked: false,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -144,6 +145,7 @@ const seedData = async () => {
     _id: new mongoose.Types.ObjectId("6749acd1ee2cd751095fb5ee"), // Unique ID for super admin
     role: "admin",
     description: "Admin has Access to Everything",
+    categoryType: "admin",
     permissions: [
       "DASHBOARD",
 
@@ -357,6 +359,7 @@ const seedData = async () => {
 
       "SETTINGS",
     ],
+    categoryType: "supplier",
     isBlocked: false,
     createdAt: new Date(),
     updatedAt: new Date(),

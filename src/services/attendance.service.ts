@@ -242,7 +242,7 @@ export const attendanceService = {
       attendance.status = "present";
       await attendance.save();
     }
-    return attendance;
+    return attendance.toJSON(); // Convert to plain object
   },
 
   // Employee self check-out
@@ -258,7 +258,7 @@ export const attendanceService = {
     }
     attendance.checkOut = new Date();
     await attendance.save();
-    return attendance;
+    return attendance.toJSON(); // Convert to plain object
   },
 
   // Admin: mark attendance (present/absent/leave/late)
@@ -272,13 +272,20 @@ export const attendanceService = {
     checkOut?: Date
   ) => {
     date.setHours(0, 0, 0, 0);
+
+    // For absent and leave status, clear check-in and check-out times
+    if (status === "absent" || status === "leave") {
+      checkIn = undefined;
+      checkOut = undefined;
+    }
+
     let attendance = await Attendance.findOne({ employeeId, date });
     if (!attendance) {
       attendance = await Attendance.create({
         employeeId,
         date,
-        checkIn,
-        checkOut,
+        checkIn: checkIn || undefined,
+        checkOut: checkOut || undefined,
         shiftId,
         workModeId,
         status,
@@ -287,19 +294,28 @@ export const attendanceService = {
       attendance.status = status;
       if (shiftId) attendance.shiftId = shiftId as any;
       if (workModeId) attendance.workModeId = workModeId as any;
-      if (checkIn) attendance.checkIn = checkIn;
-      if (checkOut) attendance.checkOut = checkOut;
+
+      // Handle check-in and check-out based on status
+      if (status === "absent" || status === "leave") {
+        // Clear check-in and check-out for absent/leave
+        attendance.checkIn = undefined;
+        attendance.checkOut = undefined;
+      } else {
+        // Only set check-in/check-out if provided for present/late status
+        if (checkIn !== undefined) attendance.checkIn = checkIn;
+        if (checkOut !== undefined) attendance.checkOut = checkOut;
+      }
+
       await attendance.save();
     }
-    return attendance;
+    return attendance.toJSON(); // Convert to plain object
   },
 
   // Admin: update attendance record
   updateAttendance: async (attendanceId: string, update: Partial<IAttendance>) => {
-    const attendance = await Attendance.findByIdAndUpdate(attendanceId, update, { new: true });
+    const attendance = await Attendance.findByIdAndUpdate(attendanceId, update, { new: true }).lean(); // Add .lean() to return plain object
     return attendance;
   },
-
   // Get attendance for employee (self or admin)
   getAttendance: async (employeeId: string, startDate?: Date, endDate?: Date, status?: string) => {
     const query: any = { employeeId };
@@ -315,7 +331,8 @@ export const attendanceService = {
         path: "shiftId",
         select: "hasBreak breakStartTime breakEndTime",
       })
-      .sort({ date: -1 });
+      .sort({ date: -1 })
+      .lean(); // Add .lean() to get plain objects instead of Mongoose documents
 
     // Helper function to get leave request info
     const getLeaveInfo = async (record: any) => {
@@ -748,13 +765,14 @@ export const attendanceService = {
       date: today,
     });
     if (!attendance) {
-      attendance = await Attendance.create({
+      const newAttendance = await Attendance.create({
         employeeId: employeeObjectId,
         date: today,
         checkIn: new Date(),
         status: "present",
         workModeId: userWorkMode._id,
       });
+      return newAttendance.toJSON(); // Convert to plain object
     } else {
       if (attendance.checkIn) {
         throw new Error("You have already checked in today.");
@@ -763,7 +781,7 @@ export const attendanceService = {
       attendance.status = "present";
       await attendance.save();
     }
-    return attendance;
+    return attendance.toJSON(); // Convert to plain object
   },
 
   // Get userId from employeeId
@@ -837,12 +855,13 @@ export const attendanceService = {
 
       if (!attendance) {
         // Create new attendance record
-        attendance = await Attendance.create({
+        const newAttendance = await Attendance.create({
           employeeId: userId,
           date: attendanceDate,
           checkIn: date,
           status: "present",
         });
+        return newAttendance.toJSON(); // Convert to plain object
       } else {
         if (attendance.checkIn) {
           throw new Error("You have already checked in today.");
@@ -852,7 +871,7 @@ export const attendanceService = {
         await attendance.save();
       }
 
-      return attendance;
+      return attendance.toJSON(); // Convert to plain object
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -924,7 +943,7 @@ export const attendanceService = {
       attendance.checkOut = date;
       await attendance.save();
 
-      return attendance;
+      return attendance.toJSON(); // Convert to plain object
     } catch (error: any) {
       throw new Error(error.message);
     }
@@ -933,49 +952,133 @@ export const attendanceService = {
 
 /**
  * Cron: Mark employees absent if no check-in after shift end + grace period
- * Handles midnight/next-day edge cases: marks absent for the correct day (the day the shift ended),
- * even if the cron runs after midnight.
+ * Uses smart date logic to avoid reprocessing the same records multiple times
  */
 export const markAbsentForUsers = async () => {
   const GRACE_MINUTES = 120;
   const now = new Date();
-  const shifts = await Shift.find({ isBlocked: false }).populate("employees");
-  for (const shift of shifts) {
-    const [endHour, endMinute] = shift.endTime.split(":").map(Number);
-    for (const employeeId of shift.employees) {
-      // Try for both today and yesterday
-      for (let offset = 0; offset <= 1; offset++) {
-        const shiftDate = new Date(now);
-        shiftDate.setDate(now.getDate() - offset);
-        shiftDate.setHours(0, 0, 0, 0);
-        const shiftEnd = new Date(shiftDate);
-        shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
-        if (now >= shiftEnd) {
-          const attendance = await Attendance.findOne({
-            employeeId,
-            date: shiftDate,
-          });
-          if (!attendance) {
+  let processedCount = 0;
+  let absentMarkedCount = 0;
+  let skippedCount = 0;
+
+  console.log(`[MarkAbsent] Starting cron job at ${now.toISOString()}`);
+
+  try {
+    const shifts = await Shift.find({ isBlocked: false }).populate("employees");
+    console.log(`[MarkAbsent] Found ${shifts.length} active shifts`);
+
+    // Determine which date to process based on current time
+    // This prevents processing the same date multiple times
+    const targetDate = getTargetDateForProcessing(now);
+    if (!targetDate) {
+      console.log(`[MarkAbsent] No date needs processing at this time`);
+      return;
+    }
+
+    console.log(`[MarkAbsent] Processing date: ${targetDate.toDateString()}`);
+
+    for (const shift of shifts) {
+      const [endHour, endMinute] = shift.endTime.split(":").map(Number);
+
+      // Calculate when this shift would end with grace period
+      const shiftEnd = new Date(targetDate);
+      shiftEnd.setHours(endHour, endMinute + GRACE_MINUTES, 0, 0);
+
+      // Handle overnight shifts (end time after midnight)
+      if (endHour < 12 && now.getHours() >= 12) {
+        // This is likely an overnight shift ending the next day
+        shiftEnd.setDate(shiftEnd.getDate() + 1);
+      }
+
+      // Only process if grace period has passed
+      if (now < shiftEnd) {
+        continue;
+      }
+
+      for (const employeeId of shift.employees) {
+        processedCount++;
+
+        // Check if employee already has attendance record for this date
+        const attendance = await Attendance.findOne({
+          employeeId,
+          date: targetDate,
+        });
+
+        if (!attendance) {
+          // Create new absent record
+          try {
             await Attendance.create({
               employeeId,
-              date: shiftDate,
+              date: targetDate,
               status: "absent",
               shiftId: shift._id as Types.ObjectId,
             });
-          } else if (
-            attendance.status !== "present" &&
-            attendance.status !== "leave" &&
-            attendance.status !== "absent"
-          ) {
-            attendance.status = "absent";
-            attendance.shiftId = shift._id as Types.ObjectId;
-            await attendance.save();
+            absentMarkedCount++;
+            console.log(`[MarkAbsent] Marked employee ${employeeId} absent for ${targetDate.toDateString()}`);
+          } catch (error: any) {
+            if (error.code === 11000) {
+              console.log(
+                `[MarkAbsent] Duplicate prevented: Employee ${employeeId} for ${targetDate.toDateString()} already exists`
+              );
+              skippedCount++;
+            } else {
+              console.error(`[MarkAbsent] Error creating attendance for employee ${employeeId}:`, error);
+            }
           }
+        } else if (attendance.status !== "present" && attendance.status !== "leave" && attendance.status !== "absent") {
+          // Update existing record to absent (only if it's not already properly set)
+          attendance.status = "absent";
+          attendance.shiftId = shift._id as Types.ObjectId;
+          await attendance.save();
+          absentMarkedCount++;
+          console.log(`[MarkAbsent] Updated employee ${employeeId} status to absent for ${targetDate.toDateString()}`);
+        } else {
+          skippedCount++;
         }
       }
     }
+
+    console.log(
+      `[MarkAbsent] Completed: Processed ${processedCount} records, marked ${absentMarkedCount} as absent, skipped ${skippedCount} existing/duplicates`
+    );
+  } catch (error) {
+    console.error(`[MarkAbsent] Cron job failed:`, error);
   }
 };
+
+/**
+ * Determines which date should be processed based on current time
+ * Returns null if no processing is needed at this time
+ */
+function getTargetDateForProcessing(now: Date): Date | null {
+  const currentHour = now.getHours();
+
+  // 8 AM (08:00): Process yesterday's overnight shifts (22:00-06:00 shifts)
+  if (currentHour === 8) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    return yesterday;
+  }
+
+  // 4 PM (16:00): Process today's morning shifts (06:00-14:00 shifts)
+  if (currentHour === 16) {
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    return today;
+  }
+
+  // Midnight (00:00): Process yesterday's evening shifts (14:00-22:00 shifts)
+  if (currentHour === 0) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+    return yesterday;
+  }
+
+  // No processing needed at other times
+  return null;
+}
 
 /**
  * Cron: Auto-checkout employees if checked in but not checked out after shift end + buffer

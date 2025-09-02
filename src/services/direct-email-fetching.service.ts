@@ -231,31 +231,28 @@ export class DirectEmailFetchingService {
         throw new Error("Failed to get Outlook access token");
       }
 
-      // Create Microsoft Graph client
-      const graphClient = Client.init({
-        authProvider: (done) => {
-          done(null, accessToken);
-        },
-      });
-
-      // Build the endpoint for fetching a specific message
+      // Use direct fetch calls instead of Microsoft Graph client to avoid JWT format issues
+      // This matches the approach used in the webhook flow
       const endpoint = `/me/messages/${messageId}`;
-
-      // Define the fields to select for the message
-      // const queryParams = {
-      //   $select:
-      //     "id,subject,from,toRecipients,ccRecipients,bccRecipients,receivedDateTime,isRead,body,bodyPreview,conversationId,hasAttachments,importance,flag,webLink,inReplyTo,references,replyTo",
-      // };
-
-      // Build query string
-      // const queryString = new URLSearchParams(queryParams).toString();
-      // const fullEndpoint = `${endpoint}?${queryString}`;
-
       const fullEndpoint = endpoint;
       logger.info(`Outlook API endpoint: ${fullEndpoint}`);
 
-      // Fetch the specific message from Microsoft Graph
-      const response = await graphClient.api(fullEndpoint).get();
+      // Fetch the specific message from Microsoft Graph using direct fetch
+      const response = await fetch(`https://graph.microsoft.com/v1.0${fullEndpoint}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error(`Failed to fetch message: ${response.status} ${response.statusText}`);
+        logger.error(`Error details: ${errorText}`);
+        throw new Error(`Failed to fetch message: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json();
 
       if (!response) {
         logger.warn(`Message with ID ${messageId} not found in Outlook API`);
