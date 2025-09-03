@@ -115,6 +115,7 @@ export const websiteService = {
               videos: listing.prodMedia?.videos || [],
               offerImages: listing.prodMedia?.offerImages || [],
             },
+            dealInfo: listing.dealInfo || null,
             status: listing.status,
             listingHasVariations: listing.listingHasVariations || false,
             createdAt: listing.createdAt,
@@ -269,6 +270,7 @@ export const websiteService = {
           videos: listing.prodMedia?.videos || [],
           offerImages: listing.prodMedia?.offerImages || [],
         },
+        dealInfo: listing.dealInfo || null,
         status: listing.status,
         listingHasVariations: listing.listingHasVariations || false,
         createdAt: listing.createdAt,
@@ -444,12 +446,12 @@ export const websiteService = {
           brand: brand,
           category: (listing as any).productInfo?.productCategory
             ? {
-              id: (listing as any).productInfo.productCategory._id,
-              name: (listing as any).productInfo.productCategory.name || "",
-              description: (listing as any).productInfo.productCategory.description || "",
-              image: (listing as any).productInfo.productCategory.image || "",
-              tags: (listing as any).productInfo.productCategory.tags || [],
-            }
+                id: (listing as any).productInfo.productCategory._id,
+                name: (listing as any).productInfo.productCategory.name || "",
+                description: (listing as any).productInfo.productCategory.description || "",
+                image: (listing as any).productInfo.productCategory.image || "",
+                tags: (listing as any).productInfo.productCategory.tags || [],
+              }
             : null,
           description: description,
           condition: cleanCondition,
@@ -470,13 +472,13 @@ export const websiteService = {
                 // Include populated variation details if available
                 variationDetails: variation.variationId
                   ? {
-                    id: variation.variationId._id,
-                    attributes: variation.variationId.attributes || {},
-                    isSelected: variation.variationId.isSelected || false,
-                    isBundleVariation: variation.variationId.isBundleVariation || false,
-                    createdAt: variation.variationId.createdAt,
-                    updatedAt: variation.variationId.updatedAt,
-                  }
+                      id: variation.variationId._id,
+                      attributes: variation.variationId.attributes || {},
+                      isSelected: variation.variationId.isSelected || false,
+                      isBundleVariation: variation.variationId.isBundleVariation || false,
+                      createdAt: variation.variationId.createdAt,
+                      updatedAt: variation.variationId.updatedAt,
+                    }
                   : null,
               })) || [],
             currency: "GBP", // Default currency
@@ -559,6 +561,7 @@ export const websiteService = {
         attributes,
         sortBy = "createdAt",
         sortOrder = "desc",
+        dealInfo,
       } = filters;
 
       const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
@@ -757,15 +760,15 @@ export const websiteService = {
         const stockFilter = {
           $or: inStock
             ? [
-              { "selectedStockId.usableUnits": { $gt: 0 } },
-              { "stock.available": { $gt: 0 } },
-              { availableStock: { $gt: 0 } },
-            ]
+                { "selectedStockId.usableUnits": { $gt: 0 } },
+                { "stock.available": { $gt: 0 } },
+                { availableStock: { $gt: 0 } },
+              ]
             : [
-              { "selectedStockId.usableUnits": { $lte: 0 } },
-              { "stock.available": { $lte: 0 } },
-              { availableStock: { $lte: 0 } },
-            ],
+                { "selectedStockId.usableUnits": { $lte: 0 } },
+                { "stock.available": { $lte: 0 } },
+                { availableStock: { $lte: 0 } },
+              ],
         };
 
         if (query.$and) {
@@ -786,6 +789,17 @@ export const websiteService = {
             }
           }
         });
+      }
+
+      // Deal info filter
+      if (dealInfo !== undefined) {
+        if (dealInfo === true) {
+          // Filter for records where dealInfo is not null
+          query.dealInfo = { $ne: null };
+        } else if (dealInfo === false) {
+          // Filter for records where dealInfo is null
+          query.dealInfo = null;
+        }
       }
 
       // Clean up query structure
@@ -822,9 +836,9 @@ export const websiteService = {
               "prodPricing.retailPrice":
                 priceRange.min || priceRange.max
                   ? {
-                    $gte: priceRange.min || 0,
-                    $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
-                  }
+                      $gte: priceRange.min || 0,
+                      $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                    }
                   : {},
             },
             {
@@ -833,9 +847,9 @@ export const websiteService = {
                   retailPrice:
                     priceRange.min || priceRange.max
                       ? {
-                        $gte: priceRange.min || 0,
-                        $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
-                      }
+                          $gte: priceRange.min || 0,
+                          $lte: priceRange.max || Number.MAX_SAFE_INTEGER,
+                        }
                       : {},
                 },
               },
@@ -956,12 +970,12 @@ export const websiteService = {
           brand: brand,
           category: listing.productInfo?.productCategory
             ? {
-              id: listing.productInfo.productCategory._id,
-              name: listing.productInfo.productCategory.name || "",
-              description: listing.productInfo.productCategory.description || "",
-              image: listing.productInfo.productCategory.image || "",
-              tags: listing.productInfo.productCategory.tags || [],
-            }
+                id: listing.productInfo.productCategory._id,
+                name: listing.productInfo.productCategory.name || "",
+                description: listing.productInfo.productCategory.description || "",
+                image: listing.productInfo.productCategory.image || "",
+                tags: listing.productInfo.productCategory.tags || [],
+              }
             : null,
           description: description,
           condition: cleanCondition,
@@ -981,13 +995,13 @@ export const websiteService = {
                 offerImages: variation.offerImages || [],
                 variationDetails: variation.variationId
                   ? {
-                    id: variation.variationId._id,
-                    attributes: variation.variationId.attributes || {},
-                    isSelected: variation.variationId.isSelected || false,
-                    isBundleVariation: variation.variationId.isBundleVariation || false,
-                    createdAt: variation.variationId.createdAt,
-                    updatedAt: variation.variationId.updatedAt,
-                  }
+                      id: variation.variationId._id,
+                      attributes: variation.variationId.attributes || {},
+                      isSelected: variation.variationId.isSelected || false,
+                      isBundleVariation: variation.variationId.isBundleVariation || false,
+                      createdAt: variation.variationId.createdAt,
+                      updatedAt: variation.variationId.updatedAt,
+                    }
                   : null,
               })) || [],
             currency: "GBP",
@@ -1038,9 +1052,9 @@ export const websiteService = {
       return {
         products: transformedProducts,
         pagination: {
-          total: actualTotal,
+          total: totalListings,
           page: pageNumber,
-          totalPages: Math.ceil(actualTotal / limitNumber),
+          totalPages: Math.ceil(totalListings / limitNumber),
           perPage: limitNumber,
         },
         appliedFilters: filters,
@@ -1393,12 +1407,12 @@ export const websiteService = {
         brand: brand,
         category: listing.productInfo?.productCategory
           ? {
-            id: listing.productInfo.productCategory._id,
-            name: listing.productInfo.productCategory.name || "",
-            description: listing.productInfo.productCategory.description || "",
-            image: listing.productInfo.productCategory.image || "",
-            tags: listing.productInfo.productCategory.tags || [],
-          }
+              id: listing.productInfo.productCategory._id,
+              name: listing.productInfo.productCategory.name || "",
+              description: listing.productInfo.productCategory.description || "",
+              image: listing.productInfo.productCategory.image || "",
+              tags: listing.productInfo.productCategory.tags || [],
+            }
           : null,
         description: description,
         condition: cleanCondition,
@@ -1419,13 +1433,13 @@ export const websiteService = {
               // Include populated variation details if available
               variationDetails: variation.variationId
                 ? {
-                  id: variation.variationId._id,
-                  attributes: variation.variationId.attributes || {},
-                  isSelected: variation.variationId.isSelected || false,
-                  isBundleVariation: variation.variationId.isBundleVariation || false,
-                  createdAt: variation.variationId.createdAt,
-                  updatedAt: variation.variationId.updatedAt,
-                }
+                    id: variation.variationId._id,
+                    attributes: variation.variationId.attributes || {},
+                    isSelected: variation.variationId.isSelected || false,
+                    isBundleVariation: variation.variationId.isBundleVariation || false,
+                    createdAt: variation.variationId.createdAt,
+                    updatedAt: variation.variationId.updatedAt,
+                  }
                 : null,
             })) || [],
           currency: "GBP", // Default currency
@@ -1490,32 +1504,27 @@ export const websiteService = {
       isActive: true,
       startDate: { $lte: new Date() },
       endDate: { $gte: new Date() },
-      ...filter
+      ...filter,
     };
 
     const query = dealsModel
       .find(baseFilter)
-      .select('-__v')
+      .select("-__v")
       .sort(sort)
       .skip((page - 1) * limit)
       .limit(limit);
 
     // Apply population based on selection type
-    if (baseFilter.selectionType === 'products') {
-      query.populate('products');
-    } else if (baseFilter.selectionType === 'categories') {
-      query.populate('categories');
+    if (baseFilter.selectionType === "products") {
+      query.populate("products");
+    } else if (baseFilter.selectionType === "categories") {
+      query.populate("categories");
     } else {
       // Populate both if no specific type is requested
-      query
-        .populate('products')
-        .populate('categories');
+      query.populate("products").populate("categories");
     }
 
-    const [docs, total] = await Promise.all([
-      query.exec(),
-      dealsModel.countDocuments(baseFilter)
-    ]);
+    const [docs, total] = await Promise.all([query.exec(), dealsModel.countDocuments(baseFilter)]);
 
     const pages = Math.ceil(total / limit);
     const hasNextPage = page < pages;
@@ -1528,7 +1537,7 @@ export const websiteService = {
       pages,
       limit,
       hasNextPage,
-      hasPrevPage
+      hasPrevPage,
     };
   },
 };
