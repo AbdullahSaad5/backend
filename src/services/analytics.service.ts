@@ -102,16 +102,25 @@ export const analyticsService = {
       const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-      // Get customer and supplier category IDs
+      // Get customer, supplier, and super admin category IDs
       const customerCategory = await UserCategory.findOne({ 
-        role: { $regex: /^customer$/i } 
+        categoryType: { $regex: /^customer$/i } 
       });
       const supplierCategory = await UserCategory.findOne({ 
-        role: { $regex: /^supplier$/i } 
+        categoryType: { $regex: /^supplier$/i } 
+      });
+      const superAdminCategory = await UserCategory.findOne({ 
+        categoryType: { $regex: /^super admin$/i } 
       });
 
       // Aggregation pipeline for comprehensive user stats
       const statsAggregation = await User.aggregate([
+        // First stage: Exclude super admin users
+        {
+          $match: {
+            userType: { $ne: superAdminCategory?._id }
+          }
+        },
         {
           $facet: {
             // Total counts
@@ -263,8 +272,19 @@ export const analyticsService = {
       const startDate = new Date();
       startDate.setMonth(startDate.getMonth() - months);
 
+      // Get super admin category ID to exclude
+      const superAdminCategory = await UserCategory.findOne({
+        categoryType: { $regex: /^super admin$/i }
+      });
+
       // Aggregation pipeline for registration trends
       const trendsAggregation = await User.aggregate([
+        // First stage: Exclude super admin users
+        {
+          $match: {
+            userType: { $ne: superAdminCategory?._id }
+          }
+        },
         {
           $match: {
             createdAt: { $gte: startDate, $lte: endDate }
@@ -358,11 +378,11 @@ export const analyticsService = {
   getUserRoleDistribution: async (): Promise<UserRoleDistribution> => {
     try {
       // Only exclude super admin, include suppliers
-      const excludedCategoryType = ["super admin"];
+      const excludedRoles = ["super admin"];
       
       // Get excluded user categories
       const excludedCategories = await UserCategory.find({
-        categoryType: { $in: excludedCategoryType.map(type => new RegExp(`^${type}$`, 'i')) }
+        categoryType: { $in: excludedRoles.map(role => new RegExp(`^${role}$`, 'i')) }
       });
       console.log("excludedCategoriesexcludedCategories : " , excludedCategories)
       const excludedCategoryIds = excludedCategories.map(cat => cat._id);
@@ -436,8 +456,19 @@ export const analyticsService = {
   // Get user activity distribution with aggregation
   getUserActivityDistribution: async (): Promise<UserActivityDistribution> => {
     try {
+      // Get super admin category ID to exclude
+      const superAdminCategory = await UserCategory.findOne({
+        categoryType: { $regex: /^super admin$/i }
+      });
+
       // Aggregation pipeline for activity distribution
       const activityAggregation = await User.aggregate([
+        // First stage: Exclude super admin users
+        {
+          $match: {
+            userType: { $ne: superAdminCategory?._id }
+          }
+        },
         {
           $group: {
             _id: null,
@@ -495,7 +526,7 @@ export const analyticsService = {
 
       return {
         series: [activePercentage, inactivePercentage, blockedPercentage],
-        labels: ['Active Users', 'Inactive Users', 'Blocked Users'],
+        labels: ['Active + Verified', 'Active + Non Verified', 'Blocked'],
         activityData: {
           active: data.active,
           inactive,

@@ -90,6 +90,7 @@ export const websiteController = {
         isFeatured,
         page = "1",
         limit = "10",
+        perPage, // Alternative parameter name for limit
         // Enhanced filters (previously in POST endpoint)
         minPrice,
         maxPrice,
@@ -102,6 +103,8 @@ export const websiteController = {
         sortOrder = "desc",
         // Dynamic attributes (comma-separated values)
         attributes,
+        // Deal info filter
+        dealInfo,
       } = req.query;
 
       console.log("Raw query params:", req.query);
@@ -120,7 +123,7 @@ export const websiteController = {
         isBlocked: isBlocked === "true" ? true : isBlocked === "false" ? false : undefined,
         isFeatured: isFeatured === "true" ? true : isFeatured === "false" ? false : undefined,
         page: Math.max(parseInt(page as string, 10) || 1, 1),
-        limit: parseInt(limit as string, 10) || 10,
+        limit: parseInt((perPage || limit) as string, 10) || 10,
         // Enhanced filters - handle both parameter naming conventions
         priceRange:
           minPrice || maxPrice || priceMin || priceMax
@@ -150,6 +153,8 @@ export const websiteController = {
               }
             })()
           : undefined,
+        // Deal info filter - true means filter for records where dealInfo is not null
+        dealInfo: dealInfo === "true" ? true : dealInfo === "false" ? false : undefined,
       };
 
       console.log("Parsed filters:", filters);
@@ -254,9 +259,9 @@ export const websiteController = {
         // Category-specific filters
         priceRange: priceRange
           ? {
-            min: priceRange.min ? parseFloat(priceRange.min) : undefined,
-            max: priceRange.max ? parseFloat(priceRange.max) : undefined,
-          }
+              min: priceRange.min ? parseFloat(priceRange.min) : undefined,
+              max: priceRange.max ? parseFloat(priceRange.max) : undefined,
+            }
           : undefined,
         brand: brand ? (Array.isArray(brand) ? brand : [brand]) : undefined,
         condition: condition ? (Array.isArray(condition) ? condition : [condition]) : undefined,
@@ -371,20 +376,20 @@ export const websiteController = {
       const options = {
         page: parseInt(page as string),
         limit: parseInt(limit as string),
-        sort: { createdAt: -1 }
+        sort: { createdAt: -1 },
       };
 
       const filter: any = {
         isActive: true,
         startDate: { $lte: new Date() },
-        endDate: { $gte: new Date() }
+        endDate: { $gte: new Date() },
       };
 
       // Handle selection type filter
-      if (type === 'product') {
-        filter.selectionType = 'products';
-      } else if (type === 'category') {
-        filter.selectionType = 'categories';
+      if (type === "product") {
+        filter.selectionType = "products";
+      } else if (type === "category") {
+        filter.selectionType = "categories";
       }
       // If no type specified, return all active deals
 
@@ -399,8 +404,8 @@ export const websiteController = {
           pages: activeDeals.pages,
           currentPage: activeDeals.page,
           hasNext: activeDeals.hasNextPage,
-          hasPrev: activeDeals.hasPrevPage
-        }
+          hasPrev: activeDeals.hasPrevPage,
+        },
       });
     } catch (error: any) {
       console.error("Error fetching active deals:", error);

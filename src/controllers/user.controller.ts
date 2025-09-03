@@ -386,19 +386,26 @@ export const userController = {
 
       console.log("result: ", userEmailAddress, userName);
 
-      const emailContent = `
-      <p>Dear ${userName},</p>
-      <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Build-My-Rig admin.</p>
-      <p>If you have any questions, please contact support.</p>
-    `;
-
-      // Send the email
+      // Try to send email notification, but don't fail the entire operation if it fails
       if (userEmailAddress) {
-        await sendEmail({
-          to: userEmailAddress,
-          subject: `Your Build-My-Rig Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
-          html: emailContent,
-        });
+        try {
+          const emailContent = `
+          <p>Dear ${userName},</p>
+          <p>Your account has been ${isBlocked ? "blocked" : "activated"} by the Build-My-Rig admin.</p>
+          <p>If you have any questions, please contact support.</p>
+        `;
+
+          await sendEmail({
+            to: userEmailAddress,
+            subject: `Your Build-My-Rig Account Has Been ${isBlocked ? "Blocked" : "Activated"}`,
+            html: emailContent,
+          });
+          
+          console.log("Email notification sent successfully");
+        } catch (emailError) {
+          console.error("Failed to send email notification:", emailError);
+          // Continue with the operation even if email fails
+        }
       }
 
       res.status(StatusCodes.OK).json({
@@ -422,19 +429,26 @@ export const userController = {
 
       console.log("Email verification result: ", userEmailAddress, userName);
 
-      const emailContent = `
-      <p>Dear ${userName},</p>
-      <p>Your email has been ${isEmailVerified ? "verified" : "unverified"} by the Build-My-Rig admin.</p>
-      <p>If you have any questions, please contact support.</p>
-    `;
-
-      // Send the email
+      // Try to send email notification, but don't fail the entire operation if it fails
       if (userEmailAddress) {
-        await sendEmail({
-          to: userEmailAddress,
-          subject: `Your Build-My-Rig Email Has Been ${isEmailVerified ? "Verified" : "Unverified"}`,
-          html: emailContent,
-        });
+        try {
+          const emailContent = `
+          <p>Dear ${userName},</p>
+          <p>Your email has been ${isEmailVerified ? "verified" : "unverified"} by the Build-My-Rig admin.</p>
+          <p>If you have any questions, please contact support.</p>
+        `;
+
+          await sendEmail({
+            to: userEmailAddress,
+            subject: `Your Build-My-Rig Email Has Been ${isEmailVerified ? "Verified" : "Unverified"}`,
+            html: emailContent,
+          });
+          
+          console.log("Email verification notification sent successfully");
+        } catch (emailError) {
+          console.error("Failed to send email verification notification:", emailError);
+          // Continue with the operation even if email fails
+        }
       }
 
       res.status(StatusCodes.OK).json({
