@@ -530,7 +530,7 @@ export const userService = {
       // Always exclude super admin, admin, and supplier users from the results
       const excludedRoles = ["super admin", "supplier"];
       const excludedUserTypes = await UserCategory.find({
-        role: { $in: excludedRoles },
+        categoryType: { $in: excludedRoles },
       });
       const excludedUserTypeIds = excludedUserTypes.map((cat) => cat._id);
 
@@ -668,8 +668,7 @@ export const userService = {
           },
         })
         .skip(skip) // Correct application of skip
-        .limit(limitNumber) // Correct application of limit
-        .sort({ createdAt: -1 });
+        .limit(limitNumber); // Correct application of limit
 
       // Count total users
       const totalUsers = await User.countDocuments(query);
